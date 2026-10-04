@@ -40,6 +40,13 @@ Kontextové/output limity ani oracle se nemění. §11 je datovaná historie.
 Nezávislé combined source review32k/D1 PASS; receipt
 `ff2dcbe1bdd205b551d712fa072df93a6beff610dec4f8b8276071ae4597b7b0`.
 Context18/gateway44/defaultservice104/project44 CPU PASS nejsou app acceptance.
+Actual5f/freeze d9a32bca…ff79879: repair test prompt28629B/8981tokens prošel32k,
+čtvrtý výstup length2048 způsobil M2_CODE_DRAFT_OUTPUT_INCOMPLETE před plánem.
+Nezávislá classification839ee340…35fa813 potvrzuje output cap příčinu a žádné
+nové efekty; varianty/rozpočet jsou v projektovém WP a aktuálním reportu.
+Oddělené pozorování jen2 loaded samples: fullVRAM/context32768/free2476MiB;
+necertifikuje celé32k okno ani kvalitu aplikace. Žádná další inference bez
+nového explicitního retry/output/budget rozhodnutí a odpovídajícího freeze.
 
 ## Vlastnictví a konkrétní výsledek navazujícího milníku
 

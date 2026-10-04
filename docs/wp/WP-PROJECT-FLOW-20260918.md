@@ -56,6 +56,17 @@ unchanged. Publish/review/freeze this explicit delta before further admission;
 instructions, source inputs, oracle, approval and historical4+repair4+CLI3 stay
 fixed. The short32k allocation remains allocation-only evidence.
 
+Actual published5f6c3fb7/freeze d9a32bca…ff79879 ran21:26–21:27 UTC. Three
+repair outputs compiled in memory; fourth `test/acceptance.test.mjs` stopped
+at exactly2048 output tokens/length after prompt28629B/8981tokens. Context
+accepted; no new plan/effect/write/oracle/commit. Independentclassification
+839ee340…35fa813 verified33 M2 tables/seven targets/Git/originalpacket unchanged
+and clean owned cleanup. Used8/11; current API has no durable partial resume.
+One new whole repair4+CLI3 needs cumulative15, therefore ROOT requested an
+explicit output4096/newfreeze/budget15 decision; pending reply means no retry.
+HTTP CPU work continues independently. This dated failure supersedes any
+earlier statement that the continuation has not run; no application acceptance.
+
 Verification after adoption: Node24 `--test tests/project-collaboration.test.js`,
 the registered CRE/session/project/M2 boundary checks and shared CI. Stop on
 semantic routing regression, stale/foreign scope, authority before approval,

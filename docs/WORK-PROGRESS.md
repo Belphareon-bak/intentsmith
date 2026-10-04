@@ -1,115 +1,101 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 4. 10. 2026, 21:19 UTC / 23:19 CEST.
+**Aktualizováno:** 4. 10. 2026, 21:46 UTC / 23:46 CEST.
 **Vlastník:** ROOT; CHAT/Gemma a zbývající Hunt mají jiné workery.
-Report aktualizuji po milníku a do 3 h; operátorovi hlásím postup do 2 h aktivní práce.
+Report po milníku/do 3 h; operátorovi stav do 2 h aktivní práce.
 **Release NOT_ACCEPTED; fan aplikace FAIL.**
 
 ## Přijatý základ
 
 | Oblast | Doložený výsledek | Omezení |
 | --- | --- | --- |
-| Ledger / TaskFlow | Model → exact M2 → funkční oracle → commit → restart, review PASS | Malé projekty, nikoli obecná spolehlivost CODE |
-| SQLite | APPLICATION_ACCEPTANCE_REVIEW_PASS, sedm modulů / 8 965 B, přesný export | n=1; DB mezi procesy v jednom sandboxu, BE restart ověřuje durable M2/zdroje |
-| Packaged IDE Ledger | Šest generací, exact approval/oracle/commit/durable DB | DOM click, fyzická dostupnost tlačítek ještě otevřená |
-| M3 /Worker | Projektová provenance/izolace; skutečný 5min worker/restart/čistý stop | Kvalita expert-vs-general, souběh a dlouhý soak otevřené |
-| Scanner | Default M2 AST, evaluator 34 / service 103, nezávislé review PASS | Samostatná vada; není řešení velikosti kontextu |
-| GPU UI /Cleanup | V7 readonly hodnoty/pointer přijaté; tři vlastní refs odstraněny | Neznamená Hunt/model acceptance; evidence/foreign worktrees zachované |
+| Ledger / TaskFlow | Model → exact M2 → oracle → commit → restart, review PASS | Malé projekty, ne obecná spolehlivost CODE |
+| SQLite | APPLICATION_ACCEPTANCE_REVIEW_PASS, sedm modulů / 8 965 B, přesný export | n=1; DB mezi procesy v jednom sandboxu; BE restart ověřuje durable M2/zdroje |
+| Packaged IDE Ledger | Šest generací, exact approval/oracle/commit/durable DB | DOM click; fyzická dostupnost tlačítek otevřená |
+| M3 /Worker | Izolace/provenance; skutečný 5min worker/restart/čistý stop | Expert-vs-general, souběh a dlouhý soak otevřené |
+| Scanner | Default M2 AST, evaluator34 / service103, nezávislé review PASS | Samostatná vada; není řešení kontextu |
+| GPU UI /Cleanup | V7 readonly hodnoty/pointer přijaté; tři vlastní refs odstraněny | Hunt/model acceptance a cizí/evidence worktrees zůstávají |
 
-[SQLite přesný export](../examples/generated-apps/sqlite-catalog/README.md),
-[24 zdrojových modulů čtyř přijatých snapshotů](../examples/generated-apps/README.md).
-Historické FAIL/oracle/rollbacky zůstávají neměnné; přijaté scénáře neopakuji bez důvodu.
+[SQLite export](../examples/generated-apps/sqlite-catalog/README.md),
+[24 modulů čtyř přijatých snapshotů](../examples/generated-apps/README.md).
+Historické FAIL/oracle/rollbacky neměním; přijaté scénáře neopakuji bez důvodu.
 
-## Aktuální integrační stav
+## Společný kandidát a kontroly
 
-Merge `56138e4f` převzal CHAT `e066956b` a vlastní CODE32k/D1;
-nezávislé source preservation PASS, po merge projekt44/44, registry594/35,
-regenerovaný graph1500/3cykly/28 souborů a provenance ratchet PASS.
-Publikovaný `77bd5a03`: [CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37232683974),
-18/18 kroků, skutečné7/7 CHAT +7/7 CODE z official job logs; remote SHA ověřené.
-Nový celý profil `769d4930`,20:04–20:14 UTC: **408 PASS/0 FAIL/0 BLOCKED/0 TIMEOUT/0 SKIP**.
-Report SHA934d9673…e65dd. První404/1/3 (stale census/mnou nepředané runtime paths)
-zůstává zachovaný b52ac733…a9b12; změněná byla dokumentace a parametry, ne produkt.
+Merge `56138e4f` převzal CHAT `e066956b` i vlastní CODE 32k/D1; preservation review PASS.
+Projekt44/44, registry594/35, graph1500/3cykly/28 a provenance ratchet PASS.
+Publikovaný **5f6c3fb7**: [CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37235659894),
+18/18 kroků; skutečné7/7 CHAT +7/7 CODE z official logs, remote SHA přesné.
+Celý profil **769d4930**,20:04–20:14 UTC: **408 PASS/0 FAIL/0 BLOCKED/0 TIMEOUT/0 SKIP**,
+report 934d9673…e65dd; produkt/testy/registry769→5f stejné, změněny jen2 helpers+5 docs.
+Není to celý profil5f. První 404/1/3 (stale census/runtime paths) zachovaný b52ac733…a9b12.
 Instalovaný BE `c84b88cd` je jiný release; tento proud jej nenasadil.
-Externí `c5309a0`/bundle zde nejsou; hlášené výsledky nejsou přijaté lokální důkazy.
-Produkt/testy/registry stejné jako celý profil769; pouze dva manual helpers a docs.
-CI neznamená app přejímku; nový GPU admission delta nyní čeká na publikaci/CI/freeze.
+Externí `c5309a0`/bundle zde chybí; jeho hlášené výsledky nejsou lokálně přijaté důkazy.
 
-## 1. CODE 32k a fan-monitor — nejbližší funkční milník
+## Nejbližší funkční milník: fan-monitor
 
-Operátor schválil původní 4 + opravné 4 + CLI 3 = max. 11 CODE, bez dalšího retry,
-a preferuje 32k po měření VRAM. Původní 4 výstupy i failed packet zachované.
-`b1f7146c`: actual pending restart → exact approval → 8 PASS / 6 FAIL,
-rollback 4/4, žádný commit,0 nových volání. Defekty history/readings/monitor/test;
-naše staré instrukce také neuváděly výslovně array API/chronological history.
-CLI/aplikační persistence NOT_RUN. Continuation obnoví přesnou FAILED DB copy,
-vyžádá nový plán/approval a hlídá rozpočet; CPU10/review57d6ea9b…17978 PASS.
-Actual Studio build a CI77 PASS. Freeze67efa879…147ba04d zachovaný.
-20:55 actual placement STOP a 20:57 preflight STOP utratily 0 nových volání.
-Inventář ukázal jen desktop G procesy, compute/ps prázdné, free cca22 500 MiB;
-starý limit util30 zaměňoval grafickou zátěž za obsazenou compute GPU.
-Nový explicitní failed32 opt-in: 3 vzorky pod lease, free≥22 000 MiB, empty compute/ps,
-známé údaje/identity/RAM/disk; util se zaznamenává. Default util30 zůstává.
-CPU7/review8835de1e…524adfe PASS, přesná adopce runner6a62ef65…605c4b7.
-Nové source/CI/freeze před inferencí; oracle/instrukce/limity/max11 zůstávají.
+Původní `b1f7146c`: actual pending restart/exact approval,8 PASS/6 FAIL, rollback4/4,
+žádný app commit. Původní4 výstupy a celý FAILED packet zachované.
+Operátor schválil4 původní +4 opravné +3 CLI = max11 CODE; D1=0, další retry zakázaný.
+Continuation CPU 10/review 57d6ea9b…17978, actual Studio build a CI 5f PASS.
+CODE 32k capture zachovaný; CHAT/D1, serializer32 000 B a output4096/2048 nezměněné.
+Context18/gateway44/service104 CPU PASS. Skutečná krátká32k alokace19:10:
+17.399 GB fullVRAM, minfree2512 MiB, owned cleanup PASS; není celý workload.
+Dva app readiness STOP20:55/20:57 utratily0 volání. Explicitní opt-in ve5f po
+CPU7/review8835de1e…524adfe:3 lease samples/free≥22000/empty compute+ps/identity/RAM/disk;
+known desktop util record-only, default util30 zachovaný. Nový freezed9a32bca…ff79879.
 
-**4. 10. skutečná 32k alokace:** Qwen3.8, digest 22130167…9643, provider 0.34.0-intentsmith.1,
-19:10:15–19:10:34 UTC, 1 krátký request 32768/1, CPU spill 0 / min. volná VRAM 2512 MiB.
-Owned unload/lease release PASS, žádné app volání. Receipt 3de557fc…460c944.
-První capacity0-load STOP při desktop util32 zachovaný; nedokládá plný workload.
-**Produktový CODE 32k kandidát:** capture zachovaný; CHAT/D1 cache, serializer 32 000 B
-ani output 4096/2048 se nemění. Model-contract 44 / context 18 / service 104 CPU PASS;
-complete default service input přes starý 16k guard, serializer overflow stále odmítnutý.
-Úplný fan repair input 29 043 B se vejde do obalu; plný workload/headroom/úplný output
-nejsou tím změřené. Funkční oracle, bytes, approval, rollback/commit/restart a review čekají.
-[CODE scope/evidence](wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md).
+**Actual 5f,21:26:34–21:27:48 UTC: FAIL před novým plánem.**
+Tři repair výstupy byly zkompilované jen v paměti; čtvrtý pro `test/acceptance.test.mjs`
+měl prompt28 629 B /8981 tokens, prošel kontextem, ale vyčerpal2048 output tokens
+(`done_reason=length`). Produkt vrátilM2_CODE_DRAFT_OUTPUT_INCOMPLETE/HTTP502, bez retry.
+Použito4 historical+4 new=8/11; CLI0. Oracle nových oprav se ještě nespustil.
+Nezávislá classification review 839ee340…35fa813:33 M2 tabulek a7 targetů byte exact,
+Gitclean/b51881b4, old1067 packet/oracle/policy zachované,0 nových plánů/efektů/commitů.
+Owned Studio/BE/model/relay/lease cleanup PASS; result 09817197…46190.
+Oddělený readonly observer b67a6b32…a7485 zachytil jen2 loaded samples:
+context32768/full17.399GBVRAM/free2476 MiB; není celé časové měření workloadu.
 
-## 2. Přirozené plánování → D1
+**Blokér a rozhodnutí:** produkt neumí durable partial draft resume. Nový obyčejný
+repair4+CLI3 znamená celkových15 volání; do zbývajících3 se nedá poctivě vejít.
+Doporučen scoped CODE 32k repair output≤4096, nové CPU/review/CI/freeze a jeden průchod
+max15, CLIrepair0. Varianta partial checkpoint potřebuje více kódu a nejméně12 calls.
+Operátor dostal konkrétní otázku; bez odpovědi žádná další fan inference.
+[CODE evidence/scope](wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md),
+[projektový WP](wp/WP-PROJECT-FLOW-20260918.md).
 
-ROOT převzal pouze classifier→D1 projektovou hranici, nikoli konverzační ladění.
-Creative/inline shortcut v aktivním M2 projektu vyžádá existující modelový scope;
-conversation zůstane odpověď, project jde do D1, status read-only, nejasnost se doptá.
-Žádný nový router/synonym list/approval. Projektové CPU 44/44 včetně skutečné default
-classifier→D1 cesty; původní 2 vstupy/parser 24 PASS. Nezávislé SOURCE_REVIEW_PASS,
-receipt ff2dcbe1…97b7b0; první fixture FAIL zachovaný. Aktuální CI již obsahuje
-project-collaboration i všech 7 CHAT kontrol. Živá kvalitativní přejímka čeká.
-Živý Studio natural entry a fungující fan jsou dosud NOT_ACCEPTED.
-[Existující projektový WP](wp/WP-PROJECT-FLOW-20260918.md).
+## Přirozené plánování, Hunt a CHAT
 
-## 3. Hunt a CHAT holdout — jiní vlastníci
-
-Operátor předal další Hunt workerovi; ROOT nepřebírá proces. Audit20:54 UTC:
-106 canonical batches stále596/1173 odpovědí a2324/3689 kritérií, poslední zápis30.9.
-Receipt55b77073…f91fa9; jméno/path nového workeru zatím nedoložené, cílený dotaz čeká.
-ROOT 16/64 DEVELOPMENT_DRAFT a strict-ID FAIL zachované; finální známky/role nepřijaté.
-Gemma freeze `9591ea1b` /fixed remote v2 ověřen; report `d86baa27` uvádí
-123/159 užitečných, 22/159 zbytečných stop, tedy NO_GO. CI není kvalitativní acceptance.
+Classifier→D1 hranice je merged: activeM2 creative/inline shortcut vyžádá existující
+semantic scope; conversation odpoví, project jdeD1, status read-only, nejasnost se doptá.
+Default classifier→D1 CPU44/44, původní parser24 PASS, review ff2dcbe1…97b7b0.
+Živý natural entry zůstává NOT_ACCEPTED; manuální fan sD1=0 ho nedokládá.
+Hunt operátor předal jinému workerovi. Metadata audit20:54 UTC:106 batches stále
+596/1173 responses a2324/3689 criteria, poslední canonical zápis30.9.; receipt 55b77073…f91fa9.
+Identita/path nového workeru zatím nedoložené; cílený dotaz čeká, ROOT proces nepřebírá.
+ROOT draft16/64/strict-IDFAIL zachované; finální známky/role nepřijaté.
+Gemma fixed 9591ea1b ověřen; poslední report d86baa27 NO_GO není holdout acceptance.
 Operátor odpečetil `/mnt/vi7000/intentsmith/evidence/chat-holdout-20261002/holdout.json`.
-ROOT obsah nečetl. Worker má provést 3 neměnné série na přesném kandidátu;
-slepé nezávislé grading až po všech sériích. Holdout RUN/známky zatím NOT_RUN.
+ROOT obsah nečetl; tři série/slepé review provede CHAT worker, aktuální výsledek nedoložený.
 
-## 4. HTTP, finální IDE/BE, release a mobil
+## HTTP a zbývající přejímka produktu
 
-HTTP follow-up je nyní výslovně autorizovaný; nejde již o čekání na souhlas.
-[Nový omezený WP](wp/WP-M2-PRIVATE-HTTP-EXECUTION-20261004.md): private-loopback-v1,
-navržené execution@2/network policy, exact authority/preview/digests, default V1 offline.
-CPU namespace/native Node24 HTTP PASS včetně capsets0/NNP/seccomp/Landlock a zákazů;
-host unchanged, původní EPERM/ip-path/AF_UNIX pipe FAIL zachované. Není produktový PASS.
-V2 schema35/review981339fa…48f8d PASS. Provider/native/build proposal CPU9 PASS,
-nezávislé review běží; V2 full payload není zatím durable a SQL fix se připravuje.
-Produktový provider/V2/DB-reopen/UI a generovaná HTTP app NOT_RUN.
-HTTP příprava privátní, mimo zmrazený fan source; mobil až po stabilním IDE/BE.
+[Autorizovaný HTTP WP](wp/WP-M2-PRIVATE-HTTP-EXECUTION-20261004.md): explicitprivate profile,
+execution/lifecycle@2 a exact policy/payload/approval; V1 offline chování zachované.
+Actual CPU namespace/nativeNode24 HTTP proof PASS; host unchanged/negatives/caps0/NNP/seccomp.
+Historické EPERM/ip-path/AF_UNIX FAIL zachované. PureV2 schema35/review PASS.
+Provider CPU9+abort2/review ecf835b3…3373f5 PASS; omezená SQL 122 proposal CPU9+legacy27+
+2 fullstartup/reopen PASS, nezávislé SQLreview běží. ROOT compiler/composer/UI10 CPU PASS;
+source review běží, planner/runtime před-first-write a trusted startup connector se připravují.
+To vše zatím privátní. Produktový V2/DB-reopen/UI a generovaná HTTP app NOT_RUN.
 
-Po fan/shared candidate: skutečné pointer UI/M2 v instalovaném service kontextu,
-file/web/export/skills journeys, různé projekty/A→B→A, kvalitativní expertise oracle
-(dosavadní keywords/length nestačí), skutečný souběh workerů. Pak nový společný profil,
-fresh install/upgrade/backup-restore, finální 24h soak/throughput a přijetí delt.
-M5/M6: osm unsigned podkladů existuje, 13 signed receipts chybí; skutečné recovery,
-offline key copy/operator/reviewer role a 9krokové demo. Historický soak nestačí.
-Mobil: conversation.create v BE chybí; 47 CPU PASS, fyzická 13+7 matice NOT_RUN.
-Device/signed APK/VPN origin/pair-revoke/restart/M2 approval/TalkBack čekají.
-Poslední cleanup až po integraci: audit 215 větví / 72 worktrees, cizí/UNKNOWN/evidence HOLD.
+Po CODE/HTTP: actual installed pointer/M2 UI, file/web/export/skills journeys,
+projekty A→B→A, kvalitativní expertise oracle (keywords/length nestačí), worker souběh.
+Pak společný finální profil, fresh install/upgrade/backup-restore a nový 24h soak/throughput.
+M5/M6 otevřené:8 unsigned podkladů,13 signed receipts chybí; recovery/key custody/role/9krokové demo.
+Mobil až po stabilním IDE/BE: conversation.create chybí, historical CPU 47; fyzická13+7 matice NOT_RUN.
+Device/signedAPK/VPN origin/pair-revoke/restart/exactM2/TalkBack čekají.
+Poslední cleanup: audit 215 branches/72 worktrees, cizí/UNKNOWN/evidence HOLD; žádný novýworktree.
 
-[Archiv předchozího aktuálního reportu](https://github.com/Belphareon-bak/intentsmith/blob/5cf1c36db6ad8d9748b02a65aeab7974be3e28e9/docs/WORK-PROGRESS.md)
-a [historického trackeru](https://github.com/Belphareon-bak/intentsmith/blob/cd3bece693264bf78b0744a5eead9aa9859c715b/docs/review/2026-09-30-COMPLETION-TRACKER.md)
-uchovávají podrobnou historii. Raw DB/prompty/provozní data zůstávají privátní.
+[Archiv reportu před tímto milníkem](https://github.com/Belphareon-bak/intentsmith/blob/5f6c3fb7400367bf25e96e47e32e1ef0a12dca43/docs/WORK-PROGRESS.md).
+Raw DB/prompty/provozní data jsou privátní; zveřejňuji vlastní zdroje a přesné souhrny.

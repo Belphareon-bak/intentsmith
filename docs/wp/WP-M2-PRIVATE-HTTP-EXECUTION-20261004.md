@@ -53,6 +53,18 @@ Preview: `intentsmith-ide/extensions/intentsmith-studio2/lib/browser/m2-controll
 a `intentsmith-ide/extensions/intentsmith-studio2/lib/browser/view/live-model.js`.
 Composer `lib/browser/m2-composer.js` pouze pokud profile dostane explicitní
 opt-in v composeru; aktuální raw proposal/stejný origin/planDigest port stačí.
+Nynější raw opt-in vyžaduje i zachování úplné policy při form/reload/edit;
+ROOT proto vlastní nezbytný composer/controller connector. První omezený V2
+přijímá pouze focusedEnvironment `{}`; jiné ENV vrátí konkrétní chybu před
+efektem, nic se potichu nezahazuje. Předávání ENV až server child je budoucí
+samostatná schopnost; současný launcher má pevné startup prostředí.
+Default `src/server.js` neposkytuje provideru trusted refs; skutečný Studio
+průchod potřebuje explicitní operator config connector. Nezbytné vlastněné
+cesty jsou proto také `src/server.js`, omezený config reader v
+`src/execution/private-http-config.js` a qualification serverEnvironment
+v `scripts/run-project-build-journey.js`. Config může pouze dodat reference
+pro dodatečnou kontrolu důvěry; schválená úplná policy/payload stále určují
+veškerou procesní autoritu. Default bez opt-in zůstává V1, žádné nasazení.
 Existing execution/lifecycle/process-sandbox/Studio sady
 a nezbytná nová network contract suite; registry regenerovat až z finálního
 stromu. CPU sondy zůstávají izolované privátně, nejsou produktový launcher.
