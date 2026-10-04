@@ -17,7 +17,7 @@ user/net namespace, server a chráněný oracle, přesný IPv4/TCP `127.0.0.1:P`
 RO projekt, DB v private `/tmp`. Dva serverové procesy v téže invokaci ověří
 stejnou DB. Samostatný restart BE ověří M2 approval/effects/terminal/commit,
 nikoli přenos tmpfs mezi invokacemi. Úplné zdroje určují preview/digest/zápis.
-Žádný host listener, veth, host FD, egress, DNS, UDP, IPv6, AF_UNIX, fallback,
+Focused proces nedostane host listener/socket FD; žádný veth, egress, DNS, UDP, IPv6, AF_UNIX, fallback,
 produkční DB/služba, mobilní transport, CHAT nebo modelová aktivace.
 
 ## Vlastněné cesty a connector
@@ -160,6 +160,48 @@ Callgraph má7 přesných nutných SQL/config hran navíc, cycles3/files28 beze 
 provenance baseline se připne ke skutečnému commitnutému source stromu.
 Skutečný Studio production/consumer build PASS, bundle7bf62455…bfe24;
 receipt111dbc4e…8e510. Root-cwd Corepack refusal zachované, správný IDEcwd build3.77s.
-Další brány: physical cancel/timeout, společný profil/current CI;
+Physical cancel/timeout je doložen níže. Další brány: společný profil/current CI;
 potom zmrazený API/oracle/model/callbudget a skutečná CODE/M2/HTTP aplikace.
 Žádný nový modelový běh, app commit, app restart nebo release PASS tímto nevznikl.
+
+Source commit `e7ac78a8d3bb3e5566557a0a4ce8217ab341c06e`: přesně34 vlastněných
+paths, source/registry/CI/report; lineage i původní assertions zachované.
+Graph baseline1507/3/28 je regenerovaný s výslovným přijetím jen7 uvedených
+SQL/config hran a Git sourceTree/scannerBlob provenancí tohoto čistého commitu.
+Skutečná controlled provider cancellation/timeout2/2 PASS:1.14s/4.62s,
+TERM ignorující descendants i durable supervisor PGID prázdné; host unchanged.
+Manifest23 `3db842bc8bc1c5b4728d16cf2e27e817e419fd5bf654b3a6a9bbe281315fd66f`,
+result `a6aafed92f6d01b8f5d89e4ada87354617488731f911bf9955ac074efdd8e42f`.
+Observed native READY/controls nejsou returnedKernelProof (cancel/timeout:null);
+namespace teardown poTERM není oddělený důkaz KILL eskalace. Independent review
+`b96326b7e6364e84dc4b4497cc8b9b24fbdc590d1a1f3fb2a0a927f10480d34b` PASS.
+HosttrustedNode IPC používá AF_UNIX/socketpairs mimo sandbox; není to host TCP
+listener/egress ani zděděné socketFD uvnitř profilu. Původní frozenhostSocketCalls0
+se nevydává za počet všech trustedhostsyscalls.
+Oracle peer našel source větev: po reaping zanechaného PGID mohl V2 vrátit success.
+ROOT připravil pouze private-profile late-cleanup non-success guard; V1 zachovat,
+controlled RED/GREEN a source review před adopcí. První actual3 native scenarios
+tuto větev nepozorovaly, jejich omezené PASS ani history se nemění.
+
+### 5. 10. 2026: V2 post-exit cleanup guard
+
+Přesný provider `6cb87374d10c11d7ff3e491d3fcff63b43291c2469744781f676d80c33255429`
+je adoptován po bounded RED/GREEN/source review
+`01a9afff18e3b53ac314d7190ea63a886dc54bc74aba97eef3f0d47f71ac1963`.
+Původní V2 `a0cc6b44` při skutečném zbylém childu po terminal supervisor close
+vracel success po úklidu; oprava vrací
+`failed / PROCESS_PRIVATE_HTTP_POST_EXIT_CLEANUP_REQUIRED`.
+V1 v téže řízené větvi zachovává původní chování. Nevyřešený orphan má
+původní prioritu. Čtyři řízené běhy bez retry/GPU/network/native calls; všechny
+vlastní PID/PGID empty. READY je výslovně fake fixture, nejde o kernel přejímku.
+Result `f9bd4643f9116905be7fcca8b1ab946448a3cabf79193856abb2e49c0687503b`,
+manifest19 `d50779d2e460cc9a74b7ddeec054b1a4feafece1f85b3d991e268977c2a33aeb`.
+Předchozí actual native positive/cancel/timeout zachovávají exact source scope;
+tuto větev nepozorovaly. Následují permanentní regrese, nový whole profile/CI
+a skutečná generated HTTP/SQLite přejímka.
+
+Permanentní2 regrese v původní process-supervision sadě používají skutečný
+vlastní child/PGID a explicitní mock READY. Původní testy jsou zachované.
+CI instalace/registr přesně deklarují iproute2+nftables, runner ověřuje
+`/usr/sbin/nft`; suite je přidaná k CODE (11), CHAT7 beze změny.
+Přijetí7 nových graph hran a skutečná provenance e7 zůstávají beze změny.

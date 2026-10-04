@@ -20,10 +20,12 @@ integroval explicitní execution/lifecycle@2, plnou policy/SQL122/preflight/exac
 a Studio/startup connector při nezměněném V1 defaultu. Bounded source reviews PASS.
 Skutečný veřejný provider22:11 UTC: bwrap/Python relay/HTTP/kernel negatives/cleanup
 PASS; Landlock8/caps0/NNP1/seccomp2. Je to controlled fixture, ne generated app.
-Targeted13 CPU PASS/1 model GPU BLOCKED; finální service107/Studio28 v2/2 sadách PASS.
-Registry596/35; graph1507/3cycles/28,7 owned SQL/config hran čeká na source provenance pin.
+Targeted 13 CPU PASS/1 model GPU BLOCKED; finální service 107/Studio 28 ve 2/2 sadách PASS.
+Registry 596/35; graph1507/3cycles/28,7 nutných SQL/config hran připnuto ke source e7ac78a8.
 Nový Studio production/consumer build PASS, bundle7bf62455…bfe24;
-celý profil/remote CI a physical cancel/timeout se dokončují.
+Physical cancel/timeout2/2 +independent review PASS; namespaceTERM, bez KILL claim.
+V2 late-cleanup guard adoptován po skutečném controlled RED/GREEN a source review PASS;
+V1 zachován. Celý nový profil a remote CI čekají.
 Následuje zmrazená nová HTTP/SQLite CODE aplikace, exactM2/oracle/commit/restart/review.
 Pak obecnější repo/context průchod, společné IDE/BE/expertise/workers, M5/M6, mobil
 a závěrečný bezpečný cleanup. M5/M6/mobil/Hunt/model kvalita zůstávají otevřené.

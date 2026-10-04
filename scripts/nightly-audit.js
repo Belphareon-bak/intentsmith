@@ -38,6 +38,7 @@ const EXACT_TOOLCHAIN_EXECUTABLES = Object.freeze({
   bubblewrap: '/usr/bin/bwrap',
   git: '/usr/bin/git',
   iproute2: '/usr/bin/ip',
+  nftables: '/usr/sbin/nft',
   'linux-user-network-namespace': '/usr/bin/unshare',
   prlimit: '/usr/bin/prlimit',
   'systemd-analyze': '/usr/bin/systemd-analyze',

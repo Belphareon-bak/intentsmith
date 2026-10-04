@@ -887,6 +887,7 @@ export function createProcessSandboxProvider({
 
       const closed = await waitForChildClose(closePromise, killGraceMs);
       let groupState = observeProcessGroup(child.pid);
+      const postExitCleanupRequired = closed === null || groupState !== 'empty';
       let cleanup = null;
       if (closed === null || groupState !== 'empty') {
         cleanup = await terminateProcessGroup({
@@ -909,6 +910,20 @@ export function createProcessSandboxProvider({
       }
 
       const message = outcome.message;
+      // Private HTTP qualification cannot turn a leaked descendant into success
+      // by reaping it after the oracle has already reported its terminal outcome.
+      if (privateHttp && postExitCleanupRequired) {
+        return terminalResult({
+          terminalStatus: 'failed',
+          errorCode: 'PROCESS_PRIVATE_HTTP_POST_EXIT_CLEANUP_REQUIRED',
+          exitCode: message.exitCode,
+          signal: message.signal,
+          supervisorIdentity,
+          cleanup,
+          processGroupState: groupState,
+          output,
+        });
+      }
       if (message.errorCode !== null) {
         return terminalResult({
           terminalStatus: 'failed',

@@ -22,6 +22,12 @@ import { fileURLToPath } from 'node:url';
 import { suite, summary, test, testAsync } from './harness.js';
 import { computeM2ExecutionValueDigest } from '../contracts/m2/execution-v1.js';
 import {
+  M2_PRIVATE_HTTP_PROFILE,
+  M2_PRIVATE_HTTP_SECCOMP_DIGEST,
+  computeM2PrivateHttpNetworkPolicyDigest,
+  computeM2PrivateHttpNftRulesDigest,
+} from '../contracts/m2/execution-v2.js';
+import {
   createProcessSandboxProvider,
   _testInternals,
 } from '../src/execution/process-sandbox-provider.js';
@@ -102,6 +108,75 @@ function assertCleanTerminal(result, terminalStatus) {
   assert.equal(result.processGroupState, 'empty');
   assert.equal(result.supervisorIdentity.supervisorPid, result.supervisorIdentity.supervisorPgid);
   assert.equal(_testInternals.observeProcessGroup(result.supervisorIdentity.supervisorPgid), 'empty');
+}
+
+async function controlledPostExitCleanup(privateHttp) {
+  const fixtureRoot = createProject();
+  try {
+    const projectRoot = path.join(fixtureRoot, 'project');
+    mkdirSync(projectRoot);
+    const oracle = writeScript(fixtureRoot, 'oracle.mjs', '// Controlled oracle is never executed.\n');
+    writeScript(fixtureRoot, 'leftover.cjs', [
+      "const fs = require('node:fs');",
+      "const text = fs.readFileSync('/proc/self/stat', 'utf8');",
+      "const fields = text.slice(text.lastIndexOf(')') + 2).split(' ');",
+      'process.send({ childPid: process.pid, processGroupId: Number(fields[2]), startIdentity: fields[19] });',
+      'setTimeout(() => process.exit(76), 6000);',
+    ].join('\n'));
+    const supervisor = writeScript(fixtureRoot, 'mock-supervisor.cjs', [
+      "const fs = require('node:fs'), path = require('node:path'), { spawn } = require('node:child_process');",
+      "process.send({ protocol: 'intentsmith-process-supervisor-v1', type: 'ready' });",
+      "process.once('message', message => {",
+      "  const child = spawn(process.execPath, [path.join(__dirname, 'leftover.cjs')],",
+      "    { env: {}, detached: false, stdio: ['ignore', 'ignore', 'ignore', 'ipc'] });",
+      "  child.once('message', info => {",
+      '    child.disconnect();',
+      "    fs.writeSync(1, JSON.stringify({ ...info, supervisorPid: process.pid, controlledFakeKernelProof: true }) + '\\n');",
+      "    if (message.spec.sandboxProfile === 'linux-bwrap-private-loopback-v1')",
+      "      fs.writeSync(2, 'M2_PRIVATE_HTTP_READY profile=linux-bwrap-private-loopback-v1 address=127.0.0.1 port=18080 landlockAbi=8 user=user:[111] oldNet=net:[222] ownNet=net:[333] ownerInode=444 currentUserInode=444 capsets=0 nnp=1 seccomp=2\\n');",
+      "    process.send({ protocol: message.protocol, type: 'terminal', token: message.token,",
+      "      exitCode: 0, signal: null, errorCode: null }, () => process.exit(0));",
+      '  });',
+      "  child.once('error', () => process.exit(75));",
+      '});',
+    ].join('\n'));
+    const options = { bwrapPath: BWRAP_PATH, supervisorPath: supervisor, termGraceMs: 500, killGraceMs: 3000 };
+    let spec = processSpec(projectRoot, [oracle], { timeoutMs: 1500 });
+    if (privateHttp) {
+      const artifact = candidate => {
+        const canonicalPath = realpathSync(candidate), bytes = readFileSync(canonicalPath);
+        const info = lstatSync(canonicalPath, { bigint: true });
+        return { canonicalPath, bytes: bytes.length,
+          digest: `sha256:${createHash('sha256').update(bytes).digest('hex')}`,
+          device: info.dev.toString(), inode: info.ino.toString() };
+      };
+      // Real refs drive actual FD validation; the injected supervisor never
+      // executes this launcher, bwrap, or oracle. READY is explicitly a mock,
+      // so this regression establishes cleanup behavior, not native isolation.
+      const artifacts = { launcher: artifact('/usr/bin/true'), ip: artifact('/usr/bin/ip'),
+        nft: artifact('/usr/sbin/nft'), runtimeExecutable: artifact(process.execPath), oracle: artifact(oracle) };
+      const networkPolicy = { contract: 'M2PrivateHttpNetworkPolicy', version: 1,
+        profile: M2_PRIVATE_HTTP_PROFILE, architecture: 'x64',
+        endpoint: { family: 'ipv4', transport: 'tcp', address: '127.0.0.1', port: 18080 },
+        minimumLandlockAbi: 4, nftRulesDigest: computeM2PrivateHttpNftRulesDigest(18080),
+        seccompProgramDigest: M2_PRIVATE_HTTP_SECCOMP_DIGEST, artifacts };
+      Object.assign(options, { privateHttpTrustedArtifacts: artifacts, privateHttpStdioRelay: artifact('/usr/bin/python3') });
+      spec = { ...spec, sandboxProfile: M2_PRIVATE_HTTP_PROFILE, networkPolicy,
+        networkPolicyDigest: computeM2PrivateHttpNetworkPolicyDigest(networkPolicy) };
+    }
+    const result = await createProcessSandboxProvider(options).run(spec, { recordSupervisorIdentity: durableRecorder() });
+    const child = JSON.parse(result.stdout.trim());
+    assert.equal(child.controlledFakeKernelProof, true);
+    assert.equal(child.supervisorPid, result.supervisorIdentity.supervisorPid);
+    assert.equal(child.processGroupId, result.supervisorIdentity.supervisorPgid);
+    assert.equal(result.cleanup?.termSent, true, 'real leftover group must require post-exit cleanup');
+    assert.equal(result.cleanup?.childClosed, true);
+    assert.equal(result.cleanup?.groupState, 'empty');
+    assert.equal(existsSync(`/proc/${child.childPid}`), false, 'leftover child must be gone');
+    return result;
+  } finally {
+    removeProject(fixtureRoot);
+  }
 }
 
 suite('M2 execution process supervision');
@@ -517,6 +592,18 @@ await testAsync('a non-zero focused test is terminal failed and never success', 
   } finally {
     removeProject(projectRoot);
   }
+}, 30_000);
+
+await testAsync('private HTTP post-exit cleanup cannot convert a leaked child into success (controlled supervisor)', async () => {
+  const result = await controlledPostExitCleanup(true);
+  assertCleanTerminal(result, 'failed');
+  assert.equal(result.errorCode, 'PROCESS_PRIVATE_HTTP_POST_EXIT_CLEANUP_REQUIRED');
+}, 30_000);
+
+await testAsync('V1 post-exit cleanup preserves its historical outcome (controlled supervisor)', async () => {
+  const result = await controlledPostExitCleanup(false);
+  assertCleanTerminal(result, 'succeeded');
+  assert.equal(result.errorCode, null);
 }, 30_000);
 
 await testAsync('argv and environment digest mismatches fail before supervisor persistence', async () => {

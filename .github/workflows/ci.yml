@@ -47,7 +47,7 @@ jobs:
       - name: Install chat and M2 isolation tools
         run: |
           sudo apt-get update
-          sudo apt-get install --yes bubblewrap iproute2 util-linux apparmor
+          sudo apt-get install --yes bubblewrap iproute2 nftables util-linux apparmor
       - name: Prepare Ubuntu namespace policy for M2 sandbox tests
         run: |
           cat /sys/module/apparmor/parameters/enabled
@@ -76,9 +76,9 @@ jobs:
         run: >-
           node scripts/nightly-audit.js
           --run-id=ci-code-${{ github.run_id }}-${{ github.run_attempt }}
-          --suite=IS-T1-TESTS-PROJECT-APP-ACCEPTANCE-TEST,IS-T1-TESTS-PROJECT-APP-M2-FUNCTIONAL-TEST,IS-T1-TESTS-M2-GOVERNANCE-EVALUATOR-TEST,IS-T1-TESTS-M2-LIFECYCLE-APPLICATION-SERVICE-TEST,IS-T1-TESTS-M1-MODEL-CONTRACT-TEST,IS-T1-TESTS-MODEL-CTX-TEST,IS-T1-TESTS-PROJECT-COLLABORATION-TEST,IS-T1-TESTS-M2-PRIVATE-HTTP-CONTRACT-TEST,IS-T1-TESTS-M2-PRIVATE-HTTP-STARTUP-TEST,IS-T1-TESTS-M2-LIFECYCLE-STUDIO-SURFACE-TEST
+          --suite=IS-T1-TESTS-PROJECT-APP-ACCEPTANCE-TEST,IS-T1-TESTS-PROJECT-APP-M2-FUNCTIONAL-TEST,IS-T1-TESTS-M2-GOVERNANCE-EVALUATOR-TEST,IS-T1-TESTS-M2-LIFECYCLE-APPLICATION-SERVICE-TEST,IS-T1-TESTS-M1-MODEL-CONTRACT-TEST,IS-T1-TESTS-MODEL-CTX-TEST,IS-T1-TESTS-PROJECT-COLLABORATION-TEST,IS-T1-TESTS-M2-PRIVATE-HTTP-CONTRACT-TEST,IS-T1-TESTS-M2-PRIVATE-HTTP-STARTUP-TEST,IS-T1-TESTS-M2-LIFECYCLE-STUDIO-SURFACE-TEST,IS-T1-TESTS-M2-EXECUTION-PROCESS-SUPERVISION-TEST
           --concurrency=1
-          --allow-blocker=toolchain:bwrap,toolchain:git,toolchain:prlimit
+          --allow-blocker=toolchain:bwrap,toolchain:git,toolchain:prlimit,toolchain:iproute2,toolchain:nftables
       - name: Preserve chat and M2 audit reports
         if: always()
         uses: actions/upload-artifact@v4

@@ -10095,7 +10095,9 @@
         "ollama": false,
         "gpu": false,
         "toolchain": [
-          "bwrap"
+          "bwrap",
+          "iproute2",
+          "nftables"
         ]
       },
       "required": true,
