@@ -478,6 +478,13 @@ if(process.argv.includes('--inside')) {
  await import(path.join(root,'src/server.js'));
  let info; for(let n=0;n<240;n++){try{info=JSON.parse(fs.readFileSync(process.env.INTENTSMITH_PORT_FILE,'utf8'));if(info.pid===process.pid)break;}catch{} await delay(250);}
  if(!info?.localCapability)throw new Error('owned server did not start');
+ // Keep A and B on the same measured context budget for an explicitly
+ // selected artifact. An unprofiled model otherwise inherits the 8K fallback
+ // while the direct control stays at 4K. Wait for startup initialization
+ // before pinning the private process cache; production is never touched.
+ const { initModelNumCtx, setNumCtx, getNumCtx } = await import(path.join(root,'src/llm/model-ctx.js'));
+ await initModelNumCtx(model, process.env.OLLAMA_URL);
+ setNumCtx(model, directOptions.num_ctx);
  async function request(method,url,body=null){const began=performance.now();const r=await fetch(`http://127.0.0.1:${info.port}${url}`,{method,headers:{'X-IntentSmith-Local-Capability':info.localCapability,'Content-Type':'application/json'},...(body===null?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(180000)});const result=await r.json();return {status:r.status,result,elapsedMs:performance.now()-began};}
  const resume=isLongContext && process.env.CHAT_PROBE_RESUME === 'true';
  const restartState=resume ? JSON.parse(fs.readFileSync(path.join(out,'initial-long-state.json'),'utf8')) : null;
@@ -504,6 +511,7 @@ if(process.argv.includes('--inside')) {
   isolatedEnv:Object.fromEntries(Object.entries(process.env).filter(([key]) => key.startsWith('INTENTSMITH_ENABLE_') || key.startsWith('INTENTSMITH_MODEL_'))),
   memoryPolicy:readChatMemoryPolicy(db.db),corpusSize:corpus.length,
   providerVersion:preflight.provider?.version,
+  contextWindowTokens:getNumCtx(model),
   directBaseline:{options:directOptions,historySource:'B incoming durable history',tools:false},
  };
  if (typeof effectiveConfiguration.providerVersion !== 'string') throw new Error('Provider version missing from preflight');
@@ -675,7 +683,7 @@ if(process.argv.includes('--inside')) {
   });
   fs.chmodSync(socket,0o600);
   const runtime=fs.mkdtempSync(path.join(out,'runtime-'));for(const d of ['home','tmp','cache','config','data','state','artifacts','home/projects'])fs.mkdirSync(path.join(runtime,d),{recursive:true,mode:0o700});
-  const env={PATH:process.env.PATH,LANG:'C.UTF-8',TZ:'Europe/Prague',HOME:path.join(runtime,'home'),XDG_CONFIG_HOME:path.join(runtime,'config'),XDG_CACHE_HOME:path.join(runtime,'cache'),XDG_DATA_HOME:path.join(runtime,'data'),XDG_STATE_HOME:path.join(runtime,'state'),TMPDIR:path.join(runtime,'tmp'),DOTENV_CONFIG_PATH:path.join(runtime,'absent'),NODE_ENV:'test',CI:'1',CHAT_PROBE_RUNTIME:runtime,CHAT_PROBE_RUN_ID:runId,CHAT_PROBE_RECORD:recordPath,CHAT_PROBE_OUT:out,CHAT_PROBE_CORPUS:corpusFile,CHAT_PROBE_PHASE:phase,CHAT_PROBE_MODEL:model,CHAT_PROBE_MODEL_DIGEST:modelDigest,CHAT_PROBE_HOLDOUT:String(isHoldout),CHAT_PROBE_HOLDOUT_SHA256:expectedHoldoutSha256 || undefined,CHAT_PROBE_CASES:process.env.CHAT_PROBE_CASES,CHAT_PROBE_NO_DIRECT:process.env.CHAT_PROBE_NO_DIRECT||(isFinal?'false':'true'),CHAT_PROBE_SOCKET:socket,INTENTSMITH_DB_PATH:path.join(runtime,'db.sqlite'),INTENTSMITH_PORT_FILE:path.join(runtime,'port.json'),INTENTSMITH_PROJECTS_DIR:path.join(runtime,'home/projects'),INTENTSMITH_TEST_PROJECTS_DIR:path.join(runtime,'home/projects'),INTENTSMITH_TEST_ARTIFACT_DIR:path.join(runtime,'artifacts'),INTENTSMITH_TEST_SERVER_NONCE:randomBytes(24).toString('base64url'),INTENTSMITH_MODEL_CHAT:model,INTENTSMITH_MODEL_D1:model,INTENTSMITH_MODEL_CODE:'qwen3.8:latest',INTENTSMITH_MODEL_D2:'qwen3.8:latest',INTENTSMITH_MODEL_R1:'qwen3.8:latest',INTENTSMITH_MODEL_R2:'devstral-small-2:latest',INTENTSMITH_ENABLE_AGENTS:'false',INTENTSMITH_ENABLE_EXPERTISES:'false',INTENTSMITH_ENABLE_LIFECYCLE:'false',INTENTSMITH_ENABLE_COMFYUI:'false',INTENTSMITH_ENABLE_AUTONOMY:'false',INTENTSMITH_MODEL_UNIVERSE_ENABLED:'false',INTENTSMITH_LOG_LEVEL:'warn',INTENTSMITH_TRACE:'0'};
+  const env={PATH:process.env.PATH,LANG:'C.UTF-8',TZ:'Europe/Prague',HOME:path.join(runtime,'home'),XDG_CONFIG_HOME:path.join(runtime,'config'),XDG_CACHE_HOME:path.join(runtime,'cache'),XDG_DATA_HOME:path.join(runtime,'data'),XDG_STATE_HOME:path.join(runtime,'state'),TMPDIR:path.join(runtime,'tmp'),DOTENV_CONFIG_PATH:path.join(runtime,'absent'),NODE_ENV:'test',CI:'1',CHAT_PROBE_RUNTIME:runtime,CHAT_PROBE_RUN_ID:runId,CHAT_PROBE_RECORD:recordPath,CHAT_PROBE_OUT:out,CHAT_PROBE_CORPUS:corpusFile,CHAT_PROBE_PHASE:phase,CHAT_PROBE_MODEL:model,CHAT_PROBE_MODEL_DIGEST:modelDigest,CHAT_PROBE_HOLDOUT:String(isHoldout),CHAT_PROBE_HOLDOUT_SHA256:expectedHoldoutSha256 || undefined,CHAT_PROBE_CASES:process.env.CHAT_PROBE_CASES,CHAT_PROBE_NO_DIRECT:process.env.CHAT_PROBE_NO_DIRECT||(isFinal?'false':'true'),CHAT_PROBE_SOCKET:socket,INTENTSMITH_DB_PATH:path.join(runtime,'db.sqlite'),INTENTSMITH_PORT_FILE:path.join(runtime,'port.json'),INTENTSMITH_PROJECTS_DIR:path.join(runtime,'home/projects'),INTENTSMITH_TEST_PROJECTS_DIR:path.join(runtime,'home/projects'),INTENTSMITH_TEST_ARTIFACT_DIR:path.join(runtime,'artifacts'),INTENTSMITH_TEST_SERVER_NONCE:randomBytes(24).toString('base64url'),INTENTSMITH_MODEL_CHAT:model,INTENTSMITH_MODEL_D1:'qwen3.5:27b',INTENTSMITH_MODEL_CODE:'qwen3.8:latest',INTENTSMITH_MODEL_D2:'qwen3.8:latest',INTENTSMITH_MODEL_R1:'qwen3.8:latest',INTENTSMITH_MODEL_R2:'devstral-small-2:latest',INTENTSMITH_ENABLE_AGENTS:'false',INTENTSMITH_ENABLE_EXPERTISES:'false',INTENTSMITH_ENABLE_LIFECYCLE:'false',INTENTSMITH_ENABLE_COMFYUI:'false',INTENTSMITH_ENABLE_AUTONOMY:'false',INTENTSMITH_MODEL_UNIVERSE_ENABLED:'false',INTENTSMITH_LOG_LEVEL:'warn',INTENTSMITH_TRACE:'0'};
   const log=fs.createWriteStream(path.join(out,'initial-process.log'),{mode:0o600});let tail='';
   const runInside=async childEnv=>{
   child=spawn('bwrap',['--ro-bind','/','/','--dev-bind','/dev','/dev','--bind',out,out,
@@ -700,10 +708,12 @@ if(process.argv.includes('--inside')) {
   let postflightDigest=null;
   try { postflightDigest=(await (await fetch('http://127.0.0.1:11434/api/tags')).json()).models
    ?.find(entry=>entry.name===model)?.digest; } catch {}
-  const {inferenceWire,exactWire,invalidInferenceCallCount,transportComplete}
+  const {inferenceWire,exactWire,invalidInferenceCallCount,contextBudgetValid,transportComplete}
    =assessChatResilienceTransport({
-   wire,recorded,selected,exit,isFinal,postflightDigest,model,modelDigest});
+   wire,recorded,selected,exit,isFinal,postflightDigest,model,modelDigest,
+   contextWindowTokens:directOptions.num_ctx});
   save('initial-exit.json',{...exit,transportComplete,exactWire,
+   contextBudgetValid,contextWindowTokens:directOptions.num_ctx,
    inferenceCallCount:inferenceWire.length,invalidInferenceCallCount,postflightDigest,
    expectedCases:selected.length,recordedCases:recorded.length,at:new Date().toISOString()});
   console.log('pilot exit',JSON.stringify({...exit,transportComplete}),isHoldout ? '' : tail);

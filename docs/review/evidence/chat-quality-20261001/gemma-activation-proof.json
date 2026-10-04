@@ -1,0 +1,84 @@
+{
+  "at": "2026-10-04T19:25:18.286437+02:00",
+  "authority": "Operator explicitly requested Gemma for CHAT on 2026-10-04",
+  "model": "gemma4:26b",
+  "digestSha256": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+  "operationId": "op_a9886879-eb31-4599-bd82-a886bd257484",
+  "committedBindingRevision": 4,
+  "createdAtMs": 1791134386362,
+  "runtimeStatus": "APPLIED",
+  "runtimeFinalizeStatus": "DIRECT_CONFIRMED",
+  "verificationStatus": "VERIFIED",
+  "notificationStatus": "FAILED",
+  "notificationFailureCode": "MODEL_BINDING_NOTIFICATION_RECEIPT_NOT_ISSUED",
+  "beforeBindings": {
+    "D1": "qwen3.5:27b",
+    "D2": "qwen3.8:latest",
+    "CODE": "qwen3.5:27b",
+    "R1": "qwen3.8:latest",
+    "R2": "qwen3:14b",
+    "CHAT": "qwen3.5:27b",
+    "VISION": "llava-llama3:8b"
+  },
+  "afterBindings": {
+    "D1": "qwen3.5:27b",
+    "D2": "qwen3.8:latest",
+    "CODE": "qwen3.8:latest",
+    "R1": "qwen3.8:latest",
+    "R2": "devstral-small-2:latest",
+    "CHAT": "gemma4:26b",
+    "VISION": "ornith-1.5:9b"
+  },
+  "otherRolesRestoredByRestart": {
+    "CODE": {
+      "before": "qwen3.5:27b",
+      "after": "qwen3.8:latest"
+    },
+    "R2": {
+      "before": "qwen3:14b",
+      "after": "devstral-small-2:latest"
+    },
+    "VISION": {
+      "before": "llava-llama3:8b",
+      "after": "ornith-1.5:9b"
+    }
+  },
+  "recovery": {
+    "initialApplyHTTP": 409,
+    "initialReason": "A different manual binding is still pending runtime application",
+    "pendingOperation": "op_faabc24e-037c-44e0-9cb9-5b61e2680ba4",
+    "oldOperationReapply": "Runtime apply cannot repeat after a successful runtime commit",
+    "supportedRestart": "intentsmith-backend.service, existing installed release c84b88cd, no running agents, all 7 existing manual bindings restored",
+    "gemmaApplyHTTP": 200
+  },
+  "operatorMeasurements": {
+    "source": "User-provided independent measurements; original artifacts not inspected by chat worker",
+    "huntCHAT": {
+      "qwen3.5": 0.841,
+      "gemma4": 0.877,
+      "qwen3.8": 0.864,
+      "phi4": 0.794
+    },
+    "warmP50P95Seconds": {
+      "qwen3.5": [
+        13.12,
+        21.95
+      ],
+      "gemma4": [
+        3.76,
+        5.63
+      ],
+      "qwen3.8": [
+        8.15,
+        15.86
+      ],
+      "phi4": [
+        6.08,
+        10.86
+      ]
+    },
+    "notChatAcceptance": true
+  },
+  "qualityAcceptance": "NO_GO; existing application candidate is not deployed with this role change",
+  "holdout": "SEALED / NOT_OPENED / private decrypted path still required"
+}

@@ -1,6 +1,6 @@
 # IntentSmith — průběh práce na kvalitě chatu
 
-Poslední aktualizace: **2. 10. 2026, 15:53 CEST**. Stav: **NO_GO / REVIEW_PENDING / CI_NOT_RUN**.
+Poslední aktualizace: **04. 10. 2026, 19:25 CEST**. Stav: **NO_GO / REVIEW_PENDING / CI_NOT_RUN**.
 Dokument aktualizuji po každém dokončeném milníku, nejpozději po třech hodinách
 aktivní práce. Historická selhání zůstávají uvedena; nové ověření je nepřepisuje
 na úspěch. Nejde o plánovač úloh po ukončení této pracovní relace.
@@ -595,3 +595,45 @@ vzdáleně. Zapečetěný adresář nebyl otevřen, prohledáván ani dešifrov�
 Nedochází k nasazení, merge, změně bindingů ani reaktivaci modelového panelu.
 Vlastní GPU residency byly uvolněny pouze po kontrole identity a idle stavu;
 cizí nově běžící audit zůstal nedotčený. **Kvalitativní přejímka stále NO_GO.**
+
+
+## Milník S16 — operátorem vybraná Gemma pro CHAT (4. 10.)
+
+- **Uživatelské chování:** produkční role CHAT používá `gemma4:26b`, Q4_K_M,
+  digest `08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68`.
+  Nejde o nasazení chatových oprav ze zdejší větve: instalace zůstává `c84b88cd`.
+  Autorita je nové explicitní zadání operátora, nikoli starý odložený pilot M0.
+- **Stručný důkaz:** běžné API apply, DB operace
+  `op_a9886879-eb31-4599-bd82-a886bd257484`, revision 4, stav runtime APPLIED,
+  DIRECT_CONFIRMED a verification VERIFIED; API vrací Gemmu.
+  [Přesné identity, časy a obnova](../review/evidence/chat-quality-20261001/gemma-activation-proof.json).
+  První dva apply měly HTTP 409 kvůli staré pending operaci; její opakování
+  mělo HTTP 200 started, ale následně selhalo ochranou proti opakovanému runtime
+  commitu. Až restart existující služby obnovil všech sedm dřívějších bindingů
+  a umožnil nový apply. Žádné přímé zápisy do DB ani změna servisní instalace.
+- **Skutečný vedlejší dopad obnovy:** CODE se vrátil z Qwen3.5 na již uložený
+  Qwen3.8, R2 z Qwen3 14B na Devstral a VISION z LLaVA na Ornith. D1, D2 a R1
+  jsou shodné. Nejde tvrdit, že restart zachoval všechny runtime role beze změny.
+- **Zbývající problém:** binding má NOTIFICATION FAILED
+  (`MODEL_BINDING_NOTIFICATION_RECEIPT_NOT_ISSUED`); úspěšné runtime/providerové
+  ověření jej nemaže. Gemma nemá přejímku v této chatové cestě; operátorova
+  HUNT/kontextová měření neopravňují k tvrzení ≥95 % užitečnosti ani jazykové parity.
+- **Následující krok:** zmrazit a otestovat nový izolovaný kandidát s explicitním
+  Gemma tagem/digestem. Historický kandidát `c7f03d56` a jeho větev zůstávají pevné.
+
+Runner nyní sjednocuje A i B na 4096 tokenů také pro neprofilovaný model;
+čeká na inicializaci cache a poté v privátním procesu nastaví tento měřicí
+rozpočet. Každá nebootovací inference musí v zachyceném providerovém vstupu
+obsahovat právě 4096; rozdíl/ztracený parametr nedovolí COMPLETE. D1 v izolaci
+zůstává Qwen3.5, změna CHAT už jej nepřepíná. Produkční kontextová politika
+a historický schválený Qwen profil se nemění. Negativní syntetické kontroly
+odmítají 8K, chybějící num_ctx a text místo čísla. Registry 592 programů PASS;
+runner contract PASS. Další živé regrese a celý profil zatím NOT_RUN.
+
+Skutečný holdout zůstává SEALED / NOT_RUN. Čekám na privátní cestu od operátora;
+zapečetěný adresář neotevírám ani neprohledávám. Tři slepé série se budou
+vztahovat k novému kandidátu i jeho přesnému modelovému manifestu.
+
+Pokus o audit před commitem byl správně odmítnut čistotou pracovního stromu
+(exit 2, 0 testů); není PASS ani technické selhání produktu. Opakování bude
+na čistém zmrazeném commitu bez `--allow-dirty`.

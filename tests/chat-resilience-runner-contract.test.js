@@ -156,9 +156,9 @@ async function controlledProviderWire(scenarios) {
   }
 }
 
-function transport(wire) {
+function transport(wire, options = {}) {
   return assessChatResilienceTransport({
-    wire, model: MODEL, modelDigest: DIGEST, postflightDigest: DIGEST,
+    wire, model: MODEL, modelDigest: DIGEST, postflightDigest: DIGEST, ...options,
     exit: { code: 0 }, isFinal: true, selected: [{ id: 'http-plain' }],
     recorded: [{ case: { id: 'http-plain' },
       B: { status: 200, result: { status: 'ok', response: { content: 'B answer' } } },
@@ -381,6 +381,15 @@ try {
   assert.equal(transport([...await controlledProviderWire([valid]),
     { caseId: 'http-plain', path: '/api/chat', error: 'socket closed' }]).transportComplete,
   false, 'captured request without an HTTP terminal was ignored');
+
+  const budgetWire = await controlledProviderWire([{ path: '/api/chat', scenario: 'valid' }]);
+  budgetWire[0].body = { options: { num_ctx: 4096 } };
+  assert.equal(transport(budgetWire, { contextWindowTokens: 4096 }).transportComplete, true);
+  for (const options of [{ num_ctx: 8192 }, {}, { num_ctx: '4096' }]) {
+    budgetWire[0].body = { options };
+    assert.equal(transport(budgetWire, { contextWindowTokens: 4096 }).transportComplete, false,
+      'An otherwise complete series with a different or unspecified context budget cannot pass');
+  }
 
   await interruptedRelay('upstream-abort');
   await interruptedRelay('child-exit');

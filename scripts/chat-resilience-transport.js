@@ -1,7 +1,7 @@
 // Pure transport verdict for the isolated chat runner. Callers persist the
 // original wire separately; this function does not interpret answer quality.
 export function assessChatResilienceTransport({ wire, recorded, selected, exit,
-  isFinal, postflightDigest, model, modelDigest }) {
+  isFinal, postflightDigest, model, modelDigest, contextWindowTokens }) {
   const inferenceWire = wire.filter(call =>
     ['/api/chat', '/api/generate'].includes(call.path));
   const invalidInferenceWire = inferenceWire.filter(call => {
@@ -15,17 +15,21 @@ export function assessChatResilienceTransport({ wire, recorded, selected, exit,
       || presentDigests.some(key => terminal[key] !== modelDigest);
   });
   const exactWire = invalidInferenceWire.length === 0;
+  const contextBudgetValid = contextWindowTokens === undefined || (
+    Number.isSafeInteger(contextWindowTokens) && contextWindowTokens >= 512
+    && inferenceWire.every(call => call.caseId === 'boot'
+      || call.body?.options?.num_ctx === contextWindowTokens));
   const transportComplete = exit.code === 0 && inferenceWire.length > 0
     && recorded.length === selected.length
     && new Set(recorded.map(row => row.case?.id)).size === selected.length
-    && exactWire && postflightDigest === modelDigest
+    && exactWire && contextBudgetValid && postflightDigest === modelDigest
     && selected.every(c => recorded.some(row => row.case?.id === c.id
       && row.B?.status === 200 && row.B?.result?.status === 'ok'
       && typeof row.B?.result?.response?.content === 'string'
       && (!isFinal || row.A?.status === 200
         && typeof row.A?.result?.message?.content === 'string'
         && inferenceWire.some(call => call.caseId === c.id && call.path === '/api/chat'))));
-  return { inferenceWire, exactWire,
+  return { inferenceWire, exactWire, contextBudgetValid,
     invalidInferenceCallCount: invalidInferenceWire.length, transportComplete };
 }
 

@@ -40,7 +40,18 @@ významové archivní reprodukce a měřit růst ceny archivu a čisté složky 
 `src/chat/archive-evidence-index.js` vlastní connection-local TEMP FTS5 cache;
 nemění trvalé schéma ani zprávy. Hledání zůstává lexikální s citovanými sousedy,
 nikoli sémantický rozhodovač. Výňatky mají přesný prefix a oddělený suffix
-s bajtovou pozicí; mezera není zatajená. Modelový experiment zůstává odložený.
+s bajtovou pozicí; mezera není zatajená. Modelový experiment byl v této fázi odložený.
+
+Explicitní změna zadání operátora 4. 10.: pokračovat v přejímce a pro CHAT
+použít Gemmu podle jeho nezávislého měření. Tato změna povoluje její ruční
+produkční aktivaci jako jediné měněné role CHAT, s přesným dostupným tagem
+`gemma4:26b`, přes existující binding application
+API včetně nezbytné podporované obnovy. Ostatní role, gateway, trvalé schéma
+a provozní modelové politiky se nemění. Izolovaný runner používá explicitní
+tag/digest Gemmy; D1 zachová Qwen a přímá/aplikační větev stejný 4K rozpočet.
+Původní kandidát z 2. 10. zůstane zmrazený, Gemma má nového kandidáta.
+Čísla dodaná operátorem jsou vstup pro volbu, nikoli náhrada nové přejímky.
+Obsah zapečetěného holdoutu zůstává nepřístupný; čeká se na privátní cestu.
 
 Explicitní zadání operátora z 2. 10. po S10: s existující reprodukcí opravit
 vymyšlené odeslání `recipient-bob` a neúplné složené zadání `gpu-composite`.
