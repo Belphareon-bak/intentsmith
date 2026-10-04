@@ -1,0 +1,174 @@
+{
+  "kind": "ChatPlanningEntryReproduction@1",
+  "evidence": "CONTROLLED_PROVIDER_PORTS_NO_INFERENCE",
+  "sourceRevision": "d86baa270c6abb69d72fe1412f98561fa1ffd5db",
+  "candidate": "9591ea1b07bc4b639a102bcc421f9d46b8f9906b",
+  "inputsSha256": "5b915da1fd189c23d769e291b86736b929df5905b61994483f866ef2513cfc13",
+  "sourceBefore": {
+    "src/chat/cre-decision.js": "55857227a39cd0820685366f424add2c45509b8da2356bcbefe37b78832e2c69",
+    "src/chat/handlers/project.js": "07676a53011f18ed7e125fc71eb84d83a8be550901e441b17fa96a63b9161463",
+    "src/chat/handlers/project-collaboration.js": "ece60cfd85f9481625b8ec2a9307296d32f976af7eb58111356b4afb3f35aab4",
+    "src/chat/conversation-context.js": "31549cc6480fa6f6637b81751b7e90d2f925a91aef5518c6d1ecb9e806986c2a"
+  },
+  "sourceAfter": {
+    "src/chat/cre-decision.js": "55857227a39cd0820685366f424add2c45509b8da2356bcbefe37b78832e2c69",
+    "src/chat/handlers/project.js": "07676a53011f18ed7e125fc71eb84d83a8be550901e441b17fa96a63b9161463",
+    "src/chat/handlers/project-collaboration.js": "ece60cfd85f9481625b8ec2a9307296d32f976af7eb58111356b4afb3f35aab4",
+    "src/chat/conversation-context.js": "31549cc6480fa6f6637b81751b7e90d2f925a91aef5518c6d1ecb9e806986c2a"
+  },
+  "projectUnchanged": true,
+  "fixtureLimit": "Classification is a controlled CODE/project JSON, D1 is fail-stop. This proves actual routing and provider-port reachability, not live model interpretation or a generated plan.",
+  "initialDiagnostic": "entry-before.json used sessionState={} and returned a fixture error in answer generation; preserved, excluded from success claims. entry-before-v2.json uses the real SessionState and checks the successful chat reply.",
+  "rows": [
+    {
+      "id": "fan-core-original",
+      "request": "Navrhni první přírůstek offline fan monitoru ve 4 souborech: src/readings.mjs exportuje parseRpm(raw), readFans(reader,root='/sys/class/hwmon'); reader.list(path) vrací basenames, reader.read(path) UTF-8 string. Vnořené hwmonN/fanN_input, RPM je nezáporné bezpečné celé číslo v decimal stringu, 0 je validní, chyba či neplatné čtení=null. src/history.mjs exportuje retainHistory(samples,nowMs,windowMs=3600000,maxSamples=3600): inkluzivní hranice hodiny, nejnovější omezený počet, hluboké kopie. src/monitor.mjs exportuje createMonitor({reader,clock,root,windowMs,maxSamples}), sample()->{atMs,sensors}, history()->kopie; explicitní reader/clock bez import-time I/O, clock nonnegative safe ms, backward sample odmítnout bez změny; window 1..3600000 a cap 1..10000. Smysluplně nahraď červený test/acceptance.test.mjs funkčními testy. Ponech src/index.mjs a externí oracle beze změny; CLI až další krok. Navrhni konkrétní soubory, závislosti a kritéria; žádné efekty.",
+      "requestSha256": "6928c0192d6c0f5861110bdc6bec7716cb7c0bb364b9b637943b612404926f9c",
+      "bytes": 1012,
+      "regexIntent": "CREATIVE",
+      "decision": {
+        "intent": "CREATIVE",
+        "type": "ANSWER",
+        "classifiedBy": "deterministic",
+        "responseScope": null
+      },
+      "d1PortReached": false,
+      "directClassification": {
+        "accepted": true,
+        "providerCalls": 1,
+        "intent": "CODE",
+        "scope": "project"
+      },
+      "calls": [
+        {
+          "role": "CRE_DECISION",
+          "model": "gemma4:26b",
+          "promptBytes": 1018,
+          "systemBytes": 2138,
+          "isD1": false,
+          "correlation": null
+        },
+        {
+          "role": "WORKFLOW_CLASSIFIER",
+          "model": "gemma4:26b",
+          "promptBytes": 1125,
+          "systemBytes": 5593,
+          "isD1": false,
+          "correlation": null
+        }
+      ],
+      "response": {
+        "handler": null,
+        "planningError": null,
+        "hasProjectWorkProposal": false,
+        "canExecute": false,
+        "content": "Zadání požaduje offline monitor ventilátorů. Nejprve navrhuji otestovat čisté čtení hodnot RPM a omezenou historii; následně přidat CLI. Konkrétní návrh souborů zatím nevznikl."
+      }
+    },
+    {
+      "id": "fan-cli-original",
+      "request": "Core je po přesném M2 schválení funkční a commitnutý. Navrhni druhý přírůstek přesně src/cli.mjs, src/index.mjs, test/cli.test.mjs. CLI exportuje run(commands,options={}), čerstvý monitor; tuples ['sample',atMs,tree],['history',atMs], výsledek na každý tuple. tree={directories:{absolutePath:[basenames]},files:{absolutePath:utf8String}}, z něj vytvoř reader a injektuj clock; neplatný tuple či tree vyhodí chybu. src/index.mjs re-export run, explicitní CLI guard s node:url/pathToFileURL, JSON argv {commands,options?}, jeden JSON řádek; při importu žádná práce. Core a test/acceptance.test.mjs zachovej bajtově; src/monitor.mjs uveď jako read-only contextFiles, ne jako dependsOn. Výchozí test běží nad všemi testy. Žádná síť ani skutečné host sensors. Navrhni konkrétní další krok bez schválení nebo efektů.",
+      "requestSha256": "bfe708397f2706968a0d6e2145bf59afbff7b983739e2c53fed3ad1c7af2c604",
+      "bytes": 863,
+      "regexIntent": "CREATIVE",
+      "decision": {
+        "intent": "CREATIVE",
+        "type": "ANSWER",
+        "classifiedBy": "deterministic",
+        "responseScope": null
+      },
+      "d1PortReached": false,
+      "directClassification": {
+        "accepted": true,
+        "providerCalls": 1,
+        "intent": "CODE",
+        "scope": "project"
+      },
+      "calls": [
+        {
+          "role": "CRE_DECISION",
+          "model": "gemma4:26b",
+          "promptBytes": 869,
+          "systemBytes": 2011,
+          "isD1": false,
+          "correlation": null
+        },
+        {
+          "role": "WORKFLOW_CLASSIFIER",
+          "model": "gemma4:26b",
+          "promptBytes": 976,
+          "systemBytes": 5593,
+          "isD1": false,
+          "correlation": null
+        }
+      ],
+      "response": {
+        "handler": null,
+        "planningError": null,
+        "hasProjectWorkProposal": false,
+        "canExecute": false,
+        "content": "Zadání požaduje offline monitor ventilátorů. Nejprve navrhuji otestovat čisté čtení hodnot RPM a omezenou historii; následně přidat CLI. Konkrétní návrh souborů zatím nevznikl."
+      }
+    },
+    {
+      "id": "fan-simple",
+      "request": "udělej mi sledování ventilátorů",
+      "requestSha256": "846ca2ed2f11b5b45946b1dee7aeb853c4ddca31c84e4b8af4d686a118f04d69",
+      "bytes": 36,
+      "regexIntent": "AMBIGUOUS",
+      "decision": {
+        "intent": "CODE",
+        "type": "TOOL_CALL",
+        "classifiedBy": "llm",
+        "responseScope": "project"
+      },
+      "d1PortReached": true,
+      "directClassification": {
+        "accepted": true,
+        "providerCalls": 1,
+        "intent": "CODE",
+        "scope": "project"
+      },
+      "calls": [
+        {
+          "role": "WORKFLOW_CLASSIFIER",
+          "model": "gemma4:26b",
+          "promptBytes": 149,
+          "systemBytes": 5593,
+          "isD1": false,
+          "correlation": null
+        },
+        {
+          "role": "WORKFLOW_PLANNER",
+          "model": "qwen3.5:27b",
+          "promptBytes": 3112,
+          "systemBytes": 2235,
+          "isD1": true,
+          "correlation": {
+            "requestId": "project-work-c5e0b2c9-3fc6-4563-b9dd-e2f4cf3aeda8",
+            "conversationId": "fan-simple",
+            "turnId": "project-work-c5e0b2c9-3fc6-4563-b9dd-e2f4cf3aeda8",
+            "callerRole": "WORKFLOW_PLANNER",
+            "modelRole": "D1",
+            "purpose": "answer"
+          }
+        },
+        {
+          "role": "WORKFLOW_CLASSIFIER",
+          "model": "gemma4:26b",
+          "promptBytes": 149,
+          "systemBytes": 5593,
+          "isD1": false,
+          "correlation": null
+        }
+      ],
+      "response": {
+        "handler": "project.collaboration",
+        "planningError": "CPU_D1_PORT",
+        "hasProjectWorkProposal": false,
+        "canExecute": false,
+        "content": "Příprava dalšího kroku se nepodařila: CONTROLLED_D1_PORT_REACHED_NO_INFERENCE Soubory projektu zůstaly beze změny."
+      }
+    }
+  ]
+}

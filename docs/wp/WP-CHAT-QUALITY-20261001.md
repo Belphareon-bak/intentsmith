@@ -72,6 +72,15 @@ Součástí runneru je čistý validační helper `scripts/chat-holdout-contract
 aplikační helper `src/chat/unavailable-action.js` pouze kontroluje citované
 úseky a skládá read-only odpověď. Tyto cesty vlastní chat WP z téhož zadání.
 
+Další explicitní zadání operátora 4. 10.: opravit přirozený vstup projektové
+práce z chatu do D1, včetně falešného rozpoznání `text` uvnitř `contextFiles`.
+Tato oprava je autorizovaná **až po dokončení sběru skutečného holdoutu**;
+na jeho nezávislé hodnocení se pak nečeká. Předtím probíhá pouze read-only
+diagnostika a příprava. Nový kandidát zachová starý pevný SHA a existující M2
+schvalování. Přejímka vyžaduje oba původní fan-monitor vstupy do D1,
+znovu provedené chatové regrese a následný průchod projektového workera.
+[Přesná reprodukce a postup](../review/2026-10-04-CHAT-NATURAL-D1-ENTRY.md).
+
 Postup: (1) reprodukce posudku a inventura skutečné cesty;
 (2) společný kontext, doptávání a paměť;
 (3) rozpočtování dlouhé historie a návrat ke zdrojovému obsahu;

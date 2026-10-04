@@ -1,6 +1,6 @@
 # IntentSmith — průběh práce na kvalitě chatu
 
-Poslední aktualizace: **04. 10. 2026, 20:46 CEST**. Stav: **NO_GO / REVIEW_PENDING / CI_PASS_DEVELOPMENT_ONLY**.
+Poslední aktualizace: **04. 10. 2026, 21:06 CEST**. Stav: **NO_GO / REVIEW_PENDING / CI_PASS_DEVELOPMENT_ONLY**.
 Dokument aktualizuji po každém dokončeném milníku, nejpozději po třech hodinách
 aktivní práce. Historická selhání zůstávají uvedena; nové ověření je nepřepisuje
 na úspěch. Nejde o plánovač úloh po ukončení této pracovní relace.
@@ -24,6 +24,9 @@ užitečnost a 0 efektů; to neopravňuje k celkovému přijetí.
 Gemma 1,972 s teplý medián, pouze jedno zadání a pět teplých opakování.
 Skutečný nezávislý holdout zůstává **SEALED / WAITING_OPERATOR_UNSEAL / NOT_RUN**.
 Privátní dešifrovaná cesta není předaná; zakázaný adresář nebyl zpřístupněn.
+Nové zadání přirozeného vstupu do D1 je reprodukované v S21. Jeho aplikační
+oprava čeká na doložení dokončení sběru skutečného holdoutu podle výslovného
+pořadí operátora; sběr mimo tento checkout je UNKNOWN, nikoli potvrzeně hotový.
 Následující hlavička a starší tabulky zachovávají historické Qwen důkazy.
 
 Větev: `work/chat-quality-20261001`. Společný výchozí commit:
@@ -806,3 +809,35 @@ nezastupuje nezávislou přejímku. Kandidát se podle této regrese dále nelad
 Produkční CHAT na Gemmě byl znovu ověřen přes API; produkční release je stále
 `c84b88cd` a notifikace původní binding operace měla FAILED. Historické
 INCOMPLETE `5a464a82` i všechny předchozí NO_GO zůstávají v reportu.
+
+### S21 — reprodukce přirozeného vstupu do D1, zachovaná časová podmínka
+
+Autorita: nové výslovné zadání operátora ze 4. 10., změnit chat teprve po
+dokončení sběru holdoutu, potom na hodnocení nečekat. Stav:
+**REPRODUCED / IMPLEMENTATION_NOT_RUN / WAITING_HOLDOUT_COMPLETION_EVIDENCE**.
+
+- **Uživatelské chování:** zatím beze změny. Obě přesné původní fan-monitor
+  věty stále vrátí CREATIVE/ANSWER bez D1. Oprava má umožnit přirozený návrh
+  konkrétní projektové práce bez ručního JSON příkazu; schvalování zůstává M2.
+- **Důkaz:** na nezměněném aplikačním zdroji skutečný ProjectHandler/CRE
+  reprodukuje 0 klasifikačních a 0 D1 volání u obou původních vět.
+  „Navrhni“ spustí předčasnou tvůrčí zkratku; druhé zadání navíc zachytí
+  `text` uvnitř `contextFiles`. Kontrolovaná interpretace krátké přirozené
+  žádosti jako CODE/project už dosáhne skutečného typovaného D1 portu,
+  zastaveného před inferencí. Projekt i čtyři kontrolované chatové zdroje
+  jsou před/po bajtově shodné. Přímý klasifikátor přijme celé oba původní
+  vstupy ve 4K rozpočtu s fixture CODE/project; živá Gemma zde testovaná není.
+  První diagnostika měla neúplný sessionState; je zachovaná a vyřazená
+  z důkazu úspěšného návratu. Opakování používá skutečný SessionState a
+  ověřuje i návrat odpovědi. [Podklady, hranice a plán opravy](../review/2026-10-04-CHAT-NATURAL-D1-ENTRY.md).
+- **Zbývající problém:** vlastní skutečný holdout je dosud NOT_RUN,
+  metadatový záznam neexistuje a aktuálně neběží sběr. To není důkaz jeho
+  dokončení jinde. Cílený dotaz na stav/metadata zůstává otevřený. Syntetické
+  3×3 a exponované 53×3 se nezaměňují za zapečetěný holdout. Nebyl čten
+  zakázaný adresář, obsah holdoutu ani jeho odpovědi. Žádná aplikační změna,
+  runner změna, inference, nová technická brána či produkční nasazení
+  v tomto diagnostickém milníku neproběhly. Kandidát C2 zůstává neměnný.
+- **Následující krok:** doložit dokončení skutečného sběru a ihned provést
+  reprodukovanou opravu na novém kandidátu. Pak ověřit původní věty do D1,
+  chatové regrese a předat ověřený SHA projektovému workerovi pro jeho
+  následný fan-monitor průchod. Na nezávislé hodnocení holdoutu se nečeká.
