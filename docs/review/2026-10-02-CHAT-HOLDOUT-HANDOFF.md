@@ -79,3 +79,24 @@ CI trigger nebyl určen; [předání CI](2026-10-02-CHAT-CI-HANDOFF.md) a
 Workflow již má ruční `workflow_dispatch`; přidání automatického triggeru
 chatové větve zůstává integrační práce. Srovnání modelů ani změna bindingu
 nebyly znovu otevřené. Žádný PR, merge nebo produkční nasazení neproběhlo.
+
+
+## Navazující předání — operátor vybral Gemmu 4. 10. 2026
+
+Tento záznam pro budoucí slepý běh nahrazuje výběr Qwen kandidáta výše.
+Původní commit/větev zůstávají neměnné. Nový pevný kandidát:
+`d096aa4981b44c69ab3b4454a93575039dd703ea`,
+`review/chat-quality-gemma-candidate-20261004`. Model `gemma4:26b`, digest
+`08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68`.
+Ruční produkční CHAT je APPLIED / DIRECT_CONFIRMED / VERIFIED; samotné
+chatové opravy z větve nebyly nasazené. Úplný profil kandidáta 399/4/3 FAIL;
+Actions #69 PASS je vývojová podmnožina. Privátní cesta ke skutečnému holdoutu
+stále nebyla předaná a jeho adresář je dál zakázaný.
+
+V příkazu výše přidat explicitně `--model gemma4:26b --model-digest
+08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68`;
+vlastní čistý checkout musí být na tomto novém pevném SHA. Pro skutečné
+holdout-1..3 použít nový privátní record
+`.intentsmith-artifacts/chat-quality-20261004/live/holdout-runs.json`,
+nikoli žádný dummy nebo regresní record. Pečeť, očekávaný SHA corpus,
+slepé hodnocení a zákaz čtení odpovědí mezi sériemi zůstávají shodné.

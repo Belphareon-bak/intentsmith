@@ -1,9 +1,19 @@
 # IntentSmith — průběh práce na kvalitě chatu
 
-Poslední aktualizace: **04. 10. 2026, 19:25 CEST**. Stav: **NO_GO / REVIEW_PENDING / CI_NOT_RUN**.
+Poslední aktualizace: **04. 10. 2026, 19:37 CEST**. Stav: **NO_GO / REVIEW_PENDING / CI_PASS_DEVELOPMENT_ONLY**.
 Dokument aktualizuji po každém dokončeném milníku, nejpozději po třech hodinách
 aktivní práce. Historická selhání zůstávají uvedena; nové ověření je nepřepisuje
 na úspěch. Nejde o plánovač úloh po ukončení této pracovní relace.
+
+Aktuální kandidát s Gemmou (4. 10.):
+**`d096aa4981b44c69ab3b4454a93575039dd703ea`**, pevná větev
+`review/chat-quality-gemma-candidate-20261004`. CHAT `gemma4:26b`, přesný digest
+`08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68`.
+Cílený profil 4 PASS; úplný profil 399 PASS / 4 FAIL / 3 BLOCKED.
+[GitHub CI #69](https://github.com/Belphareon-bak/intentsmith/actions/runs/37220582328)
+PASS na témže SHA, pouze vývojová sada. Živé regresní a latencové běhy tohoto
+kandidáta zatím NOT_RUN; nezávislý holdout čeká na privátní dešifrovanou cestu.
+Následující hlavička a tabulky zachovávají historické důkazy Qwen kandidátů.
 
 Větev: `work/chat-quality-20261001`. Společný výchozí commit:
 `45caf5b54b78def257221ac2ab33a64031800813`. Poslední testovaný aplikační
@@ -637,3 +647,28 @@ vztahovat k novému kandidátu i jeho přesnému modelovému manifestu.
 Pokus o audit před commitem byl správně odmítnut čistotou pracovního stromu
 (exit 2, 0 testů); není PASS ani technické selhání produktu. Opakování bude
 na čistém zmrazeném commitu bez `--allow-dirty`.
+
+
+## Milník S17 — zmrazený Gemma kandidát, úplný profil a skutečná CI
+
+- **Uživatelské chování:** aplikace zůstává shodná s předchozím opraveným
+  kandidátem; měření Gemmy a kontrolní A používá ověřený stejný 4K rozpočet
+  a D1 nepřebírá změnu CHAT. Kandidát i modelový digest jsou explicitní.
+- **Stručný důkaz:** čistý commit `d096aa4981b44c69ab3b4454a93575039dd703ea`,
+  vzdálený SHA ověřen pro kandidátní větev i její samostatný CI alias
+  `integration/main-reconcile-chat-gemma-20261004`. Existující push trigger
+  alias pokrývá; workflow ani cizí integrační větev nebyly upravené.
+  Actions push #69 skončil SUCCESS na témže SHA. Registry 592 PASS,
+  cílené čtyři programy PASS, plných 406: 399 PASS / 4 FAIL / 3 BLOCKED,
+  skutečný exit 1 a verdikt FAIL.
+  [Identita profilů a CI](../review/evidence/chat-quality-20261001/gemma-candidate-technical.json).
+- **Zbývající problém:** všechny čtyři FAIL a tři BLOCKED mají stejná ID jako
+  předchozí kandidát; routing-accuracy zůstává skutečná doménová vada.
+  CI subset neprokazuje zelený celý profil ani sémantickou přejímku.
+  ROOT vlastník pro routing/integraci nadále UNKNOWN; žádný merge/deployment.
+  Produkční notifikace bindingu má dál FAILED, i když providerová identita je VERIFIED.
+- **Následující krok:** na pevném kandidátu provést čistou šestikrokovou
+  latencovou sondu obou přesných artefaktů, 20× obě známé reprodukce s Gemmou,
+  tři syntetické fáze runneru a tři nezměněné regrese původních 53 kroků.
+  Odpovědi tří sérií se otevřou až po dokončení všech. Nikdy je neoznačit
+  za nový holdout; aplikace se podle těchto sběrů průběžně neladí.
