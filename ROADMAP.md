@@ -4,8 +4,9 @@
 Release `NOT_ACCEPTED`; instalovaný BE `c84b88cd` se nezměnil.
 Přijaté Ledger/TaskFlow/SQLite/AST/GPU UI a omezený cleanup se neopakují bez delty.
 CHAT `e066956b` je merged; další Gemma/Hunt mají jiné workery, ROOT holdout nečetl.
-Poslední whole profile `769d4930`:408 PASS/0 FAIL/0 BLOCKED/0 TIMEOUT;
-publikovaný `f5304619` má CI SUCCESS. To necertifikuje nový HTTP source strom.
+Nový whole profile publikovaného `eb482aca`:399 PASS/11 FAIL/0 BLOCKED/0 TIMEOUT;
+CI37242119604 FAIL. Last green `769d4930`:408 PASS. Census/bootstrap/V1 fixtures
+a migrační očekávání včetně M6 current109 mají bounded opravy/review; nový profile čeká.
 
 CODE32k krátká fullVRAM alokace/minfree2512 MiB a natural classifier→D1
 44/44 CPU +review PASS jsou zachované; živý natural entry není přijatý.
@@ -21,11 +22,12 @@ a Studio/startup connector při nezměněném V1 defaultu. Bounded source review
 Skutečný veřejný provider22:11 UTC: bwrap/Python relay/HTTP/kernel negatives/cleanup
 PASS; Landlock8/caps0/NNP1/seccomp2. Je to controlled fixture, ne generated app.
 Targeted 13 CPU PASS/1 model GPU BLOCKED; finální service 107/Studio 28 ve 2/2 sadách PASS.
-Registry 596/35; graph1507/3cycles/28,7 nutných SQL/config hran připnuto ke source e7ac78a8.
+Registry 596/35; aktuální module graph má 1 507 hran, 3 cykly / 28 členů.
+Sedm nutných SQL/config hran je připnuto ke source `e7ac78a8`.
 Nový Studio production/consumer build PASS, bundle7bf62455…bfe24;
 Physical cancel/timeout2/2 +independent review PASS; namespaceTERM, bez KILL claim.
 V2 late-cleanup guard adoptován po skutečném controlled RED/GREEN a source review PASS;
-V1 zachován. Celý nový profil a remote CI čekají.
+V1 zachován. První whole/CI FAIL mají přesné integrační opravy; opakování čeká.
 Následuje zmrazená nová HTTP/SQLite CODE aplikace, exactM2/oracle/commit/restart/review.
 Pak obecnější repo/context průchod, společné IDE/BE/expertise/workers, M5/M6, mobil
 a závěrečný bezpečný cleanup. M5/M6/mobil/Hunt/model kvalita zůstávají otevřené.

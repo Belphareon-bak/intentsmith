@@ -1,8 +1,7 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 5. 10. 2026, 00:58 CEST / 4. 10. 22:58 UTC.
+**Aktualizováno:** 5. 10. 2026, 01:35 CEST / 4. 10. 23:35 UTC.
 **Vlastník:** ROOT; CHAT/Gemma a zbývající Hunt mají jiné workery.
-Report po milníku/do 3 h; operátorovi stav do 2 h aktivní práce.
 **Release NOT_ACCEPTED; fan aplikace FAIL; generated HTTP NOT_RUN.**
 
 ## Přijatý základ
@@ -17,16 +16,17 @@ Report po milníku/do 3 h; operátorovi stav do 2 h aktivní práce.
 | GPU UI / Cleanup | V7 readonly hodnoty/pointer přijaté;3 vlastní refs odstraněny | Hunt/model acceptance a cizí/evidence worktrees zůstávají |
 
 [SQLite export](../examples/generated-apps/sqlite-catalog/README.md), [24 přijatých modulů](../examples/generated-apps/README.md).
-Historické FAIL/oracle/rollbacky neměním; přijaté scénáře neopakuji bez delty.
 
 ## Společný kandidát a kontroly
 
 Merge 56138e4f převzal CHAT e066956b a vlastní CODE 32k/D1; preservation review PASS.
-Poslední celý profil **769d4930**,20:04–20:14 UTC: **408 PASS/0 FAIL/0 BLOCKED/0 TIMEOUT/0 SKIP**,
-report 934d9673…e65dd. První404/1/3 (census/runtime paths) zachovaný b52ac733…a9b12.
-Publikovaný **f5304619**: [CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37237595610).
-HTTP source **e7ac78a8** je commitnutý; provenance pin1507/3/28 připravený.
-Whole profile/remote CI čekají. V2 late-cleanup guard adoptován po controlled RED/GREEN/review PASS.
+Nový celý profil **eb482aca**,23:00–23:10 UTC: **399 PASS/11 FAIL/0 BLOCKED/0 TIMEOUT**,
+report 7e6428fe…44e05; [CI FAIL](https://github.com/Belphareon-bak/intentsmith/actions/runs/37242119604), remote SHA ověřený.
+Last green769d4930:408 PASS; nový strom tím nepřejímám. FAILy: census/bootstrap,
+V1 fixture ve2 Studio sadách +5 wrappers, migrační očekávání a M6 current count108/109.
+Adoptovány bounded opravy: census160 PASS, izolace bootstrap PASS, private103+72 PASS;
+M6 current109 má independent review50722146…f2967, previous56/SHA/oldreceipts zachované.
+Nový M6 physical upgrade NOT_RUN. Následuje společný čistý kandidát/410/current CI.
 Instalovaný BE c84b88cd je jiný release; tento proud jej nenasadil.
 Externí c5309a0/bundle zde chybí; hlášené výsledky nejsou lokálně přijaté důkazy.
 
@@ -65,13 +65,14 @@ Namespace TERM teardown; trusted host IPC není egress, samostatný KILL nedolo�
 Private CPU: contracts35, provider9+abort2, SQL9+legacy27+startup2, runtime23,
 compiler/composer11, startup6+independent bounded-read4. Původní FAIL zachované.
 Public targeted 13 PASS/1 actual-model GPU BLOCKED; následně service 107/Studio 28 ve 2/2 sadách PASS.
-Browser fixtures: 4 canonicalV1 version annotations, původní assertions zachované.
+Browser fixtures: canonicalV1 annotations; původní assertions zachované.
 Registry 596/35; graph 1507/3cykly/28,7 nutných SQL/config hran připnuto ke skutečnému e7ac78a8.
 Skutečný Studio production/consumer build PASS; bundle 7bf62455…bfe24.
-CI zachovává CHAT 7 a rozšiřuje CODE na 11 včetně úklidu; whole profile/currentCI čekají.
+CI zachovává CHAT 7 a rozšiřuje CODE na 11; první whole/CI FAIL mají bounded opravy.
 Late-cleanup: oldV2 false success → typed failure; V1 zachováno, review 01a9afff…c1963.
-Nová HTTP/SQLite příprava: 4 moduly, initial 4+jediný fullrepair 4/max 8 CODE,D1=0;
-API/oracle CPU připraveny; model/source/baseline freeze a actual app čekají. Žádná authored app přejímka.
+Nová HTTP/SQLite příprava: 4 initial +jediná selected repair1..4/max 8 CODE,D1=0;
+Oracle2 0ba036cb…ca3a0 má AUTOINCREMENT/strictUTF8 review; API/originoracle1 nezměněné.
+Dva veřejné manual helpery mají review f46b64d2…8094d/CPU10; source/CI freeze a actual app čekají.
 Následuje CODE → Studio preview → exact M2 → actual HTTP/SQLite oracle → commit → restart/review.
 
 ## D1, Hunt a CHAT
@@ -84,7 +85,6 @@ Identita/path nového workeru nedoložené; cílený dotaz čeká, ROOT proces n
 ROOT16/64/strict-IDFAIL draft není acceptedgrading. Gemmafixed 9591ea1b ověřen;
 poslední report d86baa27 NO_GO neznamená holdout acceptance. Operátor odpečetil
 `/mnt/vi7000/intentsmith/evidence/chat-holdout-20261002/holdout.json`; ROOT obsah nečetl.
-Tři série a blindreview mají CHATworker; aktuální výsledek zde nedoložený.
 
 ## Zbývající dokončení a přejímka
 
@@ -97,4 +97,3 @@ Device/signedAPK/VPN origin/pair-revoke/restart/exactM2/TalkBack čekají.
 Poslední cleanup:215 branches/72 worktrees, foreign/UNKNOWN/evidence HOLD; žádný nový worktree.
 
 [Archiv před HTTP adopcí](https://github.com/Belphareon-bak/intentsmith/blob/f530461918ce961f6ae2224f6aa062ef22e4bb51/docs/WORK-PROGRESS.md).
-RawDB/prompty/provozní data jsou privátní; publikuji vlastní zdroje a přesné souhrny.

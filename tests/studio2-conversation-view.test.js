@@ -67,7 +67,7 @@ test('agent turn folds internal processing and keeps real work visible', () => {
 });
 
 test('pending M2 plan becomes an approval card that requires the plan to be seen first', () => {
-  const view = { state: 'awaiting_approval', lifecycleId: 'lc-1', planDigest: DIGEST, plan: { identity: { lifecycleId: 'lc-1' }, state: 'awaiting_approval', origin: { surface: 'studio', sessionId: 'c-1', conversationId: 'c-1', projectId: 1 },
+  const view = { state: 'awaiting_approval', lifecycleId: 'lc-1', planDigest: DIGEST, plan: { version: 1, identity: { lifecycleId: 'lc-1' }, state: 'awaiting_approval', origin: { surface: 'studio', sessionId: 'c-1', conversationId: 'c-1', projectId: 1 },
       changes: [{ path: 'src/a.js' }], focusedTest: { binary: '/usr/bin/node', argv: ['test.js'], timeoutMs: 30000 }, gitCommit: null }, audit: { governanceDecision: { verdict: 'allow' } },
     diff: [{ path: 'src/a.js', before: { content: 'a\n' }, after: { content: 'a\nb\n' } }] };
   const entry = { view, presentedView: null, error: null, busy: false };

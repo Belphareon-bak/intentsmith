@@ -205,3 +205,24 @@ vlastní child/PGID a explicitní mock READY. Původní testy jsou zachované.
 CI instalace/registr přesně deklarují iproute2+nftables, runner ověřuje
 `/usr/sbin/nft`; suite je přidaná k CODE (11), CHAT7 beze změny.
 Přijetí7 nových graph hran a skutečná provenance e7 zůstávají beze změny.
+
+### Společný profil eb482aca a uzavřené příčiny
+
+Skutečný profil offline/database23:00:16–23:10:18 UTC:399 PASS/11 FAIL,
+0 BLOCKED/TIMEOUT/SKIP; SHA reportu
+`7e6428feb43ba0d5a46d44c0e674e052caca3dd21295bd0371faf24dd9644e05`.
+GitHub CI37242119604 FAIL na Studio fixtures. Původní výsledky zůstávají.
+Šest doc-census assertů, chybějící startup isolation bootstrap, dvě canonicalV1
+Studio annotations +jejich wrappers, tři migration/release-set sady jsou opravené
+bez změny původních asercí a bez automatického odvození golden manifestu.
+Private targeted103+72 PASS, veřejný census160/bootstrap coverage PASS.
+M6 current migration count109 odpovídá přesné source migraci122; previous56,
+předchozí SHA/verze a candidate/backup/restore/soak guardy zachované.
+Independent bounded contract review
+`50722146df032dec200e2fa73ade53eb5a5d0bc3bcb0b5db0d56a6af46cf2967`.
+Historické receipts/archivy se nepřepisují; nový fyzický M6 upgrade NOT_RUN.
+Před prvním generated HTTP během používáme4 initial +jedinou selected repair1..4,
+max8 CODE. Ostatní moduly reusePrevious=true přebírány byte exact z FAILED
+proposal po doloženém rollbacku; plný4souborový preview/approval/oracle zachován.
+Původní full4 DRAFT příprava zůstává; změna strategie před livefreeze nepovoluje
+no-op model output ani další opravu. Nový jointprofile/CI/live acceptance čekají.

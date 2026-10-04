@@ -206,6 +206,7 @@ test('current migration count stays bound to the release migration set', () => {
     new URL('../src/db/migrations/', import.meta.url),
     { withFileTypes: true },
   ).filter(entry => entry.isFile() && entry.name.endsWith('.js')).length;
+  assert.equal(migrationCount, 109);
   assert.equal(M6_CURRENT_VERSION_MIGRATION_COUNT, migrationCount);
 });
 
@@ -227,7 +228,7 @@ test('missing, duplicate, rebound and weaker upgrade receipts fail closed', () =
     log(receipt({ currentMigrationCount: 79 })),
     log(receipt({ currentMigrationCount: 105 })),
     log(receipt({ currentMigrationCount: 107 })),
-    log(receipt({ currentMigrationCount: 109 })),
+    log(receipt({ currentMigrationCount: 110 })),
     log(receipt({ previousServerCleanShutdown: false })),
     log(receipt({ failedUpgradeExitCode: 0 })),
     log(receipt({ failedUpgradeMigrationCount: M6_CURRENT_VERSION_MIGRATION_COUNT })),
@@ -243,6 +244,21 @@ test('missing, duplicate, rebound and weaker upgrade receipts fail closed', () =
       { candidateSha },
     ).valid, false);
   }
+});
+
+test('historical migration count cannot qualify a new candidate or be rebound', () => {
+  const historical = receipt({ currentMigrationCount: 108 });
+  const result = validateM6RuntimeEvidence(
+    M6_PREVIOUS_VERSION_UPGRADE_PROGRAM, log(historical), { candidateSha },
+  );
+  assert.equal(result.valid, false);
+  assert.deepEqual(result.errors, ['upgrade-receipt:current-migrations']);
+  const rebound = validateM6RuntimeEvidence(
+    M6_PREVIOUS_VERSION_UPGRADE_PROGRAM,
+    log({ ...historical, candidateSha: 'c'.repeat(40) }), { candidateSha },
+  );
+  assert.equal(rebound.valid, false);
+  assert.deepEqual(rebound.errors, ['upgrade-receipt:candidate', 'upgrade-receipt:current-migrations']);
 });
 
 test('exact 24-hour owned-server receipt passes', () => {

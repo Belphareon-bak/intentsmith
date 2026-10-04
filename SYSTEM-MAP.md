@@ -4,8 +4,9 @@
 Release `NOT_ACCEPTED`; instalovaný BE `c84b88cd` se nezměnil.
 Přijaté Ledger/TaskFlow/SQLite/AST/GPU UI a omezený cleanup se neopakují bez delty.
 CHAT `e066956b` je merged; další Gemma/Hunt mají jiné workery, ROOT holdout nečetl.
-Poslední whole profile `769d4930`:408 PASS/0 FAIL/0 BLOCKED/0 TIMEOUT;
-publikovaný `f5304619` má CI SUCCESS. To necertifikuje nový HTTP source strom.
+Nový whole profile publikovaného `eb482aca`:399 PASS/11 FAIL/0 BLOCKED/0 TIMEOUT;
+CI37242119604 FAIL. Last green `769d4930`:408 PASS. Census/bootstrap/V1 fixtures
+a migrační očekávání včetně M6 current109 mají bounded opravy/review; nový profile čeká.
 
 CODE32k krátká fullVRAM alokace/minfree2512 MiB a natural classifier→D1
 44/44 CPU +review PASS jsou zachované; živý natural entry není přijatý.
@@ -25,7 +26,7 @@ Registry 596/35; graph1507/3cycles/28,7 nutných SQL/config hran připnuto ke so
 Nový Studio production/consumer build PASS, bundle7bf62455…bfe24;
 Physical cancel/timeout2/2 +independent review PASS; namespaceTERM, bez KILL claim.
 V2 late-cleanup guard adoptován po skutečném controlled RED/GREEN a source review PASS;
-V1 zachován. Celý nový profil a remote CI čekají.
+V1 zachován. První whole/CI FAIL mají přesné integrační opravy; opakování čeká.
 Následuje zmrazená nová HTTP/SQLite CODE aplikace, exactM2/oracle/commit/restart/review.
 Pak obecnější repo/context průchod, společné IDE/BE/expertise/workers, M5/M6, mobil
 a závěrečný bezpečný cleanup. M5/M6/mobil/Hunt/model kvalita zůstávají otevřené.
@@ -739,26 +740,28 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 **REVIEW_PENDING** — [aktuální UI oprava a evidence](docs/review/2026-09-17-HUNT-MODEL-CONTROLS-FOLLOWUP.md).
 
 Následující LOC a registry census jsou přeměřené přímo na referenčním zdroji
-sloučeném stromu nad `7afc96f2` s omezeným AST scannerem přes stejný algoritmus jako `tests/artifact-validation.test.js`:
+pracovním kandidátu nad `eb482aca` po integračních opravách, přes stejný algoritmus jako `tests/artifact-validation.test.js`:
 počet skutečných `.js` souborů a počet znaků nového řádku v jejich bytech.
 Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
-| `src/**/*.js` | **235 825 ř.**, 686 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **268 907 ř.**, 602 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **594** (`496 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
-| Tabulek v čerstvé DB / aplikovaných migrací | **183 / 108** |
+| `src/**/*.js` | **236 976 ř.**, 688 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **269 793 ř.**, 604 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **596** (`498 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
+| Tabulek v čerstvé DB / aplikovaných migrací | **183 / 109** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
-DB řádek je dřívější census čerstvé kanonické DB; tato registrace jej
-nepřeměřuje. Instalované historické DB mohou mít podporované dodatečné
-migrační záznamy `061/062/068`; jejich zachování při upgrade má samostatnou
-evidenci a nemění kanonický počet `108`.
+Počet 183 tabulek je dřívější census čerstvé kanonické DB; zde se znovu
+neměřil. Počet 109 migrací je ověřený aktuální zdrojový manifest; migrace 122
+přidává sloupec a mění trigger dispatch, nevytváří novou tabulku. Instalované
+historické DB mohou mít podporované dodatečné migrační záznamy `061/062/068`;
+jejich zachování při upgrade má samostatnou evidenci a nemění kanonický
+zdrojový počet `109`.
 
 Aktuální registry fingerprint referenčního zdroje je
-`740d8d35cba4f6793c7972827a9d2bdbe5cf5577860fdf86a9da882b185a39a6`.
+`47acf12dbacd05883fcb79c0d06cc2653f7a5744e368b5ea17f2d4291e54e748`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 Worker-soak absolvoval fyzický pětiminutový běh na `bf7dc31f`; nové druhé

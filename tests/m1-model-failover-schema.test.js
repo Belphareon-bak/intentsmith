@@ -391,8 +391,8 @@ suite('M1 model failover schema — exact migration contract');
 
 await testAsync('fresh file-backed DB creates all failover tables, indexes and triggers', async () => {
   await withMigratedDb(async (db) => {
-    // Atomic create follows Studio 2 SCM and preserves the failover schema.
-    assertEqual(getCurrentVersion(db), '2026_10_01_121_m2_atomic_create');
+    // Private HTTP authority follows atomic create and preserves the failover schema.
+    assertEqual(getCurrentVersion(db), '2026_10_04_122_m2_private_http_authority');
 
     for (const table of [
       'model_desired_bindings',
@@ -676,7 +676,7 @@ await testAsync('second migration run is a no-op with an identical schema snapsh
     const before = schemaSnapshot(db);
     const result = await runMigrations(db);
     assertEqual(result.applied.length, 0);
-    assertEqual(result.skipped.length, 108);
+    assertEqual(result.skipped.length, 109);
     assertEqual(schemaSnapshot(db), before);
   });
 });
@@ -762,10 +762,11 @@ await testAsync('migration 054 preserves pre-existing success as unconfirmed evi
         '2026_09_25_119_model_evaluation_adjudications',
         '2026_09_25_120_studio_scm',
         '2026_10_01_121_m2_atomic_create',
+        '2026_10_04_122_m2_private_http_authority',
       ]),
     );
     assertEqual(result.skipped.length, 55);
-    assertEqual(getCurrentVersion(db), '2026_10_01_121_m2_atomic_create');
+    assertEqual(getCurrentVersion(db), '2026_10_04_122_m2_private_http_authority');
     assertEqual(
       db.prepare(`
         SELECT COUNT(*) AS count

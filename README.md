@@ -71,10 +71,10 @@ autoritativní IntentSmith Studio runtime už neobsahuje implicitní Google Font
 Studio používá Theia runtime s motivy a ovládáním IntentSmithu.
 
 **Verze:** 136.1.0, vývojový kandidát 1.0. Počty registru pro
-`d7e7d1b1` jsou odvozené z [generovaného registru](docs/convergence/TEST-REGISTRY.md)
+`eb482aca` jsou odvozené z [generovaného registru](docs/convergence/TEST-REGISTRY.md)
 a při další změně registrace se znovu přeměří:
-**594 registrovaných testovacích programů**
-(`496 ACTIVE`, `83 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
+**596 registrovaných testovacích programů**
+(`498 ACTIVE`, `83 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
 
 **Navazující M5 review, 2026-09-17:** historický inventář doplněn o zveřejněný
 TLS testovací klíč a certifikát: 15 známých objektů. Pár je trvale vyřazený;

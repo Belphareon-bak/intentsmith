@@ -1675,7 +1675,7 @@ test('M2 approval needs the bound digest and rendered changes panel', async () =
   session._m2Pending = { lifecycleId: 'life-17', planDigest: digest,
     origin: { surface: 'studio', sessionId: 'conv-17', conversationId: 'conv-17', projectId: 17 } };
   entry.view = { state: 'awaiting_approval', lifecycleId: 'life-17', planDigest: digest,
-    plan: { identity: { lifecycleId: 'life-17' }, state: 'awaiting_approval', origin: session._m2Pending.origin,
+    plan: { version: 1, identity: { lifecycleId: 'life-17' }, state: 'awaiting_approval', origin: session._m2Pending.origin,
       changes: [{ path: 'app.txt' }], focusedTest: { binary: '/usr/bin/node', argv: ['test.js'], timeoutMs: 30000 }, gitCommit: false },
     audit: { governanceDecision: { verdict: 'allow' } },
     diff: [{ path: 'app.txt', before: { content: 'a' }, after: { content: 'b' } }] };

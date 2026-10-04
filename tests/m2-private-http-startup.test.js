@@ -1,4 +1,5 @@
 // Authorized private HTTP WP: operator configuration is opt-in; malformed input refuses before effects.
+import './helpers/isolated-test-db.js';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';

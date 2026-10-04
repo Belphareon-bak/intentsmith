@@ -247,6 +247,7 @@ záznamu selže v `artifact-validation`.
 | `2026_09_25_119_model_evaluation_adjudications.js` | zadání operátora 2026-09-25 — append-only lidské rozsouzení sporných kritérií dvojice |
 | `2026_09_25_120_studio_scm.js` | Studio 2: projektová politika pro řízené operace Git |
 | `2026_10_01_121_m2_atomic_create.js` | M2: atomické vytvoření souboru bez přepsání existujícího cíle |
+| `2026_10_04_122_m2_private_http_authority.js` | `WP-M2-PRIVATE-HTTP-EXECUTION-20261004` — ROOT: explicitní V2 payload, request, lifecycle a terminal SQL authority; V1 historie zachovaná |
 <!-- migration-source-manifest:end -->
 
 ## Navazující M7 rezervace 2026-08-29
