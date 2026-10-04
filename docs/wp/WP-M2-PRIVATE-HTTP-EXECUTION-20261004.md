@@ -4,8 +4,8 @@
 [původního návrhu](WP-M2-PRIVATE-HTTP-QUALIFICATION-PROPOSAL-20261001.md).
 **Vlastník:** ROOT, jediný tracked writer. Vstup `5cf1c36d`, existující checkout;
 čerstvý GitHub main `838b8cee` je ancestor. Žádný nový worktree.
-**Stav:** `BOUNDED_DESIGN_SCOPE_REVIEW_PASS / NAMESPACE_FEASIBILITY_CPU_PASS /
-PRODUCT_IMPLEMENTATION_NOT_RUN / GENERATED_HTTP_NOT_RUN`.
+**Stav:** `PRODUCT_V2_ADOPTED / BOUNDED_SOURCE_REVIEW_PASS /
+CONTROLLED_NATIVE_PROVIDER_PASS / GENERATED_HTTP_NOT_RUN`.
 Nezávislé omezené design/scope review na `92767d77`: receipt
 `ebcf2fad2bcd29363643ed3363c062979d7b9f54a55b3b57d0282f45e645e2fc`.
 V2 schema/native source a skutečné product controls mají následné review/gates.
@@ -132,3 +132,34 @@ První přesný ověřovací příkaz (již provedený se source hash/review):
 timeout25s +3s cleanup. Produktové test příkazy
 připnout podle přijatého V2 kontraktu před adopcí, nikoli vymyslet neexistující
 PASS. Milník končí skutečnou aplikací/review nebo doloženým blokérem.
+
+## Integrační checkpoint 5. 10. 2026
+
+ROOT převzal přesné reviewed pure contracts, provider, SQL122, planner/runtime,
+compiler/default service/composer/controller a explicitní startup connector.
+V1 zdroje078/079/106 a wire/digests jsou zachované; žádný model activation/deploy.
+Souhrn šesti nezávislých source reviews a20 public source pins: receipt
+`5599f163986e7b091e366bfa5060d39ee275ebaff2dcbf1a37eb1ca39e0d39b9`.
+Actual veřejný provider,22:11:19–22:11:20 UTC: preflight/bwrap/Python relay/HTTP
+PASS; capsets0/NNP1/seccomp2/Landlock8, socket/port/namespace negatives,
+owned PID+PGID prázdné. Result
+`d64900ca7297bc36954bc0d3366ea5d48a01753428003968fcda8decbcdc254c`,
+manifest19 `23ef8653dc4875f62b24815e094c27d9b060ec2c140540ede4cb39ccb406ab0a`.
+Je to controlled mechanism qualification, nikoli generovaná app/M2 commit.
+Private CPU: contracts35; provider9+abort2; SQL9+legacy27+fullstartup2;
+planner/runtime23; compiler/composer11; startup6+independent read-budget4.
+Veřejné targeted13 PASS/1 model-GPU BLOCKED; původní report zachovaný.
+Finální service107 a Studio28 PASS v registrovaných2/2 sadách. Nové regrese
+jsou v existující service/UI sadě; nové contract/startup suites jsou registrované,
+CI zachovává CHAT a přidává explicitně HTTP contract/startup/Studio kontroly.
+Browser fixtures potřebovaly4 canonicalV1 version annotations; všechny původní
+assertions zachované, originalRED doložený, produktový guard se neoslaboval.
+Startup refusals: strictrefs, owned0400/0600, nofollow/nonblocking FIFO, UTF8,
+max65537B read a post-read drift; priorunbounded-read finding zachovaný.
+Callgraph má7 přesných nutných SQL/config hran navíc, cycles3/files28 beze změny;
+provenance baseline se připne ke skutečnému commitnutému source stromu.
+Skutečný Studio production/consumer build PASS, bundle7bf62455…bfe24;
+receipt111dbc4e…8e510. Root-cwd Corepack refusal zachované, správný IDEcwd build3.77s.
+Další brány: physical cancel/timeout, společný profil/current CI;
+potom zmrazený API/oracle/model/callbudget a skutečná CODE/M2/HTTP aplikace.
+Žádný nový modelový běh, app commit, app restart nebo release PASS tímto nevznikl.

@@ -1,6 +1,7 @@
 import path from 'node:path';
 
 import { M2_EXECUTION_LIMITS } from '../../contracts/m2/execution-v1.js';
+import { M2_PRIVATE_HTTP_PROFILE, validateM2PrivateHttpNetworkPolicy, computeM2PrivateHttpNetworkPolicyDigest } from '../../contracts/m2/execution-v2.js';
 import { isPlainRecord, validateExactKeys, validationResult } from '../../contracts/m1/shared.js';
 
 const ENVIRONMENT_KEY_PATTERN = /^[A-Za-z_][A-Za-z0-9_]{0,127}$/;
@@ -193,7 +194,7 @@ function validateProposal(value) {
   const focusedKeyErrors = validateExactKeys(
     value.focusedTest,
     ['binary', 'argv', 'environment', 'timeoutMs'],
-    [],
+    ['sandboxProfile', 'networkPolicy', 'networkPolicyDigest'],
     'm2-proposal.focusedTest',
   );
   if (focusedKeyErrors.length > 0) {
@@ -203,6 +204,29 @@ function validateProposal(value) {
     };
   }
   const focusedErrors = [];
+  const privateFields = ['sandboxProfile', 'networkPolicy', 'networkPolicyDigest'];
+  const privateHttp = privateFields.some(key => Object.hasOwn(value.focusedTest, key));
+  if (privateHttp) {
+    const test = value.focusedTest;
+    const policy = validateM2PrivateHttpNetworkPolicy(test.networkPolicy);
+    focusedErrors.push(...policy.errors);
+    if (!privateFields.every(key => Object.hasOwn(test, key)) || test.sandboxProfile !== M2_PRIVATE_HTTP_PROFILE) {
+      focusedErrors.push('m2-proposal.focusedTest:private-http-profile-incomplete');
+    }
+    if (policy.valid && (test.networkPolicyDigest !== computeM2PrivateHttpNetworkPolicyDigest(test.networkPolicy)
+      || test.binary !== test.networkPolicy.artifacts.runtimeExecutable.canonicalPath
+      || test.argv?.[0] !== test.networkPolicy.artifacts.oracle.canonicalPath)) {
+      focusedErrors.push('m2-proposal.focusedTest:private-http-policy-command-mismatch');
+    }
+    if (!isPlainRecord(test.environment) || Reflect.ownKeys(test.environment).length !== 0) {
+      focusedErrors.push('m2-proposal.focusedTest:private-http-environment-unsupported');
+    }
+    if (!Array.isArray(test.argv) || test.argv.length + 1 > 64
+      || [test.binary, ...(Array.isArray(test.argv) ? test.argv : [])].some(arg => typeof arg !== 'string')
+      || [test.binary, ...(Array.isArray(test.argv) ? test.argv : [])].reduce((total, arg) => total + (typeof arg === 'string' ? Buffer.byteLength(arg, 'utf8') + 1 : 65537), 0) > 65536) {
+      focusedErrors.push('m2-proposal.focusedTest:private-http-argv-limit');
+    }
+  }
   if (!isCanonicalAbsolute(value.focusedTest.binary)) {
     focusedErrors.push('m2-proposal.focusedTest:invalid-binary');
   }
@@ -287,6 +311,11 @@ export function compileM2ProjectChangeProposal(value) {
     argv: Object.freeze([...value.focusedTest.argv]),
     environment: Object.freeze(environment),
     timeoutMs: value.focusedTest.timeoutMs,
+    ...(value.focusedTest.sandboxProfile === M2_PRIVATE_HTTP_PROFILE ? {
+      sandboxProfile: M2_PRIVATE_HTTP_PROFILE,
+      networkPolicy: Object.freeze(JSON.parse(JSON.stringify(value.focusedTest.networkPolicy))),
+      networkPolicyDigest: value.focusedTest.networkPolicyDigest,
+    } : {}),
   });
   const gitCommit = value.gitCommit == null ? null : Object.freeze({
     message: value.gitCommit.message,

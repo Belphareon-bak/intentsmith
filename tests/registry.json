@@ -18114,6 +18114,66 @@
       },
       "flakeCount": 0,
       "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M2-PRIVATE-HTTP-CONTRACT-TEST",
+      "path": "tests/m2-private-http-contract.test.js",
+      "argv": [
+        "node",
+        "tests/m2-private-http-contract.test.js"
+      ],
+      "capabilityId": "C3-011",
+      "tier": "T1",
+      "fixture": "offline",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M2-PRIVATE-HTTP-EXECUTION-20261004",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-M2-PRIVATE-HTTP-STARTUP-TEST",
+      "path": "tests/m2-private-http-startup.test.js",
+      "argv": [
+        "node",
+        "tests/m2-private-http-startup.test.js"
+      ],
+      "capabilityId": "C3-011",
+      "tier": "T1",
+      "fixture": "owned-temporary-config-files-and-fifo",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-M2-PRIVATE-HTTP-EXECUTION-20261004",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
     }
   ]
 }

@@ -23,7 +23,6 @@ import {
 } from '../../contracts/m2/governance-v1.js';
 import {
   M2_LIFECYCLE_CONTRACT_KIND,
-  M2_LIFECYCLE_CONTRACT_VERSION,
   M2_LIFECYCLE_STATE,
   computeM2LifecycleApprovalIntentDigest,
   computeM2LifecyclePlanSnapshotDigest,
@@ -33,11 +32,12 @@ import {
   validateM2LifecyclePlanSnapshotForDecision,
   validateM2LifecycleTerminalSnapshot,
   validateM2LifecycleTerminalSnapshotForExecution,
-} from '../../contracts/m2/lifecycle-v1.js';
+} from '../../contracts/m2/lifecycle-v2.js';
+import { M2_LIFECYCLE_CONTRACT_VERSION } from '../../contracts/m2/lifecycle-v1.js';
 import {
   computeM2ExecutionValueDigest,
   computeM2ProjectChangeRequestDigest,
-} from '../../contracts/m2/execution-v1.js';
+} from '../../contracts/m2/execution-v2.js';
 import {
   PROJECT_CONTEXT_FILE_POLICY,
   buildProjectContextManifest,
@@ -387,7 +387,7 @@ function defaultIdFactory(kind) {
 function buildPlan({ identity, actor, origin, compiled, request, contextSnapshot, decision, createdAt, expiresAt }) {
   return Object.freeze({
     contract: M2_LIFECYCLE_CONTRACT_KIND.PLAN_SNAPSHOT,
-    version: M2_LIFECYCLE_CONTRACT_VERSION,
+    version: request.version,
     identity,
     state: M2_LIFECYCLE_STATE.AWAITING_APPROVAL,
     planVersion: 1,
@@ -409,6 +409,9 @@ function buildPlan({ identity, actor, origin, compiled, request, contextSnapshot
       argvDigest: request.focusedTest.argvDigest,
       environmentDigest: request.focusedTest.environmentDigest,
       timeoutMs: request.focusedTest.timeoutMs,
+      ...(request.version === 2 ? { sandboxProfile: request.focusedTest.sandboxProfile,
+        networkPolicy: request.focusedTest.networkPolicy,
+        networkPolicyDigest: request.focusedTest.networkPolicyDigest } : {}),
     }),
     gitCommit: request.gitCommit === null ? null : Object.freeze({
       expectedHead: request.gitCommit.expectedHead,
@@ -876,6 +879,15 @@ export function createM2LifecycleApplicationService(dependencyValues) {
     }, {
       observeRevision: scope => observeRevision(scope, invocation, { projects }),
     });
+    if (planned.request.version === 2) {
+      if (typeof processProvider.preflight !== 'function' || typeof processProvider.run !== 'function') {
+        fail(M2LifecycleServiceErrorCode.INPUT_INVALID, 'Private HTTP requires the explicit trusted process provider');
+      }
+      await processProvider.preflight({ ...planned.request.focusedTest,
+        projectRoot: planned.request.project.canonicalRoot,
+        environment: planned.focusedEnvironment }, { signal });
+      if (signal?.aborted) fail(M2LifecycleServiceErrorCode.CANCELLED, 'Private HTTP plan preparation cancelled');
+    }
     const manifest = await buildManifest(projectScope, invocation);
     if (manifest.revision !== planned.request.project.workspaceRevision) {
       fail(M2LifecycleServiceErrorCode.CONTEXT_STALE, 'Workspace changed during planning');
@@ -941,6 +953,7 @@ export function createM2LifecycleApplicationService(dependencyValues) {
         executionRepository.registerProjectChange(planned.request, {
           files: planned.files,
           git: planned.git,
+          ...(planned.request.version === 2 ? { focusedEnvironment: planned.focusedEnvironment } : {}),
         });
         lifecycleRepository.registerOperation({
           plan,

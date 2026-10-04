@@ -2,6 +2,7 @@
 
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const clone = value => JSON.parse(JSON.stringify(value));
+const PRIVATE_HTTP_PROFILE = 'linux-bwrap-private-loopback-v1';
 const relative = value => typeof value === 'string' && !!value && !value.startsWith('/')
   && !value.includes('\\') && !value.includes('\0') && value.split('/').every(part => part && part !== '.' && part !== '..');
 function normalizeProposal(value) {
@@ -49,6 +50,13 @@ function validateBlueprint(draft) {
     || !Number.isSafeInteger(test.timeoutMs) || test.timeoutMs < 1 || test.timeoutMs > 3600000) {
     throw new Error('Test potřebuje úplnou cestu programu, pole doslovných argumentů a limit 1–3600000 ms.');
   }
+  if (['sandboxProfile', 'networkPolicy', 'networkPolicyDigest'].some(key => Object.hasOwn(test, key))) {
+    if (test.sandboxProfile !== PRIVATE_HTTP_PROFILE || !record(test.networkPolicy)
+      || !/^sha256:[0-9a-f]{64}$/.test(test.networkPolicyDigest)
+      || !record(test.environment) || Object.keys(test.environment).length !== 0) {
+      throw new Error('Soukromý HTTP test vyžaduje úplnou síťovou policy a prázdné prostředí.');
+    }
+  }
   return draft;
 }
 function normalizeForm(value) {
@@ -58,6 +66,11 @@ function normalizeForm(value) {
     || value.origin.projectId < 1 || !Array.isArray(value.files) || value.files.length < 1 || value.files.length > 32
     || !['instruction', 'binary', 'argv', 'timeoutMs'].every(key => typeof value[key] === 'string' && value[key].length <= 65536)
     || value.files.some(file => !record(file) || !['path', 'instruction', 'dependencies', 'contextFiles'].every(key => file[key] == null || typeof file[key] === 'string' && file[key].length <= 65536))) return null;
+  if (value.privateHttpTest !== undefined && (!record(value.privateHttpTest)
+    || Object.keys(value.privateHttpTest).sort().join(',') !== 'networkPolicy,networkPolicyDigest,sandboxProfile'
+    || value.privateHttpTest.sandboxProfile !== PRIVATE_HTTP_PROFILE
+    || !record(value.privateHttpTest.networkPolicy)
+    || !/^sha256:[0-9a-f]{64}$/.test(value.privateHttpTest.networkPolicyDigest))) return null;
   return clone(value);
 }
 function createForm(origin, draft = null, text = '') {
@@ -67,9 +80,17 @@ function createForm(origin, draft = null, text = '') {
       : [{ path: '', instruction: '', dependencies: '', contextFiles: '', reusePrevious: false }],
     binary: draft?.focusedTest.binary || '', argv: JSON.stringify(draft?.focusedTest.argv || []),
     timeoutMs: String(draft?.focusedTest.timeoutMs || 30000), gitCommit: draft?.gitCommit || null,
-    revisionOf: draft?.revisionOf || null, open: true, error: null };
+    revisionOf: draft?.revisionOf || null,
+    ...(draft?.focusedTest.sandboxProfile === PRIVATE_HTTP_PROFILE ? {
+      privateHttpTest: clone({ sandboxProfile: draft.focusedTest.sandboxProfile,
+        networkPolicy: draft.focusedTest.networkPolicy, networkPolicyDigest: draft.focusedTest.networkPolicyDigest }),
+    } : {}), open: true, error: null };
 }
 function composerDraft(form) {
+  if (form.privateHttpTest !== undefined && (!record(form.privateHttpTest)
+    || Object.keys(form.privateHttpTest).sort().join(',') !== 'networkPolicy,networkPolicyDigest,sandboxProfile')) {
+    throw new Error('Soukromý HTTP profil formuláře není úplný nebo byl změněn.');
+  }
   let argv;
   try { argv = JSON.parse(form.argv); } catch { throw new Error('Argumenty testu musí být JSON pole řetězců.'); }
   const lines = value => String(value || '').split('\n').map(part => part.trim()).filter(Boolean);
@@ -77,7 +98,8 @@ function composerDraft(form) {
     instruction: file.instruction, dependsOn: lines(file.dependencies), contextFiles: lines(file.contextFiles),
     ...(form.revisionOf ? { reusePrevious: !!file.reusePrevious } : {}) })),
     focusedTest: { binary: form.binary, argv, timeoutMs: Number(form.timeoutMs),
-      environment: { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' } },
+      environment: form.privateHttpTest ? {} : { LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', NO_COLOR: '1' },
+      ...(form.privateHttpTest ? clone(form.privateHttpTest) : {}) },
     ...(form.gitCommit ? { gitCommit: form.gitCommit } : {}), ...(form.revisionOf ? { revisionOf: form.revisionOf } : {}) });
 }
 module.exports = { normalizeForm, normalizeProposal, validateBlueprint, createForm, composerDraft };

@@ -1,6 +1,6 @@
 import { execFile, spawn } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { access, open, readFile, realpath, stat } from 'node:fs/promises';
+import { access, open, readFile, readlink, realpath, stat } from 'node:fs/promises';
 import { constants as fsConstants } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,8 +8,14 @@ import { promisify } from 'node:util';
 
 import { computeM2ExecutionValueDigest } from '../../contracts/m2/execution-v1.js';
 import {
+  M2_PRIVATE_HTTP_PROFILE,
+  computeM2PrivateHttpNetworkPolicyDigest,
+  validateM2PrivateHttpNetworkPolicy,
+} from '../../contracts/m2/execution-v2.js';
+import {
   LINUX_BWRAP_READ_ONLY_PROFILE,
   PROCESS_SUPERVISOR_PROTOCOL,
+  PRIVATE_HTTP_STDIO_RELAY_PATH,
 } from './process-supervisor-child.js';
 
 const DEFAULT_BWRAP_PATH = '/usr/bin/bwrap';
@@ -204,6 +210,9 @@ function terminalResult({
   cleanup = null,
   processGroupState = cleanup?.groupState ?? 'unknown',
   output = emptyOutputEvidence(),
+  sandboxProfile = LINUX_BWRAP_READ_ONLY_PROFILE,
+  networkPolicyDigest = null,
+  kernelProof = null,
 }) {
   return Object.freeze({
     state,
@@ -212,7 +221,8 @@ function terminalResult({
     errorDetail,
     exitCode,
     signal,
-    sandboxProfile: LINUX_BWRAP_READ_ONLY_PROFILE,
+    sandboxProfile,
+    ...(sandboxProfile === M2_PRIVATE_HTTP_PROFILE ? { networkPolicyDigest, kernelProof } : {}),
     supervisorIdentity,
     cleanup,
     processGroupState,
@@ -367,6 +377,195 @@ function unavailable(errorCode, errorDetail) {
   });
 }
 
+const PRIVATE_HTTP_ARTIFACT_KEYS = Object.freeze(['launcher', 'ip', 'nft', 'runtimeExecutable', 'oracle']);
+const PRIVATE_HTTP_FDS = Object.freeze({ launcher: 6, ip: 7, nft: 8, runtimeExecutable: 5, oracle: 9 });
+
+function privateHttpError(code, detail = code) {
+  const error = new Error(detail);
+  error.code = code;
+  return error;
+}
+
+function snapshotPrivateHttpSpec(spec) {
+  const error = validateM2PrivateHttpProcessSpec(spec);
+  if (error) throw privateHttpError(error);
+  const policy = JSON.parse(JSON.stringify(spec.networkPolicy));
+  for (const ref of Object.values(policy.artifacts)) Object.freeze(ref);
+  Object.freeze(policy.artifacts); Object.freeze(policy.endpoint); Object.freeze(policy);
+  return Object.freeze({ ...spec, argv: Object.freeze([...spec.argv]),
+    environment: Object.freeze({}), networkPolicy: policy });
+}
+
+// Shared by trusted prepare/pre-write hooks and exec. Truthful wire hashes do
+// not establish trust: all five refs must equal the operator's frozen refs.
+export function validateM2PrivateHttpProcessSpec(spec) {
+  if (process.arch !== 'x64') return 'PROCESS_PRIVATE_HTTP_ARCH_UNAVAILABLE';
+  if (spec?.sandboxProfile !== M2_PRIVATE_HTTP_PROFILE) return 'PROCESS_SANDBOX_PROFILE_INVALID';
+  const validation = validateM2PrivateHttpNetworkPolicy(spec.networkPolicy);
+  if (!validation.valid) return 'PROCESS_PRIVATE_HTTP_POLICY_INVALID';
+  if (computeM2PrivateHttpNetworkPolicyDigest(spec.networkPolicy) !== spec.networkPolicyDigest) {
+    return 'PROCESS_PRIVATE_HTTP_POLICY_DIGEST_MISMATCH';
+  }
+  if (!isCanonicalAbsolute(spec.projectRoot) || spec.projectRoot === '/' || spec.canonicalCwd !== spec.projectRoot) {
+    return 'PROCESS_PROJECT_ROOT_INVALID';
+  }
+  if (spec.binary !== spec.networkPolicy.artifacts.runtimeExecutable.canonicalPath
+    || spec.argv?.[0] !== spec.networkPolicy.artifacts.oracle.canonicalPath
+    || !spec.argv[0].endsWith('.mjs')) return 'PROCESS_PRIVATE_HTTP_ENTRY_MISMATCH';
+  for (const key of PRIVATE_HTTP_ARTIFACT_KEYS) {
+    const candidate = spec.networkPolicy.artifacts[key].canonicalPath;
+    if (!isCanonicalAbsolute(candidate)) return 'PROCESS_PRIVATE_HTTP_ARTIFACT_PATH_INVALID';
+    if (candidate === spec.projectRoot || candidate.startsWith(`${spec.projectRoot}/`)) {
+      return 'PROCESS_PRIVATE_HTTP_ARTIFACT_IN_PROJECT';
+    }
+  }
+  if (!validateEnvironment(spec.environment, spec.environmentDigest)) return 'PROCESS_ENVIRONMENT_DIGEST_MISMATCH';
+  if (Reflect.ownKeys(spec.environment).length !== 0) return 'PROCESS_PRIVATE_HTTP_ENV_UNSUPPORTED';
+  // Native argc includes the executable itself and counts terminating NULs.
+  if (!Array.isArray(spec.argv) || spec.argv.length + 1 > 64
+    || spec.argv.some(arg => typeof arg !== 'string' || arg !== arg.normalize('NFC')
+      || arg.includes('\0') || Buffer.from(arg, 'utf8').toString('utf8') !== arg
+      || Buffer.byteLength(arg, 'utf8') > 4096)
+    || [spec.binary, ...spec.argv].reduce((sum, arg) => sum + Buffer.byteLength(arg, 'utf8') + 1, 0) > 65536) {
+    return 'PROCESS_PRIVATE_HTTP_ARGV_LIMIT';
+  }
+  if (computeM2ExecutionValueDigest(spec.argv) !== spec.argvDigest) return 'PROCESS_ARGV_DIGEST_MISMATCH';
+  if (!Number.isSafeInteger(spec.timeoutMs) || spec.timeoutMs < 1 || spec.timeoutMs > 3600000) {
+    return 'PROCESS_TIMEOUT_INVALID';
+  }
+  if (spec.expectedExitCode !== 0) return 'PROCESS_EXPECTED_EXIT_INVALID';
+  return null;
+}
+
+function trustedArtifactSnapshot(value) {
+  if (value === null) return null;
+  if (!value || Object.getPrototypeOf(value) !== Object.prototype
+    || Reflect.ownKeys(value).length !== PRIVATE_HTTP_ARTIFACT_KEYS.length
+    || PRIVATE_HTTP_ARTIFACT_KEYS.some(key => !Object.hasOwn(value, key))) {
+    throw new TypeError('process-sandbox-provider:invalid-private-http-trusted-artifacts');
+  }
+  const result = {};
+  for (const key of PRIVATE_HTTP_ARTIFACT_KEYS) {
+    const ref = value[key];
+    if (!ref || Object.getPrototypeOf(ref) !== Object.prototype
+      || Reflect.ownKeys(ref).length !== 5
+      || !['canonicalPath', 'bytes', 'digest', 'device', 'inode'].every(field => Object.hasOwn(ref, field))) {
+      throw new TypeError('process-sandbox-provider:invalid-private-http-trusted-artifact');
+    }
+    result[key] = Object.freeze({ ...ref });
+  }
+  return Object.freeze(result);
+}
+
+function trustedRelaySnapshot(value) {
+  if (value === null) return null;
+  if (!value || Object.getPrototypeOf(value) !== Object.prototype || Reflect.ownKeys(value).length !== 5
+    || !['canonicalPath', 'bytes', 'digest', 'device', 'inode'].every(key => Object.hasOwn(value, key))
+    || !/^\/usr\/bin\/python3\.[1-9][0-9]?$/.test(value.canonicalPath)
+    || !Number.isSafeInteger(value.bytes) || value.bytes < 1 || value.bytes > 1073741824
+    || !/^sha256:[0-9a-f]{64}$/.test(value.digest)
+    || !/^(0|[1-9][0-9]{0,19})$/.test(value.device) || !/^[1-9][0-9]{0,19}$/.test(value.inode)) {
+    throw new TypeError('process-sandbox-provider:invalid-private-http-stdio-relay');
+  }
+  return Object.freeze({ ...value });
+}
+
+function checkAbort(signal) {
+  if (signal?.aborted) throw privateHttpError('PROCESS_CANCELLED_BEFORE_START');
+}
+
+async function closeArtifactHandles(handles) {
+  await Promise.allSettled(Object.values(handles).map(handle => handle.close()));
+}
+
+async function checkArtifactHandle(handle, ref, executable, signal) {
+  checkAbort(signal);
+  if (await realpath(ref.canonicalPath) !== ref.canonicalPath) {
+    throw privateHttpError('PROCESS_PRIVATE_HTTP_ARTIFACT_PATH_CHANGED');
+  }
+  const before = await handle.stat({ bigint: true });
+  const current = await stat(ref.canonicalPath, { bigint: true });
+  if (!before.isFile() || before.dev.toString() !== ref.device || before.ino.toString() !== ref.inode
+    || before.size !== BigInt(ref.bytes) || current.dev !== before.dev || current.ino !== before.ino) {
+    throw privateHttpError('PROCESS_PRIVATE_HTTP_ARTIFACT_IDENTITY_CHANGED');
+  }
+  if (executable) await access(ref.canonicalPath, fsConstants.X_OK);
+  const hash = createHash('sha256');
+  const buffer = Buffer.alloc(65536);
+  let position = 0;
+  while (position < ref.bytes) {
+    checkAbort(signal);
+    const { bytesRead } = await handle.read(buffer, 0, Math.min(buffer.length, ref.bytes - position), position);
+    if (bytesRead === 0) throw privateHttpError('PROCESS_PRIVATE_HTTP_ARTIFACT_BYTES_CHANGED');
+    hash.update(buffer.subarray(0, bytesRead));
+    position += bytesRead;
+  }
+  const after = await handle.stat({ bigint: true });
+  const currentAfter = await stat(ref.canonicalPath, { bigint: true });
+  if (after.dev !== before.dev || after.ino !== before.ino || after.size !== before.size
+    || after.mtimeNs !== before.mtimeNs || after.ctimeNs !== before.ctimeNs
+    || currentAfter.dev !== before.dev || currentAfter.ino !== before.ino
+    || `sha256:${hash.digest('hex')}` !== ref.digest) {
+    throw privateHttpError('PROCESS_PRIVATE_HTTP_ARTIFACT_BYTES_CHANGED');
+  }
+  checkAbort(signal);
+}
+
+async function checkArtifactHandles(spec, handles, signal) {
+  for (const key of PRIVATE_HTTP_ARTIFACT_KEYS) {
+    await checkArtifactHandle(handles[key], spec.networkPolicy.artifacts[key], key !== 'oracle', signal);
+  }
+}
+
+async function openPrivateHttpArtifacts(spec, trustedArtifacts, trustedRelay, signal) {
+  const scalarError = validateM2PrivateHttpProcessSpec(spec);
+  if (scalarError) throw privateHttpError(scalarError);
+  if (!trustedArtifacts || !trustedRelay) throw privateHttpError('PROCESS_PRIVATE_HTTP_TRUST_UNAVAILABLE');
+  if (await realpath(PRIVATE_HTTP_STDIO_RELAY_PATH) !== trustedRelay.canonicalPath) {
+    throw privateHttpError('PROCESS_PRIVATE_HTTP_STDIO_RELAY_CHANGED');
+  }
+  if (PRIVATE_HTTP_ARTIFACT_KEYS.some(key => computeM2ExecutionValueDigest(trustedArtifacts[key])
+    !== computeM2ExecutionValueDigest(spec.networkPolicy.artifacts[key]))) {
+    throw privateHttpError('PROCESS_PRIVATE_HTTP_ARTIFACT_NOT_TRUSTED');
+  }
+  const handles = {};
+  try {
+    for (const key of PRIVATE_HTTP_ARTIFACT_KEYS) {
+      checkAbort(signal);
+      handles[key] = await open(spec.networkPolicy.artifacts[key].canonicalPath,
+        fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    }
+    await checkArtifactHandles(spec, handles, signal);
+    handles.stdioRelay = await open(trustedRelay.canonicalPath, fsConstants.O_RDONLY | fsConstants.O_NOFOLLOW);
+    await checkArtifactHandle(handles.stdioRelay, trustedRelay, true, signal);
+    return handles;
+  } catch (error) {
+    await closeArtifactHandles(handles);
+    throw error;
+  }
+}
+
+function privateHttpProof(output, spec, namespaces) {
+  const matches = output.stderr.split('\n').filter(line => line.startsWith('M2_PRIVATE_HTTP_READY '));
+  if (matches.length !== 1) return null;
+  const match = /^M2_PRIVATE_HTTP_READY profile=linux-bwrap-private-loopback-v1 address=127\.0\.0\.1 port=([0-9]+) landlockAbi=([0-9]+) user=(user:\[[1-9][0-9]*\]) oldNet=(net:\[[1-9][0-9]*\]) ownNet=(net:\[[1-9][0-9]*\]) ownerInode=([1-9][0-9]*) currentUserInode=([1-9][0-9]*) capsets=0 nnp=1 seccomp=2$/.exec(matches[0]);
+  if (!match || Number(match[1]) !== spec.networkPolicy.endpoint.port || Number(match[2]) < 4
+    || match[3] === namespaces.user || match[4] === namespaces.net || match[5] === namespaces.net
+    || match[5] === match[4] || match[6] !== match[7]) return null;
+  // Project code cannot run before this pinned launcher's setup/READY phase.
+  // This is supplementary native observation, never a caller-chosen marker.
+  return Object.freeze({ profile: M2_PRIVATE_HTTP_PROFILE, address: '127.0.0.1', port: Number(match[1]),
+    landlockAbi: Number(match[2]), capsets: 0, noNewPrivileges: 1, seccomp: 2,
+    userNamespace: match[3], oldNetNamespace: match[4], netNamespace: match[5], ownerInode: match[6] });
+}
+
+function profileTerminalResult(spec, values) {
+  return terminalResult({ ...values, ...(spec?.sandboxProfile === M2_PRIVATE_HTTP_PROFILE ? {
+    sandboxProfile: M2_PRIVATE_HTTP_PROFILE,
+    networkPolicyDigest: spec.networkPolicyDigest ?? null,
+  } : {}) });
+}
+
 export function createProcessSandboxProvider({
   bwrapPath = DEFAULT_BWRAP_PATH,
   prlimitPath = DEFAULT_PRLIMIT_PATH,
@@ -377,7 +576,11 @@ export function createProcessSandboxProvider({
   recordTimeoutMs = DEFAULT_RECORD_TIMEOUT_MS,
   termGraceMs = DEFAULT_TERM_GRACE_MS,
   killGraceMs = DEFAULT_KILL_GRACE_MS,
+  privateHttpTrustedArtifacts = null,
+  privateHttpStdioRelay = null,
 } = {}) {
+  const trustedArtifacts = trustedArtifactSnapshot(privateHttpTrustedArtifacts);
+  const trustedRelay = trustedRelaySnapshot(privateHttpStdioRelay);
   if (!Number.isSafeInteger(outputLimitBytes) || outputLimitBytes < 0 || outputLimitBytes > MAX_OUTPUT_LIMIT_BYTES) {
     throw new TypeError('process-sandbox-provider:invalid-output-limit');
   }
@@ -390,12 +593,31 @@ export function createProcessSandboxProvider({
   return Object.freeze({
     sandboxProfile: LINUX_BWRAP_READ_ONLY_PROFILE,
 
+    async preflight(spec, { signal } = {}) {
+      if (process.platform !== 'linux') throw privateHttpError('PROCESS_SANDBOX_UNAVAILABLE');
+      spec = snapshotPrivateHttpSpec(spec);
+      const handles = await openPrivateHttpArtifacts(spec, trustedArtifacts, trustedRelay, signal);
+      try { return Object.freeze({ sandboxProfile: M2_PRIVATE_HTTP_PROFILE,
+        networkPolicyDigest: spec.networkPolicyDigest, artifacts: spec.networkPolicy.artifacts }); }
+      finally { await closeArtifactHandles(handles); }
+    },
+
     async run(spec, { recordSupervisorIdentity, signal: abortSignal } = {}) {
+      const terminalResult = values => profileTerminalResult(spec, values);
+      const unavailable = (errorCode, errorDetail) => terminalResult({
+        state: 'unavailable', terminalStatus: 'not_started', errorCode, errorDetail,
+      });
+      const privateHttp = spec?.sandboxProfile === M2_PRIVATE_HTTP_PROFILE;
+      let privateHandles = {};
+      let hostNamespaces = null;
+      try {
       if (process.platform !== 'linux') {
         return unavailable('PROCESS_SANDBOX_UNAVAILABLE', 'linux-required');
       }
-      const scalarError = validateScalarSpec(spec);
+      const scalarError = privateHttp ? validateM2PrivateHttpProcessSpec(spec) : validateScalarSpec(spec);
       if (scalarError) return unavailable(scalarError, null);
+      if (privateHttp) spec = snapshotPrivateHttpSpec(spec);
+      if (privateHttp && outputLimitBytes < 1024) return unavailable('PROCESS_PRIVATE_HTTP_OUTPUT_LIMIT', null);
       if (abortSignal?.aborted) {
         return terminalResult({
           terminalStatus: 'cancelled',
@@ -419,13 +641,24 @@ export function createProcessSandboxProvider({
       if (!nodeObservation.ok) return unavailable('PROCESS_SUPERVISOR_RUNTIME_UNAVAILABLE', nodeObservation.reason);
       if (!binaryObservation.ok) return unavailable('PROCESS_BINARY_UNAVAILABLE', binaryObservation.reason);
       if (!rootObservation.ok) return unavailable('PROCESS_PROJECT_ROOT_UNAVAILABLE', rootObservation.reason);
+      if (privateHttp) {
+        try {
+          privateHandles = await openPrivateHttpArtifacts(spec, trustedArtifacts, trustedRelay, abortSignal);
+          hostNamespaces = { user: await readlink('/proc/self/ns/user'), net: await readlink('/proc/self/ns/net') };
+        } catch (error) {
+          if (abortSignal?.aborted || error?.code === 'PROCESS_CANCELLED_BEFORE_START') {
+            return terminalResult({ terminalStatus: 'cancelled', errorCode: 'PROCESS_CANCELLED_BEFORE_START' });
+          }
+          return unavailable(error?.code || 'PROCESS_PRIVATE_HTTP_ARTIFACT_UNAVAILABLE', safeError(error));
+        }
+      }
 
       let child;
       let projectHandle;
       let binaryHandle;
       try {
         projectHandle = await open(spec.projectRoot, fsConstants.O_RDONLY | fsConstants.O_DIRECTORY);
-        binaryHandle = await open(spec.binary, fsConstants.O_RDONLY);
+        binaryHandle = privateHttp ? privateHandles.runtimeExecutable : await open(spec.binary, fsConstants.O_RDONLY);
         const [openedProject, openedBinary, currentProject, currentBinary] = await Promise.all([
           projectHandle.stat(),
           binaryHandle.stat(),
@@ -447,12 +680,13 @@ export function createProcessSandboxProvider({
           shell: false,
           // fd 4 and 5 are the exact project directory and executable inodes.
           // The child gives them to bubblewrap's --ro-bind-fd operations.
-          stdio: ['ignore', 'pipe', 'pipe', 'ipc', projectHandle.fd, binaryHandle.fd],
+          stdio: ['ignore', 'pipe', 'pipe', 'ipc', projectHandle.fd, binaryHandle.fd,
+            ...(privateHttp ? ['launcher', 'ip', 'nft', 'oracle', 'stdioRelay'].map(key => privateHandles[key].fd) : [])],
         });
       } catch (error) {
         return unavailable('PROCESS_SUPERVISOR_SPAWN_FAILED', safeError(error));
       } finally {
-        await Promise.allSettled([projectHandle?.close(), binaryHandle?.close()]);
+        await Promise.allSettled([projectHandle?.close(), ...(privateHttp ? [] : [binaryHandle?.close()])]);
       }
       if (!Number.isSafeInteger(child.pid) || child.pid <= 0) {
         try { child.kill('SIGKILL'); } catch { /* no owned pid */ }
@@ -488,6 +722,7 @@ export function createProcessSandboxProvider({
           closePromise.then(() => { throw new Error('PROCESS_SUPERVISOR_CLOSED_BEFORE_READY'); }),
         ]), handshakeTimeoutMs, 'PROCESS_SUPERVISOR_READY_TIMEOUT');
         supervisorIdentity = await readLinuxSupervisorIdentity(child.pid);
+        if (privateHttp) supervisorIdentity = Object.freeze({ ...supervisorIdentity, sandboxProfile: M2_PRIVATE_HTTP_PROFILE });
         await applyLinuxResourceLimits(child.pid, spec.timeoutMs, prlimitPath);
         await acknowledgeDurableIdentity(recordSupervisorIdentity, supervisorIdentity, recordTimeoutMs);
       } catch (error) {
@@ -535,6 +770,13 @@ export function createProcessSandboxProvider({
       }
 
       try {
+        if (privateHttp) {
+          await checkArtifactHandles(spec, privateHandles, abortSignal);
+          if (await realpath(PRIVATE_HTTP_STDIO_RELAY_PATH) !== trustedRelay.canonicalPath) {
+            throw privateHttpError('PROCESS_PRIVATE_HTTP_STDIO_RELAY_CHANGED');
+          }
+          await checkArtifactHandle(privateHandles.stdioRelay, trustedRelay, true, abortSignal);
+        }
         await new Promise((resolve, reject) => {
           child.send({
             protocol: PROCESS_SUPERVISOR_PROTOCOL,
@@ -549,6 +791,10 @@ export function createProcessSandboxProvider({
               environment: spec.environment,
               projectFd: 4,
               binaryFd: 5,
+              ...(privateHttp ? { sandboxProfile: M2_PRIVATE_HTTP_PROFILE,
+                networkPolicy: spec.networkPolicy, networkPolicyDigest: spec.networkPolicyDigest,
+                hostNamespaces, artifactFds: PRIVATE_HTTP_FDS,
+                stdioRelay: trustedRelay, stdioRelayFd: 10 } : {}),
             },
           }, error => (error ? reject(error) : resolve()));
         });
@@ -561,9 +807,13 @@ export function createProcessSandboxProvider({
         });
         const output = collectedOutputEvidence(stdoutCollector, stderrCollector);
         return terminalResult({
-          terminalStatus: cleanup.groupState === 'empty' && cleanup.childClosed ? 'failed' : 'orphaned',
+          terminalStatus: cleanup.groupState === 'empty' && cleanup.childClosed
+            ? (privateHttp && (abortSignal?.aborted || error?.code === 'PROCESS_CANCELLED_BEFORE_START') ? 'cancelled' : 'failed')
+            : 'orphaned',
           errorCode: cleanup.groupState === 'empty' && cleanup.childClosed
-            ? 'PROCESS_START_HANDSHAKE_FAILED'
+            ? (privateHttp && (abortSignal?.aborted || error?.code === 'PROCESS_CANCELLED_BEFORE_START')
+              ? 'PROCESS_CANCELLED_BEFORE_START'
+              : (privateHttp && typeof error?.code === 'string' ? error.code : 'PROCESS_START_HANDSHAKE_FAILED'))
             : 'PROCESS_START_HANDSHAKE_ORPHANED',
           errorDetail: safeError(error),
           supervisorIdentity,
@@ -684,17 +934,20 @@ export function createProcessSandboxProvider({
           output,
         });
       }
-      const succeeded = message.exitCode === spec.expectedExitCode;
+      const kernelProof = privateHttp ? privateHttpProof(output, spec, hostNamespaces) : null;
+      const succeeded = message.exitCode === spec.expectedExitCode && (!privateHttp || kernelProof !== null);
       return terminalResult({
         terminalStatus: succeeded ? 'succeeded' : 'failed',
-        errorCode: succeeded ? null : 'PROCESS_EXIT_NONZERO',
+        errorCode: succeeded ? null : (privateHttp && message.exitCode === 0 ? 'PROCESS_PRIVATE_HTTP_PROOF_MISSING' : 'PROCESS_EXIT_NONZERO'),
         exitCode: message.exitCode,
         signal: null,
         supervisorIdentity,
         cleanup,
         processGroupState: groupState,
         output,
+        ...(privateHttp ? { kernelProof } : {}),
       });
+      } finally { await closeArtifactHandles(privateHandles); }
     },
   });
 }

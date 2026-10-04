@@ -4,7 +4,7 @@ import {
   computeM2ProjectChangeRequestDigest,
   validateM2ProjectChangeRequest,
   validateM2ProjectChangeResultForRequest,
-} from '../../contracts/m2/execution-v1.js';
+} from '../../contracts/m2/execution-v2.js';
 import { timestampToMs } from '../../contracts/m2/effect-v1.js';
 import {
   canonicalizeM2GovernanceValue,
@@ -16,7 +16,6 @@ import {
   validateM2GovernanceDecision,
   validateM2GovernancePolicySnapshot,
   validateM2GovernanceReceipt,
-  validateM2GovernanceReceiptForDecision,
 } from '../../contracts/m2/governance-v1.js';
 import {
   M2_LIFECYCLE_STATE,
@@ -32,7 +31,8 @@ import {
   validateM2LifecyclePlanSnapshotForDecision,
   validateM2LifecycleTerminalSnapshot,
   validateM2LifecycleTerminalSnapshotForExecution,
-} from '../../contracts/m2/lifecycle-v1.js';
+  validateM2GovernanceReceiptForDecision,
+} from '../../contracts/m2/lifecycle-v2.js';
 import { validateProjectContextSnapshot } from '../../contracts/m2/project-context-v1.js';
 import {
   isIdentifier,
@@ -40,6 +40,7 @@ import {
   validateExactKeys,
 } from '../../contracts/m1/shared.js';
 import { registerM2LifecycleSemanticFunctions } from '../db/migrations/2026_08_24_079_m2_lifecycle_authority.js';
+import { registerM2PrivateHttpSemanticFunctions, validatePrivateHttpDurablePayload } from '../db/migrations/2026_10_04_122_m2_private_http_authority.js';
 
 const GRANT_SET_MAX = 68;
 const EVENT_TYPES = new Set([
@@ -262,6 +263,7 @@ export class M2LifecycleAuthorityRepository {
     this.db = requireDatabase(db);
     this.clock = requireClock(clock);
     registerM2LifecycleSemanticFunctions(this.db);
+    registerM2PrivateHttpSemanticFunctions(this.db);
   }
 
   #now() {
@@ -274,14 +276,22 @@ export class M2LifecycleAuthorityRepository {
 
   #request(executionId) {
     const row = this.db.prepare(`
-      SELECT request_json AS requestJson FROM m2_execution_requests WHERE execution_id = ?
+      SELECT * FROM m2_execution_requests WHERE execution_id = ?
     `).get(executionId);
     if (!row) return null;
     try {
-      const request = JSON.parse(row.requestJson);
+      const request = JSON.parse(row.request_json);
       const validation = validateM2ProjectChangeRequest(request);
-      if (!validation.valid || canonicalizeM2ExecutionValue(request) !== row.requestJson) {
+      if (!validation.valid || canonicalizeM2ExecutionValue(request) !== row.request_json) {
         throw new Error(`ProjectChangeRequest invalid: ${validation.errors.join(',')}`);
+      }
+      if (request.version === 2) {
+        if (request.executionId !== row.execution_id || request.runId !== row.run_id
+          || request.project.projectId !== row.project_id || request.project.workspaceRevision !== row.workspace_revision
+          || request.authoritySetDigest !== row.authority_set_digest
+          || computeM2ProjectChangeRequestDigest(request) !== row.request_digest) throw new Error('Stored V2 request identity invalid');
+        const effect = this.db.prepare('SELECT request_json FROM m2_effect_requests WHERE effect_id = ?').get(request.focusedTest.authority.effectId);
+        if (!effect || !validatePrivateHttpDurablePayload(request, JSON.parse(effect.request_json), row.focused_process_payload)) throw new Error('Stored V2 focused payload invalid');
       }
       return Object.freeze(request);
     } catch (error) {
@@ -919,7 +929,7 @@ export class M2LifecycleAuthorityRepository {
       }
     } else {
       const row = this.db.prepare(`
-        SELECT m2_lifecycle_terminal_valid_v1(
+        SELECT m2_lifecycle_terminal_valid_current(
           operation.plan_json, approval.intent_json, request.request_json,
           operation.context_snapshot_json, result.result_json,
           operation.decision_json, receipt.receipt_json, ?, ?

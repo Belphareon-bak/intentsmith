@@ -229,6 +229,7 @@ import { setSkillEffectAuthority } from './skills/runner.js';
 import { skillM2EffectAuthority } from './skills/m2-effect-authority.js';
 import { creDecisionEngine } from './chat/cre-decision.js';
 import { toolRegistry } from './tools/registry.js';
+import { processProviderFromTrustedPrivateHttpConfig } from './execution/private-http-config.js';
 import {
   createDefaultM2LifecycleApplicationService,
   createM2LifecycleApprovalPort,
@@ -1042,7 +1043,9 @@ const routeDeps = {
 // M2 small-project-change is the only effect-capable lifecycle surface. The
 // route overlay below also retires legacy mutators, so construct and census its
 // durable authority before accepting HTTP commands.
+const m2ProcessProvider = await processProviderFromTrustedPrivateHttpConfig(process.env.INTENTSMITH_M2_PRIVATE_HTTP_CONFIG);
 const m2LifecycleService = createDefaultM2LifecycleApplicationService({
+  processProvider: m2ProcessProvider,
   database: db.db,
   projects: db.projects,
   scmCommitMode: projectId => scmService.policy(projectId).commit,

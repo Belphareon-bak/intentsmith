@@ -4,6 +4,7 @@
 import { config } from '../config.js';
 import { logger } from '../core/logger.js';
 import { runMigrations } from './migrate.js';
+import { registerM2PrivateHttpSemanticFunctions } from './migrations/2026_10_04_122_m2_private_http_authority.js';
 import { registerConversationWebWriter } from '../network/conversation-web-repository.js';
 import { requireConfiguredDatabasePath } from './database-path.js';
 import { LearningAuthorityRepository } from '../memory/learning-authority-repository.js';
@@ -159,6 +160,7 @@ logger.info('DB', 'Database initialized', { path: dbPath });
 // No more inline CREATE TABLE or ALTER TABLE in this file.
 
 await runMigrations(db);
+registerM2PrivateHttpSemanticFunctions(db);
 
 // M4: one durable same-project learning authority. Construction re-registers
 // the deterministic SQLite validators needed after every process restart.

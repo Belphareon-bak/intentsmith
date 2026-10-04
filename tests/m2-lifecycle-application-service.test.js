@@ -1723,4 +1723,173 @@ await testAsync('default CODE32k keeps complete sources beyond the old16k guard 
   assert.ok(evidence.receipts.every(item => item.noSourceWritesOrCommit === true));
 }, 60_000);
 
+// Controlled V2 acceptance-boundary regressions. Artifact identities and the
+// provider are fixtures; these cases make no native, network or kernel claim.
+const {
+  computeM2PrivateHttpNetworkPolicyDigest, computeM2PrivateHttpNftRulesDigest,
+  M2_PRIVATE_HTTP_SECCOMP_DIGEST,
+} = await import('../contracts/m2/execution-v2.js');
+const { up: applyPrivateHttpAuthority } = await import('../src/db/migrations/2026_10_04_122_m2_private_http_authority.js');
+const { up: applyApprovalListIndex } = await import('../src/db/migrations/2026_08_29_106_m7_m2_approval_list_index.js');
+
+function openPrivateHttpDatabase(databasePath = ':memory:') {
+  const db = openDatabase(databasePath);
+  applyApprovalListIndex(db);
+  db.transaction(() => applyPrivateHttpAuthority(db))();
+  return db;
+}
+function privateHttpProposal() {
+  const artifact = (canonicalPath, inode) => ({ canonicalPath, bytes: 1234,
+    digest: sha(Buffer.from(String(inode))), device: '2049', inode: String(inode) });
+  const networkPolicy = { contract: 'M2PrivateHttpNetworkPolicy', version: 1,
+    profile: 'linux-bwrap-private-loopback-v1', architecture: 'x64',
+    endpoint: { family: 'ipv4', transport: 'tcp', address: '127.0.0.1', port: 18080 },
+    minimumLandlockAbi: 4, nftRulesDigest: computeM2PrivateHttpNftRulesDigest(18080),
+    seccompProgramDigest: M2_PRIVATE_HTTP_SECCOMP_DIGEST,
+    artifacts: { launcher: artifact('/trusted/launcher', 1), ip: artifact('/usr/bin/ip', 2),
+      nft: artifact('/usr/sbin/nft', 3), runtimeExecutable: artifact(process.execPath, 4),
+      oracle: artifact('/trusted/oracle.mjs', 5) } };
+  const value = proposal({ commit: false });
+  Object.assign(value.focusedTest, { binary: process.execPath,
+    argv: [networkPolicy.artifacts.oracle.canonicalPath, 'src/app.js', '/tmp/private.sqlite', '18080'],
+    environment: {}, sandboxProfile: networkPolicy.profile, networkPolicy,
+    networkPolicyDigest: computeM2PrivateHttpNetworkPolicyDigest(networkPolicy) });
+  return value;
+}
+function controlledPrivateHttpProvider(root, db, focusedTest, refusedPreflight = 0) {
+  const calls = [];
+  const emptyDigest = sha(Buffer.alloc(0));
+  return { calls,
+    async preflight(input) {
+      calls.push({ stage: 'preflight', bytes: fs.readFileSync(path.join(root, 'src/app.js')),
+        requests: db.prepare('SELECT count(*) AS n FROM m2_execution_requests').get().n });
+      assert.deepEqual(input.environment, {});
+      assert.deepEqual(input.networkPolicy, focusedTest.networkPolicy);
+      assert.equal(input.networkPolicyDigest, focusedTest.networkPolicyDigest);
+      if (calls.filter(call => call.stage === 'preflight').length === refusedPreflight) {
+        throw Object.assign(new Error('controlled trusted-artifact drift'), { code: 'PROCESS_PRIVATE_HTTP_ARTIFACT_CHANGED' });
+      }
+      return { sandboxProfile: input.sandboxProfile, networkPolicyDigest: input.networkPolicyDigest,
+        artifacts: input.networkPolicy.artifacts };
+    },
+    async run(input, { recordSupervisorIdentity }) {
+      await recordSupervisorIdentity({ pid: 8199, processGroupId: 8199,
+        bootId: '11111111-1111-4111-8111-111111111111', startIdentity: '999' });
+      calls.push({ stage: 'run', bytes: fs.readFileSync(path.join(root, 'src/app.js')) });
+      return { state: 'terminal', terminalStatus: 'succeeded', errorCode: null,
+        exitCode: 0, signal: null, processGroupState: 'empty',
+        supervisorIdentity: { supervisorPid: 8199, supervisorPgid: 8199,
+          supervisorBootId: '11111111-1111-4111-8111-111111111111', supervisorStartIdentity: '999' },
+        cleanup: { groupState: 'empty', childClosed: true }, stdout: '', stderr: '',
+        stdoutDigest: emptyDigest, stderrDigest: emptyDigest, outputTruncated: false,
+        sandboxProfile: input.sandboxProfile, networkPolicyDigest: input.networkPolicyDigest, kernelProof: null };
+    },
+    execute() { assert.fail('V2 must never use the legacy execute fallback'); },
+  };
+}
+
+await testAsync('V2 controlled service preflights full policy before authority, denies stale approval and preserves exact result after reopen', async () => {
+  const root = makeProject();
+  const authorityDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'intentsmith-m2-http-authority-'));
+  const databasePath = path.join(authorityDirectory, 'authority.sqlite');
+  let db = openPrivateHttpDatabase(databasePath);
+  const value = privateHttpProposal(), clock = makeClock();
+  const provider = controlledPrivateHttpProvider(root, db, value.focusedTest);
+  let service = createService(db, root, clock, { processProvider: provider });
+  try {
+    await service.recoverIncompleteSmallProjectChanges();
+    const beforeBytes = fs.readFileSync(path.join(root, 'src/app.js'));
+    const beforeHead = git(root, ['rev-parse', 'HEAD']);
+    const pending = await prepare(service, value);
+    assert.equal(pending.plan.version, 2);
+    assert.equal(pending.state, 'awaiting_approval');
+    assert.deepEqual(pending.plan.focusedTest.networkPolicy, value.focusedTest.networkPolicy);
+    assert.deepEqual(pending.diff[0].before.content, beforeBytes.toString('utf8'));
+    assert.equal(pending.diff[0].after.content, value.changes[0].afterContent);
+    assert.equal(provider.calls.length, 1);
+    assert.equal(provider.calls[0].requests, 0);
+    assert.deepEqual(provider.calls[0].bytes, beforeBytes);
+    const row = db.prepare('SELECT request_json, focused_process_payload FROM m2_execution_requests').get();
+    assert.equal(JSON.parse(row.request_json).version, 2);
+    assert.deepEqual(JSON.parse(row.focused_process_payload).networkPolicy, value.focusedTest.networkPolicy);
+    assert.deepEqual(JSON.parse(row.focused_process_payload).environment, {});
+    assert.equal(db.prepare('SELECT count(*) AS n FROM m2_approval_grants').get().n, 0);
+    assert.equal(db.prepare('SELECT count(*) AS n FROM m2_effect_results').get().n, 0);
+    await assert.rejects(service.approveSmallProjectChange({ authenticatedSubject: SUBJECT,
+      lifecycleId: pending.lifecycleId, origin: ORIGIN, planDigest: sha(Buffer.alloc(0)) }),
+    { code: M2LifecycleServiceErrorCode.PLAN_DIGEST_MISMATCH });
+    assert.equal(provider.calls.length, 1);
+    assert.equal(db.prepare('SELECT count(*) AS n FROM m2_approval_grants').get().n, 0);
+    assert.deepEqual(fs.readFileSync(path.join(root, 'src/app.js')), beforeBytes);
+    assert.equal(git(root, ['rev-parse', 'HEAD']), beforeHead);
+    assert.equal(git(root, ['status', '--porcelain=v1']), '');
+    const completed = await service.approveSmallProjectChange({ authenticatedSubject: SUBJECT,
+      lifecycleId: pending.lifecycleId, origin: ORIGIN, planDigest: pending.planDigest });
+    assert.equal(completed.state, 'succeeded', JSON.stringify(completed.result));
+    assert.equal(completed.result.version, 2);
+    assert.equal(completed.result.focusedTest.networkPolicyDigest, value.focusedTest.networkPolicyDigest);
+    assert.equal(completed.terminal.version, 1);
+    assert.deepEqual(provider.calls.map(call => call.stage), ['preflight', 'preflight', 'run']);
+    assert.deepEqual(provider.calls[1].bytes, beforeBytes, 'second preflight precedes the first project write');
+    assert.equal(provider.calls[2].bytes.toString('utf8'), value.changes[0].afterContent);
+    db.close(); db = openPrivateHttpDatabase(databasePath);
+    service = createService(db, root, clock, {
+      processProvider: controlledPrivateHttpProvider(root, db, value.focusedTest) });
+    await service.recoverIncompleteSmallProjectChanges();
+    const restored = service.getSmallProjectChangeStatus({ authenticatedSubject: SUBJECT,
+      lifecycleId: pending.lifecycleId, origin: ORIGIN });
+    assert.equal(restored.state, 'succeeded');
+    assert.deepEqual(restored.result, completed.result);
+    assert.deepEqual(restored.terminal, completed.terminal);
+    assert.deepEqual(restored.plan.focusedTest.networkPolicy, value.focusedTest.networkPolicy);
+  } finally {
+    if (db.open) db.close();
+    fs.rmSync(root, { recursive: true, force: true });
+    fs.rmSync(authorityDirectory, { recursive: true, force: true });
+  }
+});
+
+await testAsync('V2 controlled prepare refusal creates no authority, grant, write or commit', async () => {
+  const root = makeProject(), db = openPrivateHttpDatabase();
+  const value = privateHttpProposal();
+  const provider = controlledPrivateHttpProvider(root, db, value.focusedTest, 1);
+  try {
+    const service = createService(db, root, makeClock(), { processProvider: provider });
+    await service.recoverIncompleteSmallProjectChanges();
+    const beforeBytes = fs.readFileSync(path.join(root, 'src/app.js'));
+    const beforeHead = git(root, ['rev-parse', 'HEAD']);
+    await assert.rejects(prepare(service, value), { code: 'PROCESS_PRIVATE_HTTP_ARTIFACT_CHANGED' });
+    for (const table of ['m2_execution_requests', 'm2_lifecycle_operations', 'm2_effect_requests', 'm2_approval_grants']) {
+      assert.equal(db.prepare(`SELECT count(*) AS n FROM ${table}`).get().n, 0, table);
+    }
+    assert.deepEqual(provider.calls.map(call => call.stage), ['preflight']);
+    assert.deepEqual(fs.readFileSync(path.join(root, 'src/app.js')), beforeBytes);
+    assert.equal(git(root, ['rev-parse', 'HEAD']), beforeHead);
+    assert.equal(git(root, ['status', '--porcelain=v1']), '');
+  } finally { db.close(); fs.rmSync(root, { recursive: true, force: true }); }
+});
+
+await testAsync('V2 controlled postapproval preflight refusal stops before file mutation and never falls back to legacy execute', async () => {
+  const root = makeProject(), db = openPrivateHttpDatabase();
+  const value = privateHttpProposal();
+  const provider = controlledPrivateHttpProvider(root, db, value.focusedTest, 2);
+  try {
+    const service = createService(db, root, makeClock(), { processProvider: provider });
+    await service.recoverIncompleteSmallProjectChanges();
+    const beforeBytes = fs.readFileSync(path.join(root, 'src/app.js'));
+    const beforeHead = git(root, ['rev-parse', 'HEAD']);
+    const pending = await prepare(service, value);
+    const completed = await service.approveSmallProjectChange({ authenticatedSubject: SUBJECT,
+      lifecycleId: pending.lifecycleId, origin: ORIGIN, planDigest: pending.planDigest });
+    assert.equal(completed.state, 'failed');
+    assert.equal(completed.result.version, 2);
+    assert.equal(completed.result.focusedTest.sandboxProfile, value.focusedTest.sandboxProfile);
+    assert.equal(completed.result.focusedTest.networkPolicyDigest, value.focusedTest.networkPolicyDigest);
+    assert.deepEqual(provider.calls.map(call => call.stage), ['preflight', 'preflight']);
+    assert.deepEqual(fs.readFileSync(path.join(root, 'src/app.js')), beforeBytes);
+    assert.equal(git(root, ['rev-parse', 'HEAD']), beforeHead);
+    assert.equal(git(root, ['status', '--porcelain=v1']), '');
+  } finally { db.close(); fs.rmSync(root, { recursive: true, force: true }); }
+});
+
 summary();

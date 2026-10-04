@@ -37,6 +37,40 @@ function validateView(view, lifecycleId, expectedOrigin, expectedDigest = null) 
     || view.plan.identity.lifecycleId !== lifecycleId || !sameOrigin(view.plan.origin, expectedOrigin)) {
     throw new Error('Server vrátil neúplný nebo cizí M2 status.');
   }
+  if (![1, 2].includes(view.plan.version) || (view.result && (view.result.version !== view.plan.version
+    || (view.result.version === 1 && ['sandboxProfile', 'networkPolicy', 'networkPolicyDigest'].some(key => Object.hasOwn(view.result.focusedTest || {}, key)))))) {
+    throw new Error('Server vrátil neznámou nebo smíšenou verzi M2 plánu a výsledku.');
+  }
+  const focusedPolicy = view.plan.focusedTest;
+  const hasPrivateFields = record(focusedPolicy) && ['networkPolicy', 'networkPolicyDigest'].some(key => Object.hasOwn(focusedPolicy, key));
+  if (view.plan.version === 2 || hasPrivateFields || focusedPolicy?.sandboxProfile === 'linux-bwrap-private-loopback-v1') {
+    const policy = focusedPolicy?.networkPolicy;
+    const keys = ['launcher', 'ip', 'nft', 'runtimeExecutable', 'oracle'];
+    if (view.plan.version !== 2 || focusedPolicy?.sandboxProfile !== 'linux-bwrap-private-loopback-v1'
+      || !DIGEST.test(focusedPolicy?.networkPolicyDigest) || !record(policy)
+      || policy.contract !== 'M2PrivateHttpNetworkPolicy' || policy.version !== 1
+      || policy.profile !== focusedPolicy.sandboxProfile || policy.architecture !== 'x64'
+      || policy.minimumLandlockAbi !== 4 || !DIGEST.test(policy.nftRulesDigest) || !DIGEST.test(policy.seccompProgramDigest)
+      || !record(policy.endpoint) || policy.endpoint.family !== 'ipv4' || policy.endpoint.transport !== 'tcp'
+      || policy.endpoint.address !== '127.0.0.1' || !Number.isSafeInteger(policy.endpoint.port)
+      || policy.endpoint.port < 1024 || policy.endpoint.port > 65535 || !record(policy.artifacts)
+      || Object.keys(policy.artifacts).length !== keys.length
+      || keys.some(key => !record(policy.artifacts[key]) || typeof policy.artifacts[key].canonicalPath !== 'string'
+        || !policy.artifacts[key].canonicalPath.startsWith('/') || !DIGEST.test(policy.artifacts[key].digest)
+        || !Number.isSafeInteger(policy.artifacts[key].bytes) || policy.artifacts[key].bytes < 1
+        || !/^(?:0|[1-9][0-9]{0,19})$/.test(policy.artifacts[key].device)
+        || !/^[1-9][0-9]{0,19}$/.test(policy.artifacts[key].inode))
+      || focusedPolicy.binary !== policy.artifacts.runtimeExecutable.canonicalPath
+      || focusedPolicy.argv?.[0] !== policy.artifacts.oracle.canonicalPath) {
+      throw new Error('Server nevrátil úplný soukromý HTTP profil pro přesné schválení.');
+    }
+    if (view.result && (view.result.version !== 2 || !record(view.result.focusedTest)
+      || !['effectId', 'terminalStatus', 'exitCode', 'signal', 'stdoutDigest', 'stderrDigest', 'outputTruncated', 'sandboxProfile', 'networkPolicyDigest'].every(key => Object.hasOwn(view.result.focusedTest, key))
+      || view.result.focusedTest?.sandboxProfile !== focusedPolicy.sandboxProfile
+      || view.result.focusedTest?.networkPolicyDigest !== focusedPolicy.networkPolicyDigest)) {
+      throw new Error('M2 výsledek neodpovídá schválenému HTTP profilu.');
+    }
+  }
   if (view.state === 'awaiting_approval') {
     const changes = view.plan.changes;
     const diff = view.diff;

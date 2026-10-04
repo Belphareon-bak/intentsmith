@@ -7,9 +7,11 @@ import {
   validateM2ProjectChangeRequest,
   validateM2ProjectChangeResult,
   validateM2ProjectChangeResultForRequest,
-} from '../../contracts/m2/execution-v1.js';
+  encodeM2PrivateHttpProcessPayload,
+} from '../../contracts/m2/execution-v2.js';
 import { timestampToMs } from '../../contracts/m2/effect-v1.js';
 import { registerM2ExecutionSemanticFunctions } from '../db/migrations/2026_08_24_078_m2_execution_authority.js';
+import { registerM2PrivateHttpSemanticFunctions, validatePrivateHttpDurablePayload } from '../db/migrations/2026_10_04_122_m2_private_http_authority.js';
 
 export const ExecutionAuthorityErrorCode = Object.freeze({
   INPUT_INVALID: 'EXECUTION_AUTHORITY_INPUT_INVALID',
@@ -148,6 +150,7 @@ export class ExecutionAuthorityRepository {
     this.db = requireDatabase(db);
     this.clock = requireClock(clock);
     registerM2ExecutionSemanticFunctions(this.db);
+    registerM2PrivateHttpSemanticFunctions(this.db);
   }
 
   #now() {
@@ -158,7 +161,7 @@ export class ExecutionAuthorityRepository {
     return value;
   }
 
-  registerProjectChange(requestValue, { files, git = null } = {}) {
+  registerProjectChange(requestValue, { files, git = null, focusedEnvironment = null } = {}) {
     const request = requireValid(
       requestValue,
       validateM2ProjectChangeRequest,
@@ -169,6 +172,15 @@ export class ExecutionAuthorityRepository {
         ExecutionAuthorityErrorCode.INPUT_INVALID,
         'Durable before/after bytes are required for every declared change',
       );
+    }
+    let focusedPayload = null;
+    if (request.version === 2) {
+      try {
+        focusedPayload = encodeM2PrivateHttpProcessPayload(request.focusedTest, focusedEnvironment);
+        const row = this.db.prepare('SELECT request_json FROM m2_effect_requests WHERE effect_id = ?')
+          .get(request.focusedTest.authority.effectId);
+        if (!row || !validatePrivateHttpDurablePayload(request, JSON.parse(row.request_json), focusedPayload)) throw new Error('focused authority mismatch');
+      } catch (error) { fail(ExecutionAuthorityErrorCode.INPUT_INVALID, 'Exact durable focused V2 payload is required', { cause: error.message }); }
     }
     const encoded = canonicalizeM2ExecutionValue(request);
     const requestDigest = computeM2ProjectChangeRequestDigest(request);
@@ -210,10 +222,11 @@ export class ExecutionAuthorityRepository {
     try {
       return immediate(this.db, () => {
         const existing = this.db.prepare(`
-          SELECT request_json FROM m2_execution_requests WHERE execution_id = ?
+          SELECT * FROM m2_execution_requests WHERE execution_id = ?
         `).get(request.executionId);
         if (existing) {
-          if (existing.request_json !== encoded) {
+          if (existing.request_json !== encoded
+            || (request.version === 2 && (!Buffer.isBuffer(existing.focused_process_payload) || !existing.focused_process_payload.equals(focusedPayload)))) {
             fail(
               ExecutionAuthorityErrorCode.REQUEST_CONFLICT,
               'Execution identity is already bound to different request bytes',
@@ -258,8 +271,8 @@ export class ExecutionAuthorityRepository {
         this.db.prepare(`
           INSERT INTO m2_execution_requests (
             execution_id, run_id, project_id, request_digest, workspace_revision,
-            authority_set_digest, request_json, created_at_ms
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            authority_set_digest, request_json, created_at_ms${request.version === 2 ? ", focused_process_payload" : ""}
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?${request.version === 2 ? ", ?" : ""})
         `).run(
           request.executionId,
           request.runId,
@@ -269,6 +282,7 @@ export class ExecutionAuthorityRepository {
           request.authoritySetDigest,
           encoded,
           requireTimestamp(request.createdAt, 'ProjectChangeRequest.createdAt'),
+          ...(request.version === 2 ? [focusedPayload] : []),
         );
 
         if (request.gitCommit !== null) {
@@ -354,10 +368,24 @@ export class ExecutionAuthorityRepository {
         && request.authoritySetDigest === row.authority_set_digest
         && computeM2ProjectChangeRequestDigest(request) === row.request_digest;
       if (!exact) throw new Error(`stored request invalid: ${validation.errors.join(',')}`);
+      if (request.version === 2) {
+        if (canonicalizeM2ExecutionValue(request) !== row.request_json) throw new Error('stored V2 request encoding invalid');
+        const effect = this.db.prepare('SELECT request_json FROM m2_effect_requests WHERE effect_id = ?').get(request.focusedTest.authority.effectId);
+        if (!effect || !validatePrivateHttpDurablePayload(request, JSON.parse(effect.request_json), row.focused_process_payload)) {
+          throw new Error('stored V2 focused payload invalid');
+        }
+      }
       return Object.freeze(request);
     } catch (error) {
       storageFailure('request read', error);
     }
+  }
+
+  getFocusedProcessPayload(executionId) {
+    const request = this.getProjectChangeRequest(executionId);
+    if (!request || request.version !== 2) return null;
+    const row = this.db.prepare('SELECT focused_process_payload FROM m2_execution_requests WHERE execution_id = ?').get(executionId);
+    return Buffer.from(row.focused_process_payload);
   }
 
   getFileMaterial(executionId) {

@@ -6,9 +6,12 @@ import {
 } from '../../contracts/m2/effect-v1.js';
 import {
   M2_EXECUTION_CONTRACT_KIND,
+  validateM2ProjectChangeRequest,
+  validateM2ProjectChangeResultForRequest,
+  validateM2PrivateHttpProcessEffectForRequest,
   computeM2ExecutionValueDigest,
   computeM2ProjectChangeRequestDigest,
-} from '../../contracts/m2/execution-v1.js';
+} from '../../contracts/m2/execution-v2.js';
 import {
   deleteProjectFileDurable,
   readProjectFileBytes,
@@ -26,6 +29,8 @@ export const ProjectChangeRuntimeErrorCode = Object.freeze({
   TEST_CANCELLED: 'PROJECT_CHANGE_TEST_CANCELLED',
   TEST_TIMED_OUT: 'PROJECT_CHANGE_TEST_TIMED_OUT',
   TEST_ORPHANED: 'PROJECT_CHANGE_TEST_ORPHANED',
+  PRIVATE_HTTP_UNAVAILABLE: 'PROJECT_CHANGE_PRIVATE_HTTP_UNAVAILABLE',
+  PRIVATE_HTTP_POLICY_MISMATCH: 'PROJECT_CHANGE_PRIVATE_HTTP_POLICY_MISMATCH',
   GIT_FAILED: 'PROJECT_CHANGE_GIT_FAILED',
   ROLLBACK_FAILED: 'PROJECT_CHANGE_ROLLBACK_FAILED',
   RECOVERY_REQUIRED: 'PROJECT_CHANGE_RECOVERY_REQUIRED',
@@ -204,7 +209,7 @@ function parentResult({
 }) {
   return {
     contract: M2_EXECUTION_CONTRACT_KIND.RESULT,
-    version: 1,
+    version: request.version,
     executionId: request.executionId,
     requestDigest: computeM2ProjectChangeRequestDigest(request),
     runId: request.runId,
@@ -243,6 +248,10 @@ function notStartedFocused(request) {
     stdoutDigest: null,
     stderrDigest: null,
     outputTruncated: false,
+    ...(request.version === 2 ? {
+      sandboxProfile: request.focusedTest.sandboxProfile,
+      networkPolicyDigest: request.focusedTest.networkPolicyDigest,
+    } : {}),
   };
 }
 
@@ -254,6 +263,25 @@ function initialGit(request) {
     commitId: null,
     foreignDirtPreserved: true,
   };
+}
+
+// Validate provider/recovery evidence with the same pure request/result contract.
+// The failed candidate is validation-only; it is never persisted or treated as authority.
+function privateHttpFocusedValid(request, focused) {
+  try {
+    return validateM2ProjectChangeResultForRequest(request, parentResult({
+      request, generation: 1, startedAt: request.createdAt, completedAt: request.createdAt,
+      terminalStatus: 'failed', changedPaths: [], afterRevision: null, focusedTest: focused,
+      git: initialGit(request),
+      rollback: { required: false, status: 'not_required', paths: [], evidenceRef: null },
+      errorCode: ProjectChangeRuntimeErrorCode.PRIVATE_HTTP_POLICY_MISMATCH,
+      evidenceRefs: [`execution:${request.executionId}:focused-validation`],
+    })).valid;
+  } catch { return false; }
+}
+
+function privateHttpProcessSpec(request, environment) {
+  return { ...request.focusedTest, projectRoot: request.project.canonicalRoot, environment };
 }
 
 async function rollbackApplied({
@@ -362,7 +390,8 @@ function recoveredFocusedEvidence(request, executionRepository, effectRepository
     || focused.signal !== null
     || typeof focused.stdoutDigest !== 'string'
     || typeof focused.stderrDigest !== 'string'
-    || typeof focused.outputTruncated !== 'boolean') {
+    || typeof focused.outputTruncated !== 'boolean'
+    || (request.version === 2 && !privateHttpFocusedValid(request, focused))) {
     return null;
   }
   return Object.freeze({ ...focused });
@@ -749,6 +778,12 @@ export async function executeProjectChange({
   if (terminal) return terminal;
   const request = executionRepository.getProjectChangeRequest(executionId);
   if (!request) fail(ProjectChangeRuntimeErrorCode.INPUT_INVALID, 'Execution request does not exist');
+  if (request.version !== 1 && (request.version !== 2 || !validateM2ProjectChangeRequest(request).valid)) {
+    fail(ProjectChangeRuntimeErrorCode.INPUT_INVALID, 'Execution request version/policy is invalid');
+  }
+  if (request.version === 2 && focusedEnvironment !== null && typeof focusedEnvironment === 'object') {
+    focusedEnvironment = Object.freeze({ ...focusedEnvironment });
+  }
   const startedAt = timestamp(clock);
   const claim = executionRepository.acquireClaim({ executionId, owner, liveness });
   const steps = executionRepository.getSteps(executionId);
@@ -927,6 +962,33 @@ export async function executeProjectChange({
     return result;
   };
 
+  if (request.version === 2) {
+    try {
+      if (signal?.aborted) throw Object.assign(new Error('cancelled before preflight'), { code: 'PROCESS_CANCELLED_BEFORE_START' });
+      if (typeof processProvider.run !== 'function' || typeof processProvider.preflight !== 'function'
+        || typeof executionRepository.getFocusedProcessPayload !== 'function') {
+        fail(ProjectChangeRuntimeErrorCode.PRIVATE_HTTP_UNAVAILABLE, 'Private HTTP requires its provider and stored payload');
+      }
+      const processEffect = effectRepository.getEffectRequest(request.focusedTest.authority.effectId);
+      const payload = executionRepository.getFocusedProcessPayload(executionId);
+      const validation = validateM2PrivateHttpProcessEffectForRequest(request, processEffect, payload, focusedEnvironment);
+      if (!validation.valid) fail(ProjectChangeRuntimeErrorCode.AUTHORITY_INCOMPLETE, 'Stored private HTTP payload differs from authority', { errors: validation.errors });
+      const observation = await processProvider.preflight(privateHttpProcessSpec(request, focusedEnvironment), { signal });
+      if (signal?.aborted) throw Object.assign(new Error('cancelled during preflight'), { code: 'PROCESS_CANCELLED_BEFORE_START' });
+      if (!observation || observation.sandboxProfile !== request.focusedTest.sandboxProfile
+        || observation.networkPolicyDigest !== request.focusedTest.networkPolicyDigest
+        || computeM2ExecutionValueDigest(observation.artifacts ?? null) !== computeM2ExecutionValueDigest(request.focusedTest.networkPolicy.artifacts)) {
+        fail(ProjectChangeRuntimeErrorCode.PRIVATE_HTTP_POLICY_MISMATCH, 'Preflight returned different private HTTP artifacts/policy');
+      }
+    } catch (error) {
+      const cancelled = signal?.aborted || error?.code === 'PROCESS_CANCELLED_BEFORE_START';
+      stop = { status: cancelled ? 'cancelled' : 'failed', code: cancelled
+        ? ProjectChangeRuntimeErrorCode.TEST_CANCELLED
+        : typeof error?.code === 'string' ? error.code : ProjectChangeRuntimeErrorCode.AUTHORITY_INCOMPLETE };
+      return finishStopped();
+    }
+  }
+
   for (const file of material) {
     const change = request.changes[file.ordinal];
     const currentObservation = observeProjectImage(request.project.canonicalRoot, file.path);
@@ -1061,6 +1123,10 @@ export async function executeProjectChange({
           environmentDigest: request.focusedTest.environmentDigest,
           timeoutMs: request.focusedTest.timeoutMs,
           expectedExitCode: request.focusedTest.expectedExitCode,
+          ...(request.version === 2 ? {
+            networkPolicy: request.focusedTest.networkPolicy,
+            networkPolicyDigest: request.focusedTest.networkPolicyDigest,
+          } : {}),
         }, {
           recordSupervisorIdentity: recordSupervisor,
           signal,
@@ -1082,7 +1148,32 @@ export async function executeProjectChange({
         terminalStatus: 'failed', exitCode: null, signal: null,
         stdoutDigest: null, stderrDigest: null, outputTruncated: false,
         lateCompletionRejected: false, errorCode: error?.code || 'PROCESS_UNAVAILABLE',
+        ...(request.version === 2 ? {
+          terminalStatus: signal?.aborted || error?.code === 'PROCESS_CANCELLED_BEFORE_START' ? 'cancelled' : 'failed',
+          sandboxProfile: request.focusedTest.sandboxProfile,
+          networkPolicyDigest: request.focusedTest.networkPolicyDigest,
+        } : {}),
       };
+    }
+    let privateHttpOutcomeRejected = false;
+    if (request.version === 2 && !privateHttpFocusedValid(request, {
+      effectId: processRequest.effectId, terminalStatus: processOutcome?.terminalStatus,
+      exitCode: processOutcome?.exitCode, signal: processOutcome?.signal,
+      stdoutDigest: processOutcome?.stdoutDigest, stderrDigest: processOutcome?.stderrDigest,
+      outputTruncated: processOutcome?.outputTruncated, sandboxProfile: processOutcome?.sandboxProfile,
+      networkPolicyDigest: processOutcome?.networkPolicyDigest,
+    })) {
+      privateHttpOutcomeRejected = true;
+      // Retain group/cleanup evidence: a malformed reply cannot prove a group empty.
+      processOutcome = { ...processOutcome,
+        terminalStatus: processOutcome?.terminalStatus === 'orphaned' ? 'orphaned' : 'failed',
+        exitCode: null, signal: null, stdoutDigest: null, stderrDigest: null, outputTruncated: false,
+        sandboxProfile: request.focusedTest.sandboxProfile, networkPolicyDigest: request.focusedTest.networkPolicyDigest,
+        errorCode: ProjectChangeRuntimeErrorCode.PRIVATE_HTTP_POLICY_MISMATCH,
+      };
+    }
+    if (request.version === 2 && signal?.aborted && processOutcome.terminalStatus === 'succeeded') {
+      processOutcome = { ...processOutcome, terminalStatus: 'cancelled', lateCompletionRejected: true };
     }
     const terminationProven = recordedProcess ? processTerminationProven(processOutcome) : true;
     const effectiveProcessStatus = recordedProcess && !terminationProven
@@ -1096,6 +1187,10 @@ export async function executeProjectChange({
       stdoutDigest: processOutcome.stdoutDigest,
       stderrDigest: processOutcome.stderrDigest,
       outputTruncated: processOutcome.outputTruncated,
+      ...(request.version === 2 ? {
+        sandboxProfile: processOutcome.sandboxProfile,
+        networkPolicyDigest: processOutcome.networkPolicyDigest,
+      } : {}),
     };
     const processTerminal = terminalForProcess(effectiveProcessStatus);
     const processCompletedAt = timestamp(clock);
@@ -1150,7 +1245,8 @@ export async function executeProjectChange({
         orphaned: ['orphaned', ProjectChangeRuntimeErrorCode.TEST_ORPHANED],
       };
       const [status, code] = mapping[effectiveProcessStatus]
-        ?? ['failed', ProjectChangeRuntimeErrorCode.TEST_FAILED];
+        ?? ['failed', privateHttpOutcomeRejected
+          ? ProjectChangeRuntimeErrorCode.PRIVATE_HTTP_POLICY_MISMATCH : ProjectChangeRuntimeErrorCode.TEST_FAILED];
       stop = { status, code };
     }
   }

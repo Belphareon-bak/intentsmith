@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 594
+- Runnable programs: 596
 - Explicit support-module exclusions: 35
-- Profiles: offline=321, database=87, server=64, model=86, soak=16, manual=20
-- States: ACTIVE=496, HISTORICAL=15, BLOCKED=83
+- Profiles: offline=323, database=87, server=64, model=86, soak=16, manual=20
+- States: ACTIVE=498, HISTORICAL=15, BLOCKED=83
 
 ## Execution profiles
 
@@ -370,6 +370,8 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-M2-LIFECYCLE-STUDIO-SURFACE-TEST` | `tests/m2-lifecycle-studio-surface.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
 | `IS-T1-TESTS-M2-LIFECYCLE-SURFACE-RETIREMENT-TEST` | `tests/m2-lifecycle-surface-retirement.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
 | `IS-T1-TESTS-M2-NEGOTIATED-LIFECYCLE-QUARANTINE-TEST` | `tests/m2-negotiated-lifecycle-quarantine.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
+| `IS-T1-TESTS-M2-PRIVATE-HTTP-CONTRACT-TEST` | `tests/m2-private-http-contract.test.js` | `C3-011` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M2-PRIVATE-HTTP-EXECUTION-20261004 |
+| `IS-T1-TESTS-M2-PRIVATE-HTTP-STARTUP-TEST` | `tests/m2-private-http-startup.test.js` | `C3-011` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-M2-PRIVATE-HTTP-EXECUTION-20261004 |
 | `IS-T1-TESTS-M2-PROJECT-CONTEXT-BOUNDARY-TEST` | `tests/m2-project-context-boundary.test.js` | `C3-012` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
 | `IS-T1-TESTS-M2-PROJECT-CONTEXT-CONSUMER-TEST` | `tests/m2-project-context-consumer.test.js` | `C3-012` | T1 | `offline` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |
 | `IS-T1-TESTS-M2-PROJECT-CONTEXT-CONTRACT-TEST` | `tests/m2-project-context-contract.test.js` | `C3-012` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | c070ed7383e522fb58b53a799cbbc0e16c4b09a7 / docs/execution/runs/m2-pinned-closeout-20260825.md | primary implementer |

@@ -16,7 +16,7 @@ const origin = { surface: 'studio', sessionId: 'conversation-27', conversationId
 const digest = 'sha256:' + 'a'.repeat(64);
 const base = {
   lifecycleId: 'lifecycle-27', state: 'awaiting_approval', planDigest: digest,
-  plan: { identity: { lifecycleId: 'lifecycle-27' }, state: 'awaiting_approval', origin,
+  plan: { version: 1, identity: { lifecycleId: 'lifecycle-27' }, state: 'awaiting_approval', origin,
     changes: [{ path: 'src/app.js', afterDigest: 'sha256:after', afterBytes: 24 }],
     focusedTest: { binary: '/usr/bin/node', argv: ['--check', 'src/app.js'], timeoutMs: 30000 }, gitCommit: null },
   audit: { governanceDecision: { verdict: 'allow' } },
@@ -26,7 +26,7 @@ const base = {
 const complete = {
   ...base, state: 'succeeded',
   terminal: { state: 'succeeded', identity: { lifecycleId: base.lifecycleId }, planDigest: digest, resultDigest: 'sha256:result' },
-  result: { terminalStatus: 'succeeded', changes: { paths: ['src/app.js'] },
+  result: { version: 1, terminalStatus: 'succeeded', changes: { paths: ['src/app.js'] },
     focusedTest: { terminalStatus: 'succeeded' }, git: { status: 'not_requested' } },
   audit: { ...base.audit, governanceReceipt: { receiptId: 'receipt-27' } },
 };

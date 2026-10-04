@@ -10,11 +10,14 @@ import {
 } from '../../contracts/m2/effect-v1.js';
 import {
   M2_EXECUTION_CONTRACT_KIND,
+  M2_PRIVATE_HTTP_PROFILE,
+  encodeM2PrivateHttpProcessPayload,
+  validateM2PrivateHttpProcessEffectForRequest,
   computeM2ExecutionValueDigest,
   computeM2ProjectChangeAuthoritySetDigest,
   computeM2ProjectChangePatchSetDigest,
   validateM2ProjectChangeRequest,
-} from '../../contracts/m2/execution-v1.js';
+} from '../../contracts/m2/execution-v2.js';
 import { observeWorkspaceRevision } from '../code-intel/project-context-provider.js';
 import { readProjectFileBytes } from '../executor/project-path-authority.js';
 
@@ -177,6 +180,28 @@ export async function planProjectChange({
     || !focusedInput || typeof focusedInput !== 'object') {
     fail(ProjectChangePlanningErrorCode.INPUT_INVALID, 'Project context, changes, and one focused test are required');
   }
+  const privateHttp = focusedInput.sandboxProfile === M2_PRIVATE_HTTP_PROFILE;
+  if ((!privateHttp && focusedInput.sandboxProfile !== undefined
+      && focusedInput.sandboxProfile !== 'linux-bwrap-ro-v2')
+    || (!privateHttp && (focusedInput.networkPolicy !== undefined
+      || focusedInput.networkPolicyDigest !== undefined))) {
+    fail(ProjectChangePlanningErrorCode.INPUT_INVALID, 'An explicit supported focused-test profile is required');
+  }
+  let focusedPayload;
+  if (privateHttp) {
+    // Capture and validate the complete policy/argv/ENV before the first await.
+    try {
+      focusedPayload = encodeM2PrivateHttpProcessPayload({
+        ...focusedInput, environmentDigest: computeM2ExecutionValueDigest(focusedInput.environment),
+      }, focusedInput.environment);
+      const captured = JSON.parse(focusedPayload.toString('utf8'));
+      focusedInput = { ...captured, timeoutMs: focusedInput.timeoutMs };
+    } catch (error) {
+      fail(ProjectChangePlanningErrorCode.CONTRACT_INVALID, 'Private HTTP focused-test authority is invalid', {
+        error: error.message,
+      });
+    }
+  }
   const canonicalRoot = fileSystem.realpathSync(projectContext.canonicalRoot);
   if (canonicalRoot !== projectContext.canonicalRoot) {
     fail(ProjectChangePlanningErrorCode.INPUT_INVALID, 'Project root must already be canonical');
@@ -302,7 +327,7 @@ export async function planProjectChange({
     });
   }
 
-  const focusedPayload = Buffer.from(JSON.stringify({
+  if (!privateHttp) focusedPayload = Buffer.from(JSON.stringify({
     binary: focusedInput.binary,
     argv: focusedInput.argv,
     environment: focusedInput.environment,
@@ -363,7 +388,7 @@ export async function planProjectChange({
 
   const request = {
     contract: M2_EXECUTION_CONTRACT_KIND.REQUEST,
-    version: 1,
+    version: privateHttp ? 2 : 1,
     executionId,
     runId,
     actor,
@@ -390,7 +415,11 @@ export async function planProjectChange({
       environmentDigest: computeM2ExecutionValueDigest(focusedInput.environment),
       timeoutMs: focusedInput.timeoutMs,
       expectedExitCode: 0,
-      sandboxProfile: 'linux-bwrap-ro-v2',
+      sandboxProfile: privateHttp ? M2_PRIVATE_HTTP_PROFILE : 'linux-bwrap-ro-v2',
+      ...(privateHttp ? {
+        networkPolicy: focusedInput.networkPolicy,
+        networkPolicyDigest: focusedInput.networkPolicyDigest,
+      } : {}),
     },
     gitCommit: gitEffect === null ? null : {
       authority: {
@@ -412,6 +441,16 @@ export async function planProjectChange({
     fail(ProjectChangePlanningErrorCode.CONTRACT_INVALID, 'ProjectChangeRequest is invalid', {
       errors: [...validation.errors],
     });
+  }
+  if (privateHttp) {
+    const processValidation = validateM2PrivateHttpProcessEffectForRequest(
+      request, focused, focusedPayload, focusedInput.environment,
+    );
+    if (!processValidation.valid) {
+      fail(ProjectChangePlanningErrorCode.CONTRACT_INVALID, 'Private HTTP process payload is not bound', {
+        errors: [...processValidation.errors],
+      });
+    }
   }
   const finalObservation = await observeRevision({
     projectId: projectContext.projectId,

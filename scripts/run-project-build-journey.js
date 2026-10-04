@@ -112,6 +112,7 @@ function serverEnvironment(runtime, nonce, providerUrl, models = {}) {
     INTENTSMITH_MODEL_CHAT: models.CHAT || EXPECTED_MODEL, INTENTSMITH_MODEL_CODE: models.CODE || EXPECTED_MODEL,
     INTENTSMITH_MODEL_D1: models.D1 || EXPECTED_MODEL,
     OLLAMA_URL: providerUrl,
+    ...(runtime.m2PrivateHttpConfig ? { INTENTSMITH_M2_PRIVATE_HTTP_CONFIG: runtime.m2PrivateHttpConfig } : {}),
   };
 }
 

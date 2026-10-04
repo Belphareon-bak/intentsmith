@@ -1,28 +1,32 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktuální checkpoint 4. 10. 2026:** operátor schválil dokončovací postup,
-32k VRAM měření, přirozený classifier → D1 a implementační HTTP WP.
-Přijaté SQLite/AST/GPU UI/omezený cleanup se bez nové delty neopakují.
-ROOT32k allocation: exact Qwen3.8, CPU spill0/minfree2512 MiB, owned cleanup;
-CODE32k kandidát drží původní capture, serializer32000 B/output caps a
-CHAT/D1 izolaci. Cílené context18/gateway44/service104 CPU PASS nejsou aplikace.
-Úzká semantic scope oprava využívá stávající classifier a D1; nezávislý
-CPU replay24 PASS, default classifier→D1 regression44/44 a nezávislé source review PASS.
-Nejbližší functional výsledek: fan historical4+repair4+CLI3/max11, exact M2,
-oracle, rollback/commit/restart; starý fan8 PASS/6 FAIL zůstává. Externí
-`c5309a0`/bundle čeká na transfer/review. CHAT `e066956b` integrován v `56138e4f`,
-source preservation PASS, project44/44, registry594/35, graph1500/3/28;
-`92767d77` CI18/18 SUCCESS, actual7/7 CHAT +7/7 CODE z official logs.
-`769d4930` CI SUCCESS a celý profil408 PASS/0 FAIL/0 BLOCKED/0 TIMEOUT,20:04–20:14 UTC.
-První404/1/3 report zachovaný; opravené census/explicitruntimeparams, bez změny produktu.
-Hunt další grading vlastní jiný worker. Gemma freeze `9591ea1b` remote ověřen,
-exponovaná regrese stále NO_GO; operátor předal odpečetěnou cestu holdoutu,
-obsah ROOT nečetl, tři neměnné série a slepé hodnocení dosud NOT_RUN.
-HTTP follow-up autorizovaný: [omezený WP](docs/wp/WP-M2-PRIVATE-HTTP-EXECUTION-20261004.md),
-namespace mechanism a omezené design/scope review PASS; native/schema/app ještě ne.
-Pak společný IDE/BE candidate, expertise/worker user journeys, M5/M6 a mobil
-po stabilním IDE/BE; závěrečný cleanup s obnovou. Release NOT_ACCEPTED.
-[Jeden aktuální souhrn](docs/WORK-PROGRESS.md) rozlišuje source, instalaci a důkazy.
+**Aktuální checkpoint 5. 10. 2026:** [jeden aktuální souhrn](docs/WORK-PROGRESS.md).
+Release `NOT_ACCEPTED`; instalovaný BE `c84b88cd` se nezměnil.
+Přijaté Ledger/TaskFlow/SQLite/AST/GPU UI a omezený cleanup se neopakují bez delty.
+CHAT `e066956b` je merged; další Gemma/Hunt mají jiné workery, ROOT holdout nečetl.
+Poslední whole profile `769d4930`:408 PASS/0 FAIL/0 BLOCKED/0 TIMEOUT;
+publikovaný `f5304619` má CI SUCCESS. To necertifikuje nový HTTP source strom.
+
+CODE32k krátká fullVRAM alokace/minfree2512 MiB a natural classifier→D1
+44/44 CPU +review PASS jsou zachované; živý natural entry není přijatý.
+Fan frozen `5f6c3fb7` běžel21:26–21:27 UTC:4 nové repair calls, čtvrtý
+vyčerpal2048 output tokens při validním contextu. `M2_CODE_DRAFT_OUTPUT_INCOMPLETE`,
+0 nových plánů/efektů/commitů, původní DB/zdroje/oracle zachované, owned cleanup PASS.
+Used8/11; nový repair4+CLI3 potřebuje cumulative15. Konkrétní scoped4096/max15
+rozhodnutí operátora čeká; bez odpovědi další fan inference neběží.
+
+Autorizovaný [private HTTP WP](docs/wp/WP-M2-PRIVATE-HTTP-EXECUTION-20261004.md)
+integroval explicitní execution/lifecycle@2, plnou policy/SQL122/preflight/exactapproval
+a Studio/startup connector při nezměněném V1 defaultu. Bounded source reviews PASS.
+Skutečný veřejný provider22:11 UTC: bwrap/Python relay/HTTP/kernel negatives/cleanup
+PASS; Landlock8/caps0/NNP1/seccomp2. Je to controlled fixture, ne generated app.
+Targeted13 CPU PASS/1 model GPU BLOCKED; finální service107/Studio28 v2/2 sadách PASS.
+Registry596/35; graph1507/3cycles/28,7 owned SQL/config hran čeká na source provenance pin.
+Nový Studio production/consumer build PASS, bundle7bf62455…bfe24;
+celý profil/remote CI a physical cancel/timeout se dokončují.
+Následuje zmrazená nová HTTP/SQLite CODE aplikace, exactM2/oracle/commit/restart/review.
+Pak obecnější repo/context průchod, společné IDE/BE/expertise/workers, M5/M6, mobil
+a závěrečný bezpečný cleanup. M5/M6/mobil/Hunt/model kvalita zůstávají otevřené.
 
 **Historický checkpoint 2. 10. 2026, 16:14 UTC:** ROOT převzal společnou
 integraci, naposledy CHAT `00ec5b52` do publikovaného `f2e6ac1a`.

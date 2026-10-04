@@ -18,14 +18,14 @@ import {
   validateM2GovernanceBaselineSnapshot,
   validateM2GovernancePolicySnapshot,
   validateM2GovernanceReceipt,
-  validateM2GovernanceReceiptForDecision,
 } from '../../contracts/m2/governance-v1.js';
 import {
   computeM2ExecutionValueDigest,
   computeM2ProjectChangeRequestDigest,
   isM2ExecutionProjectRelativePath,
   validateM2ProjectChangeRequest,
-} from '../../contracts/m2/execution-v1.js';
+} from '../../contracts/m2/execution-v2.js';
+import { validateM2GovernanceReceiptForDecision } from '../../contracts/m2/lifecycle-v2.js';
 import {
   isIdentifier,
   isPlainRecord,

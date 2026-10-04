@@ -4,19 +4,19 @@ const base = '../../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/'
 export const { LiveModel } = require(base + 'view/live-model');
 export const { SessionStore } = require(base + 'session-store');
 export const { M2Controller, origin, sameOrigin, validateView, pendingBinding, parseDraft } = require(base + 'm2-controller');
-export const { createForm, composerDraft, normalizeProposal, validateBlueprint } = require(base + 'm2-composer');
+export const { createForm, composerDraft, normalizeForm, normalizeProposal, validateBlueprint } = require(base + 'm2-composer');
 const { AppearanceStore } = require(base + 'appearance-store');
 export const digest = 'sha256:' + 'a'.repeat(64);
 export function plan(captured) {
   return { lifecycleId: 'fixture-plan', state: 'awaiting_approval', planDigest: digest,
-    plan: { identity: { lifecycleId: 'fixture-plan' }, state: 'awaiting_approval', origin: captured,
+    plan: { version: 1, identity: { lifecycleId: 'fixture-plan' }, state: 'awaiting_approval', origin: captured,
       changes: [{ path: 'src/a.js' }], focusedTest: { binary: '/usr/bin/node', argv: ['--check', 'src/a.js'], timeoutMs: 30000 }, gitCommit: null },
     audit: { governanceDecision: { verdict: 'allow' }, executionEvents: [] },
     diff: [{ path: 'src/a.js', before: { content: 'before\n' }, after: { content: 'after\n' } }] };
 }
 export function terminal(view, state = 'cancelled') {
   return { ...view, state, terminal: { state, identity: view.plan.identity, planDigest: view.planDigest },
-    ...(state === 'succeeded' ? { result: { terminalStatus: state, changes: { paths: view.diff.map(file => file.path) }, focusedTest: {}, git: {} },
+    ...(state === 'succeeded' ? { result: { version: 1, terminalStatus: state, changes: { paths: view.diff.map(file => file.path) }, focusedTest: {}, git: {} },
       audit: { ...view.audit, governanceReceipt: { receiptId: 'fixture-receipt' } } } : {}) };
 }
 export function fixture() {

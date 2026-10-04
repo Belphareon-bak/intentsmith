@@ -2,7 +2,8 @@ import './helpers/isolated-test-db.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { fixture, tick, terminal, digest, SessionStore, createForm, composerDraft, normalizeProposal, validateBlueprint, validateView, parseDraft } from './helpers/studio2-live-harness.js';
+import { fixture, tick, terminal, digest, SessionStore, createForm, composerDraft, normalizeForm, normalizeProposal, validateBlueprint, validateView, parseDraft } from './helpers/studio2-live-harness.js';
+import { computeM2PrivateHttpNetworkPolicyDigest, computeM2PrivateHttpNftRulesDigest, M2_PRIVATE_HTTP_SECCOMP_DIGEST } from '../contracts/m2/execution-v2.js';
 const blueprint = () => ({ instruction: 'Uprav výpočet.', files: [{ path: 'src/a.js', instruction: 'Oprav výpočet.', dependsOn: [], contextFiles: ['README.md'] }], focusedTest: { binary: '/usr/bin/node', argv: ['--check', 'src/a.js', 'literal value', '$(no-shell)'], timeoutMs: 30000 } });
 async function pending(f) { await f.m2.run(f.session, '/m2-draft', 'src/a.js :: změna'); return f.m2.entry(f.session); }
 
@@ -147,4 +148,52 @@ test('canonical terminal survives restart through a bound durable read and expos
   entry.view = null; await f.m2.run(f.session, '/m2-status');
   assert.equal(new URL(f.calls.at(-1).url).searchParams.get('id'), f.view.lifecycleId);
   vm = f.model.wsVM(f.model.st(), f.session.id); assert.equal(vm.m2State, 'succeeded'); assert.equal(f.session._m2Pending, null);
+});
+
+function privateHttpBlueprint() {
+  const draft = blueprint();
+  const artifact = (canonicalPath, inode) => ({ canonicalPath, bytes: 10, digest, device: '1', inode: String(inode) });
+  const policy = { contract: 'M2PrivateHttpNetworkPolicy', version: 1,
+    profile: 'linux-bwrap-private-loopback-v1', architecture: 'x64',
+    endpoint: { family: 'ipv4', transport: 'tcp', address: '127.0.0.1', port: 18080 },
+    minimumLandlockAbi: 4, nftRulesDigest: computeM2PrivateHttpNftRulesDigest(18080),
+    seccompProgramDigest: M2_PRIVATE_HTTP_SECCOMP_DIGEST,
+    artifacts: { launcher: artifact('/trusted/launcher', 1), ip: artifact('/usr/bin/ip', 2),
+      nft: artifact('/usr/sbin/nft', 3), runtimeExecutable: artifact('/usr/bin/node', 4),
+      oracle: artifact('/trusted/oracle.mjs', 5) } };
+  draft.focusedTest = { binary: '/usr/bin/node', argv: ['/trusted/oracle.mjs', 'Č / " literal $(no-shell)'],
+    environment: {}, timeoutMs: 30000, sandboxProfile: policy.profile,
+    networkPolicy: policy, networkPolicyDigest: computeM2PrivateHttpNetworkPolicyDigest(policy) };
+  return draft;
+}
+
+test('private HTTP composer reload, exact request and displayed approval retain the whole policy', async () => {
+  const f = fixture(), draft = privateHttpBlueprint();
+  const form = normalizeForm(JSON.parse(JSON.stringify(createForm(f.captured, draft))));
+  assert.deepEqual(composerDraft(form).focusedTest, draft.focusedTest);
+  f.view.plan.version = 2; f.view.plan.focusedTest = draft.focusedTest;
+  await f.m2.run(f.session, '/m2-build', JSON.stringify(composerDraft(form)));
+  assert.deepEqual(JSON.parse(f.calls[0].options.body).draft.focusedTest, draft.focusedTest);
+  assert.deepEqual(JSON.parse(f.model.wsVM(f.model.st(), f.session.id).m2Test), draft.focusedTest);
+  assert.equal(f.calls.some(call => call.url.endsWith('/approve')), false);
+  form.privateHttpTest.environment = { LD_PRELOAD: '/hidden' };
+  assert.equal(normalizeForm(form), null);
+  assert.throws(() => composerDraft(form));
+});
+
+test('approval rejects unknown or mixed versions and a partial private result despite matching labels', () => {
+  const f = fixture(), privateView = structuredClone(f.view);
+  privateView.plan.version = 2; privateView.plan.focusedTest = privateHttpBlueprint().focusedTest;
+  for (const mutate of [
+    view => { view.plan.version = 3; },
+    view => { view.result = { version: 1, focusedTest: {} }; },
+    view => { view.result = { version: 2, focusedTest: { sandboxProfile: view.plan.focusedTest.sandboxProfile,
+      networkPolicyDigest: view.plan.focusedTest.networkPolicyDigest } }; },
+  ]) {
+    const view = structuredClone(privateView); mutate(view);
+    assert.throws(() => validateView(view, view.lifecycleId, f.captured, digest));
+  }
+  const legacy = structuredClone(f.view);
+  legacy.result = { version: 1, focusedTest: { networkPolicy: privateView.plan.focusedTest.networkPolicy } };
+  assert.throws(() => validateView(legacy, legacy.lifecycleId, f.captured, digest));
 });

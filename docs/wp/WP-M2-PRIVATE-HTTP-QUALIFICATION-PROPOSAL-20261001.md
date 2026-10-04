@@ -1,6 +1,6 @@
 # WP-M2-PRIVATE-HTTP-QUALIFICATION-PROPOSAL-20261001
 
-**Aktuální stav 4. 10.:** `FOLLOWUP_AUTHORIZED / CONTRACT_REVIEW_PENDING / IMPLEMENTATION_NOT_RUN / HTTP_NOT_RUN`.
+**Aktuální stav 5. 10.:** `FOLLOWUP_AUTHORIZED / BOUNDED_SOURCE_REVIEW_PASS / PRODUCT_V2_ADOPTED / CONTROLLED_PROVIDER_PASS / GENERATED_HTTP_NOT_RUN`.
 Operátor výslovně povolil navazující implementační WP, review kontraktu a testy.
 [Navazující WP](WP-M2-PRIVATE-HTTP-EXECUTION-20261004.md) eviduje rozsah,
 skutečné namespace sondy a jejich omezení. Výchozí offline profil se nemění.
