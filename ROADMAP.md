@@ -12,7 +12,9 @@ Nejbližší functional výsledek: fan historical4+repair4+CLI3/max11, exact M2,
 oracle, rollback/commit/restart; starý fan8 PASS/6 FAIL zůstává. Externí
 `c5309a0`/bundle čeká na transfer/review. CHAT `e066956b` integrován v `56138e4f`,
 source preservation PASS, project44/44, registry594/35, graph1500/3/28;
-nový celý profil a remote CI čekají, CI výběr7 CHAT +7 CODE je zachovaný.
+`92767d77` CI18/18 SUCCESS, actual7/7 CHAT +7/7 CODE z official logs.
+Nový celý profil404 PASS/1 FAIL/3 BLOCKED: docs census a moje nepředané
+PDF/OCR runtime params; census opravený, historický report zachovaný, retest čeká.
 Hunt další grading vlastní jiný worker. Gemma freeze `9591ea1b` remote ověřen,
 exponovaná regrese stále NO_GO; operátor předal odpečetěnou cestu holdoutu,
 obsah ROOT nečetl, tři neměnné série a slepé hodnocení dosud NOT_RUN.
@@ -315,7 +317,7 @@ měl tehdy 1 433 hran, 3 cykly / 28 členů. Závěrečné měření a nezávisl
 přijetí mají vlastní evidenci v [předávce](docs/review/2026-09-28-STUDIO2-PARITY-DELIVERY.md).
 Tehdejší integrovaný module graph měl 1 434 hran, 3 cykly / 28 členů po
 přijetí přesné hrany `src/chat/context-compact.js -> src/core/abort-error.js`.
-Aktuální module graph má 1 498 hran, stále 3 cykly / 28 členů.
+Aktuální module graph má 1 500 hran, stále 3 cykly / 28 členů.
 Novější CHAT `00ec5b52` přijal při společné integraci právě hranu
 `src/chat/conversation-store.js -> src/chat/archive-evidence-index.js`
 oficiálním ratchetem nad čistým merge source `a60c1824`, bez odstranění hran.

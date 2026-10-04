@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 4. 10. 2026, 19:51 UTC / 21:51 CEST.
+**Aktualizováno:** 4. 10. 2026, 20:04 UTC / 22:04 CEST.
 **Vlastník:** ROOT; CHAT/Gemma a zbývající Hunt mají jiné workery.
 Po milníku, nejpozději po 3 h aktualizuji report; operátorovi report nejpozději po 2 h aktivní práce.
 **Release NOT_ACCEPTED; fan aplikace FAIL.**
@@ -25,9 +25,11 @@ Historické FAIL/oracle/rollbacky zůstávají neměnné; přijaté scénáře n
 Nový source merge `56138e4f` převzal CHAT `e066956b` a vlastní CODE32k/D1;
 nezávislé source preservation PASS, po merge projekt44/44, registry594/35,
 regenerovaný graph1500/3cykly/28 souborů a provenance ratchet PASS.
-CI má7 CHAT +7 CODE kontrol; nový celý profil/remote CI se právě spouštějí.
-Předchozí publikovaný `5cf1c36d` měl [CI18/18 SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37032678120).
-Celý profil `2997afd5`:408 PASS/0 FAIL/0 BLOCKED/0 TIMEOUT, nikoli nový HEAD.
+Push/remote `92767d77` ověřen; [CI18/18 SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37229844277),
+skutečné7/7 CHAT i7/7 CODE z official job logs; ZIP download403, není přijatý download.
+Celý nový profil19:51–20:01 UTC:404 PASS/1 FAIL/3 BLOCKED. Dva docs census
+asserts byly zastaralé; runneru jsem nepředal existující PDF/OCR runtime paths.
+Původní report b52ac733…a9b12 neměnný; opravené census/parametry čekají na nový běh.
 Instalovaný BE `c84b88cd` je jiný release; tento proud jej nenasadil.
 Externí `c5309a0`/bundle zde nejsou. Hlásené359/32/16/1 a cílené 3/3 + 8/8
 bez zdrojů/raw reportu nejsou přijaté lokální výsledky ani důkaz 49 produktových vad.
@@ -88,7 +90,8 @@ HTTP follow-up je nyní výslovně autorizovaný; nejde již o čekání na souh
 navržené execution@2/network policy, exact authority/preview/digests, default V1 offline.
 ROOT CPU namespace proof PASS: skutečný HTTP, wrong-IP/wildcard/port/socket zákazy,
 capsets0/NNP/seccomp/Landlock; původní netNS-owner EPERM a ip-path FAIL zachované.
-Omezené design/scope review PASS; native/schema contract/registered controls/HTTP app NOT_RUN.
+Design/scope review PASS ebcf2fad…45e2fc; native/schema source se připravují privátně,
+produktové controls a generovaná HTTP app NOT_RUN.
 HTTP CPU práce běží nezávisle; mobil se zkouší až po stabilním IDE/BE.
 
 Po fan/shared candidate: skutečné pointer UI/M2 v instalovaném service kontextu,

@@ -6,6 +6,9 @@
 čerstvý GitHub main `838b8cee` je ancestor. Žádný nový worktree.
 **Stav:** `BOUNDED_DESIGN_SCOPE_REVIEW_PASS / NAMESPACE_FEASIBILITY_CPU_PASS /
 PRODUCT_IMPLEMENTATION_NOT_RUN / GENERATED_HTTP_NOT_RUN`.
+Nezávislé omezené design/scope review na `92767d77`: receipt
+`ebcf2fad2bcd29363643ed3363c062979d7b9f54a55b3b57d0282f45e645e2fc`.
+V2 schema/native source a skutečné product controls mají následné review/gates.
 
 ## Výsledek a hranice
 

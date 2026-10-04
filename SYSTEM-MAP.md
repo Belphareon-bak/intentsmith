@@ -15,7 +15,9 @@ Fan poslední actual oracle8 PASS/6 FAIL, rollback4/4, bez commitu; další
 Autorizovaný private HTTP WP má namespace CPU feasibility PASS po diagnóze
 owner-userNS/EPERM a kanonické ip cestě; design/scope review PASS, product V2/profile/app NOT_RUN.
 CHAT `e066956b` integrován v `56138e4f`, source preservation PASS,
-project44/44, registry594/35, graph1500/3/28; nový celý profil/CI čekají.
+project44/44, registry594/35, graph1500/3/28; `92767d77` CI18/18 SUCCESS,
+actual7/7 CHAT +7/7 CODE. Celý profil404/1/3: docs census a nepředané runtime
+params, neprokázané produktové vady; oprava census/parametrů a nový běh následují.
 Gemma fixed `9591ea1b` má regression NO_GO;
 operátor předal unsealed holdout cestu, ROOT obsah nečetl a série neběžely.
 Hunt zbytek má jiného grading workera; poslední596/1173 je datovaný audit.
@@ -736,8 +738,8 @@ Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
-| `src/**/*.js` | **235 648 ř.**, 685 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **268 380 ř.**, 602 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **235 825 ř.**, 686 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **268 907 ř.**, 602 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **594** (`496 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 108** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |
