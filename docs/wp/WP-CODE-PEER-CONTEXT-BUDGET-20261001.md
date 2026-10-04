@@ -32,7 +32,11 @@ pocházelo při diagnostice z desktopových G procesů, compute/ps prázdné.
 Nový zmrazený kapacitní plán zaznamenal grafickou util popisně, zachoval
 tři empty compute/resident vzorky, free≥20000 MiB, RAM/disk, lease/pins,
 100%GPU a post-load headroom≥1024 MiB. Jedno actual capacity volání mimo
-fan max11, žádný retry. App admission se tím nemění. §11 je datovaná historie.
+fan max11, žádný retry. Toto měření app admission nezměnilo. Po dvou následných
+zero-call STOP nyní samostatný projektový WP vlastní explicitní failed32k
+admission se třemi empty compute/ps vzorky a free≥22000 MiB; celková grafická
+zátěž se zaznamená. Nové review/publish/freeze musí předcházet dalšímu běhu.
+Kontextové/output limity ani oracle se nemění. §11 je datovaná historie.
 Nezávislé combined source review32k/D1 PASS; receipt
 `ff2dcbe1bdd205b551d712fa072df93a6beff610dec4f8b8276071ae4597b7b0`.
 Context18/gateway44/defaultservice104/project44 CPU PASS nejsou app acceptance.

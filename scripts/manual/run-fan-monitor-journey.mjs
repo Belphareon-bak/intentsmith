@@ -46,6 +46,54 @@ function observeSource(freeze) {
       return [relative, sha(fs.readFileSync(path.join(SOURCE, relative)))];
     })) };
 }
+const FAILED32_GPU_ADMISSION = Object.freeze({ kind: 'FanGpuAdmission@1', scope: 'failed-code32k-continuation',
+  samples: 3, minimumFreeMiB: 22000, aggregateUtilization: 'record-only' });
+export function validateFanGpuAdmission(freeze) {
+  if (freeze.gpuAdmission === undefined) return null;
+  assert.deepEqual(freeze.gpuAdmission, FAILED32_GPU_ADMISSION, 'exact frozen failed32 GPU admission policy');
+  assert.equal(freeze.entryMode, 'manual'); assert.equal(freeze.codeContext, 32768);
+  assert.equal(freeze.maximumD1, 0); assert.equal(freeze.maximumCode, 11);
+  assert.equal(freeze.model, MODEL); assert.equal(freeze.digest, DIGEST); assert.equal(freeze.providerVersion, VERSION);
+  assert.equal(freeze.resumePending, undefined); validateFailedResumePins(freeze);
+  return FAILED32_GPU_ADMISSION;
+}
+export function assessFanGpuAdmission(freeze, samples) {
+  const policy = validateFanGpuAdmission(freeze), expectedSamples = policy?.samples ?? 1;
+  const minimumFreeMiB = policy?.minimumFreeMiB ?? 20000, reasons = [], observations = [];
+  if (!Array.isArray(samples) || samples.length !== expectedSamples) reasons.push('GPU_READINESS_SAMPLE_COUNT');
+  let previousAt = -Infinity;
+  for (const [index, sample] of (Array.isArray(samples) ? samples : []).entries()) {
+    const invalid = code => reasons.push(`sample${index + 1}:${code}`);
+    if (!sample || typeof sample !== 'object' || Array.isArray(sample)) { invalid('GPU_READINESS_UNAVAILABLE'); continue; }
+    const at = Date.parse(sample.at);
+    if (sample.sample !== index + 1 || !Number.isFinite(at) || at <= previousAt) invalid('GPU_READINESS_SAMPLE_ORDER');
+    previousAt = at;
+    const models = sample.ps?.models;
+    const knownModels = Array.isArray(models) && models.every(row => row && typeof row.name === 'string' && row.name.trim());
+    if (!knownModels) invalid('GPU_RESIDENT_MODELS_UNAVAILABLE');
+    const knownCompute = typeof sample.computeRaw === 'string';
+    if (!knownCompute) invalid('GPU_COMPUTE_UNAVAILABLE');
+    const metric = typeof sample.gpuRaw === 'string' ? /^\s*([0-9]+)\s*,\s*([0-9]+)\s*$/.exec(sample.gpuRaw) : null;
+    const freeMiB = metric ? Number(metric[1]) : null, utilizationPercent = metric ? Number(metric[2]) : null;
+    const knownGpu = metric && Number.isSafeInteger(freeMiB) && Number.isSafeInteger(utilizationPercent) && utilizationPercent <= 100;
+    if (!knownGpu) invalid('GPU_METRICS_UNAVAILABLE');
+    else {
+      if (freeMiB < minimumFreeMiB) invalid('GPU_FREE_MEMORY_BELOW_MINIMUM');
+      if (!policy && utilizationPercent > 30) invalid('GPU_LEGACY_UTILIZATION_ABOVE_30');
+    }
+    if (!Number.isSafeInteger(sample.memoryAvailableBytes) || sample.memoryAvailableBytes < 0) invalid('HOST_MEMORY_UNAVAILABLE');
+    if (!Number.isSafeInteger(sample.diskAvailableBytes) || sample.diskAvailableBytes < 0) invalid('HOST_DISK_UNAVAILABLE');
+    const readiness = assessScheduledEvaluationReadiness({
+      residentModels: knownModels ? models.map(row => row.name) : ['UNAVAILABLE'],
+      computeProcesses: knownCompute ? sample.computeRaw.trim().split('\n').filter(Boolean) : ['UNAVAILABLE'],
+      memoryAvailableBytes: sample.memoryAvailableBytes, diskAvailableBytes: sample.diskAvailableBytes });
+    if (!readiness.ready) readiness.reasons.forEach(reason => invalid(reason));
+    observations.push({ sample: index + 1, freeMiB, utilizationPercent, readiness });
+  }
+  return { ready: reasons.length === 0, mode: policy ? policy.scope : 'legacy-idle-utilization',
+    expectedSamples, minimumFreeMiB, aggregateUtilization: policy?.aggregateUtilization ?? 'maximum-30-percent', reasons, observations };
+}
+
 export function validateFreeze(freeze) {
   assert.equal(freeze.kind, 'FanJourneyFreeze@1'); assert.match(freeze.sourceSha, /^[0-9a-f]{40}$/);
   assert.equal(freeze.status, 'FROZEN_REVIEWED_FOR_LIVE', 'draft proposals cannot start live work');
@@ -59,6 +107,7 @@ export function validateFreeze(freeze) {
   }
   const entryMode = freeze.entryMode ?? 'd1'; assert.ok(['d1', 'manual'].includes(entryMode));
   assert.equal(freeze.maximumCode, 11); assert.equal(freeze.maximumD1, entryMode === 'manual' ? 0 : 8);
+  validateFanGpuAdmission(freeze);
   if (freeze.resumePending) assert.equal(entryMode, 'manual', 'only the preserved explicit CODE journey may continue');
   if (entryMode === 'manual') {
     assert.deepEqual(Object.keys(freeze.manualDrafts).sort(), ['cli', 'core']);
@@ -807,15 +856,28 @@ async function parent(freezePath, freezeSha, out) {
     }
     assert.equal(interrupted, null, 'interrupted before owned GPU operation');
     lease = acquireGpuEvaluationLock({ command: 'fan actual D1 Studio2 CODE two-increment qualification' });
-    const ps = await upstream('/api/ps');
-    const compute = execFileSync('nvidia-smi', ['--query-compute-apps=pid,process_name,used_memory', '--format=csv,noheader'], { encoding: 'utf8' }).trim();
-    const gpu = execFileSync('nvidia-smi', ['--query-gpu=memory.free,utilization.gpu', '--format=csv,noheader,nounits'], { encoding: 'utf8' }).trim().split(',').map(value => Number(value.trim()));
-    const mem = /^MemAvailable:\s+(\d+) kB$/m.exec(fs.readFileSync('/proc/meminfo', 'utf8')), disk = fs.statfsSync(SOURCE);
-    evidence.readiness = assessScheduledEvaluationReadiness({ residentModels: ps.models.map(row => row.name), computeProcesses: compute ? compute.split('\n') : [],
-      memoryAvailableBytes: Number(mem?.[1]) * 1024, diskAvailableBytes: disk.bavail * disk.bsize });
-    assert.ok(evidence.readiness.ready); assert.ok(gpu[0] >= 20000 && gpu[1] <= 30, 'explicit idle GPU placement precondition');
-    assert.equal((await upstream('/api/tags')).models.find(row => row.name === freeze.model)?.digest, freeze.digest);
-    assert.equal((await upstream('/api/version')).version, freeze.providerVersion);
+    const gpuPolicy = validateFanGpuAdmission(freeze);
+    const gpuReadiness = { policy: gpuPolicy ?? 'LEGACY_FREE20000_UTIL30', leaseOwner: lease.owner, samples: [], identity: null };
+    evidence.gpuReadiness = gpuReadiness;
+    for (let index = 0; index < (gpuPolicy?.samples ?? 1); index++) {
+      const sample = { sample: index + 1, at: new Date().toISOString() }; gpuReadiness.samples.push(sample);
+      try {
+        assert.equal(interrupted, null, 'interrupted during owned readiness samples');
+        sample.ps = await upstream('/api/ps');
+        sample.computeRaw = execFileSync('nvidia-smi', ['--query-compute-apps=pid,process_name,used_memory', '--format=csv,noheader'], { encoding: 'utf8', timeout: 5000, maxBuffer: 65536 });
+        sample.gpuRaw = execFileSync('nvidia-smi', ['--query-gpu=memory.free,utilization.gpu', '--format=csv,noheader,nounits'], { encoding: 'utf8', timeout: 5000, maxBuffer: 65536 });
+        const mem = /^MemAvailable:\s+(\d+) kB$/m.exec(fs.readFileSync('/proc/meminfo', 'utf8')), disk = fs.statfsSync(SOURCE);
+        sample.memoryAvailableBytes = Number(mem?.[1]) * 1024; sample.diskAvailableBytes = disk.bavail * disk.bsize;
+      } catch (error) { sample.error = error.message; save(out, 'gpu-readiness.json', gpuReadiness); throw error; }
+      save(out, 'gpu-readiness.json', gpuReadiness);
+      if (index + 1 < (gpuPolicy?.samples ?? 1)) await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+    evidence.readiness = assessFanGpuAdmission(freeze, gpuReadiness.samples); gpuReadiness.assessment = evidence.readiness;
+    save(out, 'gpu-readiness.json', gpuReadiness); assert.ok(evidence.readiness.ready, JSON.stringify(evidence.readiness));
+    const tags = await upstream('/api/tags'), version = await upstream('/api/version');
+    gpuReadiness.identity = { model: freeze.model, digest: tags.models?.find(row => row.name === freeze.model)?.digest ?? null, providerVersion: version.version ?? null };
+    save(out, 'gpu-readiness.json', gpuReadiness);
+    assert.equal(gpuReadiness.identity.digest, freeze.digest); assert.equal(gpuReadiness.identity.providerVersion, freeze.providerVersion);
     socketRoot = fs.mkdtempSync('/tmp/is-fan-journey-'); fs.chmodSync(socketRoot, 0o700); const socketPath = path.join(socketRoot, 'provider.sock');
     proxy = createFanProviderProxy({ freeze, out, requests, onModelCall: () => { loaded = true; } });
     await new Promise(resolve => proxy.server.listen(socketPath, resolve)); fs.chmodSync(socketPath, 0o600);

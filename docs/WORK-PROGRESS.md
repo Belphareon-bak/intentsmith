@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 4. 10. 2026, 20:39 UTC / 22:39 CEST.
+**Aktualizováno:** 4. 10. 2026, 21:19 UTC / 23:19 CEST.
 **Vlastník:** ROOT; CHAT/Gemma a zbývající Hunt mají jiné workery.
 Report aktualizuji po milníku a do 3 h; operátorovi hlásím postup do 2 h aktivní práce.
 **Release NOT_ACCEPTED; fan aplikace FAIL.**
@@ -22,17 +22,18 @@ Historické FAIL/oracle/rollbacky zůstávají neměnné; přijaté scénáře n
 
 ## Aktuální integrační stav
 
-Nový source merge `56138e4f` převzal CHAT `e066956b` a vlastní CODE32k/D1;
+Merge `56138e4f` převzal CHAT `e066956b` a vlastní CODE32k/D1;
 nezávislé source preservation PASS, po merge projekt44/44, registry594/35,
 regenerovaný graph1500/3cykly/28 souborů a provenance ratchet PASS.
-Publikovaný `769d4930`: [GitHub CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37230722259).
-Na `92767d77` také CI18/18, skutečné7/7 CHAT +7/7 CODE z official job logs; ZIP403.
+Publikovaný `77bd5a03`: [CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37232683974),
+18/18 kroků, skutečné7/7 CHAT +7/7 CODE z official job logs; remote SHA ověřené.
 Nový celý profil `769d4930`,20:04–20:14 UTC: **408 PASS/0 FAIL/0 BLOCKED/0 TIMEOUT/0 SKIP**.
 Report SHA934d9673…e65dd. První404/1/3 (stale census/mnou nepředané runtime paths)
 zůstává zachovaný b52ac733…a9b12; změněná byla dokumentace a parametry, ne produkt.
 Instalovaný BE `c84b88cd` je jiný release; tento proud jej nenasadil.
 Externí `c5309a0`/bundle zde nejsou; hlášené výsledky nejsou přijaté lokální důkazy.
-Nový vlastní continuation delta je adoptovaný; aktuální CI/app přejímka čeká.
+Produkt/testy/registry stejné jako celý profil769; pouze dva manual helpers a docs.
+CI neznamená app přejímku; nový GPU admission delta nyní čeká na publikaci/CI/freeze.
 
 ## 1. CODE 32k a fan-monitor — nejbližší funkční milník
 
@@ -41,15 +42,21 @@ a preferuje 32k po měření VRAM. Původní 4 výstupy i failed packet zachovan
 `b1f7146c`: actual pending restart → exact approval → 8 PASS / 6 FAIL,
 rollback 4/4, žádný commit,0 nových volání. Defekty history/readings/monitor/test;
 naše staré instrukce také neuváděly výslovně array API/chronological history.
-CLI/aplikační persistence NOT_RUN. Dva pomocné moduly nyní obnoví přesnou FAILED DB copy,
-vyžádají nový plán/approval a hlídají rozpočet. CPU10/10 a nezávislé source review
-PASS (57d6ea9b…17978), přesná adopce/syntax/graph PASS. Produkční Studio build PASS;
-nová CI a živá oprava se spustí na čistém publikovaném kandidátu.
+CLI/aplikační persistence NOT_RUN. Continuation obnoví přesnou FAILED DB copy,
+vyžádá nový plán/approval a hlídá rozpočet; CPU10/review57d6ea9b…17978 PASS.
+Actual Studio build a CI77 PASS. Freeze67efa879…147ba04d zachovaný.
+20:55 actual placement STOP a 20:57 preflight STOP utratily 0 nových volání.
+Inventář ukázal jen desktop G procesy, compute/ps prázdné, free cca22 500 MiB;
+starý limit util30 zaměňoval grafickou zátěž za obsazenou compute GPU.
+Nový explicitní failed32 opt-in: 3 vzorky pod lease, free≥22 000 MiB, empty compute/ps,
+známé údaje/identity/RAM/disk; util se zaznamenává. Default util30 zůstává.
+CPU7/review8835de1e…524adfe PASS, přesná adopce runner6a62ef65…605c4b7.
+Nové source/CI/freeze před inferencí; oracle/instrukce/limity/max11 zůstávají.
 
 **4. 10. skutečná 32k alokace:** Qwen3.8, digest 22130167…9643, provider 0.34.0-intentsmith.1,
 19:10:15–19:10:34 UTC, 1 krátký request 32768/1, CPU spill 0 / min. volná VRAM 2512 MiB.
 Owned unload/lease release PASS, žádné app volání. Receipt 3de557fc…460c944.
-První 0-load STOP při desktop util 32 % zachovaný. App preflight/lease zůstávají beze změny.
+První capacity0-load STOP při desktop util32 zachovaný; nedokládá plný workload.
 **Produktový CODE 32k kandidát:** capture zachovaný; CHAT/D1 cache, serializer 32 000 B
 ani output 4096/2048 se nemění. Model-contract 44 / context 18 / service 104 CPU PASS;
 complete default service input přes starý 16k guard, serializer overflow stále odmítnutý.
@@ -71,8 +78,9 @@ project-collaboration i všech 7 CHAT kontrol. Živá kvalitativní přejímka �
 
 ## 3. Hunt a CHAT holdout — jiní vlastníci
 
-Operátor 4. 10. předal další hodnocení Huntu workerovi. Poslední lokálně ověřený
-stav 596/1173 je historický audit, nikoli dnešní dokončení. ROOT nepřebírá proces.
+Operátor předal další Hunt workerovi; ROOT nepřebírá proces. Audit20:54 UTC:
+106 canonical batches stále596/1173 odpovědí a2324/3689 kritérií, poslední zápis30.9.
+Receipt55b77073…f91fa9; jméno/path nového workeru zatím nedoložené, cílený dotaz čeká.
 ROOT 16/64 DEVELOPMENT_DRAFT a strict-ID FAIL zachované; finální známky/role nepřijaté.
 Gemma freeze `9591ea1b` /fixed remote v2 ověřen; report `d86baa27` uvádí
 123/159 užitečných, 22/159 zbytečných stop, tedy NO_GO. CI není kvalitativní acceptance.
@@ -85,14 +93,12 @@ slepé nezávislé grading až po všech sériích. Holdout RUN/známky zatím N
 HTTP follow-up je nyní výslovně autorizovaný; nejde již o čekání na souhlas.
 [Nový omezený WP](wp/WP-M2-PRIVATE-HTTP-EXECUTION-20261004.md): private-loopback-v1,
 navržené execution@2/network policy, exact authority/preview/digests, default V1 offline.
-ROOT CPU namespace proof PASS: skutečný HTTP, wrong-IP/wildcard/port/socket zákazy,
-capsets0/NNP/seccomp/Landlock; původní netNS-owner EPERM a ip-path FAIL zachované.
-Design/scope review PASS ebcf2fad…45e2fc; private V2 schema35/35 CPU PASS, ne produkt.
-Native C/Node24 V2 probe skutečně PASS: oddělené HTTP servery, síťové zákazy,
-capsets0/NNP/seccomp a žádný host efekt. První stdio pipe→AF_UNIX FAIL zachovaný;
-V2 mění pouze fixture I/O na existující FD a skutečnou HTTP readiness.
-Produktový V2/native/DB-reopen/UI a generovaná HTTP app dosud NOT_RUN.
-HTTP CPU práce běží nezávisle; mobil se zkouší až po stabilním IDE/BE.
+CPU namespace/native Node24 HTTP PASS včetně capsets0/NNP/seccomp/Landlock a zákazů;
+host unchanged, původní EPERM/ip-path/AF_UNIX pipe FAIL zachované. Není produktový PASS.
+V2 schema35/review981339fa…48f8d PASS. Provider/native/build proposal CPU9 PASS,
+nezávislé review běží; V2 full payload není zatím durable a SQL fix se připravuje.
+Produktový provider/V2/DB-reopen/UI a generovaná HTTP app NOT_RUN.
+HTTP příprava privátní, mimo zmrazený fan source; mobil až po stabilním IDE/BE.
 
 Po fan/shared candidate: skutečné pointer UI/M2 v instalovaném service kontextu,
 file/web/export/skills journeys, různé projekty/A→B→A, kvalitativní expertise oracle

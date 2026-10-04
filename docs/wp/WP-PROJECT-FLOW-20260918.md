@@ -44,6 +44,18 @@ budget; the 32,000-byte serializer and 2,048-token repair output cap still bind.
 No extra inference after a new phase failure. Source review/CPU do not accept
 the generated application.
 
+Two GPU placement stops on 4 October spent zero new model calls. The manual
+legacy aggregate-utilization gate confused desktop graphics with compute
+occupancy; current full NVIDIA inventory showed only G processes, empty
+compute/PS and roughly 22,500 MiB free. ROOT owns the bounded runner-only
+`gpuAdmission` opt-in for this failed manual32k continuation: three samples
+under the canonical lease, empty compute/resident models, at least22,000 MiB
+free VRAM and unchanged RAM/disk/artifact checks; aggregate utilization is
+recorded. Unknown/drifting observations reject. Default util30 policy remains
+unchanged. Publish/review/freeze this explicit delta before further admission;
+instructions, source inputs, oracle, approval and historical4+repair4+CLI3 stay
+fixed. The short32k allocation remains allocation-only evidence.
+
 Verification after adoption: Node24 `--test tests/project-collaboration.test.js`,
 the registered CRE/session/project/M2 boundary checks and shared CI. Stop on
 semantic routing regression, stale/foreign scope, authority before approval,
