@@ -100,7 +100,7 @@ for (const [value, options, error] of [
 const bytes = Buffer.from(JSON.stringify(dummy));
 assert.equal(readHoldoutDefinition(bytes, createHash('sha256').update(bytes).digest('hex')).cases.length, 2);
 const dummyManifest = { revision: 'synthetic-clean-revision', sourceClean: true, corpusSha256: 'corpus', runnerSha256: 'runner',
-  holdoutContractSha256: 'helper', model: MODEL, modelDigest: DIGEST, node: process.version };
+  holdoutContractSha256: 'helper', model: MODEL, modelDigest: DIGEST, modelArtifacts: { [MODEL]: DIGEST }, node: process.version };
 const completed = { phase: 'holdout-1', status: 'LIVE_COMPLETE_UNASSESSED', manifest: dummyManifest, configuration: { fingerprint: 'same' } };
 assertHoldoutSeries({ phase: 'holdout-2', manifest: dummyManifest, runs: [completed], configurationFingerprint: 'same' });
 assert.throws(() => assertHoldoutSeries({ phase: 'holdout-1', manifest: dummyManifest, runs: [completed] }), /ALREADY_COMPLETE/u);
@@ -108,6 +108,8 @@ assert.throws(() => assertHoldoutSeries({ phase: 'holdout-3', manifest: dummyMan
 for (const key of Object.keys(dummyManifest)) assert.throws(() => assertHoldoutSeries({ phase: 'holdout-2',
   manifest: { ...dummyManifest, [key]: 'changed' }, runs: [completed] }), /SERIES_DRIFT/u);
 assert.throws(() => assertHoldoutSeries({ phase: 'holdout-2', manifest: dummyManifest, runs: [completed], configurationFingerprint: 'changed' }), /CONFIGURATION_DRIFT/u);
+assert.throws(() => assertHoldoutSeries({ phase: 'holdout-2', manifest: { ...dummyManifest,
+  modelArtifacts: { [MODEL]: 'a'.repeat(64) } }, runs: [completed] }), /SERIES_DRIFT/u);
 assert.deepEqual(holdoutProgress({ id: 'dummy', variant: 'B', status: 200, ms: 5, content: 'PRIVATE', file: 'PRIVATE', error: 'PRIVATE' }),
   { id: 'dummy', variant: 'B', status: 200, ms: 5 });
 
@@ -164,6 +166,60 @@ function transport(wire, options = {}) {
       B: { status: 200, result: { status: 'ok', response: { content: 'B answer' } } },
       A: { status: 200, result: { message: { content: 'A answer' } } } }],
   });
+}
+
+async function relayRoleAllowlist() {
+  const gemma = 'gemma4:26b';
+  const gemmaDigest = '08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68';
+  const modelArtifacts = { [MODEL]: DIGEST, [gemma]: gemmaDigest };
+  const out = mkdtempSync(path.join(scratch, 'role-relay-'));
+  let forwarded = 0;
+  const provider = http.createServer(async (request, response) => {
+    const chunks = [];
+    for await (const chunk of request) chunks.push(chunk);
+    const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    forwarded++;
+    response.writeHead(200, { 'content-type': 'application/json' });
+    response.end(JSON.stringify({ model: body.model, digest: modelArtifacts[body.model], done: true,
+      message: { content: 'Synthetic response.' } }));
+  });
+  await new Promise(resolve => provider.listen(0, '127.0.0.1', resolve));
+  const wire = [];
+  const relay = createChatResilienceProviderRelay({ out,
+    upstream: { hostname: '127.0.0.1', port: provider.address().port }, model: gemma,
+    models: Object.keys(modelArtifacts), wire, persistWire() {} });
+  await new Promise(resolve => relay.listen(0, '127.0.0.1', resolve));
+  try {
+    for (const model of [gemma, MODEL, 'unapproved:latest']) {
+      const r = await fetch(`http://127.0.0.1:${relay.address().port}/api/chat`, {
+        method: 'POST', headers: { 'content-type': 'application/json', 'X-Chat-Measurement-Case': 'http-plain' },
+        body: JSON.stringify({ model, messages: [], options: { num_ctx: 4096 } }),
+      });
+      await r.text();
+      assert.equal(r.status, model === 'unapproved:latest' ? 403 : 200);
+    }
+    assert.equal(forwarded, 2, 'An undeclared model request reached the provider');
+    const valid = wire.slice(0, 2);
+    const options = { model: gemma, modelDigest: gemmaDigest, postflightDigest: gemmaDigest,
+      modelArtifacts, postflightArtifacts: modelArtifacts, contextWindowTokens: 4096 };
+    assert.equal(transport(valid, options).transportComplete, true, 'CHAT and preserved D1 must both verify');
+    assert.equal(transport(wire, options).transportComplete, false, 'Unknown model failure must remain visible');
+    const spoofed = structuredClone(valid);
+    spoofed[1].response.model = gemma;
+    spoofed[1].response.digest = gemmaDigest;
+    assert.equal(transport(spoofed, options).transportComplete, false,
+      'Another allowlisted artifact must not satisfy the requested role model');
+    assert.equal(transport(valid, { ...options, postflightArtifacts: { [gemma]: gemmaDigest } }).transportComplete,
+      false, 'Missing D1 postflight attestation cannot pass');
+    assert.equal(transport(valid, { ...options, postflightArtifacts: { ...modelArtifacts, [MODEL]: 'a'.repeat(64) } }).transportComplete,
+      false, 'D1 digest drift cannot pass');
+  } finally {
+    relay.closeAllConnections();
+    await new Promise(resolve => relay.close(resolve));
+    relay.closeJournal();
+    provider.closeAllConnections();
+    await new Promise(resolve => provider.close(resolve));
+  }
 }
 
 async function interruptedRelay(scenario) {
@@ -395,6 +451,7 @@ try {
   await interruptedRelay('child-exit');
   await interruptedRelay('downstream-abort');
   await interruptedRelay('response-error');
+  await relayRoleAllowlist();
 
   assertFiveDistinctFrameworks('1. React\n2. Vue\n3. Angular\n4. Svelte\n5. Next.js');
   for (const incomplete of [
@@ -404,7 +461,7 @@ try {
     '1. React\n2. Vue\n3. Angular\n4. Svelte\n5. Next.js\n6. Nuxt',
     '1. React\n2. Vue\n3. Angular\n4. Svelte\n5. neexistující příklad',
   ]) assert.throws(() => assertFiveDistinctFrameworks(incomplete));
-  console.log('chat resilience runner contract: 23 transport checks, complete 53-case rubric and 6 list-oracle calibration cases PASS (offline, 0 model calls)');
+  console.log('chat resilience runner contract: transport, role allowlist, immutable artifacts, complete 53-case rubric and 6 list-oracle calibration cases PASS (offline, 0 model calls)');
 } finally {
   rmSync(scratch, { recursive: true, force: true });
 }

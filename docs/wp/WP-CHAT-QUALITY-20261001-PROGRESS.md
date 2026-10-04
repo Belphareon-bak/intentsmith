@@ -1,6 +1,6 @@
 # IntentSmith — průběh práce na kvalitě chatu
 
-Poslední aktualizace: **04. 10. 2026, 19:37 CEST**. Stav: **NO_GO / REVIEW_PENDING / CI_PASS_DEVELOPMENT_ONLY**.
+Poslední aktualizace: **04. 10. 2026, 20:03 CEST**. Stav: **NO_GO / REVIEW_PENDING / CI_PASS_DEVELOPMENT_ONLY**.
 Dokument aktualizuji po každém dokončeném milníku, nejpozději po třech hodinách
 aktivní práce. Historická selhání zůstávají uvedena; nové ověření je nepřepisuje
 na úspěch. Nejde o plánovač úloh po ukončení této pracovní relace.
@@ -11,8 +11,9 @@ Aktuální kandidát s Gemmou (4. 10.):
 `08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68`.
 Cílený profil 4 PASS; úplný profil 399 PASS / 4 FAIL / 3 BLOCKED.
 [GitHub CI #69](https://github.com/Belphareon-bak/intentsmith/actions/runs/37220582328)
-PASS na témže SHA, pouze vývojová sada. Živé regresní a latencové běhy tohoto
-kandidáta zatím NOT_RUN; nezávislý holdout čeká na privátní dešifrovanou cestu.
+PASS na témže SHA, pouze vývojová sada. Latencová sonda a 20× dvě známé reprodukce jsou dokončené; první regrese
+53 kroků je LIVE_INCOMPLETE kvůli odmítnutému skutečnému D1 volání. Nový
+kandidát runneru se připravuje; nezávislý holdout čeká na privátní cestu.
 Následující hlavička a tabulky zachovávají historické důkazy Qwen kandidátů.
 
 Větev: `work/chat-quality-20261001`. Společný výchozí commit:
@@ -672,3 +673,42 @@ na čistém zmrazeném commitu bez `--allow-dirty`.
   tři syntetické fáze runneru a tři nezměněné regrese původních 53 kroků.
   Odpovědi tří sérií se otevřou až po dokončení všech. Nikdy je neoznačit
   za nový holdout; aplikace se podle těchto sběrů průběžně neladí.
+
+
+## Milník S18 — čistá časová sonda, zachované selhání měření a oprava runneru
+
+- **Uživatelské chování:** Gemma má v téže skutečné chatové cestě nižší
+  latenci u zkoušeného krátkého vysvětlení HTTP 409. Aplikační opravy ani
+  prompty se dále nemění; runner nově změří skutečnou roli D1, zachovanou
+  na Qwen3.5, místo odmítnutí jejího legitimního volání.
+- **Stručný důkaz:** na čistém `d096aa49` každého modelu šest čerstvých
+  rozhovorů, stejných 12 providerových požadavků kromě tagu a hodin. První
+  model nebyl residentní; dalších pět je teplých. Medián celé odpovědi Qwen
+  5,139 s, Gemma 1,972 s (poměr 2,606×). Teplé průměry klasifikace /
+  generování s kontrolami / ostatní aplikace: Qwen 2,432 / 2,807 / 0,0036 s,
+  Gemma 0,743 / 1,258 / 0,0036 s. Diagnostika před předáním 99 / 36 ms je
+  již uvnitř těchto časů a nesčítá se znovu.
+  [Časy, přesné vstupní hashe a omezení](../review/evidence/chat-quality-20261001/gemma-latency-control.json).
+  Gemma dokončila 20 e-mailů + 20 GPU reprodukcí, 60 inferencí; zatím bez
+  vlastního významového hodnocení. Tři syntetické fáze každá 3/3, 7 inferencí,
+  shodná konfigurace. [Přesné běhy](../review/evidence/chat-quality-20261001/gemma-c1-live-status.json).
+- **Zbývající problém:** první nezměněná regrese má 53 M1 odpovědí HTTP 200,
+  ale 1/138 inferencí odmítnutou: `gibberish`, D1 `qwen3.5:27b`,
+  `OUT_OF_SCOPE provider request`. Je správně LIVE_INCOMPLETE; druhá ani
+  třetí fáze nezačala. Nejde o zhoršení odpovědi Gemmy ani důvod přepnout D1.
+  Nová kontrola připouští pouze dva předem deklarované přesné artefakty,
+  kontroluje požadovaný tag proti vrácenému tagu/digestu a oba postflight
+  digesty, 4K vstupy a neměnnost manifestu. Syntetické HTTP negativní
+  kontroly odmítnou třetí model, podvržený druhý tag, chybějící D1 digest
+  i jeho drift. Starší publikovaný technický JSON měl omylem prázdné
+  `counts`; export je opraven podle původního `statusCounts`, výsledky
+  původních reportů ani jejich SHA se nemění.
+- **Následující krok:** zmrazit nový čistý kandidát runneru, spustit jeho celý
+  profil a vlastní CI alias, zopakovat syntetické fáze a dokončit nové tři
+  nezměněné regrese bez průběžného čtení odpovědí. Předchozí pevné kandidátní
+  větve se neposunují. Skutečný holdout zůstává NOT_RUN.
+
+Časová sonda je jedno krátké zadání a n=5 teplých odpovědí; neprokazuje
+produkční p95, obecnou užitečnost ani jazykovou paritu. Studené načtení není
+kontrolované vyprázdněním OS page cache a pořadí bylo Qwen → Gemma. Celá
+chatová aplikace je proti prvnímu kandidátu byte-for-byte shodná.

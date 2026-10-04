@@ -6,15 +6,28 @@
       "sourceRevision": "d096aa4981b44c69ab3b4454a93575039dd703ea",
       "reportSha256": "7f801a72f5cefdd1f0474617988c1af375ebf7d5d81af5bd6ecafa98a3d1ec1e",
       "verdict": "PASS",
-      "counts": {},
-      "nonPASS": []
+      "counts": {
+        "PASS": 4,
+        "FAIL": 0,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "nonPASS": [],
+      "exitCode": 0
     },
     {
       "runId": "chat-gemma-candidate-full-20261004",
       "sourceRevision": "d096aa4981b44c69ab3b4454a93575039dd703ea",
       "reportSha256": "a3de56adf641ec2e2c439c141e74841388097a5125224584ed720af7d8697744",
       "verdict": "FAIL",
-      "counts": {},
+      "counts": {
+        "PASS": 399,
+        "FAIL": 4,
+        "TIMEOUT": 0,
+        "BLOCKED": 3,
+        "SKIPPED": 0
+      },
       "nonPASS": [
         {
           "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
@@ -58,7 +71,8 @@
           "path": "tests/routing-accuracy.test.js",
           "reason": null
         }
-      ]
+      ],
+      "exitCode": 1
     }
   ],
   "githubCI": {

@@ -1,0 +1,567 @@
+{
+  "purpose": "Same source, same provider inputs/limits; six repeated HTTP 409 inputs in fresh private conversations per exact model. One nonresident first turn and five warm turns, no concurrent audit.",
+  "sourceRevision": "d096aa4981b44c69ab3b4454a93575039dd703ea",
+  "independentQualityAcceptance": false,
+  "limitations": [
+    "One repeated prompt, n=5 warm per model; no claim for all dialog types or p95 production SLO",
+    "Cold means provider model initially nonresident; OS file/page cache was not flushed, order Qwen then Gemma",
+    "No TTFT or streaming, cancellation/concurrency not benchmarked",
+    "Synchronous fsynced diagnostics measured separately; other residual is not a pure production overhead estimate"
+  ],
+  "models": [
+    {
+      "manifest": {
+        "revision": "d096aa4981b44c69ab3b4454a93575039dd703ea",
+        "sourceClean": true,
+        "dirtyStatus": "",
+        "corpusSha256": "623780f80481b2c4f4df54039272a2f6cc1994fd562a81163927d7d7d9baa8d8",
+        "runnerSha256": "f2a7b1bc0b46a4c73781e5013933a8e39dbda51956169a20a2ed0e43278d5377",
+        "model": "qwen3.5:27b",
+        "modelDigest": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+        "providerUrl": "http://127.0.0.1:11434",
+        "node": "v24.21.0",
+        "inferenceSerial": true,
+        "networkIsolation": "kernel namespace plus explicit Unix provider relay"
+      },
+      "runId": "bc0b493c-e4fc-4122-84da-5d5a5d076933",
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "transportComplete": true,
+        "exactWire": true,
+        "contextBudgetValid": true,
+        "contextWindowTokens": 4096,
+        "inferenceCallCount": 12,
+        "invalidInferenceCallCount": 0,
+        "postflightDigest": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e",
+        "expectedCases": 6,
+        "recordedCases": 6,
+        "at": "2026-10-04T17:40:24.667Z"
+      },
+      "initialNoResidentModel": true,
+      "privateEvidenceSha256": "9f1d8e418005f4291deebb132b451b72a63e3f7b4d0679961c22e1ccadb4ff4a",
+      "coldFirstCase": {
+        "id": "latency-1",
+        "responseCompleteMs": 55219.952342000004,
+        "chatTotalMs": 55217,
+        "interpretationMs": 51906,
+        "classificationMs": 51884,
+        "generationAndChecksMs": 3288,
+        "answerPromptMs": 3,
+        "otherApplicationMs": 20,
+        "diagnosticBeforeForwardMs": 57.01011200000039,
+        "providerTotalMs": 55013.009692,
+        "providerClassificationMs": 51837.868506,
+        "providerGenerationMs": 3175.141186,
+        "providerLoadMs": 48472.205815,
+        "unattributedChatMinusProviderAndDiagnosticMs": 146.98019599999998,
+        "inferenceCalls": 2,
+        "actualContextWindowTokens": [
+          4096,
+          4096
+        ],
+        "normalizedClassificationRequestSha256": "4f63face9996a96492335f7cd5691355a39ab0eea51669fedcc8b9b11d10ed42",
+        "normalizedGenerationRequestSha256": "394a7b7747c5c23fd21faa5cd11145570fc9112a1440c44a93b2b11f142e9c78"
+      },
+      "warmStatistics": {
+        "responseCompleteMs": {
+          "n": 5,
+          "meanMs": 5245.607524000001,
+          "medianMs": 5139.419338999993,
+          "p95NearestRankMs": 5720.959028999998
+        },
+        "chatTotalMs": {
+          "n": 5,
+          "meanMs": 5244.2,
+          "medianMs": 5138,
+          "p95NearestRankMs": 5719
+        },
+        "interpretationMs": {
+          "n": 5,
+          "meanMs": 2433,
+          "medianMs": 2460,
+          "p95NearestRankMs": 2555
+        },
+        "classificationMs": {
+          "n": 5,
+          "meanMs": 2432.2,
+          "medianMs": 2460,
+          "p95NearestRankMs": 2552
+        },
+        "generationAndChecksMs": {
+          "n": 5,
+          "meanMs": 2807.4,
+          "medianMs": 2708,
+          "p95NearestRankMs": 3157
+        },
+        "answerPromptMs": {
+          "n": 5,
+          "meanMs": 0.2,
+          "medianMs": 0,
+          "p95NearestRankMs": 1
+        },
+        "otherApplicationMs": {
+          "n": 5,
+          "meanMs": 3.6,
+          "medianMs": 3,
+          "p95NearestRankMs": 6
+        },
+        "diagnosticBeforeForwardMs": {
+          "n": 5,
+          "meanMs": 99.23319679998822,
+          "medianMs": 141.66042899998138,
+          "p95NearestRankMs": 146.41814200000226
+        },
+        "providerTotalMs": {
+          "n": 5,
+          "meanMs": 4980.7908872,
+          "medianMs": 4925.62765,
+          "p95NearestRankMs": 5328.926933000001
+        },
+        "providerClassificationMs": {
+          "n": 5,
+          "meanMs": 2270.0504717999997,
+          "medianMs": 2266.333976,
+          "p95NearestRankMs": 2293.134519
+        },
+        "providerGenerationMs": {
+          "n": 5,
+          "meanMs": 2710.7404154,
+          "medianMs": 2659.293674,
+          "p95NearestRankMs": 3035.792414
+        },
+        "providerLoadMs": {
+          "n": 5,
+          "meanMs": 10.876006799999999,
+          "medianMs": 2.43307,
+          "p95NearestRankMs": 38.803827999999996
+        },
+        "unattributedChatMinusProviderAndDiagnosticMs": {
+          "n": 5,
+          "meanMs": 164.1759160000118,
+          "medianMs": 176.78137799999786,
+          "p95NearestRankMs": 266.72069700001884
+        }
+      },
+      "cases": [
+        {
+          "id": "latency-1",
+          "responseCompleteMs": 55219.952342000004,
+          "chatTotalMs": 55217,
+          "interpretationMs": 51906,
+          "classificationMs": 51884,
+          "generationAndChecksMs": 3288,
+          "answerPromptMs": 3,
+          "otherApplicationMs": 20,
+          "diagnosticBeforeForwardMs": 57.01011200000039,
+          "providerTotalMs": 55013.009692,
+          "providerClassificationMs": 51837.868506,
+          "providerGenerationMs": 3175.141186,
+          "providerLoadMs": 48472.205815,
+          "unattributedChatMinusProviderAndDiagnosticMs": 146.98019599999998,
+          "inferenceCalls": 2,
+          "actualContextWindowTokens": [
+            4096,
+            4096
+          ],
+          "normalizedClassificationRequestSha256": "4f63face9996a96492335f7cd5691355a39ab0eea51669fedcc8b9b11d10ed42",
+          "normalizedGenerationRequestSha256": "394a7b7747c5c23fd21faa5cd11145570fc9112a1440c44a93b2b11f142e9c78"
+        },
+        {
+          "id": "latency-2",
+          "responseCompleteMs": 5720.959028999998,
+          "chatTotalMs": 5719,
+          "interpretationMs": 2555,
+          "classificationMs": 2552,
+          "generationAndChecksMs": 3157,
+          "answerPromptMs": 1,
+          "otherApplicationMs": 6,
+          "diagnosticBeforeForwardMs": 141.6756150000001,
+          "providerTotalMs": 5328.926933000001,
+          "providerClassificationMs": 2293.134519,
+          "providerGenerationMs": 3035.792414,
+          "providerLoadMs": 8.629281,
+          "unattributedChatMinusProviderAndDiagnosticMs": 248.39745199999925,
+          "inferenceCalls": 2,
+          "actualContextWindowTokens": [
+            4096,
+            4096
+          ],
+          "normalizedClassificationRequestSha256": "4f63face9996a96492335f7cd5691355a39ab0eea51669fedcc8b9b11d10ed42",
+          "normalizedGenerationRequestSha256": "394a7b7747c5c23fd21faa5cd11145570fc9112a1440c44a93b2b11f142e9c78"
+        },
+        {
+          "id": "latency-3",
+          "responseCompleteMs": 5139.419338999993,
+          "chatTotalMs": 5138,
+          "interpretationMs": 2460,
+          "classificationMs": 2460,
+          "generationAndChecksMs": 2674,
+          "answerPromptMs": 0,
+          "otherApplicationMs": 4,
+          "diagnosticBeforeForwardMs": 146.41814200000226,
+          "providerTotalMs": 4814.80048,
+          "providerClassificationMs": 2263.633861,
+          "providerGenerationMs": 2551.166619,
+          "providerLoadMs": 2.43307,
+          "unattributedChatMinusProviderAndDiagnosticMs": 176.78137799999786,
+          "inferenceCalls": 2,
+          "actualContextWindowTokens": [
+            4096,
+            4096
+          ],
+          "normalizedClassificationRequestSha256": "4f63face9996a96492335f7cd5691355a39ab0eea51669fedcc8b9b11d10ed42",
+          "normalizedGenerationRequestSha256": "394a7b7747c5c23fd21faa5cd11145570fc9112a1440c44a93b2b11f142e9c78"
+        },
+        {
+          "id": "latency-4",
+          "responseCompleteMs": 5088.184536000001,
+          "chatTotalMs": 5087,
+          "interpretationMs": 2530,
+          "classificationMs": 2530,
+          "generationAndChecksMs": 2554,
+          "answerPromptMs": 0,
+          "otherApplicationMs": 3,
+          "diagnosticBeforeForwardMs": 141.66042899998138,
+          "providerTotalMs": 4678.618874,
+          "providerClassificationMs": 2271.910516,
+          "providerGenerationMs": 2406.708358,
+          "providerLoadMs": 38.803827999999996,
+          "unattributedChatMinusProviderAndDiagnosticMs": 266.72069700001884,
+          "inferenceCalls": 2,
+          "actualContextWindowTokens": [
+            4096,
+            4096
+          ],
+          "normalizedClassificationRequestSha256": "4f63face9996a96492335f7cd5691355a39ab0eea51669fedcc8b9b11d10ed42",
+          "normalizedGenerationRequestSha256": "394a7b7747c5c23fd21faa5cd11145570fc9112a1440c44a93b2b11f142e9c78"
+        },
+        {
+          "id": "latency-5",
+          "responseCompleteMs": 5254.424519000007,
+          "chatTotalMs": 5253,
+          "interpretationMs": 2306,
+          "classificationMs": 2306,
+          "generationAndChecksMs": 2944,
+          "answerPromptMs": 0,
+          "otherApplicationMs": 3,
+          "diagnosticBeforeForwardMs": 33.897154999984195,
+          "providerTotalMs": 5155.980498999999,
+          "providerClassificationMs": 2255.239487,
+          "providerGenerationMs": 2900.741012,
+          "providerLoadMs": 2.2270630000000002,
+          "unattributedChatMinusProviderAndDiagnosticMs": 63.12234600001648,
+          "inferenceCalls": 2,
+          "actualContextWindowTokens": [
+            4096,
+            4096
+          ],
+          "normalizedClassificationRequestSha256": "4f63face9996a96492335f7cd5691355a39ab0eea51669fedcc8b9b11d10ed42",
+          "normalizedGenerationRequestSha256": "394a7b7747c5c23fd21faa5cd11145570fc9112a1440c44a93b2b11f142e9c78"
+        },
+        {
+          "id": "latency-6",
+          "responseCompleteMs": 5025.050197000004,
+          "chatTotalMs": 5024,
+          "interpretationMs": 2314,
+          "classificationMs": 2313,
+          "generationAndChecksMs": 2708,
+          "answerPromptMs": 0,
+          "otherApplicationMs": 2,
+          "diagnosticBeforeForwardMs": 32.51464299997315,
+          "providerTotalMs": 4925.62765,
+          "providerClassificationMs": 2266.333976,
+          "providerGenerationMs": 2659.293674,
+          "providerLoadMs": 2.286792,
+          "unattributedChatMinusProviderAndDiagnosticMs": 65.8577070000265,
+          "inferenceCalls": 2,
+          "actualContextWindowTokens": [
+            4096,
+            4096
+          ],
+          "normalizedClassificationRequestSha256": "4f63face9996a96492335f7cd5691355a39ab0eea51669fedcc8b9b11d10ed42",
+          "normalizedGenerationRequestSha256": "394a7b7747c5c23fd21faa5cd11145570fc9112a1440c44a93b2b11f142e9c78"
+        }
+      ]
+    },
+    {
+      "manifest": {
+        "revision": "d096aa4981b44c69ab3b4454a93575039dd703ea",
+        "sourceClean": true,
+        "dirtyStatus": "",
+        "corpusSha256": "623780f80481b2c4f4df54039272a2f6cc1994fd562a81163927d7d7d9baa8d8",
+        "runnerSha256": "f2a7b1bc0b46a4c73781e5013933a8e39dbda51956169a20a2ed0e43278d5377",
+        "model": "gemma4:26b",
+        "modelDigest": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+        "providerUrl": "http://127.0.0.1:11434",
+        "node": "v24.21.0",
+        "inferenceSerial": true,
+        "networkIsolation": "kernel namespace plus explicit Unix provider relay"
+      },
+      "runId": "c6eeecb8-a0c4-4409-8957-e2351845d867",
+      "exit": {
+        "code": 0,
+        "signal": null,
+        "transportComplete": true,
+        "exactWire": true,
+        "contextBudgetValid": true,
+        "contextWindowTokens": 4096,
+        "inferenceCallCount": 12,
+        "invalidInferenceCallCount": 0,
+        "postflightDigest": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+        "expectedCases": 6,
+        "recordedCases": 6,
+        "at": "2026-10-04T17:41:00.534Z"
+      },
+      "initialNoResidentModel": true,
+      "privateEvidenceSha256": "af2ed13261f62e8ee309bf26d31f3f1833de8802e9c045bc342c801f5911eeec",
+      "coldFirstCase": {
+        "id": "latency-1",
+        "responseCompleteMs": 18554.649423,
+        "chatTotalMs": 18550,
+        "interpretationMs": 17311,
+        "classificationMs": 17288,
+        "generationAndChecksMs": 1209,
+        "answerPromptMs": 2,
+        "otherApplicationMs": 28,
+        "diagnosticBeforeForwardMs": 24.04744500000038,
+        "providerTotalMs": 18423.659967,
+        "providerClassificationMs": 17258.551079,
+        "providerGenerationMs": 1165.108888,
+        "providerLoadMs": 12114.537379000001,
+        "unattributedChatMinusProviderAndDiagnosticMs": 102.29258800000002,
+        "inferenceCalls": 2,
+        "actualContextWindowTokens": [
+          4096,
+          4096
+        ],
+        "normalizedClassificationRequestSha256": "4f63face9996a96492335f7cd5691355a39ab0eea51669fedcc8b9b11d10ed42",
+        "normalizedGenerationRequestSha256": "394a7b7747c5c23fd21faa5cd11145570fc9112a1440c44a93b2b11f142e9c78"
+      },
+      "warmStatistics": {
+        "responseCompleteMs": {
+          "n": 5,
+          "meanMs": 2007.3181651999998,
+          "medianMs": 1972.0268629999991,
+          "p95NearestRankMs": 2151.219946000001
+        },
+        "chatTotalMs": {
+          "n": 5,
+          "meanMs": 2006,
+          "medianMs": 1971,
+          "p95NearestRankMs": 2149
+        },
+        "interpretationMs": {
+          "n": 5,
+          "meanMs": 744.2,
+          "medianMs": 737,
+          "p95NearestRankMs": 781
+        },
+        "classificationMs": {
+          "n": 5,
+          "meanMs": 743.4,
+          "medianMs": 736,
+          "p95NearestRankMs": 781
+        },
+        "generationAndChecksMs": {
+          "n": 5,
+          "meanMs": 1258,
+          "medianMs": 1219,
+          "p95NearestRankMs": 1407
+        },
+        "answerPromptMs": {
+          "n": 5,
+          "meanMs": 0.2,
+          "medianMs": 0,
+          "p95NearestRankMs": 1
+        },
+        "otherApplicationMs": {
+          "n": 5,
+          "meanMs": 3.6,
+          "medianMs": 3,
+          "p95NearestRankMs": 6
+        },
+        "diagnosticBeforeForwardMs": {
+          "n": 5,
+          "meanMs": 36.29913739999974,
+          "medianMs": 26.924581999999646,
+          "p95NearestRankMs": 72.27531600000657
+        },
+        "providerTotalMs": {
+          "n": 5,
+          "meanMs": 1913.9718838,
+          "medianMs": 1897.87446,
+          "p95NearestRankMs": 2017.475903
+        },
+        "providerClassificationMs": {
+          "n": 5,
+          "meanMs": 698.72185,
+          "medianMs": 700.185196,
+          "p95NearestRankMs": 713.140866
+        },
+        "providerGenerationMs": {
+          "n": 5,
+          "meanMs": 1215.2500338,
+          "medianMs": 1186.579342,
+          "p95NearestRankMs": 1325.005033
+        },
+        "providerLoadMs": {
+          "n": 5,
+          "meanMs": 1.9390468,
+          "medianMs": 1.9647540000000001,
+          "p95NearestRankMs": 2.217298
+        },
+        "unattributedChatMinusProviderAndDiagnosticMs": {
+          "n": 5,
+          "meanMs": 55.72897880000028,
+          "medianMs": 48.82645400000047,
+          "p95NearestRankMs": 80.48178200000666
+        }
+      },
+      "cases": [
+        {
+          "id": "latency-1",
+          "responseCompleteMs": 18554.649423,
+          "chatTotalMs": 18550,
+          "interpretationMs": 17311,
+          "classificationMs": 17288,
+          "generationAndChecksMs": 1209,
+          "answerPromptMs": 2,
+          "otherApplicationMs": 28,
+          "diagnosticBeforeForwardMs": 24.04744500000038,
+          "providerTotalMs": 18423.659967,
+          "providerClassificationMs": 17258.551079,
+          "providerGenerationMs": 1165.108888,
+          "providerLoadMs": 12114.537379000001,
+          "unattributedChatMinusProviderAndDiagnosticMs": 102.29258800000002,
+          "inferenceCalls": 2,
+          "actualContextWindowTokens": [
+            4096,
+            4096
+          ],
+          "normalizedClassificationRequestSha256": "4f63face9996a96492335f7cd5691355a39ab0eea51669fedcc8b9b11d10ed42",
+          "normalizedGenerationRequestSha256": "394a7b7747c5c23fd21faa5cd11145570fc9112a1440c44a93b2b11f142e9c78"
+        },
+        {
+          "id": "latency-2",
+          "responseCompleteMs": 2151.219946000001,
+          "chatTotalMs": 2149,
+          "interpretationMs": 735,
+          "classificationMs": 733,
+          "generationAndChecksMs": 1407,
+          "answerPromptMs": 1,
+          "otherApplicationMs": 6,
+          "diagnosticBeforeForwardMs": 72.27531600000657,
+          "providerTotalMs": 2017.475903,
+          "providerClassificationMs": 692.47087,
+          "providerGenerationMs": 1325.005033,
+          "providerLoadMs": 1.9915150000000001,
+          "unattributedChatMinusProviderAndDiagnosticMs": 59.248780999993414,
+          "inferenceCalls": 2,
+          "actualContextWindowTokens": [
+            4096,
+            4096
+          ],
+          "normalizedClassificationRequestSha256": "4f63face9996a96492335f7cd5691355a39ab0eea51669fedcc8b9b11d10ed42",
+          "normalizedGenerationRequestSha256": "394a7b7747c5c23fd21faa5cd11145570fc9112a1440c44a93b2b11f142e9c78"
+        },
+        {
+          "id": "latency-3",
+          "responseCompleteMs": 1972.0268629999991,
+          "chatTotalMs": 1971,
+          "interpretationMs": 753,
+          "classificationMs": 752,
+          "generationAndChecksMs": 1215,
+          "answerPromptMs": 0,
+          "otherApplicationMs": 3,
+          "diagnosticBeforeForwardMs": 25.727455000007467,
+          "providerTotalMs": 1897.87446,
+          "providerClassificationMs": 713.140866,
+          "providerGenerationMs": 1184.733594,
+          "providerLoadMs": 2.217298,
+          "unattributedChatMinusProviderAndDiagnosticMs": 47.398084999992534,
+          "inferenceCalls": 2,
+          "actualContextWindowTokens": [
+            4096,
+            4096
+          ],
+          "normalizedClassificationRequestSha256": "4f63face9996a96492335f7cd5691355a39ab0eea51669fedcc8b9b11d10ed42",
+          "normalizedGenerationRequestSha256": "394a7b7747c5c23fd21faa5cd11145570fc9112a1440c44a93b2b11f142e9c78"
+        },
+        {
+          "id": "latency-4",
+          "responseCompleteMs": 1937.9020569999993,
+          "chatTotalMs": 1937,
+          "interpretationMs": 715,
+          "classificationMs": 715,
+          "generationAndChecksMs": 1219,
+          "answerPromptMs": 0,
+          "otherApplicationMs": 3,
+          "diagnosticBeforeForwardMs": 26.405214999991586,
+          "providerTotalMs": 1867.904993,
+          "providerClassificationMs": 681.325651,
+          "providerGenerationMs": 1186.579342,
+          "providerLoadMs": 1.671507,
+          "unattributedChatMinusProviderAndDiagnosticMs": 42.68979200000831,
+          "inferenceCalls": 2,
+          "actualContextWindowTokens": [
+            4096,
+            4096
+          ],
+          "normalizedClassificationRequestSha256": "4f63face9996a96492335f7cd5691355a39ab0eea51669fedcc8b9b11d10ed42",
+          "normalizedGenerationRequestSha256": "394a7b7747c5c23fd21faa5cd11145570fc9112a1440c44a93b2b11f142e9c78"
+        },
+        {
+          "id": "latency-5",
+          "responseCompleteMs": 2056.6690830000007,
+          "chatTotalMs": 2055,
+          "interpretationMs": 781,
+          "classificationMs": 781,
+          "generationAndChecksMs": 1271,
+          "answerPromptMs": 0,
+          "otherApplicationMs": 3,
+          "diagnosticBeforeForwardMs": 30.163118999993458,
+          "providerTotalMs": 1944.3550989999999,
+          "providerClassificationMs": 706.486667,
+          "providerGenerationMs": 1237.868432,
+          "providerLoadMs": 1.9647540000000001,
+          "unattributedChatMinusProviderAndDiagnosticMs": 80.48178200000666,
+          "inferenceCalls": 2,
+          "actualContextWindowTokens": [
+            4096,
+            4096
+          ],
+          "normalizedClassificationRequestSha256": "4f63face9996a96492335f7cd5691355a39ab0eea51669fedcc8b9b11d10ed42",
+          "normalizedGenerationRequestSha256": "394a7b7747c5c23fd21faa5cd11145570fc9112a1440c44a93b2b11f142e9c78"
+        },
+        {
+          "id": "latency-6",
+          "responseCompleteMs": 1918.7728769999994,
+          "chatTotalMs": 1918,
+          "interpretationMs": 737,
+          "classificationMs": 736,
+          "generationAndChecksMs": 1178,
+          "answerPromptMs": 0,
+          "otherApplicationMs": 3,
+          "diagnosticBeforeForwardMs": 26.924581999999646,
+          "providerTotalMs": 1842.248964,
+          "providerClassificationMs": 700.185196,
+          "providerGenerationMs": 1142.063768,
+          "providerLoadMs": 1.85016,
+          "unattributedChatMinusProviderAndDiagnosticMs": 48.82645400000047,
+          "inferenceCalls": 2,
+          "actualContextWindowTokens": [
+            4096,
+            4096
+          ],
+          "normalizedClassificationRequestSha256": "4f63face9996a96492335f7cd5691355a39ab0eea51669fedcc8b9b11d10ed42",
+          "normalizedGenerationRequestSha256": "394a7b7747c5c23fd21faa5cd11145570fc9112a1440c44a93b2b11f142e9c78"
+        }
+      ]
+    }
+  ],
+  "normalizedClassificationRequestSha256AllSame": true,
+  "normalizedGenerationRequestSha256AllSame": true,
+  "warmMedianRatioQwenOverGemma": 2.606160917697395,
+  "gemmaWarmMedianReductionFraction": 0.616293839260116
+}

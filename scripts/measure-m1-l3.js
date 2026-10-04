@@ -213,6 +213,13 @@ const modelDigest = inside ? process.env.CHAT_PROBE_MODEL_DIGEST : modelOverride
 if (typeof model !== 'string' || !model.trim() || /\s/u.test(model) || !/^[a-f0-9]{64}$/u.test(modelDigest)) {
   throw new Error('Model comparison requires a tag and exact SHA-256 digest');
 }
+// D1 is a real dependency of the bounded request fallback. Changing CHAT
+// must preserve its role and record its identity instead of silently rebinding
+// it to CHAT or rejecting a legitimate provider call as out of scope.
+const d1Model = 'qwen3.5:27b';
+const d1Digest = '7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e';
+if (model === d1Model && modelDigest !== d1Digest) throw new Error('D1_ARTIFACT_DIGEST_CONFLICT');
+const modelArtifacts = { [d1Model]: d1Digest, [model]: modelDigest };
 // Match the ordinary chat's first generation sampling. A remains a diagnostic
 // counterfactual using B's incoming history, not an independent dialog or tool.
 const directOptions={temperature:0.7,top_p:0.75,repeat_penalty:1.1,num_predict:1200,num_ctx:4096};
@@ -434,7 +441,7 @@ const dirtyStatus = execFileSync('git', ['status', '--porcelain'], { encoding: '
 if (dirtyStatus) throw new Error('LIVE_SOURCE_DIRTY: commit the exact runner and corpus before inference');
 const manifest = { revision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), sourceClean: dirtyStatus.length === 0, dirtyStatus,
   corpusSha256: createHash('sha256').update(isLongContext || isGeneratedSave || isRecallAB || isNaturalActions || isQualityDialogs || isCapabilities || isArchiveBoundary || isArchiveFollowups || isLatencyProbe || isReproducedDefects ? JSON.stringify(measurementDefinition) : fs.readFileSync(corpusFile)).digest('hex'),
-  runnerSha256: createHash('sha256').update(fs.readFileSync(self)).digest('hex'), model, modelDigest,
+  runnerSha256: createHash('sha256').update(fs.readFileSync(self)).digest('hex'), model, modelDigest, modelArtifacts,
   ...(isHoldout ? { holdoutContractSha256: createHash('sha256').update(fs.readFileSync(new URL('./chat-holdout-contract.js', import.meta.url))).digest('hex') } : {}),
   providerUrl: 'http://127.0.0.1:11434', node: process.version, inferenceSerial: true, networkIsolation: 'kernel namespace plus explicit Unix provider relay' };
 if (isHoldout && !inside) {
@@ -446,8 +453,8 @@ if (isFinal && !isHoldout && !inside && phase !== 'final-1') {
   try { previous = JSON.parse(fs.readFileSync(recordPath, 'utf8')).runs
     .find(run => run.phase === `final-${Number(phase.slice(-1)) - 1}` && run.status === 'LIVE_COMPLETE_UNASSESSED');
   } catch {}
-  if (!previous || ['revision', 'corpusSha256', 'runnerSha256', 'model', 'modelDigest', 'node']
-    .some(key => previous.manifest?.[key] !== manifest[key])) {
+  if (!previous || ['revision', 'corpusSha256', 'runnerSha256', 'model', 'modelDigest', 'modelArtifacts', 'node']
+    .some(key => JSON.stringify(previous.manifest?.[key]) !== JSON.stringify(manifest[key]))) {
     throw new Error('FINAL_SERIES_DRIFT: previous complete run with unchanged source, corpus, runner and model is required');
   }
 }
@@ -484,7 +491,7 @@ if(process.argv.includes('--inside')) {
  // before pinning the private process cache; production is never touched.
  const { initModelNumCtx, setNumCtx, getNumCtx } = await import(path.join(root,'src/llm/model-ctx.js'));
  await initModelNumCtx(model, process.env.OLLAMA_URL);
- setNumCtx(model, directOptions.num_ctx);
+ for (const name of Object.keys(modelArtifacts)) setNumCtx(name, directOptions.num_ctx);
  async function request(method,url,body=null){const began=performance.now();const r=await fetch(`http://127.0.0.1:${info.port}${url}`,{method,headers:{'X-IntentSmith-Local-Capability':info.localCapability,'Content-Type':'application/json'},...(body===null?{}:{body:JSON.stringify(body)}),signal:AbortSignal.timeout(180000)});const result=await r.json();return {status:r.status,result,elapsedMs:performance.now()-began};}
  const resume=isLongContext && process.env.CHAT_PROBE_RESUME === 'true';
  const restartState=resume ? JSON.parse(fs.readFileSync(path.join(out,'initial-long-state.json'),'utf8')) : null;
@@ -512,6 +519,7 @@ if(process.argv.includes('--inside')) {
   memoryPolicy:readChatMemoryPolicy(db.db),corpusSize:corpus.length,
   providerVersion:preflight.provider?.version,
   contextWindowTokens:getNumCtx(model),
+  modelContextWindows:Object.fromEntries(Object.keys(modelArtifacts).map(name=>[name,getNumCtx(name)])),
   directBaseline:{options:directOptions,historySource:'B incoming durable history',tools:false},
  };
  if (typeof effectiveConfiguration.providerVersion !== 'string') throw new Error('Provider version missing from preflight');
@@ -672,10 +680,11 @@ if(process.argv.includes('--inside')) {
   const compute=execFileSync('nvidia-smi',['--query-compute-apps=pid,process_name,used_memory','--format=csv,noheader'],{encoding:'utf8'}).trim();
   if (!Array.isArray(ps.models)) throw new Error('GPU_PREFLIGHT_ERROR: invalid provider residency response');
   if(ps.models.length||compute)throw new Error('BLOCKED_GPU: occupied before pilot');
-  const artifact=(await (await fetch('http://127.0.0.1:11434/api/tags')).json()).models?.find(entry=>entry.name===model);
-  if(artifact?.digest!==modelDigest)throw new Error('MODEL_DIGEST_DRIFT: expected fixed CHAT artifact is unavailable');
-  save('initial-preflight.json',{at:new Date().toISOString(),lease:{pid:lease.owner.pid,command:lease.owner.command,startedAt:lease.owner.startedAt},ps,compute,gpu:execFileSync('nvidia-smi',['--query-gpu=memory.total,memory.used,utilization.gpu','--format=csv,noheader'],{encoding:'utf8'}).trim(),provider:await (await fetch('http://127.0.0.1:11434/api/version')).json()});
-  proxy=createChatResilienceProviderRelay({out,upstream:{hostname:'127.0.0.1',port:11434},model,wire,
+  const artifacts=(await (await fetch('http://127.0.0.1:11434/api/tags')).json()).models;
+  if(Object.entries(modelArtifacts).some(([name,digest])=>artifacts?.find(entry=>entry.name===name)?.digest!==digest))
+   throw new Error('MODEL_DIGEST_DRIFT: expected fixed CHAT/D1 artifact is unavailable');
+  save('initial-preflight.json',{at:new Date().toISOString(),lease:{pid:lease.owner.pid,command:lease.owner.command,startedAt:lease.owner.startedAt},ps,compute,modelArtifacts:Object.fromEntries(Object.keys(modelArtifacts).map(name=>[name,artifacts.find(entry=>entry.name===name).digest])),gpu:execFileSync('nvidia-smi',['--query-gpu=memory.total,memory.used,utilization.gpu','--format=csv,noheader'],{encoding:'utf8'}).trim(),provider:await (await fetch('http://127.0.0.1:11434/api/version')).json()});
+  proxy=createChatResilienceProviderRelay({out,upstream:{hostname:'127.0.0.1',port:11434},model,models:Object.keys(modelArtifacts),wire,
    persistWire:rows=>save('initial-provider-wire.json',rows)});
   await new Promise((resolve,reject)=>{
    proxy.once('error',reject);
@@ -705,15 +714,16 @@ if(process.argv.includes('--inside')) {
   let recorded=[];
   try { recorded=JSON.parse(fs.readFileSync(path.join(out,'initial-results.json'),'utf8')); } catch {}
   const selected=corpus.filter(c=>!requestedCases||requestedCases.includes(c.id));
-  let postflightDigest=null;
-  try { postflightDigest=(await (await fetch('http://127.0.0.1:11434/api/tags')).json()).models
-   ?.find(entry=>entry.name===model)?.digest; } catch {}
-  const {inferenceWire,exactWire,invalidInferenceCallCount,contextBudgetValid,transportComplete}
+  let postflightDigest=null,postflightArtifacts={};
+  try { const installed=(await (await fetch('http://127.0.0.1:11434/api/tags')).json()).models;
+   postflightArtifacts=Object.fromEntries(Object.keys(modelArtifacts).map(name=>[name,installed?.find(entry=>entry.name===name)?.digest||null]));
+   postflightDigest=postflightArtifacts[model]; } catch {}
+  const {inferenceWire,exactWire,invalidInferenceCallCount,contextBudgetValid,artifactSetValid,transportComplete}
    =assessChatResilienceTransport({
    wire,recorded,selected,exit,isFinal,postflightDigest,model,modelDigest,
-   contextWindowTokens:directOptions.num_ctx});
+   contextWindowTokens:directOptions.num_ctx,modelArtifacts,postflightArtifacts});
   save('initial-exit.json',{...exit,transportComplete,exactWire,
-   contextBudgetValid,contextWindowTokens:directOptions.num_ctx,
+   contextBudgetValid,contextWindowTokens:directOptions.num_ctx,artifactSetValid,postflightArtifacts,
    inferenceCallCount:inferenceWire.length,invalidInferenceCallCount,postflightDigest,
    expectedCases:selected.length,recordedCases:recorded.length,at:new Date().toISOString()});
   console.log('pilot exit',JSON.stringify({...exit,transportComplete}),isHoldout ? '' : tail);

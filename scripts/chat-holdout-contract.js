@@ -40,8 +40,8 @@ export function assertHoldoutSeries({ phase, manifest, runs = [], configurationF
   if (phase === 'holdout-1') return;
   const previous = runs.findLast(run => run.phase === `holdout-${Number(phase.at(-1)) - 1}`
     && run.status === 'LIVE_COMPLETE_UNASSESSED');
-  const keys = ['revision', 'sourceClean', 'corpusSha256', 'runnerSha256', 'holdoutContractSha256', 'model', 'modelDigest', 'node'];
-  if (!previous || keys.some(key => previous.manifest?.[key] !== manifest[key])) throw new Error('HOLDOUT_SERIES_DRIFT');
+  const keys = ['revision', 'sourceClean', 'corpusSha256', 'runnerSha256', 'holdoutContractSha256', 'model', 'modelDigest', 'modelArtifacts', 'node'];
+  if (!previous || keys.some(key => JSON.stringify(previous.manifest?.[key]) !== JSON.stringify(manifest[key]))) throw new Error('HOLDOUT_SERIES_DRIFT');
   if (configurationFingerprint !== undefined && previous.configuration?.fingerprint !== configurationFingerprint) throw new Error('HOLDOUT_CONFIGURATION_DRIFT');
 }
 
