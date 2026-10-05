@@ -4,10 +4,10 @@
 Release `NOT_ACCEPTED`; instalovaný BE `c84b88cd` se nezměnil.
 Přijaté Ledger/TaskFlow/SQLite/AST/GPU UI a omezený cleanup se neopakují bez delty.
 CHAT e066956b je merged; Gemma/Hunt mají jiné workery, ROOT holdout nečetl.
-Poslední celý profil c412865c: 410 PASS / 0 FAIL / 0 BLOCKED / 0 TIMEOUT, CI 37244406326 SUCCESS.
+Poslední celý profil ad93ec63: 410 PASS / 0 FAIL / 0 BLOCKED / 0 TIMEOUT, report eeedf1e5…b0fd8.
 Starší 399 PASS / 11 FAIL beze změny; tento profil necertifikuje nové source změny.
-Publikovaný 65ad7c05 má CI 37252045791 všech18SUCCESS a remoteexact.
-M6 metadata source 413917e2: CPU 50/50 / source review d66e6b2c…849455c PASS; actual109 NOT_RUN.
+Publikovaný ad93ec63 má CI 37255445247 všech18SUCCESS a remote exact.
+M6 metadata source 413917e2: CPU50/source review PASS; actual109 review82b6dd0a…75ca884 PASS (n=1).
 
 CODE32k/fullVRAM a naturalclassifier→D1 CPU44+parser24/review PASS zachované;
 živý naturalentry není přijatý. Fan5f6c3fb7 použil8/11, poslednírepair length2048 při
@@ -33,12 +33,12 @@ Historicalhelperpolicy/readiness/routerlength a ROOTselector180stimeout0newcalls
 NextCPUstrategy:normalMODIFYrouter/server2/cumulative10/no repair; fullinputs30614/28594<32000.
 Skutečný změněný router recheck/STOP; newdecision/freeze/review před inference, žádnýfakeFAILED/ručnípatch.
 
-M6 previousENV oprava umožnila install/readiness/canary56/failed-upgrade+exactrestore56/currentAPIcanary.
-Retry0be FAIL7,918s na metadata:previousd3d vytváří.c3/project.json; final109/inode NOT_REACHED.
-Sharedread-onlyport source413917e2 +originalbytes/path/hash/devino oracle adoptované;
-legacy pouze při truecanonicalabsence, žádnýrename/write nebo test-onlyfallback.
-Po společném publish/remote/CI/inputfreeze jediný newactual109≤600s, nyníNOT_RUN.
-Owncache220/220+SQLiteABI137 PASS. M5/M6 signedreceipts/rotations/history/keycustody/demo otevřené.
+M6 actual109 na ad93:9,66055 s, 56→vynucenýFAIL80→exactrestore56→109/sameDB identity PASS.
+Canary API a původních180B legacy metadat/path/hash/inode přežily; přesné after assertions PASS.
+Receipt4cc8b7f8…a6d547, independentreview82b6dd0a…75ca884; zdroje/deps/ownPIDcleanup ověřené.
+Historické readiness97,5s a metadata7,918s FAIL zachované. Jde o unsigned dílčí upgrade proof.
+Nová owncurrentcache158/158 +SQLprebuild PASS; freshinstall/build/native/Yarn/Electron ještě NOT_RUN.
+M5/M6 signedreceipts/rotations/history/keycustody/demo/soak/throughput jsou otevřené.
 Pak obecnější repo/context, IDE/BE/expertise/workers, finálníprofil/M5/M6; mobil až po stabilnímIDE/BE.
 Hunt grading má cizívlastník, novýprogresspath není doložen; rootdoacceptance nepřebírá.
 Závěrečnýcleanup foreign/UNKNOWN/evidence HOLD; žádný novýworktree nebo produkčnídeploy.

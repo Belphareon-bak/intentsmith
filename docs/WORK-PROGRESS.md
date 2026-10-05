@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 5. 10. 2026, 04:24 CEST / 02:24 UTC.
+**Aktualizováno:** 5. 10. 2026, 04:50 CEST / 02:50 UTC.
 **Vlastník:** ROOT; ladění CHAT/Gemma a zbývající Hunt mají jiné workery.
 **Release NOT_ACCEPTED. HTTP: physical oracle PASS / source API FAIL. Fan FAIL.**
 
@@ -20,12 +20,12 @@ BE restart SQLite průchodu dokládá durable M2/zdroje, nikoli DB z dalšího n
 ## Společná integrace a publikace
 
 Merge 56138e4f zachoval CHAT e066956b / CODE32k/D1; preservation review PASS.
-Celý profil **c412865c: 410 PASS / 0 FAIL / 0 BLOCKED / 0 TIMEOUT**, report 5b404646…00a2b;
-[CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37244406326). Starší 399 PASS / 11 FAIL zachované.
-Publikovaný **65ad7c05**, remote exact; [CI 18/18 SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37252045791).
+Celý profil **ad93ec63: 410 PASS / 0 FAIL / 0 BLOCKED / 0 TIMEOUT**, report eeedf1e5…b0fd8;
+02:33:11–02:42:47 UTC. Původní přerušené/config FAIL i starší 399/11 zůstávají.
+Publikovaný **ad93ec63**, remote exact; [CI 18/18 SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37255445247).
 CODE cap4096 pouze pro vydaný exact CODE32k; generic 8k / 2048 a schválený 4k / 1024 zachované.
 Source review 9fe85d5c…3122e60 + focused 3/3 PASS; není to release nebo nový celý profil.
-M6 metadata source 413917e2 / source review d66e6b2c…849455c + CPU 50/50 PASS; actual109 NOT_RUN.
+M6 metadata source 413917e2 / CPU 50/50 / source review d66e6b2c…849455c; actual109 přijatý níže.
 Shared source 387be88f: cílených 7/7 PASS, report e4bdd295…f249d2.
 CI přidává project-welcome do CODE12; CHAT7 zachovaný. Registry596/35, graph1510/3/28; Studio beze změny.
 Instalovaný BE c84b88cd se nezměnil; žádný deploy/model activation/mobile/CHAT tuning.
@@ -50,9 +50,10 @@ Verdict **PHYSICAL_ORACLE_PASS_API_SOURCE_REVIEW_FAIL_NOT_ACCEPTED**.
 Source review 87a4b8a5…af184: A1 slash aliases a A2 dynamic import blokují plné přijetí;
 A3 quoted charset / OWS je kvalifikovaná mezera. Konkrétní HTTP varianty NOT_RUN.
 [Přesný nepřijatý kandidát](../examples/generated-apps/http-items-candidate/README.md): 4 modules / 26139 B + frozen API 4446 B.
-CPU nový normal CODE MODIFY router/server: 6 controls PASS, full inputs 30614/28594 B < 32000.
+Normal CODE MODIFY2: CPU vstupní návrh 6 PASS; konektor 14 PASS, source review pending.
+Přesné instrukce se opravují podle RFC; limit 512 B a skutečný prompt 32000 B zůstávají.
 Skutečný změněný router se musí přeměřit; žádná truncation/projection/fake FAILED / DB transplant.
-Navrhovaný nový cyklus 2 / cumulative 10 / no repair čeká na bounded review a konkrétní rozhodnutí;
+Nový cyklus 2 / cumulative 10 / no repair čeká na publikovaný konektor a konkrétní rozhodnutí;
 rozpočet 8 je vyčerpaný, succeeded application není revisionOf FAILED. Žádná nová inference neběží.
 
 ## Fan — konkrétní otázka čeká
@@ -66,23 +67,23 @@ Source 16384 / serializer 32000 / canonical GPU guard platí pro všechny nové 
 
 ## M5/M6 — technický upgrade a operátor
 
-Own offline cache 220/220 + Node24 ABI137 SQLite prebuild PASS; shared cache beze změny.
-První actual109 FAIL 97,5 s / previous readiness: previous d3d čte C3_* ENV, nikoli moderní názvy.
-Previous-only 13 aliases CPU 12/12 / review / CI PASS; retry 0be trval 7,918 s, cleanup/source PASS.
-Previous canary/count 56, failed-upgrade + exact restore 56 a current API canary prošly; metadata FAIL.
-Old d3d píše .c3/project.json; moderní readers jej nečetly. Final 109/inode NOT_REACHED.
-Adoptovaná read-only kompatibilita + original raw/path/hash/devino oracle; source 413917e2 / CPU 50 PASS.
-Pouze skutečná absence canonical dovolí legacy; neplatná canonical se neobchází. Bez rename/write/test-only fallback.
-Po current publish/remote/CI/input freeze jediný actual109 ≤ 600 s + review; nyní **NOT_RUN**.
-M5/M6 otevřené:8 unsigned podkladů / 13 signed receipts, rotace / N/A / history / key custody / demo.
-Fresh install / backup-restore / 24h soak / throughput samostatné; 193e2351 PASS je historický.
-[M6 WP](wp/WP-M6-RELEASE.md); žádný podpis ani operátorský úkon se nevyrábí.
+**ACTUAL_UPGRADE_ACCEPTANCE_REVIEW_PASS**, n=1 na ad93ec63, 9,66055 s.
+56 migrací → úmyslný FAIL na 80 → přesná obnova 56 → aktuálních 109 ve stejné DB.
+Canary API i původní .c3/project.json (180 B / cesta / hash / inode) zachované;
+raw before je uložený, raw after samostatně ne; přesné after assertions ve fixture prošly.
+Receipt4cc8b7f8…a6d547; independent review82b6dd0a…75ca884; source/deps/11 PID cleanup PASS.
+M6 scoped unsigned proof; původní readiness97,5s a metadata7,918s FAIL jsou zachované.
+Read-only produktový port vybírá legacy pouze při skutečné absenci canonical; žádné rename/write.
+Own previous cache220/220 + SQL ABI137; nová current cache158/158 copied/SRI PASS, install NOT_RUN.
+Yarn/Electron/headers coverage se připíná; nový fresh install/build/restore109 ještě nejsou PASS.
+M5/M6 otevřené:8 unsigned podkladů /13 signed receipts, rotace/N/A/history/key custody/demo.
+Nový 24h soak/throughput samostatně;193e2351 PASS historický. [M6 WP](wp/WP-M6-RELEASE.md).
 
 ## D1, Hunt, CHAT
 
-Classifier→D1:44/44 CPU + parser 24 + review PASS; živý přirozený vstup není přijatý.
+Classifier→D1: 44/44 CPU + parser 24 + review PASS; živý přirozený vstup není přijatý.
 Hunt vlastní jiný worker; audit 5 Oct 01:26: 107 canonical files beze změny, 596/1173 responses / 2324/3689 criteria.
-Nový worker/path není doložen; cílený dotaz čeká, ROOT cizígrading nepřebírá.
+Nový worker/path není doložen; cílený dotaz čeká, ROOT cizí grading nepřebírá.
 Gemma 9591ea1b / report d86baa27 NO_GO; není holdout acceptance.
 Operátor odpečetil `/mnt/vi7000/intentsmith/evidence/chat-holdout-20261002/holdout.json`; ROOT obsah nečetl.
 

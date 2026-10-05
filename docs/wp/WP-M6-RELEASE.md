@@ -292,7 +292,7 @@ JOINT-REVIEW c735179f25c9dbddbe366731b4f91d86bd74605c02ae278c63af2fe4b77f0b22,
 M6-REVIEW 7b26ee66946766e23cf8d041372ae8e6c1d060ea4b9b97f5d49cb54a398c9cf4.
 Teprve nový clean/published source+CI/inputfreeze dovolí jediný další actual109; první FAIL se nepřepisuje.
 
-### Produktová metadata kompatibilita po skutečném FAIL
+### Produktová metadata kompatibilita — CPU checkpoint 5. 10., 02:24 UTC
 
 Actual retry na `0be289d5` skončil za7,918s; receipt9d22fde9…386e8,
 diagnosis608d2f68…5004. Previous install/readiness/canary/count56, úmyslný
@@ -321,3 +321,34 @@ PASS: šest source hashů exact, +3/−0 edges/1510/3/28, provenance2d145220, HT
 
 Cílený společný profil na387be88f:7/7 PASS (welcome/sharedcontext/boundary/ratchet/artifacts),
 reportSHA `e4bdd295860f866ba7da88c8e20d609d7722ee8c56f8b5e2e025033bc8f249d2`. CI zachovává CHAT7 a přidává welcome do CODE12.
+
+### Actual109 přijatý dílčí milník, 5. 10. 2026, 02:43 UTC
+
+Candidate `ad93ec63c22078015319cf64996a072acac3744d`, remote exact,
+[CI37255445247](https://github.com/Belphareon-bak/intentsmith/actions/runs/37255445247) všech18SUCCESS.
+Celý offline/database profil02:33:11–02:42:47 UTC:410PASS/0FAIL/BLOCKED/TIMEOUT,
+report `eeedf1e511afb1ba2101dce437365eb474819c74deaaac17e5efce198b4b0fd8`.
+Dvě původní ROOT config/interrupt FAIL zachované; explicit Node24/PDF/OCR preflight4/4 PASS.
+
+Jediný physical gate9,660548737s / exit0 / beztimeoutu: previousd3d install offline,
+readiness/canary/API/count56 → forcedcollision/count80/exit1 → exactbackuprestore56
+→ current136.1.0API/canary/metadata → count109 na stejném restoredSQLiteinode.
+Původních180B `.c3/project.json` bytes/path/hash/devino přežilo beze změny.
+Raw before marker je uložený; raw after samostatně ne, prošly přesné literal assertions
+v připnuté fixture84e960a4…439e a skutečný produktový sharedreader.
+Runtime receipt je M6PreviousVersionUpgradeReceipt@3; wrapper receipt
+`4cc8b7f89323352960adafe9c834f31b20ceaf6a91f7c24949223dad24a6d547`,
+actualmanifest `1cf3955bbd63bc00c0c6687b773ff6779b8d5503eb687894e6f3598a990debbd`.
+Independent final review
+`82b6dd0a291a941a56f3b99a3210526b54b70a4cf8ba099074aaac20175ca884`
+**ACTUAL_UPGRADE_ACCEPTANCE_REVIEW_PASS**, n=1/ad93; manifestf59964d7…1ef64.
+15/15actualmembers,220offlineblobs,3283tracked/6181deps/14links independently ověřené.
+11observedownPIDů+launcher absent, canarytemp deleted, group0/noforcedkill;
+cache1debuglog added/0changed/0removed, zdroje/deps původní, předchozíFAIL unchanged.
+
+Tento unsigned scoped proof nepřijímá M5/M6/release, nepokrývá fullrestore109,
+fresh install/renderer/Electron build, soak/throughput, signed key/history/privacy/demo/Gate0.
+Další příprava: current lock158/158 content+SQLprebuild v nové owncache; install NOT_RUN.
+Původní previouscache220 i sharedcache zůstaly nezměněné (copy-only/read-only zdroje).
+RO inventory731524a5…26b0c a copyreceipt4a54ecc0…2fb75e evidují rozsah;
+Yarn/Electron/headers pins a skutečný registeredfreshgate zbývají.
