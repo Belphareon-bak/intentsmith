@@ -349,8 +349,42 @@ Oracle2/API beze změny; jejich omezené PASS nemění source/API FAIL.
 publikuje4modules/26139B+frozenAPI4446B+manifest, explicitně NOT_ACCEPTED/excludedfrom24accepted.
 Žádná ruční source oprava, DBtransplant, replayprovider nebo nový FAILED se nevyrábí.
 
-Budget8 je vyčerpaný; succeededapplication nelze použít jako failedrevisionOf.
-CPU připravuje normální CODE MODIFY dvou existujících souborů s expectedbefore digests,
-plnými zdroji a původním oracle. Konkrétní možnost/budget/source review před dalším
-operátorským rozhodnutím podle jeho podmínky další selhané omezené strategie.
-Žádná nová inference zatím neběží; další plán se nesmí vydávat za přijatou aplikaci.
+Budget8 v tomto uzavřeném @3 je vyčerpaný; succeededapplication není failedrevisionOf.
+Následující explicitní ROOT rozhodnutí podle již platného oprávnění otevírá samostatný @4,
+nikoli prodloužení historického freeze. @3 raw výstupy, FAILED i source/API NOT_ACCEPTED
+zůstávají beze změny. Žádná nová inference zatím neběží.
+
+
+### ROOT rozhodnutí: normální MODIFY2, 5. 10. 2026, 03:10 UTC
+
+Operátor již výslovně povolil autonomní dokončení; CONTRACT §11 svěřuje běžné
+inženýrské volby agentovi. Dřívější vlastní přípravné permission flags nejsou novou
+autoritou (§10). ROOT přebírá dva existující manual helpers a navazující tento WP/report:
+`run-http-items-journey.mjs` SHA256 `8b6fa269878126ce6a44da893e2f8350e8dbde75df96307a80858f1884e8ae57`,
+`http-items-studio-controller.mjs` `09a082e503c90d458f7928518c9a6c3fe1f6851cc7f1f0383e90608ab43f345a`.
+Adoption patch `ce9200bf8bd4ebeef736b0ed6bd3396fb939c440fbb755fa7c2fd7daa4c552c0`
+a všech18 členů V2 `7335ac3e…9acff4` jsou exact. Syntax/diffcheck PASS.
+Independent bounded V2 review `8f1bc2e2e8da63f9d2bd82a65fb170b76fce830e661be9d59696140205b91007`
+PASS bez findings, hold released; CPU14/14 zděděných a samostatný corrected-input PASS.
+
+Nový `HttpSqliteJourneyFreeze@4` má max2 nová CODE volání, historická8/cumulative10,
+normal4096/context32768; D1/CLI/repair/retry0. Použije původní runtime/home/authorityDB/
+konverzaci a Git1856920f. Normální Studio `/m2-build` mění router→server; žádný
+revisionOf, reusePrevious, fakeFAILED, transplant nebo ruční změna generovaných zdrojů.
+Plné zdroje nadále určují dependency, preview/digest/zápis; store/validation/API/policy chráněné.
+Frozen draft fd5a95c4…d2f6c: instrukce router506/server398/global288 B;
+CPU input30647/28594 B pod32000. Druhý prompt se znovu sestaví ze skutečného nového
+routeru a na překročení zastaví. OWS kolem středníku je dovolené, kolem rovnítka ne;
+APIe9efa9/oracle0ba/securitypolicy06d395 se nemění. Žádný tokenizer/fallback/projekce.
+
+Před lease: exact publish/remote/CI, actual original DB identity a bounded nativeRO
+snapshot všech původních m2_* řádků podle PK, main/-wal/-shm observation před/po.
+RO option není tvrzení nulových sidecar writes; main bytes uvnitř každého open mají být
+beze změny, během normální operace DB legitimně mění nové řádky. Původní PK/hash se
+nesmí změnit ani zmizet. Tyto native kontroly a actual @4 jsou zatím NOT_RUN.
+Následuje exact freeze/review, volná GPU podle canonical admission, nový preview,
+wrongdigest409/pendingrestart/exactapproval, původní oracle, commit/restart/durable replay.
+Přijetí vyžaduje také source/API review a skutečné konkrétní A1/A3 HTTP varianty;
+CPU/source/CI nejsou aplikace. Actual selhání tohoto nového omezeného postupu znamená
+konkrétní blokér, možnosti, doporučení a otázku podle instrukce operátora; bez další
+automatické strategie nebo navýšení budgetu. CHAT/mobil/aktivace/deploy mimo rozsah.

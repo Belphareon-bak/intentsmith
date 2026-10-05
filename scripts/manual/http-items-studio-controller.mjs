@@ -10,6 +10,7 @@ const {validateBlueprint,createForm,composerDraft}=require('../../intentsmith-id
 export {bindActualConversation,reloadActualStatus};
 export const HTTP_JOURNEY_BOUNDS=Object.freeze({phaseWaitMs:750000,providerCallTimeoutMs:180000,approvalWaitMs:120000,repairSelectionWaitMs:180000,rendererProbeMs:15000,focusedTimeoutMs:25000,repairMaximumGeneratedTargets:4,repairMaximumPhases:1});
 export const HTTP_RETENTION_JOURNEY_BOUNDS=Object.freeze({...HTTP_JOURNEY_BOUNDS,repairMaximumGeneratedTargets:2});
+export const HTTP_NORMAL_MODIFY_BOUNDS=Object.freeze({...HTTP_JOURNEY_BOUNDS,phaseWaitMs:450000,repairMaximumGeneratedTargets:0,repairMaximumPhases:0});
 export const RETENTION_REPAIR_TARGETS=Object.freeze(['src/router.mjs','src/server.mjs']);
 export const TARGETS=Object.freeze(['src/validation.mjs','src/store.mjs','src/router.mjs','src/server.mjs']);
 const copy=x=>JSON.parse(JSON.stringify(x)),sorted=x=>[...x].sort();
@@ -81,8 +82,9 @@ async function manualColumnAction(model, args) {
 }
 
 
-export function validateHttpDraft(draft,{expected,repair=false,repairTargets=TARGETS}){
-  validateBlueprint(draft);assert.ok(draft.gitCommit,'HTTP_GIT_COMMIT_REQUIRED_BEFORE_MODEL');assert.deepEqual(sorted(draft.files.map(f=>f.path)),sorted(TARGETS));
+export function validateHttpDraft(draft,{expected,repair=false,repairTargets=TARGETS,normalModify2=false}){
+  validateBlueprint(draft);assert.ok(draft.gitCommit,'HTTP_GIT_COMMIT_REQUIRED_BEFORE_MODEL');assert.deepEqual(sorted(draft.files.map(f=>f.path)),sorted(normalModify2?RETENTION_REPAIR_TARGETS:TARGETS));
+  if(normalModify2){assert.equal(repair,false);assert.deepEqual(draft,expected,'normal MODIFY2 frozen draft');assert.deepEqual(draft.files.map(f=>f.path),RETENTION_REPAIR_TARGETS);assert.deepEqual(draft.files.map(f=>f.dependsOn),[[],['src/router.mjs']]);assert.deepEqual(draft.files.map(f=>f.contextFiles),[['API.md','src/store.mjs','src/validation.mjs'],['API.md','src/store.mjs']]);}
   assert.deepEqual(draft.focusedTest,expected.focusedTest);assert.deepEqual(draft.gitCommit,expected.gitCommit);
   assert.deepEqual(draft.focusedTest.environment,{});assert.equal(draft.focusedTest.timeoutMs,25000);
   assert.equal(draft.focusedTest.sandboxProfile,'linux-bwrap-private-loopback-v1');
@@ -98,16 +100,16 @@ export function validateHttpDraft(draft,{expected,repair=false,repairTargets=TAR
   return draft;
 }
 export function checkComposerRoundTrip(draft,origin){const output=composerDraft(createForm(origin,draft));assert.deepEqual(output,draft);return output;}
-export async function prepareHttpDraft(studio,{sessionId,projectId,conversationId,draft,expected,beforeSubmit,proposal=null,repairTargets=TARGETS}){
-  validateHttpDraft(draft,{expected,repair:Boolean(draft.revisionOf),repairTargets});
+export async function prepareHttpDraft(studio,{sessionId,projectId,conversationId,draft,expected,beforeSubmit,proposal=null,repairTargets=TARGETS,normalModify2=false}){
+  validateHttpDraft(draft,{expected,repair:Boolean(draft.revisionOf),repairTargets,normalModify2});if(normalModify2)assert.equal(proposal,null);
   if(proposal){const p=compileM2ProjectChangeProposal(proposal);assert.equal(draft.revisionOf,undefined);assert.deepEqual(sorted(p.changes.map(x=>x.path)),sorted(TARGETS));assert.deepEqual(p.focusedTest,draft.focusedTest);assert.deepEqual(p.gitCommit,draft.gitCommit);}
   const command=(proposal?'/m2-plan ':'/m2-build ')+JSON.stringify(proposal||draft),args={sessionId,projectId,conversationId,command};
   await waitUntil(async()=>{const r=await invoke(studio,manualColumnAction,{...args,action:'probe'});return r.ready?r:null;},'HTTP actual selected session Send',15000);
   await beforeSubmit(copy(draft));assert.equal((await invoke(studio,manualColumnAction,{...args,action:'send'})).ready,true);
-  const result=await waitUntil(()=>invoke(studio,(model,args)=>{const s=model.widget.store.find(args.sessionId),entry=model.widget.m2.entry(s);if(entry.busy)return null;if(entry.error)throw Error('HTTP_CODE_PREPARE:'+entry.error);return entry.view?.state==='awaiting_approval'?{view:JSON.parse(JSON.stringify(entry.view)),userRecorded:s.chat.msgs.some(x=>x.role==='user'&&x.tag==='M2'&&x.text===args.command),ordinaryTurnActive:model.widget.transport.hasActiveM1Turn(s),proposal:s.chat._projectWorkProposal||null}:null;},{sessionId,command}),'HTTP full-source CODE preview',HTTP_JOURNEY_BOUNDS.phaseWaitMs);
+  const result=await waitUntil(()=>invoke(studio,(model,args)=>{const s=model.widget.store.find(args.sessionId),entry=model.widget.m2.entry(s);if(entry.busy)return null;if(entry.error)throw Error('HTTP_CODE_PREPARE:'+entry.error);return entry.view?.state==='awaiting_approval'?{view:JSON.parse(JSON.stringify(entry.view)),userRecorded:s.chat.msgs.some(x=>x.role==='user'&&x.tag==='M2'&&x.text===args.command),ordinaryTurnActive:model.widget.transport.hasActiveM1Turn(s),proposal:s.chat._projectWorkProposal||null}:null;},{sessionId,command}),'HTTP full-source CODE preview',(normalModify2?HTTP_NORMAL_MODIFY_BOUNDS:HTTP_JOURNEY_BOUNDS).phaseWaitMs);
   assert.equal(result.userRecorded,true);assert.equal(result.ordinaryTurnActive,false);assert.equal(result.proposal,null);
   assert.deepEqual(result.view.plan.origin,{surface:'studio',sessionId:conversationId,conversationId,projectId});
-  assert.deepEqual(sorted(result.view.diff.map(f=>f.path)),sorted(TARGETS));assert.equal(result.view.plan.version,2);assert.equal(result.view.audit?.governanceDecision?.verdict,'allow');
+  assert.deepEqual(sorted(result.view.diff.map(f=>f.path)),sorted(normalModify2?RETENTION_REPAIR_TARGETS:TARGETS));assert.equal(result.view.plan.version,2);assert.equal(result.view.audit?.governanceDecision?.verdict,'allow');
   return{...result,submittedDraft:copy(draft),...(proposal?{submittedProposal:copy(proposal),entryCommand:'/m2-plan'}:{entryCommand:'/m2-build'})};
 }
 export async function approveHttpPlan(studio,{sessionId,view,beforeClick=async()=>{}}){

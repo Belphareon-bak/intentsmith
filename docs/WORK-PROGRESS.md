@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 5. 10. 2026, 04:50 CEST / 02:50 UTC.
+**Aktualizováno:** 5. 10. 2026, 05:10 CEST / 03:10 UTC.
 **Vlastník:** ROOT; ladění CHAT/Gemma a zbývající Hunt mají jiné workery.
 **Release NOT_ACCEPTED. HTTP: physical oracle PASS / source API FAIL. Fan FAIL.**
 
@@ -50,11 +50,12 @@ Verdict **PHYSICAL_ORACLE_PASS_API_SOURCE_REVIEW_FAIL_NOT_ACCEPTED**.
 Source review 87a4b8a5…af184: A1 slash aliases a A2 dynamic import blokují plné přijetí;
 A3 quoted charset / OWS je kvalifikovaná mezera. Konkrétní HTTP varianty NOT_RUN.
 [Přesný nepřijatý kandidát](../examples/generated-apps/http-items-candidate/README.md): 4 modules / 26139 B + frozen API 4446 B.
-Normal CODE MODIFY2: CPU vstupní návrh 6 PASS; konektor 14 PASS, source review pending.
-Přesné instrukce se opravují podle RFC; limit 512 B a skutečný prompt 32000 B zůstávají.
-Skutečný změněný router se musí přeměřit; žádná truncation/projection/fake FAILED / DB transplant.
-Nový cyklus 2 / cumulative 10 / no repair čeká na publikovaný konektor a konkrétní rozhodnutí;
-rozpočet 8 je vyčerpaný, succeeded application není revisionOf FAILED. Žádná nová inference neběží.
+Normal CODE MODIFY2: V2 převzatý exact; CPU14 + input PASS, source review8f1bc2e2…b91007.
+ROOT podle existujícího souhlasu / CONTRACT §11 rozhodl nový @4: max2 / cumulative10 / no repair/retry.
+Původní @3 /8 calls/NOT_ACCEPTED zůstává immutable; jde o normální úpravu succeeded projektu.
+Plné zdroje, instrukce506/398 B, prompt30647/28594 B; skutečný nový router znovu podléhá32000 B.
+Publish/CI a native RO DB/WAL/SHM+old PK rows před lease; žádná inference zatím neběží.
+Nové actual selhání vyžaduje konkrétní eskalaci; žádná další automatická strategie.
 
 ## Fan — konkrétní otázka čeká
 
