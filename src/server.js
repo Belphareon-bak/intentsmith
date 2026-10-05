@@ -21,6 +21,7 @@ import {
 import { listenOnLegacyLoopback } from './security/legacy-listener-policy.js';
 import { applyHttpTimeoutPolicy } from './timeout-policy.js';
 import { logger } from './core/logger.js';
+import { readProjectMetadata } from './planner/project-onboarding.js';
 import { createProductionObservability } from './observability/production-observability.js';
 import {
   configureProductionOutboundPolicy,
@@ -1759,12 +1760,12 @@ listenOnLegacyLoopback(server, config.server, async () => {
         if (!entry.isDirectory()) continue;
         const projectPath = path.join(projectsDir, entry.name);
 
-        // Read description from .intentsmith/project.json if available
+        // Read canonical or existing legacy project metadata without migrating files
         let desc = entry.name;
         try {
-          const intentsmith = JSON.parse(fs.readFileSync(path.join(projectPath, '.intentsmith', 'project.json'), 'utf8'));
-          desc = intentsmith.description || intentsmith.name || entry.name;
-        } catch { /* no .intentsmith metadata */ }
+          const metadata = readProjectMetadata(projectPath)?.metadata;
+          desc = metadata?.description || metadata?.name || entry.name;
+        } catch { /* unavailable metadata; never bypass it with legacy data */ }
 
         // getOrCreate registers new projects and fixes auto-generated names (lc-xxx) on existing ones
         const before = projectsRepo.findByPath.get(projectPath);

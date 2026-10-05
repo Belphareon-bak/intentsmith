@@ -29,6 +29,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
 import Database from 'better-sqlite3';
+import { readProjectMetadata } from '../src/planner/project-onboarding.js';
 
 import {
   M6_CURRENT_VERSION as CURRENT_VERSION,
@@ -429,7 +430,9 @@ function projectMetadata(project, projectsRoot) {
       && !path.isAbsolute(relativeProjectPath),
     'upgraded canary escaped the owned projects root',
   );
-  return JSON.parse(readFileSync(path.join(canonicalProjectPath, '.intentsmith', 'project.json'), 'utf8'));
+  const observed = readProjectMetadata(canonicalProjectPath);
+  assert.ok(observed, 'upgraded canary metadata is missing');
+  return observed;
 }
 
 async function main() {
@@ -477,6 +480,18 @@ async function main() {
     const beforeList = await requestJson(previousServer, 'GET', '/api/projects?status=all&limit=100');
     assert.equal(beforeList.statusCode, 200, beforeList.raw);
     assert.ok(beforeList.json.projects.some(project => project.id === canaryId));
+    const previousCanary = beforeList.json.projects.find(project => project.id === canaryId);
+    const previousMetadata = projectMetadata(previousCanary, runtime.projects);
+    assert.equal(previousMetadata.relativePath, '.c3/project.json');
+    assert.equal(previousMetadata.metadata.name, M6_UPGRADE_CANARY.name);
+    assert.equal(previousMetadata.metadata.description, M6_UPGRADE_CANARY.description);
+    assert.equal(previousMetadata.metadata.type, M6_UPGRADE_CANARY.type);
+    // Preserve the actual old-app source on every outcome, outside nested cleanup.
+    process.stdout.write(`M6_UPGRADE_PROJECT_METADATA_BEFORE=${Buffer.from(JSON.stringify({
+      projectPath: previousCanary.path, relativePath: previousMetadata.relativePath,
+      rawBase64: previousMetadata.bytes.toString('base64'), sha256: previousMetadata.sha256,
+      identity: previousMetadata.identity,
+    })).toString('base64url')}\n`);
     await stopServer(previousServer);
     previousServer = null;
     const previousMigrationCount = migrationCount(runtime.database);
@@ -536,9 +551,13 @@ async function main() {
     assert.equal(upgradedCanary?.name, M6_UPGRADE_CANARY.name);
     assert.equal(upgradedCanary?.description, M6_UPGRADE_CANARY.description);
     const upgradedCanaryMetadata = projectMetadata(upgradedCanary, runtime.projects);
-    assert.equal(upgradedCanaryMetadata.name, M6_UPGRADE_CANARY.name);
-    assert.equal(upgradedCanaryMetadata.description, M6_UPGRADE_CANARY.description);
-    assert.equal(upgradedCanaryMetadata.type, M6_UPGRADE_CANARY.type);
+    assert.equal(upgradedCanaryMetadata.relativePath, previousMetadata.relativePath);
+    assert.equal(upgradedCanaryMetadata.sha256, previousMetadata.sha256);
+    assert.deepEqual(upgradedCanaryMetadata.bytes, previousMetadata.bytes);
+    assert.deepEqual(upgradedCanaryMetadata.identity, previousMetadata.identity);
+    assert.equal(upgradedCanaryMetadata.metadata.name, M6_UPGRADE_CANARY.name);
+    assert.equal(upgradedCanaryMetadata.metadata.description, M6_UPGRADE_CANARY.description);
+    assert.equal(upgradedCanaryMetadata.metadata.type, M6_UPGRADE_CANARY.type);
     await stopServer(currentServer);
     currentServer = null;
     const currentMigrationCount = migrationCount(runtime.database);
@@ -568,8 +587,8 @@ async function main() {
       canary: {
         id: canaryId,
         name: upgradedCanary.name,
-        description: upgradedCanaryMetadata.description,
-        type: upgradedCanaryMetadata.type,
+        description: upgradedCanaryMetadata.metadata.description,
+        type: upgradedCanaryMetadata.metadata.type,
         survivedUpgrade: true,
       },
       previousServerCleanShutdown: true,

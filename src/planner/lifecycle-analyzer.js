@@ -12,6 +12,7 @@ import { readFile, readdir, stat } from 'fs/promises';
 import { join, extname } from 'path';
 import { execSync } from 'child_process';
 import { logger } from '../core/logger.js';
+import { readProjectMetadata } from './project-onboarding.js';
 
 // ─── File Readers (graceful) ────────────────────────────────────────────────
 
@@ -207,8 +208,10 @@ export async function analyzeExistingProject(projectPath, projectId = null, db =
     parts.push(`### ROADMAP.md\n${truncated}`);
   }
 
-  // 3. .intentsmith/project.json
-  const intentsmithConfig = await readJsonFile(projectPath, '.intentsmith/project.json');
+  // 3. Exact canonical/legacy metadata; an invalid canonical never selects legacy.
+  let metadataObservation = null;
+  try { metadataObservation = readProjectMetadata(projectPath); } catch { /* graceful missing/unavailable metadata */ }
+  const intentsmithConfig = metadataObservation?.metadata;
   if (intentsmithConfig) {
     const summary = [];
     if (intentsmithConfig.name) summary.push(`Name: ${intentsmithConfig.name}`);
@@ -216,7 +219,7 @@ export async function analyzeExistingProject(projectPath, projectId = null, db =
     if (intentsmithConfig.description) summary.push(`Description: ${intentsmithConfig.description}`);
     if (intentsmithConfig.lifecycle) summary.push(`Lifecycle phase: ${intentsmithConfig.lifecycle}`);
     if (summary.length > 0) {
-      parts.push(`### .intentsmith/project.json\n${summary.join('\n')}`);
+      parts.push(`### ${metadataObservation.relativePath}\n${summary.join('\n')}`);
     }
   }
 

@@ -14,6 +14,7 @@ import fs from 'fs';
 import path from 'path';
 import { logger } from '../../../core/logger.js';
 import { detectStack } from './readme-generator.js';
+import { readProjectMetadata } from '../../../planner/project-onboarding.js';
 
 const MAX_FILE_SIZE = 50_000;
 
@@ -48,16 +49,6 @@ function safeReadFile(filePath) {
       content = content.substring(0, MAX_FILE_SIZE);
     }
     return content;
-  } catch {
-    return null;
-  }
-}
-
-function safeReadJson(filePath) {
-  const raw = safeReadFile(filePath);
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw);
   } catch {
     return null;
   }
@@ -241,7 +232,8 @@ export function readProjectState(projectPath) {
   // 1. Read files
   const readmeContent = safeReadFile(path.join(projectPath, 'README.md'));
   const roadmapContent = safeReadFile(path.join(projectPath, 'ROADMAP.md'));
-  const intentsmithMeta = safeReadJson(path.join(projectPath, '.intentsmith', 'project.json'));
+  let intentsmithMeta = null;
+  try { intentsmithMeta = readProjectMetadata(projectPath)?.metadata || null; } catch { /* retain README fallback; never select legacy after a canonical error */ }
 
   const hasReadme = readmeContent !== null;
   const hasRoadmap = roadmapContent !== null;

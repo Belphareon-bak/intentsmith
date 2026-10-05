@@ -1,6 +1,7 @@
 // Creation is an explicit operation on a new directory. Import is read-only.
 // Repository text is evidence, never execution or approval authority.
 import fs from 'node:fs/promises';
+import { lstatSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -11,6 +12,90 @@ import { readProjectFileBytes } from '../executor/project-path-authority.js';
 const exec = promisify(execFile);
 const sha = bytes => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
 const DIRECTORIES = ['public', 'scripts', 'src', 'test'];
+
+// Both generations of project metadata are read-only evidence, never authority.
+// Preserve the existing 50k UTF-16 metadata cap; bounded UTF-8 reads use at most
+// 150k bytes (three bytes per UTF-16 code unit), without truncating JSON.
+const METADATA_PATHS = ['.intentsmith/project.json', '.c3/project.json'];
+const MAX_METADATA_BYTES = 150_000;
+const MAX_METADATA_CHARACTERS = 50_000;
+
+function metadataError(relativePath, reason, cause) {
+  return Object.assign(new Error('Project metadata cannot be read safely', { cause }), {
+    code: 'PROJECT_METADATA_UNAVAILABLE', relativePath, reason,
+  });
+}
+
+// lstat both fixed components: even a dangling parent/leaf symlink is unsafe,
+// and must not be mistaken for a missing canonical file by realpath/open.
+function metadataPresence(root, relativePath) {
+  const components = relativePath.split('/');
+  let current = root;
+  for (let index = 0; index < components.length; index++) {
+    current = path.join(current, components[index]);
+    let observed;
+    try { observed = lstatSync(current, { bigint: true }); }
+    catch (error) {
+      if (error.code === 'ENOENT') return null;
+      throw metadataError(relativePath, 'stat-failed', error);
+    }
+    if (observed.isSymbolicLink()
+      || (index === 0 ? !observed.isDirectory() : !observed.isFile())) {
+      throw metadataError(relativePath, 'unsafe-file');
+    }
+    if (index === components.length - 1) return observed;
+  }
+  return null;
+}
+
+/**
+ * Read canonical project metadata, or exact legacy metadata only if canonical
+ * is absent. Existing invalid/unreadable/unsafe canonical data never falls
+ * back. Missing both returns null; errors remain typed and callers may handle
+ * them gracefully. Returned bytes/hash/path/inode bind the observed source.
+ */
+export function readProjectMetadata(projectRoot) {
+  if (typeof projectRoot !== 'string' || !path.isAbsolute(projectRoot)
+    || projectRoot.includes('\0')) throw metadataError(null, 'invalid-project-root');
+  let root;
+  try { root = realpathSync(projectRoot); } catch (error) { throw metadataError(null, 'project-root-unavailable', error); }
+  for (const relativePath of METADATA_PATHS) {
+    const before = metadataPresence(root, relativePath);
+    let observation;
+    try {
+      observation = readProjectFileBytes(root, relativePath, {
+        maxBytes: MAX_METADATA_BYTES, rejectHardlinks: true, requireCanonicalTarget: true,
+      });
+    } catch (error) { throw metadataError(relativePath, error.reason || error.code || 'read-failed', error); }
+    const after = metadataPresence(root, relativePath);
+    if (!observation.exists && !before && !after) continue;
+    if (!observation.exists || !after
+      || (before && (before.dev !== after.dev || before.ino !== after.ino))) {
+      throw metadataError(relativePath, 'source-changed');
+    }
+    // Canonical may not appear or become unsafe while legacy is being read.
+    if (relativePath === METADATA_PATHS[1] && metadataPresence(root, METADATA_PATHS[0])) {
+      throw metadataError(relativePath, 'canonical-appeared');
+    }
+    let metadata;
+    try {
+      const text = new TextDecoder('utf-8', { fatal: true }).decode(observation.bytes);
+      if (text.length > MAX_METADATA_CHARACTERS) throw new Error('character-limit');
+      metadata = JSON.parse(text);
+      if (!metadata || Array.isArray(metadata) || typeof metadata !== 'object') throw new Error('object-required');
+      for (const key of ['name', 'description', 'type', 'lifecycle', 'created']) {
+        if (metadata[key] !== undefined && metadata[key] !== null && typeof metadata[key] !== 'string') {
+          throw new Error('invalid-field');
+        }
+      }
+    } catch (error) { throw metadataError(relativePath, 'invalid-metadata', error); }
+    return {
+      relativePath, metadata, bytes: Buffer.from(observation.bytes), sha256: sha(observation.bytes),
+      identity: { device: String(after.dev), inode: String(after.ino) },
+    };
+  }
+  return null;
+}
 
 export function newProjectPolicy(type = 'general') {
   return {

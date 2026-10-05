@@ -1,7 +1,9 @@
 // tests/project-welcome.test.js — v89: Project State Reader + Welcome Generator
 // ══════════════════════════════════════════════════════════════════════════════
 
-import { suite, test, assert, assertEqual, assertIncludes, summary } from './harness.js';
+import { suite, test, testAsync, assert, assertEqual, assertIncludes, summary } from './harness.js';
+import nativeAssert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -10,6 +12,8 @@ import os from 'os';
 
 import { readProjectState, PhaseStatus, StateType } from '../src/chat/handlers/utils/project-state-reader.js';
 import { generateNewProjectWelcome, generateExistingProjectWelcome } from '../src/chat/handlers/utils/welcome-generator.js';
+import { readProjectMetadata } from '../src/planner/project-onboarding.js';
+import { analyzeExistingProject } from '../src/planner/lifecycle-analyzer.js';
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -548,6 +552,127 @@ test('7.4 README ignores horizontal rules', () => {
 // ═══════════════════════════════════════════════════════════════════════════════
 // Cleanup + Summary
 // ═══════════════════════════════════════════════════════════════════════════════
+
+
+// Metadata compatibility is read-only. Old files retain their original bytes
+// and inode; invalid canonical data must never reveal a different legacy file.
+suite('Suite 8: Actual project metadata compatibility');
+const legacyMetadata = JSON.stringify({ name: 'Legacy Ω', description: 'Původní popis', type: 'general', lifecycle: 'SPEC' }) + '\n';
+function metadataFixture(name, canonical = undefined) {
+  return mkProject('s8-' + name, {
+    'README.md': '# Fallback\n\nREADME fallback.\n', '.c3/project.json': legacyMetadata,
+    ...(canonical === undefined ? {} : { '.intentsmith/project.json': canonical }),
+  });
+}
+const metadataUnavailable = error => error.code === 'PROJECT_METADATA_UNAVAILABLE';
+
+test('8.1 legacy name/type/description come from byte-exact confined source without migration', () => {
+  const dir = metadataFixture('legacy');
+  const before = fs.lstatSync(path.join(dir, '.c3/project.json'), { bigint: true });
+  const observed = readProjectMetadata(dir);
+  nativeAssert.equal(observed.relativePath, '.c3/project.json');
+  nativeAssert.deepEqual(observed.bytes, Buffer.from(legacyMetadata));
+  nativeAssert.equal(observed.sha256, 'sha256:' + createHash('sha256').update(observed.bytes).digest('hex'));
+  nativeAssert.deepEqual(observed.identity, { device: String(before.dev), inode: String(before.ino) });
+  const state = readProjectState(dir);
+  nativeAssert.equal(state.name, 'Legacy Ω'); nativeAssert.equal(state.type, 'general'); nativeAssert.equal(state.description, 'Původní popis');
+  nativeAssert.equal(fs.existsSync(path.join(dir, '.intentsmith')), false);
+  nativeAssert.deepEqual(fs.readFileSync(path.join(dir, '.c3/project.json')), observed.bytes);
+  nativeAssert.equal(fs.lstatSync(path.join(dir, '.c3/project.json'), { bigint: true }).ino, before.ino);
+});
+
+test('8.2 canonical precedence and canonical empty-object fields never select legacy', () => {
+  const dir = metadataFixture('both', JSON.stringify({ name: 'Modern', description: 'Modern description', type: 'webapp' }));
+  nativeAssert.equal(readProjectMetadata(dir).relativePath, '.intentsmith/project.json');
+  nativeAssert.equal(readProjectState(dir).name, 'Modern');
+  nativeAssert.equal(fs.readFileSync(path.join(dir, '.c3/project.json'), 'utf8'), legacyMetadata);
+  fs.writeFileSync(path.join(dir, '.intentsmith/project.json'), '{}');
+  nativeAssert.deepEqual(readProjectMetadata(dir).metadata, {});
+  nativeAssert.equal(readProjectState(dir).description, 'README fallback.');
+  nativeAssert.notEqual(readProjectState(dir).name, 'Legacy Ω');
+});
+
+test('8.3 missing both metadata paths stays missing without writes', () => {
+  const dir = mkProject('s8-missing', { 'README.md': '# Missing\n\nFrom README.\n' });
+  nativeAssert.equal(readProjectMetadata(dir), null);
+  nativeAssert.equal(readProjectState(dir).description, 'From README.');
+  nativeAssert.equal(fs.existsSync(path.join(dir, '.c3')), false);
+  nativeAssert.equal(fs.existsSync(path.join(dir, '.intentsmith')), false);
+});
+
+test('8.4 malformed canonical JSON/UTF8/types/empty bytes block otherwise valid legacy', () => {
+  const variants = ['', '{invalid', 'null', '[]', '"text"', '{"name":17}', Buffer.from([0x7b,0x22,0x78,0x22,0x3a,0x22,0xff,0x22,0x7d])];
+  for (const [index, content] of variants.entries()) {
+    const dir = metadataFixture('malformed-' + index, content);
+    nativeAssert.throws(() => readProjectMetadata(dir), metadataUnavailable);
+    nativeAssert.equal(readProjectState(dir).description, 'README fallback.');
+    nativeAssert.notEqual(readProjectState(dir).name, 'Legacy Ω');
+  }
+});
+
+test('8.5 canonical leaf/parent symlinks including dangling and sibling targets block fallback', () => {
+  const sibling = metadataFixture('sibling');
+  for (const [index, variant] of ['leaf-outside','leaf-dangling','parent-outside','parent-dangling','leaf-inside'].entries()) {
+    const dir = metadataFixture('unsafe-' + index);
+    if (variant.startsWith('parent')) {
+      fs.symlinkSync(variant === 'parent-outside' ? path.join(sibling, '.c3') : path.join(dir, 'absent'), path.join(dir, '.intentsmith'));
+    } else {
+      fs.mkdirSync(path.join(dir, '.intentsmith'));
+      const target = variant === 'leaf-outside' ? path.join(sibling, '.c3/project.json')
+        : variant === 'leaf-inside' ? path.join(dir, '.c3/project.json') : path.join(dir, 'absent');
+      fs.symlinkSync(target, path.join(dir, '.intentsmith/project.json'));
+    }
+    nativeAssert.throws(() => readProjectMetadata(dir), metadataUnavailable);
+    nativeAssert.notEqual(readProjectState(dir).name, 'Legacy Ω');
+  }
+  nativeAssert.equal(fs.readFileSync(path.join(sibling, '.c3/project.json'), 'utf8'), legacyMetadata);
+});
+
+test('8.6 unsafe legacy source and nonregular/hardlinked canonical source are refused', () => {
+  const dir = metadataFixture('unsafe-legacy');
+  fs.renameSync(path.join(dir, '.c3'), path.join(dir, 'saved'));
+  fs.symlinkSync(path.join(dir, 'saved'), path.join(dir, '.c3'));
+  nativeAssert.throws(() => readProjectMetadata(dir), metadataUnavailable);
+  const regular = metadataFixture('directory-canonical');
+  fs.mkdirSync(path.join(regular, '.intentsmith/project.json'), { recursive: true });
+  nativeAssert.throws(() => readProjectMetadata(regular), metadataUnavailable);
+  const hard = metadataFixture('hardlink-canonical'); fs.mkdirSync(path.join(hard, '.intentsmith'));
+  fs.linkSync(path.join(hard, '.c3/project.json'), path.join(hard, '.intentsmith/project.json'));
+  nativeAssert.throws(() => readProjectMetadata(hard), metadataUnavailable);
+  nativeAssert.throws(() => readProjectMetadata('../relative-root'), metadataUnavailable);
+});
+
+test('8.7 full Unicode/BOM bytes survive bounded reading; UTF16 and UTF8 oversize block legacy', () => {
+  const prefix='{"description":"', suffix='"}', capacity=50_000-prefix.length-suffix.length;
+  const valid=prefix+'漢'.repeat(capacity)+suffix;
+  const dir=metadataFixture('unicode-cap', valid);
+  nativeAssert.equal(readProjectMetadata(dir).metadata.description.length, capacity);
+  nativeAssert.deepEqual(readProjectMetadata(dir).bytes, Buffer.from(valid));
+  const bom=metadataFixture('bom', '\uFEFF'+JSON.stringify({name:'Emoji 😀',description:'Popis'}));
+  nativeAssert.equal(readProjectMetadata(bom).metadata.name,'Emoji 😀');
+  nativeAssert.deepEqual(readProjectMetadata(bom).bytes,fs.readFileSync(path.join(bom,'.intentsmith/project.json')));
+  for(const [index,content] of [prefix+'x'.repeat(capacity+1)+suffix, prefix+'漢'.repeat(60_000)+suffix].entries()) {
+    const oversized=metadataFixture('over-limit-'+index,content);
+    nativeAssert.throws(()=>readProjectMetadata(oversized),metadataUnavailable);
+    nativeAssert.notEqual(readProjectState(oversized).name,'Legacy Ω');
+  }
+});
+
+test('8.8 unreadable canonical remains unavailable and never uses legacy', () => {
+  if (typeof process.getuid === 'function' && process.getuid() === 0) return; // root cannot prove mode000 EACCES
+  const dir=metadataFixture('unreadable', '{}'),file=path.join(dir,'.intentsmith/project.json');
+  fs.chmodSync(file,0o000);
+  try { nativeAssert.throws(()=>readProjectMetadata(dir),metadataUnavailable); nativeAssert.notEqual(readProjectState(dir).name,'Legacy Ω'); }
+  finally { fs.chmodSync(file,0o600); }
+});
+
+await testAsync('8.9 actual lifecycle context includes legacy source provenance and fields', async () => {
+  const dir=metadataFixture('analysis');
+  const context=await analyzeExistingProject(dir,null,null);
+  nativeAssert.match(context,/### \.c3\/project\.json\nName: Legacy Ω\nType: general\nDescription: Původní popis\nLifecycle phase: SPEC/);
+  nativeAssert.doesNotMatch(context,/### \.intentsmith\/project\.json/);
+  nativeAssert.equal(fs.existsSync(path.join(dir,'.intentsmith')),false);
+});
 
 cleanup();
 const results = summary();
