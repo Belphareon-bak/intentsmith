@@ -270,3 +270,24 @@ GPU pilot PASS (4 requests, plná GPU residency, cancel, přirozená obnova)
 a pipeline program 17/17 PASS (2 skutečné provider inference, zbývající
 workflow/role kroky jsou stavové fixture). Přesné hashe a hranice obsahuje
 stejný run/review záznam; celý M6 release gate tím není uzavřený.
+
+## ROOT follow-up: current109 upgrade fixture, 5. 10. 2026
+
+Současná autorita operátora dovoluje ROOT dokončení produktu, commit/push a izolované testy.
+ROOT v work/real-chat-journeys-20260930 přebírá pouze tests/m6-previous-version-upgrade.e2e.js
+a přímo navázané současné report/WP/census řádky. Původní writer i historické větve/evidence zůstávají.
+M5/M6 podpisy, key custody, acceptance a produkční nasazení se tím nemění.
+
+Own offline previous-lock cache:220/220 SRI PASS, SQL prebuild ABI137 PASS; nativebootstrap
+receipt59aee897…559a41. První actual109 test skončil FAIL/previousreadiness po97,5s;
+receipt636ac164…efc05c, diagnosis34bdaa95…9cac5b. Canary/migration/backup checks NOT_REACHED.
+Předchozí d3d zdroj čte C3_PORT_FILE/DB_PATH/PROJECTS_DIR, současný test posílal moderní INTENTSMITH názvy.
+ROOT adoptoval přesný test8e22907dfdd600f874082a939fc53d43308eb1ac115aae76c4e0a3547645feb0:
+13 explicitních legacy aliases pouze pro ownpreviousclone+exactpreviousSHA; currentENV,
+nonce/capability/PID/loopbacknamespace/56→109/canary/sameDB/rollback oracle zachované.
+Nový bounded private journal před cleanup uchová portfile4096B/stdout/stderr tails0600; tiskne jen artifactpath.
+Manifest4fa2c1fb…9805c/18members a CPU-V2 actual12/12 PASS; původní checker syntaxFAIL zachovaný.
+ROOT manifest/syntax/diff kontrola PASS; společné CODE+M6 bounded review PASS bez findings,
+JOINT-REVIEW c735179f25c9dbddbe366731b4f91d86bd74605c02ae278c63af2fe4b77f0b22,
+M6-REVIEW 7b26ee66946766e23cf8d041372ae8e6c1d060ea4b9b97f5d49cb54a398c9cf4.
+Teprve nový clean/published source+CI/inputfreeze dovolí jediný další actual109; první FAIL se nepřepisuje.

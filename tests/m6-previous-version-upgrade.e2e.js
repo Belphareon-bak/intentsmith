@@ -9,12 +9,18 @@ import { spawn, spawnSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import {
   chmodSync,
+  closeSync,
+  constants as FS_CONSTANTS,
   existsSync,
+  fstatSync,
   mkdirSync,
   mkdtempSync,
+  openSync,
   readFileSync,
+  readSync,
   lstatSync,
   rmSync,
+  writeFileSync,
 } from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
@@ -82,12 +88,12 @@ function git(cwd, args) {
   return run('git', args, { cwd });
 }
 
-function safeEnvironment(runtime, portFile) {
+function safeEnvironment(runtime, portFile, sourceRoot = SOURCE_ROOT) {
   const env = {};
   for (const key of ['PATH', 'LANG', 'LC_ALL', 'TZ']) {
     if (process.env[key] !== undefined) env[key] = process.env[key];
   }
-  return {
+  const environment = {
     ...env,
     HOME: runtime.home,
     XDG_CONFIG_HOME: runtime.xdgConfig,
@@ -127,6 +133,25 @@ function safeEnvironment(runtime, portFile) {
     INTENTSMITH_LOG_LEVEL: 'warn',
     OLLAMA_URL: 'http://127.0.0.1:9',
   };
+  if (sourceRoot === SOURCE_ROOT) return environment;
+  assert.equal(sourceRoot, runtime.previousClone, 'only the exact previous-version fixture uses legacy ENV');
+  assert.equal(git(sourceRoot, ['rev-parse', 'HEAD']), PREVIOUS_SHA);
+  return {
+    ...environment,
+    C3_HOST: environment.INTENTSMITH_HOST,
+    C3_PORT: environment.INTENTSMITH_PORT,
+    C3_PORT_FILE: environment.INTENTSMITH_PORT_FILE,
+    C3_DB_PATH: environment.INTENTSMITH_DB_PATH,
+    C3_PROJECTS_DIR: environment.INTENTSMITH_PROJECTS_DIR,
+    C3_ENABLE_AGENTS: 'false',
+    C3_ENABLE_LIFECYCLE: 'false',
+    C3_ENABLE_EXPERTISES: 'false',
+    C3_ENABLE_COMFYUI: 'false',
+    C3_ENABLE_SKILLS: 'false',
+    C3_ENABLE_TELEMETRY: 'false',
+    C3_ENABLE_ONLINE_DISCOVERY: 'false',
+    C3_LIFECYCLE_AUTO_COMMIT: 'false',
+  };
 }
 
 function makeRuntime() {
@@ -165,12 +190,59 @@ function makeRuntime() {
   return runtime;
 }
 
+// Failure evidence is private and survives the nested upgrade-runtime cleanup.
+// Never print captured stdout/port bytes: the port payload carries a local capability.
+function preserveReadinessFailure(state, portFile, label, nonce, reason) {
+  const maximumPortBytes = 4_096;
+  const port = { path: portFile, status: 'absent' };
+  let fd = null;
+  try {
+    fd = openSync(portFile, FS_CONSTANTS.O_RDONLY | FS_CONSTANTS.O_NOFOLLOW | FS_CONSTANTS.O_NONBLOCK);
+    const metadata = fstatSync(fd);
+    if (!metadata.isFile()) {
+      port.status = 'not-regular';
+    } else {
+      const buffer = Buffer.alloc(maximumPortBytes + 1);
+      const bytes = readSync(fd, buffer, 0, buffer.length, 0);
+      const captured = buffer.subarray(0, Math.min(bytes, maximumPortBytes));
+      Object.assign(port, {
+        status: 'captured',
+        observedBytes: metadata.size,
+        capturedBytes: captured.length,
+        truncated: bytes > maximumPortBytes || metadata.size > maximumPortBytes,
+        capturedSha256: sha256(captured),
+        rawBase64: captured.toString('base64'),
+      });
+    }
+  } catch (error) {
+    port.status = error.code === 'ENOENT' ? 'absent' : 'read-failed';
+    port.errorCode = error.code || error.name;
+  } finally {
+    if (fd !== null) closeSync(fd);
+  }
+  const artifactPath = path.join(isolatedTestRuntime.artifacts, 'm6-upgrade-readiness-failure.json');
+  writeFileSync(artifactPath, JSON.stringify({
+    kind: 'M6UpgradeReadinessFailure@1',
+    label,
+    reason,
+    expectedPid: state.child.pid,
+    expectedTestRunNonce: nonce,
+    exitCode: state.exitCode,
+    signal: state.signal,
+    stdoutTail: state.stdout.slice(-16_000),
+    stderrTail: state.stderr.slice(-16_000),
+    port,
+  }, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
+  console.error(`M6_UPGRADE_READINESS_FAILURE_ARTIFACT=${artifactPath}`);
+  return artifactPath;
+}
+
 async function startServer(sourceRoot, runtime, portFile, label) {
   const nonce = `m6-upgrade-${label}-${randomBytes(12).toString('hex')}`;
   const child = spawn(process.execPath, ['src/server.js'], {
     cwd: sourceRoot,
     env: {
-      ...safeEnvironment(runtime, portFile),
+      ...safeEnvironment(runtime, portFile, sourceRoot),
       INTENTSMITH_TEST_SERVER_NONCE: nonce,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -198,6 +270,7 @@ async function startServer(sourceRoot, runtime, portFile, label) {
   const deadline = Date.now() + START_TIMEOUT_MS;
   while (Date.now() < deadline) {
     if (state.exitCode !== null || state.signal !== null) {
+      preserveReadinessFailure(state, portFile, label, nonce, 'exited-before-ready');
       throw new Error(`${label} server exited before ready: ${state.stderr.slice(-4_000)}`);
     }
     if (existsSync(portFile)) {
@@ -220,6 +293,7 @@ async function startServer(sourceRoot, runtime, portFile, label) {
     }
     await delay(25);
   }
+  preserveReadinessFailure(state, portFile, label, nonce, 'readiness-timeout');
   await stopServer(state);
   throw new Error(`${label} server readiness timeout`);
 }

@@ -754,7 +754,7 @@ Při další integraci se přeměří znovu.
 | | |
 |---|---:|
 | `src/**/*.js` | **236 976 ř.**, 688 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **269 797 ř.**, 604 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **269 871 ř.**, 604 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **596** (`498 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 109** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |
