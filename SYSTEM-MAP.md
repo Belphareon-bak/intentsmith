@@ -3,45 +3,45 @@
 **Aktuální checkpoint 5. 10. 2026:** [jeden aktuální souhrn](docs/WORK-PROGRESS.md).
 Release `NOT_ACCEPTED`; instalovaný BE `c84b88cd` se nezměnil.
 Přijaté Ledger/TaskFlow/SQLite/AST/GPU UI a omezený cleanup se neopakují bez delty.
-CHAT `e066956b` je merged; další Gemma/Hunt mají jiné workery, ROOT holdout nečetl.
-Společný publikovaný `c412865c`:410 PASS/0 FAIL/0 BLOCKED/0 TIMEOUT;
-CI37244406326 SUCCESS. Původní eb482aca399 PASS/11 FAIL zůstává historickým výsledkem.
-CODE/M6 kandidát0be289d5: CI18/18 SUCCESS; omezené source/CPU review PASS.
-M6 actual retry se dostal přes canary56 a failed-upgrade restore; metadata compatibility FAIL.
+CHAT e066956b je merged; Gemma/Hunt mají jiné workery, ROOT holdout nečetl.
+Poslední celý profil c412865c: 410 PASS / 0 FAIL / 0 BLOCKED / 0 TIMEOUT, CI 37244406326 SUCCESS.
+Starší 399 PASS / 11 FAIL beze změny; tento profil necertifikuje nové source změny.
+Publikovaný 65ad7c05 má CI 37252045791 všech18SUCCESS a remoteexact.
+M6 metadata source 413917e2: CPU 50/50 / source review d66e6b2c…849455c PASS; actual109 NOT_RUN.
 
-CODE32k krátká fullVRAM alokace/minfree2512 MiB a natural classifier→D1
-44/44 CPU +review PASS jsou zachované; živý natural entry není přijatý.
-Fan frozen `5f6c3fb7` běžel21:26–21:27 UTC:4 nové repair calls, čtvrtý
-vyčerpal2048 output tokens při validním contextu. `M2_CODE_DRAFT_OUTPUT_INCOMPLETE`,
-0 nových plánů/efektů/commitů, původní DB/zdroje/oracle zachované, owned cleanup PASS.
-Used8/11; nový repair4+CLI3 potřebuje cumulative15. Konkrétní scoped4096/max15
-rozhodnutí operátora čeká; bez odpovědi další fan inference neběží.
+CODE32k/fullVRAM a naturalclassifier→D1 CPU44+parser24/review PASS zachované;
+živý naturalentry není přijatý. Fan5f6c3fb7 použil8/11, poslednírepair length2048 při
+validnímcontextu; žádný nový plan/efekt/commit. Původníoracle8PASS/6FAIL/rollback/source zachované.
+Repair4+CLI3 vyžaduje cumulative15; konkrétní otázka operátorovi čeká, inference neběží.
+CODE repair4096 platí pouze pro issuedexact CODE32k; generic/legacy limity zachované.
 
-Autorizovaný [private HTTP WP](docs/wp/WP-M2-PRIVATE-HTTP-EXECUTION-20261004.md)
-integroval explicitní execution/lifecycle@2, plnou policy/SQL122/preflight/exactapproval
-a Studio/startup connector při nezměněném V1 defaultu. Bounded source reviews PASS.
-Skutečný veřejný provider22:11 UTC: bwrap/Python relay/HTTP/kernel negatives/cleanup
-PASS; Landlock8/caps0/NNP1/seccomp2. Je to controlled fixture, ne generated app.
-Targeted 13 CPU PASS/1 model GPU BLOCKED; finální service 107/Studio 28 ve 2/2 sadách PASS.
-Registry 596/35; graph1507/3cycles/28,7 nutných SQL/config hran připnuto ke source e7ac78a8.
-Nový Studio production/consumer build PASS, bundle7bf62455…bfe24;
-Physical cancel/timeout2/2 +independent review PASS; namespaceTERM, bez KILL claim.
-V2 late-cleanup guard adoptován po skutečném controlled RED/GREEN a source review PASS;
-V1 zachován. Původní4CODE/25 382 B helper-policy FAIL zůstává. Recovery50915ffd/CI18PASS
-prošel veřejným náhledem, wrongdigest409, pendingrestart a exactapproval200;
-actualserverreadinessFAIL/0HTTP, rollback4/4. Store oprava complete, routerlength2048
-→ OUTPUT_INCOMPLETE502 před repairplanem; cumulative6/8, Git baseline beze změny.
-Nezávislé actual review20f76f40…5563e4b/sourcee1e1bfe2…ece106 potvrzují APPLICATION_FAIL.
-Další CPU strategie: zachovat actualstore+validation, finite router/server2, cumulative≤8;
-CODE repair4096 je publikovaný, legacy/generic limity zachované.
-ROOT podle CONTRACT §11 rozhoduje jediný další HTTP cyklus s max2 calls/total8,
-retained complete store a novým explicitním freeze; žádná inference zatím neběží.
-M6 owncache220/220+nativeABI137 PASS; previous-only ENV oprava publikovaná.
-Actual retry7,918s prošel previous canary/count56, chybným upgradem a exactrestore56,
-currentAPI vrací canary. FAIL na .intentsmith metadata; finalcount109/inode NOT_REACHED.
-Old d3d vytváří .c3 metadata; produktové read-only compatibility doplnění se připravuje.
-Pak obecnější repo/context průchod, společné IDE/BE/expertise/workers, M5/M6, mobil
-a závěrečný bezpečný cleanup. M5/M6/mobil/Hunt/model kvalita zůstávají otevřené.
+[Private HTTP WP](docs/wp/WP-M2-PRIVATE-HTTP-EXECUTION-20261004.md): execution/lifecycle@2,
+policy/SQL122/exactapproval/Studio/startup. DefaultofflineV1 a wire078/079/106 zachované.
+Boundedsource/provider/kernel/cancel/timeout reviews PASS; Studio bundle7bf62455…bfe24 beze změny.
+Registry596/35; aktuální module graph má 1 510 hran, 3 cykly / 28 členů.
+Tři nové metadatareader→sharedport edges jsou výslovně připnuté; žádný růstcyklů.
+
+HTTP actualretainedretry na65ad:input 29887/28282 B, output 736/1150 tokens/stopcomplete,
+cumulative8/8. Publicpreview / wrong digest 409 / pending restart / exact approval/oracle/Git1856920f/BErestart PASS.
+70HTTP/14refusedSQL+14positive/AUTOINCREMENT/2serverssameDBinode PASS; rollback4/4 zachovaný.
+Independentcombinedreview 895d651c…569e52 potvrzuje raw→preview→DB→disk→Git26139B,
+58862posthashů a ownedcleanup/unload/lease. **PHYSICAL_ORACLE_PASS_API_SOURCE_REVIEW_FAIL_NOT_ACCEPTED.**
+Source/API review 87a4b8a5…af184: noncanonicalslash aliases a serverdynamic import blokují přijetí;
+quoted charset / OWS má qualifiedgap. ExactHTTPvarianty NOT_RUN; oracle/API se neoslabují.
+[Source-only kandidát](examples/generated-apps/http-items-candidate/README.md) není součást24acceptedmodules.
+Historicalhelperpolicy/readiness/routerlength a ROOTselector180stimeout0newcalls zachované.
+NextCPUstrategy:normalMODIFYrouter/server2/cumulative10/no repair; fullinputs30614/28594<32000.
+Skutečný změněný router recheck/STOP; newdecision/freeze/review před inference, žádnýfakeFAILED/ručnípatch.
+
+M6 previousENV oprava umožnila install/readiness/canary56/failed-upgrade+exactrestore56/currentAPIcanary.
+Retry0be FAIL7,918s na metadata:previousd3d vytváří.c3/project.json; final109/inode NOT_REACHED.
+Sharedread-onlyport source413917e2 +originalbytes/path/hash/devino oracle adoptované;
+legacy pouze při truecanonicalabsence, žádnýrename/write nebo test-onlyfallback.
+Po společném publish/remote/CI/inputfreeze jediný newactual109≤600s, nyníNOT_RUN.
+Owncache220/220+SQLiteABI137 PASS. M5/M6 signedreceipts/rotations/history/keycustody/demo otevřené.
+Pak obecnější repo/context, IDE/BE/expertise/workers, finálníprofil/M5/M6; mobil až po stabilnímIDE/BE.
+Hunt grading má cizívlastník, novýprogresspath není doložen; rootdoacceptance nepřebírá.
+Závěrečnýcleanup foreign/UNKNOWN/evidence HOLD; žádný novýworktree nebo produkčnídeploy.
 
 **Historický checkpoint 2. 10. 2026:**
 ROOT integračně přebírá CHAT `6f0259ec` nad nechatový `2a479852` ve stávajícím
@@ -752,14 +752,14 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 **REVIEW_PENDING** — [aktuální UI oprava a evidence](docs/review/2026-09-17-HUNT-MODEL-CONTROLS-FOLLOWUP.md).
 
 Následující LOC a registry census jsou přeměřené přímo na referenčním zdroji
-pracovním kandidátu nad `eb482aca` po integračních opravách, přes stejný algoritmus jako `tests/artifact-validation.test.js`:
+pracovním kandidátu nad `413917e2` po read-only metadata opravě, přes stejný algoritmus jako `tests/artifact-validation.test.js`:
 počet skutečných `.js` souborů a počet znaků nového řádku v jejich bytech.
 Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
-| `src/**/*.js` | **236 976 ř.**, 688 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **269 871 ř.**, 604 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **237 057 ř.**, 688 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **270 015 ř.**, 604 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **596** (`498 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 109** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |

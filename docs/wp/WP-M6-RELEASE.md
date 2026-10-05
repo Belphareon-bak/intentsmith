@@ -291,3 +291,30 @@ ROOT manifest/syntax/diff kontrola PASS; společné CODE+M6 bounded review PASS 
 JOINT-REVIEW c735179f25c9dbddbe366731b4f91d86bd74605c02ae278c63af2fe4b77f0b22,
 M6-REVIEW 7b26ee66946766e23cf8d041372ae8e6c1d060ea4b9b97f5d49cb54a398c9cf4.
 Teprve nový clean/published source+CI/inputfreeze dovolí jediný další actual109; první FAIL se nepřepisuje.
+
+### Produktová metadata kompatibilita po skutečném FAIL
+
+Actual retry na `0be289d5` skončil za7,918s; receipt9d22fde9…386e8,
+diagnosis608d2f68…5004. Previous install/readiness/canary/count56, úmyslný
+upgrade collision a exactbackuprestore56 prošly. CurrentAPIcanary také prošla,
+ale kontrola metadata skončila ENOENT: immutablepreviousd3d zapisuje `.c3/project.json`.
+Finalcount109/sameDBinode nebyly dosaženy. Historický FAIL zůstává beze změny.
+
+ROOT přebírá omezený produktový port `src/planner/project-onboarding.js` a jeho
+tři přímé readery v `src/server.js`, `src/planner/lifecycle-analyzer.js` a
+`src/chat/handlers/utils/project-state-reader.js`, plus existující welcome/upgrade testy.
+Poslední cesta mění pouze čtení projektových metadat; konverzační ladění má jiný worker.
+Žádný migration writer, přejmenování souborů, model activation, mobil nebo deploy.
+Source `413917e286d7d785f65ce92b154545990bd6703e`: sharedread-onlyport vybere
+legacy pouze při skutečné absenci canonical. Invalid/unreadable/unsafe canonical
+nesmí legacy obejít. FatalUTF8, byte/character caps, fd-pinned read, hardlink/symlink
+odmítnutí a observedpath/hash/devino zachované; existující ABA/root limity se nemění.
+Upgrade oracle navíc ověřuje původní rawlegacybytes/path/hash/devino před a po,
+DB56→109/canary/backupfailedrestore/sameDB/nonce/capability/cleanup zůstávají.
+Manifest03b8917a…2e09, CPU50/50 PASS; independent source review
+`d66e6b2c3545b0fdd3eac8d2ec839a020bbf00a3f48a4760d00d6a032849455c` PASS bez findings.
+Tři konkrétní reader→port edges přidávají1507→1510; žádný nový cyklus nebo člen.
+Po společném publish/remote/CI a immutable inputfreeze ROOT provede jediný nový
+izolovaný actual109 gate, max600s. Aktuálně `NOT_RUN`; source/CPU PASS není upgrade PASS.
+Úzké adoption/baseline/export review `d7671f03e3ce71ecc2e6ecb1ba772fc47cd1283c92ff3566d2f352fc3ed9b361`
+PASS: šest source hashů exact, +3/−0 edges/1510/3/28, provenance2d145220, HTTP export4/4 +API exact.

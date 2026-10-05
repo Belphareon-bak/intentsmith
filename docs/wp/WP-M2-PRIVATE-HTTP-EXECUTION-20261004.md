@@ -319,3 +319,38 @@ Helper CPU16/16, manifest20/20; independent source review
 Review manifest b495011bb7ac3ce6415a5d0244c5ce5062289c1f7ae334f2e3c7b7c81f70268b.
 Před live musí být přesný publish/remote/CI, nový freeze a jeho review. Jakékoli nové selhání
 ukončí tento cyklus; žádné prodloužení budgetu ani ruční oprava generovaných zdrojů.
+
+### Retained HTTP cyklus uzavřen, 5. 10. 2026, 01:59 UTC
+
+Published65ad7c05 / remote exact / CI37252045791 všech18SUCCESS.
+První@3 attempt selhal pouze ROOT orchestration: opravný selector přišel188,624s
+po pending při limitu180s. Nových inference0; rollback4/4 a cleanup PASS.
+Původní timeout/result/raw/source zůstávají. Stejný bounded strategy retry změnil
+pouze ROOT one-shotselector handoff a fresh runtime; žádný budget/oracle/API/model change.
+Freshfreeze0b61ce58…d029, selector předán za0,090089s; druhý attempt skutečně dokončil
+router/server2. Input29887/28282B, output736/1150tokens, oba stop/complete;
+cap4096/numctx32768/temp0.1/exactQwen3.8 unchanged. Cumulative8/8, D1/CLI0.
+Wrongdigest409 → pendingBErestart → exactapproval → funkční test → Git
+`1856920fea6c31b8fc0f6618e1499967cdccd362` → BErestart/durable replay bez dalších efektů.
+Oracle70HTTP +14 refusedSQL/14positive controls +AUTOINCREMENT +2servers/sameDBinode PASS.
+Předchozí failedinitialtest/rollback4/4 zachovaný. GPU49samples/24loaded32k,
+fullVRAM17,399,734,598B/minfree2430MiB; periodické vzorky, ne souvislý claim.
+Source58862 posthashů/13ownPIDsabsent/leaseReleased/proxy0/owned unload ověřené.
+
+Independent combined review
+`895d651c71e02c4651f645f362c4c07b7ae3667d89afd81976ac0dc903569e52`
+verdict **PHYSICAL_ORACLE_PASS_API_SOURCE_REVIEW_FAIL_NOT_ACCEPTED**;
+manifestfcbea354…7ffe. Raw→compiler→preview→SQLiteBLOB→disk→Git4/4 exact26139B.
+Source/API review87a4b8a5…af184 našloA1HIGH: item URL aliases po empty-componentfilter;
+A2MED: server dynamicimport odporuje literalstaticimports API. Obě vady blokují přijetí.
+A3MED: quotedUTF8/OWS charset interpretation gap; konkrétní HTTP varianty NOT_RUN.
+Oracle2/API beze změny; jejich omezené PASS nemění source/API FAIL.
+[Přesný source-only kandidát](../../examples/generated-apps/http-items-candidate/README.md)
+publikuje4modules/26139B+frozenAPI4446B+manifest, explicitně NOT_ACCEPTED/excludedfrom24accepted.
+Žádná ruční source oprava, DBtransplant, replayprovider nebo nový FAILED se nevyrábí.
+
+Budget8 je vyčerpaný; succeededapplication nelze použít jako failedrevisionOf.
+CPU připravuje normální CODE MODIFY dvou existujících souborů s expectedbefore digests,
+plnými zdroji a původním oracle. Konkrétní možnost/budget/source review před dalším
+operátorským rozhodnutím podle jeho podmínky další selhané omezené strategie.
+Žádná nová inference zatím neběží; další plán se nesmí vydávat za přijatou aplikaci.
