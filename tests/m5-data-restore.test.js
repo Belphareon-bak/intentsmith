@@ -657,3 +657,184 @@ test('offline CLI performs the same validated restore and emits no filesystem pa
     recovered.close();
   } finally { cleanup(state); }
 });
+
+function archiveIdentity(directory) {
+  const entries = [];
+  function walk(current, prefix = '') {
+    for (const name of fs.readdirSync(current).sort()) {
+      const target = path.join(current, name);
+      const relative = prefix ? `${prefix}/${name}` : name;
+      const stat = fs.lstatSync(target);
+      assert.equal(stat.isSymbolicLink(), false, relative);
+      entries.push({
+        path: relative, type: stat.isDirectory() ? 'directory' : 'file',
+        dev: stat.dev, ino: stat.ino, mode: stat.mode,
+        bytes: stat.isFile() ? stat.size : null,
+        digest: stat.isFile() ? digest(target) : null,
+        mtimeMs: stat.mtimeMs, ctimeMs: stat.ctimeMs,
+      });
+      if (stat.isDirectory()) walk(target, relative);
+      else assert.equal(stat.isFile(), true, relative);
+    }
+  }
+  walk(directory);
+  return entries;
+}
+
+function assertNoRestoreCopies(dataDir) {
+  assert.deepEqual(fs.readdirSync(dataDir).filter(name => (
+    name.startsWith('.intentsmith-db-validation-')
+    || name.startsWith('.intentsmith.db.restore-')
+  )), []);
+}
+
+function setArchiveModes(directory, directoryMode, fileMode) {
+  fs.chmodSync(directory, directoryMode);
+  for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+    const target = path.join(directory, entry.name);
+    if (entry.isDirectory()) setArchiveModes(target, directoryMode, fileMode);
+    else fs.chmodSync(target, fileMode);
+  }
+}
+
+test('WAL-backed V2 archive is unchanged through validation, restore and reuse', () => {
+  const state = fixture();
+  let archivePath;
+  try {
+    const created = backup(state);
+    archivePath = created.path;
+    setArchiveModes(archivePath, 0o500, 0o400);
+    const archivedDb = path.join(created.path, 'intentsmith.db');
+    const header = fs.readFileSync(archivedDb).subarray(0, 100);
+    assert.equal(header[18], 2, 'fixture must retain SQLite WAL write-header mode');
+    assert.equal(header[19], 2, 'fixture must retain SQLite WAL read-header mode');
+    const frozen = archiveIdentity(created.path);
+    const dataNames = fs.readdirSync(state.dataDir).sort();
+    const options = { supportedMigrationVersions: [knownMigration] };
+    for (let index = 0; index < 2; index += 1) {
+      const validated = validateStateBackup(state.dataDir, created.name, options);
+      assert.equal(validated.backupDbPath, archivedDb);
+      assert.deepEqual(archiveIdentity(created.path), frozen);
+      assert.deepEqual(fs.readdirSync(state.dataDir).sort(), dataNames);
+    }
+    state.db.close(); state.db = null;
+    for (let index = 0; index < 2; index += 1) {
+      fs.writeFileSync(state.dbPath, `damaged before restore ${index}`);
+      const restored = restoreStateBackup(state.dataDir, created.name, {
+        ...options, offline: true, dbPath: state.dbPath,
+        now: `2026-08-26T12:0${index + 1}:00.000Z`,
+      });
+      assert.equal(restored.ok, true);
+      assert.equal(restored.migrationCount, 1);
+      assert.equal(digest(state.dbPath), digest(archivedDb));
+      assert.deepEqual(archiveIdentity(created.path), frozen);
+      assertNoRestoreCopies(state.dataDir);
+      const recovered = new Database(state.dbPath, { readonly: true });
+      try {
+        assert.equal(recovered.prepare('SELECT content FROM messages').get().content, 'durable canary');
+      } finally { recovered.close(); }
+      validateStateBackup(state.dataDir, created.name, options);
+      assert.deepEqual(archiveIdentity(created.path), frozen);
+      assertNoRestoreCopies(state.dataDir);
+    }
+  } finally {
+    if (archivePath) setArchiveModes(archivePath, 0o700, 0o600);
+    cleanup(state);
+  }
+});
+
+test('native backup validation failures clean copies and preserve the archive', () => {
+  for (const mode of ['schema-mismatch', 'corrupt-database']) {
+    const state = fixture();
+    try {
+      const created = backup(state);
+      const metadataPath = path.join(created.path, 'metadata.json');
+      const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf8'));
+      if (mode === 'schema-mismatch') {
+        metadata.migration_versions = [knownMigration, '2099_01_01_999_unknown'];
+        metadata.schema_version = 2;
+        metadata.migration_fingerprint = `sha256:${createHash('sha256')
+          .update(JSON.stringify(metadata.migration_versions)).digest('hex')}`;
+      } else {
+        const archivedDb = path.join(created.path, 'intentsmith.db');
+        fs.writeFileSync(archivedDb, 'not a SQLite database');
+        const entry = metadata.content_manifest.find(item => item.path === 'intentsmith.db');
+        entry.bytes = fs.statSync(archivedDb).size;
+        entry.sha256 = `sha256:${digest(archivedDb)}`;
+        metadata.content_fingerprint = `sha256:${createHash('sha256')
+          .update(JSON.stringify(metadata.content_manifest)).digest('hex')}`;
+      }
+      fs.writeFileSync(metadataPath, `${JSON.stringify(metadata, null, 2)}\n`);
+      const frozen = archiveIdentity(created.path);
+      const dataNames = fs.readdirSync(state.dataDir).sort();
+      assert.throws(() => validateStateBackup(state.dataDir, created.name, {
+        supportedMigrationVersions: [knownMigration, '2099_01_01_999_unknown'],
+      }), error => error.code === (mode === 'schema-mismatch'
+        ? 'BACKUP_DATABASE_SCHEMA_MISMATCH' : 'BACKUP_DATABASE_CORRUPT'));
+      assert.deepEqual(archiveIdentity(created.path), frozen, mode);
+      assert.deepEqual(fs.readdirSync(state.dataDir).sort(), dataNames, mode);
+      assertNoRestoreCopies(state.dataDir);
+    } finally { cleanup(state); }
+  }
+});
+
+test('copied validation and restore bytes must match the declared database', () => {
+  for (const tamperedCopy of [1, 2]) {
+    const state = fixture();
+    const originalCopy = fs.copyFileSync;
+    try {
+      const created = backup(state);
+      state.db.close(); state.db = null;
+      const frozen = archiveIdentity(created.path);
+      const before = digest(state.dbPath);
+      let copyCount = 0;
+      fs.copyFileSync = (source, destination, ...args) => {
+        const result = originalCopy(source, destination, ...args);
+        copyCount += 1;
+        if (copyCount === tamperedCopy) fs.appendFileSync(destination, 'tampered copied database');
+        return result;
+      };
+      assert.throws(() => restoreStateBackup(state.dataDir, created.name, {
+        offline: true, dbPath: state.dbPath, supportedMigrationVersions: [knownMigration],
+      }), error => error.code === 'BACKUP_CONTENT_MISMATCH');
+      assert.equal(digest(state.dbPath), before);
+      assert.deepEqual(archiveIdentity(created.path), frozen);
+      assertNoRestoreCopies(state.dataDir);
+      assert.equal(fs.existsSync(databaseRestoreLockPath(state.dbPath)), false);
+    } finally { fs.copyFileSync = originalCopy; cleanup(state); }
+  }
+});
+
+
+test('validation copy preparation failures are not database corruption and clean owned files', () => {
+  for (const [method, code] of [
+    ['mkdtempSync', 'ENOSPC'], ['chmodSync', 'EACCES'], ['copyFileSync', 'ENOSPC'],
+    ['statSync', 'EACCES'], ['readFileSync', 'EACCES'],
+  ]) {
+    const state = fixture();
+    const original = fs[method];
+    try {
+      const created = backup(state);
+      const frozen = archiveIdentity(created.path);
+      const dataNames = fs.readdirSync(state.dataDir).sort();
+      let rejected = false;
+      fs[method] = (target, ...args) => {
+        const validationTarget = method === 'copyFileSync' ? args[0] : target;
+        if (typeof validationTarget === 'string'
+          && validationTarget.startsWith(path.join(state.dataDir, '.intentsmith-db-validation-'))) {
+          rejected = true;
+          throw Object.assign(new Error('controlled validation-copy preparation failure'), { code });
+        }
+        return original(target, ...args);
+      };
+      assert.throws(() => validateStateBackup(state.dataDir, created.name, {
+        supportedMigrationVersions: [knownMigration],
+      }), error => error.code === 'BACKUP_VALIDATION_COPY_FAILED' && error.details.causeCode === code);
+      fs[method] = original;
+      assert.equal(rejected, true, method);
+      assert.deepEqual(archiveIdentity(created.path), frozen, method);
+      assert.deepEqual(fs.readdirSync(state.dataDir).sort(), dataNames, method);
+      assertNoRestoreCopies(state.dataDir);
+    } finally { fs[method] = original; cleanup(state); }
+  }
+});

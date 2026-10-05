@@ -43,6 +43,16 @@ function sha256File(filePath) {
   return sha256Bytes(fs.readFileSync(filePath));
 }
 
+function assertCopiedBackupDatabase(copyPath, manifestEntry) {
+  const stat = fs.statSync(copyPath);
+  if (stat.size !== manifestEntry.bytes || sha256File(copyPath) !== manifestEntry.sha256) {
+    throw new StateBackupError(
+      'BACKUP_CONTENT_MISMATCH',
+      'Copied backup database does not match its declared payload',
+    );
+  }
+}
+
 function copyDirSync(src, dst, stats) {
   fs.mkdirSync(dst, { recursive: true, mode: 0o700 });
   for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
@@ -633,9 +643,29 @@ export function validateStateBackup(dataDir, backupName, opts = {}) {
   }
 
   const backupDbPath = path.join(backupPath, databaseNames[0]);
+  const databaseManifest = metadata.content_manifest.find(item => item.path === databaseNames[0]);
+  let validationDirectory;
   let backupDb;
   try {
-    backupDb = new Database(backupDbPath, { readonly: true, fileMustExist: true });
+    // SQLite can create WAL/SHM even for a read-only WAL-header database.
+    // Its exclusively owned copy lives outside the immutable archive.
+    let validationDbPath;
+    try {
+      validationDirectory = fs.mkdtempSync(path.join(path.resolve(dataDir), '.intentsmith-db-validation-'));
+      fs.chmodSync(validationDirectory, 0o700);
+      validationDbPath = path.join(validationDirectory, databaseNames[0]);
+      fs.copyFileSync(backupDbPath, validationDbPath, fs.constants.COPYFILE_EXCL);
+      fs.chmodSync(validationDbPath, 0o600);
+      assertCopiedBackupDatabase(validationDbPath, databaseManifest);
+    } catch (error) {
+      if (error instanceof StateBackupError) throw error;
+      throw new StateBackupError(
+        'BACKUP_VALIDATION_COPY_FAILED',
+        'Backup validation copy could not be prepared',
+        { causeCode: typeof error.code === 'string' ? error.code : null },
+      );
+    }
+    backupDb = new Database(validationDbPath, { readonly: true, fileMustExist: true });
     const quick = backupDb.pragma('quick_check');
     if (!Array.isArray(quick) || quick.length !== 1 || quick[0].quick_check !== 'ok') {
       throw new StateBackupError('BACKUP_DATABASE_CORRUPT', 'Backup SQLite quick_check failed');
@@ -654,7 +684,17 @@ export function validateStateBackup(dataDir, backupName, opts = {}) {
       `Backup database cannot be opened: ${error.message}`,
     );
   } finally {
-    try { backupDb?.close(); } catch { /* read-only validation cleanup */ }
+    let cleanupError;
+    try { backupDb?.close(); } catch (error) { cleanupError = error; }
+    try {
+      if (validationDirectory) fs.rmSync(validationDirectory, { recursive: true, force: true });
+    } catch (error) { cleanupError ||= error; }
+    if (cleanupError) {
+      throw new StateBackupError(
+        'BACKUP_VALIDATION_CLEANUP_FAILED',
+        'Backup validation copy could not be closed and removed',
+      );
+    }
   }
 
   const supported = opts.supportedMigrationVersions
@@ -704,6 +744,10 @@ export function restoreStateBackup(dataDir, backupName, opts = {}) {
     const validated = validateStateBackup(resolvedDataDir, backupName, opts);
     fs.copyFileSync(validated.backupDbPath, stagingPath, fs.constants.COPYFILE_EXCL);
     fs.chmodSync(stagingPath, 0o600);
+    assertCopiedBackupDatabase(
+      stagingPath,
+      validated.metadata.content_manifest.find(item => item.path === path.basename(validated.backupDbPath)),
+    );
     fsyncFile(stagingPath);
 
     let stagedDb;
@@ -737,9 +781,16 @@ export function restoreStateBackup(dataDir, backupName, opts = {}) {
       contentFingerprint: validated.metadata.content_fingerprint,
     });
   } finally {
-    try {
-      if (fs.existsSync(stagingPath)) fs.unlinkSync(stagingPath);
-    } catch { /* exact owned staging cleanup */ }
+    let cleanupError;
+    for (const target of [stagingPath, `${stagingPath}-wal`, `${stagingPath}-shm`]) {
+      try { if (fs.existsSync(target)) fs.unlinkSync(target); } catch (error) { cleanupError ||= error; }
+    }
     releaseDatabaseRestoreLock(lease, restoreLockOptions);
+    if (cleanupError) {
+      throw new StateBackupError(
+        'DATABASE_RESTORE_STAGE_CLEANUP_FAILED',
+        'Restore staging files could not be removed',
+      );
+    }
   }
 }

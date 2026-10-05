@@ -1,5 +1,12 @@
 # Inventura #1 — Server, routing, DB, migrace
 
+Navazující kontrola 5. 10. 2026: upgrade56→109 na ad93 přijatý jako dílčí unsigned proof.
+Fresh core install/build na0d8 skutečně prošel offline; pět integračních programů NOT_RUN.
+Full109 backup/CLI restore obnovil přesné main DB/safety bytes, ale změnil archiv WAL/SHM.
+Oprava `src/core/db-backup.js` validuje soukromou kopii mimo archiv; vyžaduje writable dataDir
+a místo pro DB kopii, vrací konkrétní copy/cleanup chyby. Readonly archive CPU/source review PASS;
+nový úplný roundtrip zatím NOT_RUN. [Aktuální výsledky a omezení](../WORK-PROGRESS.md).
+
 Aktuální navazující kvalifikace 2026-09-12: čistá core instalace a idempotentní
 opakování skutečného instalátoru prošly offline nad připravenými lockfile
 caches; nativní moduly a Studio byly sestavené znovu. Na `dc81a0f0` čtyři nové

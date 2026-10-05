@@ -6,7 +6,7 @@ Přijaté Ledger/TaskFlow/SQLite/AST/GPU UI a omezený cleanup se neopakují bez
 CHAT e066956b je merged; Gemma/Hunt mají jiné workery, ROOT holdout nečetl.
 Poslední celý profil ad93ec63: 410 PASS / 0 FAIL / 0 BLOCKED / 0 TIMEOUT, report eeedf1e5…b0fd8.
 Starší 399 PASS / 11 FAIL beze změny; tento profil necertifikuje nové source změny.
-Poslední ověřená publikace před uzavřením nového HTTP běhu:42b3fcf1, remote exact, CI37258157223 všech18SUCCESS.
+Poslední ověřená publikace před opravou záloh:0d8edd99, remote exact, CI37260910565 všech18SUCCESS.
 M6 metadata source 413917e2: CPU50/source review PASS; actual109 review82b6dd0a…75ca884 PASS (n=1).
 
 CODE32k/fullVRAM a naturalclassifier→D1 CPU44+parser24/review PASS zachované;
@@ -44,11 +44,16 @@ M6 actual109 na ad93:9,66055 s, 56→vynucenýFAIL80→exactrestore56→109/same
 Canary API a původních180B legacy metadat/path/hash/inode přežily; přesné after assertions PASS.
 Receipt4cc8b7f8…a6d547, independentreview82b6dd0a…75ca884; zdroje/deps/ownPIDcleanup ověřené.
 Historické readiness97,5s a metadata7,918s FAIL zachované. Jde o unsigned dílčí upgrade proof.
-Fresh42b3 skutečně skončil za38,089s FAIL: npm/SQLite native/Yarn install/Electron native rebuild PASS,
-Studio production build FAIL, následných5 registered programů NOT_RUN; clone/PID cleanup PASS.
-Review2dbac0d1…27f63a3: chybí2 FFmpeg cache artefakty; konkrétní DNS hostname byl v logu useknutý.
-Další krok je cache-only pin FFmpeg ZIP+SHASUMS a jediný zmrazený fresh pokus, bez source patch/fallback.
-Full109 standalone backup/restore má plán1101617a…7b8d8, actual NOT_RUN.
+Fresh42b3/38,089s FAIL zachovaný; doplnění own cache FFmpeg ZIP+SHASUMS bez network fallbacku.
+Fresh install/build0d8/32,816s skutečně PASS: offline npm/SQLite/Yarn/Electron build/4ABI,
+reviewfdcd5548…6cdb80e; clone/PID cleanup ověřený. Pět registered programů/full fresh NOT_RUN.
+M1 používá skutečný model/GPU; count29→74 je úzká CPU6/source-reviewed harness oprava.
+První full109@0d8/32,298s: backup/checkpoint000/CLI/main+safety exact PASS, **PRODUCT FAIL**:
+validace vytvořila v archivu WAL0/SHM32768; restart/finální API NOT_RUN, review4970a3ab…72cf2c0e.
+Core d985dcbd přesouvá native validaci na private copy, váže obě kopie na bytes/SHA manifestu,
+strict own WAL/SHM cleanup; konkrétní copy failure. Readonly archive podporovaný, writable dataDir nutný.
+CPU V2 23PASS/1fixtureFAIL +V3 dotčená1PASS/5faultmodes; reviewedfd5449…647333 PASS.
+Po publish/CI nový current full profile a jediný full109 max180s/new ownDB/same oracle1101617a/model0.
 M5/M6 signedreceipts/rotations/history/keycustody/demo/soak/throughput jsou otevřené.
 Pak obecnější repo/context, IDE/BE/expertise/workers, finálníprofil/M5/M6; mobil až po stabilnímIDE/BE.
 Hunt grading má cizívlastník, novýprogresspath není doložen; rootdoacceptance nepřebírá.
@@ -769,8 +774,8 @@ Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
-| `src/**/*.js` | **237 057 ř.**, 688 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **270 015 ř.**, 604 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **237 108 ř.**, 688 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **270 196 ř.**, 604 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **596** (`498 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 109** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |

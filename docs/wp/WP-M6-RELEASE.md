@@ -380,3 +380,15 @@ Checksum row odpovídá ZIPům. Původní cache/receipt a skutečný FAIL neměn
 Žádný public runner patch, download/networkfallback/TMP injection/skipchecksum.
 Po CPU cache resolver review a exact candidate/CI/cache freeze jediný nový registered fresh pokus.
 Full109 standalone backup/restore zůstává PLAN1101617a…7b8d8 / NOT_RUN; M5/M6 nejsou přijaté.
+
+### Navazující omezené vlastnictví obnovy, 5. 10. 2026
+
+Vstup `0d8edd99`; ROOT vlastní `src/core/db-backup.js` a `tests/m5-data-restore.test.js`.
+Důvod: skutečný full109 odhalil, že readonly SQLite validace přidává WAL/SHM do V2 archivu.
+Rozsah: výhradní validační kopie mimo archiv, bytes/SHA vazba obou kopií na manifest,
+cleanup vlastní main/WAL/SHM s konkrétní chybou, zachované native/schema a public return/wire.
+Ověření: readonly WAL archiv a opakovaná obnova/reuse beze změny; poškozená kopie a copy failure,
+existující datové sady a jeden zmrazený full109 max180 s/model0 na nové vlastní DB, stejný oracle.
+Navázaný harness `tests/m1-journey.test.js`: pouze oprava skutečně emitovaného počtu29→74.
+CHAT logika, model activation, mobil, produkční deploy a signed acceptance jsou mimo tuto opravu.
+Stav a datované důkazy jsou v `WORK-PROGRESS.md`, ROADMAP a inventuře #1.
