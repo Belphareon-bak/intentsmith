@@ -352,3 +352,31 @@ Další příprava: current lock158/158 content+SQLprebuild v nové owncache; in
 Původní previouscache220 i sharedcache zůstaly nezměněné (copy-only/read-only zdroje).
 RO inventory731524a5…26b0c a copyreceipt4a54ecc0…2fb75e evidují rozsah;
 Yarn/Electron/headers pins a skutečný registeredfreshgate zbývají.
+
+
+### První skutečný fresh install, 5. 10. 2026, 03:47 UTC
+
+Candidate42b3fcf1/current remote/CI18PASS; immutable vlastní cache closure35587 members,
+manifest88e4d088…b7b28 / copyreceipt4bd79e47…8d2679. Žádné shared cache writes.
+Existing registered runFreshClonePhase běžel v own HOME/5cache paths, user/netnamespace,
+--profile=core --minimal --offline. Start03:27:51.821633UTC, end03:28:29.910742UTC,
+38,08948559s/exit1, bez TERM/KILL. HEAD v čerstvém clone správný.
+Backend npmci/better-sqlite3 native, frozen Yarn install4,52s, Electron native rebuild
+prošly; Studio production build skončil DNS chybou. Následných5 registered programů NOT_RUN.
+Původní3430 B install log a689 B wrapper log zůstávají; install.sh tail-8 usekl hostname.
+Nezávislý review2dbac0d1c98f93f4f816943858e32298934202343d199d885b1ab683727f63a3 /
+manifestcd2cb8786f37d1fc735ecd5d33d15f1aa7b165d146373d961c64a748b422353b
+potvrzuje skutečný FAIL, clone/PID cleanup a sourceclean. Příčina konkrétní DNS žádosti
+je source inference: Theia prepareElectron→replaceFfmpeg→nested @electron/get2;
+owned cache má Electron ZIP, ale chybí FFmpeg ZIP a SHASUMS. Není živý network capture.
+
+Existing makeFreshCloneEnvironment už kopíruje electron_config_cache do XDG_CACHE_HOME/electron,
+kde get2 Cache hledá archive/checksums. TMPDIR/theia-cli je až extracted library cache.
+Nejmenší náprava: nový vlastní cache subset s původním Electron ZIP a2 přesně vázanými soubory:
+ffmpeg-v42.11.3-linux-x64.zip /1459395 B /
+05b10c9d074423946a20690ede8afb11c73ba8b8750989ddec56aca4b3dc23db;
+SHASUMS256.txt /7680 B /a2fa201ef93fcc3f3454692ca561e05b396212add1a137554c087f126c5ce853.
+Checksum row odpovídá ZIPům. Původní cache/receipt a skutečný FAIL neměnit.
+Žádný public runner patch, download/networkfallback/TMP injection/skipchecksum.
+Po CPU cache resolver review a exact candidate/CI/cache freeze jediný nový registered fresh pokus.
+Full109 standalone backup/restore zůstává PLAN1101617a…7b8d8 / NOT_RUN; M5/M6 nejsou přijaté.

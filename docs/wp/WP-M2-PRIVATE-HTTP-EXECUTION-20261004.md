@@ -5,7 +5,8 @@
 **Vlastník:** ROOT, jediný tracked writer. Vstup `5cf1c36d`, existující checkout;
 čerstvý GitHub main `838b8cee` je ancestor. Žádný nový worktree.
 **Stav:** `PRODUCT_V2_ADOPTED / BOUNDED_SOURCE_REVIEW_PASS /
-CONTROLLED_NATIVE_PROVIDER_PASS / GENERATED_HTTP_NOT_RUN`.
+CONTROLLED_NATIVE_PROVIDER_PASS / PHYSICAL_ORACLE_PASS_API_SOURCE_REVIEW_FAIL /
+NORMAL_MODIFY2_CLOSED_FAIL_NOT_ACCEPTED`.
 Nezávislé omezené design/scope review na `92767d77`: receipt
 `ebcf2fad2bcd29363643ed3363c062979d7b9f54a55b3b57d0282f45e645e2fc`.
 V2 schema/native source a skutečné product controls mají následné review/gates.
@@ -388,3 +389,54 @@ Přijetí vyžaduje také source/API review a skutečné konkrétní A1/A3 HTTP 
 CPU/source/CI nejsou aplikace. Actual selhání tohoto nového omezeného postupu znamená
 konkrétní blokér, možnosti, doporučení a otázku podle instrukce operátora; bez další
 automatické strategie nebo navýšení budgetu. CHAT/mobil/aktivace/deploy mimo rozsah.
+
+
+### Normal MODIFY2 @4 uzavřený, 5. 10. 2026, 03:47 UTC
+
+Source42b3fcf11352e40ac487f99becf63020692c3be2 / remote exact / CI37258157223 všech18SUCCESS.
+Freeze d367fac5e4157de8ffc49b62363a21cf932553ade94f1664d2a4ed79486edc5c;
+independent precheck86ac17b7…34b2b0 / RO preflight054bd782…ac9e4 před lease prošly.
+03:22:30–03:24:17UTC/106,974s; max10/cumulative10/historical8/new2, D1/CLI/repair/retry0.
+Guardovaný součet systemPrompt1303 B + serialized user context29344/27540 B je30647/28843 B;
+prompt_eval8541/8068. Skutečná raw HTTP request těla31977/30132 B zahrnují další escaping/obálku.
+Oba raw responses stop/complete, eval3053/1100; model/options/identity beze změny.
+Raw JSON.afterContent přesně odpovídá preview: router10578 B/cfdd86df…cadc,
+server3401 B/680cb67a…a16. Soukromý author compile-provenance pokus použil nesprávné
+previousContent pro full-file výstup; jeho FAIL zůstává a není PASS důkazem.
+Nezávislé raw→preview svázání vychází z parse skutečného JSON a source kontraktu.
+
+ROOT helper selhal před approval: očekával4 preview paths místo2 normal targets.
+Původní4 before/protected/Git guards jsou správné a zůstávají. ROOT přebírá jedinou
+one-line opravu run-http-items-journey.mjs, patch13ab083de8e0247353ea7ac979f408e58a6e6890dc332d0bdb3a4fd3290aae55,
+result source0dedf718f4a9bd948093a706530ded458e5d9c48f76fabef234b60152c657666.
+CPU6/6 reálný captured preview RED→GREEN, digest/target negatives, legacy guards PASS;
+independent bounded source review PASS bez rerunů nebo rozšíření scope.
+
+Samostatný source review af105d3f…959a88 potvrzuje: A2static node:url import opravený,
+A1 stále split/filter normalizuje //items/1, /items//1, /items/1/ na actual item route;
+A3 regex odmítá OWS před středníkem a připouští OWS za rovnítkem. QuotedUTF8 opravené.
+Jde o konkrétní source/API FAIL, nikoli uskutečněné HTTP varianty; ty zůstávají NOT_RUN.
+OWS výklad odpovídá [RFC9110 §5.6.6](https://www.rfc-editor.org/rfc/rfc9110.html#section-5.6.6).
+Kontext guard prošel, výstupy nejsou useknuté. Oprava helperu neopravuje modelový návrh.
+Známý vadný pending plan lifecycle:68bfd28b-1555-45d5-886f-122318008591 /
+sha256:d1fe8d179f898bf310a673d99793035cffbe24fb5bd6f7e3fffa8e2e2f138a4c
+(expiry04:24:03.481UTC) se neschválí; žádný zápis/oracle/commit/restart/supplemental.
+
+Independent closed receipt
+abca45492c90b7b2051e4aa8cf4401442c7f088f94ff35d7682f04b57720b182;
+manifesteb0bb38aaaff1a6e237e8be301062bde62e42ff286abaf1a4076d37ef35573cb.
+Verdict CLOSED_HELPER_FAILURE_AND_API_SOURCE_REVIEW_FAIL_NOT_ACCEPTED.
+58869 frozen hashes, old5 historyrefs, all4 on-disk files/protectedAPI/policy/Git1856920f exact.
+Native RO snapshot všech33 tables: všech233 původních PK/digest zachovaných,24 new pending rows;
+žádná approval/result/terminal/commit. RO sidecar WAL/SHM observations explicitní, žádné zero-write tvrzení.
+Owned5PID absent, oba parent/observer reaped bez TERM/KILL, model unload/lease/proxy0;
+52 periodických GPU vzorků/0 errors. Foreign GPU procesy neovlivněné.
+
+**Blokér a další rozhodnutí podle kroku7 zadání:** nový bounded normal full-file postup nezajistil
+opravu dvou známých kontraktových vad při úplném contextu/outputu; budget10 vyčerpaný.
+Další automatický modelový pokus se nespustí. Doporučení k rozhodnutí: normal existing-file
+anchored replacement output proti skutečnému before source/digest, pomocí existujícího compileru,
+bez fakeFAILED/revisionOf/reusePrevious. Vyžaduje omezený product connector, CPU regression/review,
+nový explicitní freeze/budget před inference a zachování full source/preview/digest/approval/oracle.
+Alternativy: jiný CODE model po exact role-specific kvalifikaci, nebo odložit HTTP pro další brány.
+CPU feasibility pouze připravuje konkrétní otázku; nedává autoritu novému živému běhu.

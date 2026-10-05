@@ -6,7 +6,7 @@ Přijaté Ledger/TaskFlow/SQLite/AST/GPU UI a omezený cleanup se neopakují bez
 CHAT e066956b je merged; Gemma/Hunt mají jiné workery, ROOT holdout nečetl.
 Poslední celý profil ad93ec63: 410 PASS / 0 FAIL / 0 BLOCKED / 0 TIMEOUT, report eeedf1e5…b0fd8.
 Starší 399 PASS / 11 FAIL beze změny; tento profil necertifikuje nové source změny.
-Publikovaný ad93ec63 má CI 37255445247 všech18SUCCESS a remote exact.
+Poslední ověřená publikace před uzavřením nového HTTP běhu:42b3fcf1, remote exact, CI37258157223 všech18SUCCESS.
 M6 metadata source 413917e2: CPU50/source review PASS; actual109 review82b6dd0a…75ca884 PASS (n=1).
 
 CODE32k/fullVRAM a naturalclassifier→D1 CPU44+parser24/review PASS zachované;
@@ -30,14 +30,25 @@ Source/API review 87a4b8a5…af184: noncanonicalslash aliases a serverdynamic im
 quoted charset / OWS má qualifiedgap. ExactHTTPvarianty NOT_RUN; oracle/API se neoslabují.
 [Source-only kandidát](examples/generated-apps/http-items-candidate/README.md) není součást24acceptedmodules.
 Historicalhelperpolicy/readiness/routerlength a ROOTselector180stimeout0newcalls zachované.
-NextCPUstrategy:normalMODIFYrouter/server2/cumulative10/no repair; fullinputs30614/28594<32000.
-Skutečný změněný router recheck/STOP; newdecision/freeze/review před inference, žádnýfakeFAILED/ručnípatch.
+Normal MODIFY2 @4 na42b3 skončil03:24UTC:2 nové/cumulative10 CODE, stop/complete;
+součet systemPrompt + serialized user context30647/28843 B pod32000, prompt_eval8541/8068. ROOT preview helper chybně čekal4 cíle místo2.
+Nezávislý source review potvrzuje opravenéA2, ale přetrvávajícíA1/slash aliases aA3/charset OWS.
+Žádné approval/zápis/test/commit; Git1856920f i původních233 řádků zachované,24 pending additions.
+Reviewabca4549…20b182: CLOSED_HELPER_FAILURE_AND_API_SOURCE_REVIEW_FAIL_NOT_ACCEPTED.
+Úzká helper oprava0dedf718 má CPU6/source review PASS; plné4 before/protect/Git guards zachované.
+Další CODE inference zastavená podle kroku7 operátora: otázka k nové strategii, žádné automatické navýšení.
+Doporučení k rozhodnutí: normal existing-file anchored edits při zachování full before sources a exact approval;
+alternativou je jiný role-specific kvalifikovaný CODE model nebo odložení HTTP. CPU feasibility nezakládá live autoritu.
 
 M6 actual109 na ad93:9,66055 s, 56→vynucenýFAIL80→exactrestore56→109/sameDB identity PASS.
 Canary API a původních180B legacy metadat/path/hash/inode přežily; přesné after assertions PASS.
 Receipt4cc8b7f8…a6d547, independentreview82b6dd0a…75ca884; zdroje/deps/ownPIDcleanup ověřené.
 Historické readiness97,5s a metadata7,918s FAIL zachované. Jde o unsigned dílčí upgrade proof.
-Nová owncurrentcache158/158 +SQLprebuild PASS; freshinstall/build/native/Yarn/Electron ještě NOT_RUN.
+Fresh42b3 skutečně skončil za38,089s FAIL: npm/SQLite native/Yarn install/Electron native rebuild PASS,
+Studio production build FAIL, následných5 registered programů NOT_RUN; clone/PID cleanup PASS.
+Review2dbac0d1…27f63a3: chybí2 FFmpeg cache artefakty; konkrétní DNS hostname byl v logu useknutý.
+Další krok je cache-only pin FFmpeg ZIP+SHASUMS a jediný zmrazený fresh pokus, bez source patch/fallback.
+Full109 standalone backup/restore má plán1101617a…7b8d8, actual NOT_RUN.
 M5/M6 signedreceipts/rotations/history/keycustody/demo/soak/throughput jsou otevřené.
 Pak obecnější repo/context, IDE/BE/expertise/workers, finálníprofil/M5/M6; mobil až po stabilnímIDE/BE.
 Hunt grading má cizívlastník, novýprogresspath není doložen; rootdoacceptance nepřebírá.
