@@ -392,3 +392,23 @@ existující datové sady a jeden zmrazený full109 max180 s/model0 na nové vla
 Navázaný harness `tests/m1-journey.test.js`: pouze oprava skutečně emitovaného počtu29→74.
 CHAT logika, model activation, mobil, produkční deploy a signed acceptance jsou mimo tuto opravu.
 Stav a datované důkazy jsou v `WORK-PROGRESS.md`, ROADMAP a inventuře #1.
+
+### Uzavřená data remediation, 5. 10. 2026, 05:25 UTC
+
+Publikovaný `86dbca40`, CI37264792541 všech18 SUCCESS; celý offline/database profil410/410,
+report `a5a2f4a38cd5054d4e4e994aaad9d633fb5fd2949a6cc769e41423cfd326d11c`.
+Nativní datová sada24/24 a M1 kontrakt74/74, nezávislé ověření celého profilu PASS.
+První full1090d8 selhal produktově na archive WAL/SHM; druhý86db zachoval přesné bytes/archiv,
+ale selhal v harnessu na běžné změně project.last_active při startup discovery. Oba FAIL nezměněné.
+Úzká private harness oprava CPU12 a review44cbf93b…92795 zachovává PLAN1101617a…7b8d8:
+raw API after před assert; všechna pole přesná kromě canonical/nondecreasing last_active
+ve skutečně měřeném start/readiness okně. Není změnou produktu/oracle/modelových parametrů.
+Jediný nový actual05:18:36–05:19:09 UTC/33,149704 s/model0 prošel; receipt
+`d215cd75847dacb21fcd9e35e5bd7ac3e873d3118487705752d5cbf35d774e79`.
+Independent review `493a5b69e6a79aec6db143155520952e46a07e251966b2d6ba06fee21bf7bdf4`
+**FULL109_DATABASE_ROUNDTRIP_ACCEPTANCE_REVIEW_PASS**:34 členů/20 freeze refs/current closure,
+přesné before-reopen DB/safety bytes, původní obsah/metadata, dva marker404, exact109/schema/quick/FK,
+archiv82 files/81 payload beze změny a bez sidecars, čistý konec own procesů/source/deps/refs.
+Scope n=1 DB-only na86db; nepřijímá generated app/project/config/skills restore ani signed M5/M6/release.
+Stávající fresh install/build0d8 review PASS; zbývá celý fresh phase se všemi5 programy.
+[Aktuální souhrn](../WORK-PROGRESS.md) určuje další pořadí; žádná další CODE inference bez rozhodnutí ke kroku7.

@@ -1,11 +1,14 @@
 # Inventura #1 — Server, routing, DB, migrace
 
-Navazující kontrola 5. 10. 2026: upgrade56→109 na ad93 přijatý jako dílčí unsigned proof.
-Fresh core install/build na0d8 skutečně prošel offline; pět integračních programů NOT_RUN.
-Full109 backup/CLI restore obnovil přesné main DB/safety bytes, ale změnil archiv WAL/SHM.
-Oprava `src/core/db-backup.js` validuje soukromou kopii mimo archiv; vyžaduje writable dataDir
-a místo pro DB kopii, vrací konkrétní copy/cleanup chyby. Readonly archive CPU/source review PASS;
-nový úplný roundtrip zatím NOT_RUN. [Aktuální výsledky a omezení](../WORK-PROGRESS.md).
+Navazující kontrola 5. 10. 2026: upgrade56→109/ad93 a fresh offline install/build0d8
+přijaté jako unsigned dílčí výsledky; pět registered fresh integračních programů NOT_RUN.
+**Full109 backup/CLI restore/restart na86dbca40 přijatý**, n=1/33,1497 s;
+review493a5b69…bf7bdf4: přesné DB/safety bytes, původní data po restartu, marker404,
+109 migration identities/schema/quick/FK, nezměněný archiv82 files a vlastní cleanup PASS.
+Oba historické product/harness FAIL zachované; původní oracle beze změny.
+Private copy validace mimo archiv podporuje readonly archive, potřebuje writable dataDir/místo pro kopii.
+Aktuální offline/database profil410/410 a datové testy24/24; signed M5/M6/release nepřijaté.
+[Aktuální výsledky a omezení](../WORK-PROGRESS.md).
 
 Aktuální navazující kvalifikace 2026-09-12: čistá core instalace a idempotentní
 opakování skutečného instalátoru prošly offline nad připravenými lockfile
