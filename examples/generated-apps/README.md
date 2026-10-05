@@ -65,3 +65,11 @@ Its separate manifest SHA-256 is
 source-copy/privacy review is **REVIEW_PASS**. The earlier 11 source files
 and their parent manifest remain unchanged. This adds no new execution
 or broader functional acceptance.
+
+## Separate unaccepted HTTP candidate
+
+[HTTP Items](http-items-candidate/README.md) exports four exact generated
+modules, 26,139 bytes. Its physical oracle passed; source/API review found
+remaining defects. It is **NOT_ACCEPTED** and is excluded from the 24 accepted
+modules above. The original contract, failed history and eight-call budget
+are preserved.
