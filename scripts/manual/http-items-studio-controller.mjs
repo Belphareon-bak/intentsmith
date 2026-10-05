@@ -9,6 +9,8 @@ const require=createRequire(import.meta.url);
 const {validateBlueprint,createForm,composerDraft}=require('../../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/m2-composer.js');
 export {bindActualConversation,reloadActualStatus};
 export const HTTP_JOURNEY_BOUNDS=Object.freeze({phaseWaitMs:750000,providerCallTimeoutMs:180000,approvalWaitMs:120000,repairSelectionWaitMs:180000,rendererProbeMs:15000,focusedTimeoutMs:25000,repairMaximumGeneratedTargets:4,repairMaximumPhases:1});
+export const HTTP_RETENTION_JOURNEY_BOUNDS=Object.freeze({...HTTP_JOURNEY_BOUNDS,repairMaximumGeneratedTargets:2});
+export const RETENTION_REPAIR_TARGETS=Object.freeze(['src/router.mjs','src/server.mjs']);
 export const TARGETS=Object.freeze(['src/validation.mjs','src/store.mjs','src/router.mjs','src/server.mjs']);
 const copy=x=>JSON.parse(JSON.stringify(x)),sorted=x=>[...x].sort();
 function rendererModel() {
@@ -79,7 +81,7 @@ async function manualColumnAction(model, args) {
 }
 
 
-export function validateHttpDraft(draft,{expected,repair=false}){
+export function validateHttpDraft(draft,{expected,repair=false,repairTargets=TARGETS}){
   validateBlueprint(draft);assert.ok(draft.gitCommit,'HTTP_GIT_COMMIT_REQUIRED_BEFORE_MODEL');assert.deepEqual(sorted(draft.files.map(f=>f.path)),sorted(TARGETS));
   assert.deepEqual(draft.focusedTest,expected.focusedTest);assert.deepEqual(draft.gitCommit,expected.gitCommit);
   assert.deepEqual(draft.focusedTest.environment,{});assert.equal(draft.focusedTest.timeoutMs,25000);
@@ -91,13 +93,13 @@ export function validateHttpDraft(draft,{expected,repair=false}){
   assert.equal(draft.focusedTest.argv[0],draft.focusedTest.networkPolicy.artifacts.oracle.canonicalPath);
   assert.equal(Boolean(draft.revisionOf),repair);
   for(const file of draft.files){const before=expected.files.find(f=>f.path===file.path);assert.ok(before);assert.deepEqual(file.dependsOn,before.dependsOn);assert.deepEqual(file.contextFiles,before.contextFiles);if(repair){assert.equal(typeof file.reusePrevious,'boolean');if(file.reusePrevious)assert.equal(file.instruction,before.instruction,'retained instruction unchanged');}else assert.equal(file.reusePrevious,undefined);}
-  if(repair)assert.ok(draft.files.filter(f=>!f.reusePrevious).length>=1&&draft.files.filter(f=>!f.reusePrevious).length<=4,'one repair of1..4 targets');
+  if(repair){const selected=draft.files.filter(f=>!f.reusePrevious);assert.ok(selected.length>=1&&selected.length<=repairTargets.length&&selected.every(f=>repairTargets.includes(f.path)),'one bounded repair of eligible targets');}
   for(const instruction of [draft.instruction,...draft.files.map(f=>f.instruction)])assert.ok(instruction.isWellFormed()&&Buffer.byteLength(instruction)<=512);
   return draft;
 }
 export function checkComposerRoundTrip(draft,origin){const output=composerDraft(createForm(origin,draft));assert.deepEqual(output,draft);return output;}
-export async function prepareHttpDraft(studio,{sessionId,projectId,conversationId,draft,expected,beforeSubmit,proposal=null}){
-  validateHttpDraft(draft,{expected,repair:Boolean(draft.revisionOf)});
+export async function prepareHttpDraft(studio,{sessionId,projectId,conversationId,draft,expected,beforeSubmit,proposal=null,repairTargets=TARGETS}){
+  validateHttpDraft(draft,{expected,repair:Boolean(draft.revisionOf),repairTargets});
   if(proposal){const p=compileM2ProjectChangeProposal(proposal);assert.equal(draft.revisionOf,undefined);assert.deepEqual(sorted(p.changes.map(x=>x.path)),sorted(TARGETS));assert.deepEqual(p.focusedTest,draft.focusedTest);assert.deepEqual(p.gitCommit,draft.gitCommit);}
   const command=(proposal?'/m2-plan ':'/m2-build ')+JSON.stringify(proposal||draft),args={sessionId,projectId,conversationId,command};
   await waitUntil(async()=>{const r=await invoke(studio,manualColumnAction,{...args,action:'probe'});return r.ready?r:null;},'HTTP actual selected session Send',15000);

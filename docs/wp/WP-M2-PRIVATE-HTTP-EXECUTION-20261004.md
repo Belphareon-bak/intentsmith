@@ -298,5 +298,24 @@ ROOT drží navazující omezený CODE output kandidát v m2-code-draft.js + př
 maxPromptBytes60672→56576, oběnad serialized32000; capture/role/context/source16384/stop/UTF8/approval
 invarianty zachované. Samotné4096 neřeší kvalitu (partialrouter má komentáře místo fataldecoder).
 CPU připraví retainedactualstore+validation→publicproposal→actualFAILrollback→router/server2.
-Další actual fáze není autorizovaná samotnými2 zbývajícími calls; vyžaduje nový explicitní freeze
-a rozhodnutí pro omezený další cyklus. Do té doby žádné další inferencery.
+Samotné dva zbývající calls nejsou nová autorita. Následující explicitní ROOT rozhodnutí
+vychází z dosavadního souhlasu operátora s autonomním dokončením a z CONTRACT §11.
+
+
+### ROOT rozhodnutí: retained HTTP cyklus, 5. 10. 2026
+
+ROOT přebírá pouze dva výše uvedené manual helpers a přímo navázané report/WP řádky.
+Podle CONTRACT §11 a již uděleného oprávnění provede jediný nový omezený cyklus:
+6 historických volání + nejvýše 2 nová, celkem stále max8; D1/CLI/nové initial volání0.
+Nový HttpSqliteJourneyFreeze@3 zmrazí CODE repair4096, přesné instrukce a úplnou provenanci.
+Původní tři moduly + skutečně zkompilovaný store11/7171 B jdou veřejným /m2-plan;
+nový skutečný focused FAILED + úplný rollback předchází revisionOf/router/server.
+Store a validation zůstávají exact reusePrevious; router15 length se nikdy nepoužije.
+Oracle/API/security/project isolation/source16384/serializer32000 a exactapproval se nemění.
+Old @1/@2, raw výstupy a všechny FAIL zůstávají; compatibility váže celý původní Git blob
+a jedinou explicitní změnu CODE budgetu. Nejde o další phase v původním frozen běhu.
+Helper CPU16/16, manifest20/20; independent source review
+4aac88a2beb4524bcce9f3e5323e846422082ae22c8f51d2db974571594b37aa PASS bez findings.
+Review manifest b495011bb7ac3ce6415a5d0244c5ce5062289c1f7ae334f2e3c7b7c81f70268b.
+Před live musí být přesný publish/remote/CI, nový freeze a jeho review. Jakékoli nové selhání
+ukončí tento cyklus; žádné prodloužení budgetu ani ruční oprava generovaných zdrojů.

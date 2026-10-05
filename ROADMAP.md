@@ -6,7 +6,8 @@ Přijaté Ledger/TaskFlow/SQLite/AST/GPU UI a omezený cleanup se neopakují bez
 CHAT `e066956b` je merged; další Gemma/Hunt mají jiné workery, ROOT holdout nečetl.
 Společný publikovaný `c412865c`:410 PASS/0 FAIL/0 BLOCKED/0 TIMEOUT;
 CI37244406326 SUCCESS. Původní eb482aca399 PASS/11 FAIL zůstává historickým výsledkem.
-Opravy mají review; M6 current109 je oracle, nový physical upgrade zatím readiness FAIL.
+CODE/M6 kandidát0be289d5: CI18/18 SUCCESS; omezené source/CPU review PASS.
+M6 actual retry se dostal přes canary56 a failed-upgrade restore; metadata compatibility FAIL.
 
 CODE32k krátká fullVRAM alokace/minfree2512 MiB a natural classifier→D1
 44/44 CPU +review PASS jsou zachované; živý natural entry není přijatý.
@@ -33,9 +34,13 @@ actualserverreadinessFAIL/0HTTP, rollback4/4. Store oprava complete, routerlengt
 → OUTPUT_INCOMPLETE502 před repairplanem; cumulative6/8, Git baseline beze změny.
 Nezávislé actual review20f76f40…5563e4b/sourcee1e1bfe2…ece106 potvrzují APPLICATION_FAIL.
 Další CPU strategie: zachovat actualstore+validation, finite router/server2, cumulative≤8;
-scopedCODErepair4096 kandidát a nový povolený freeze. Další inference zatím neběží.
-M6 owncache220/220+nativeABI137 PASS; actual109 FAIL před readiness kvůli legacyC3 ENV.
-Previous-only fixture oprava připravovaná; canary/upgrade/restore109 ještě NOT_REACHED.
+CODE repair4096 je publikovaný, legacy/generic limity zachované.
+ROOT podle CONTRACT §11 rozhoduje jediný další HTTP cyklus s max2 calls/total8,
+retained complete store a novým explicitním freeze; žádná inference zatím neběží.
+M6 owncache220/220+nativeABI137 PASS; previous-only ENV oprava publikovaná.
+Actual retry7,918s prošel previous canary/count56, chybným upgradem a exactrestore56,
+currentAPI vrací canary. FAIL na .intentsmith metadata; finalcount109/inode NOT_REACHED.
+Old d3d vytváří .c3 metadata; produktové read-only compatibility doplnění se připravuje.
 Pak obecnější repo/context průchod, společné IDE/BE/expertise/workers, M5/M6, mobil
 a závěrečný bezpečný cleanup. M5/M6/mobil/Hunt/model kvalita zůstávají otevřené.
 

@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 5. 10. 2026, 03:24 CEST / 01:24 UTC.
+**Aktualizováno:** 5. 10. 2026, 03:35 CEST / 01:35 UTC.
 **Vlastník:** ROOT; ladění CHAT/Gemma a zbývající Hunt mají jiné workery.
 **Release NOT_ACCEPTED. Fan a nová HTTP aplikace zůstávají FAIL.**
 
@@ -27,7 +27,7 @@ Recovery **50915ffd** je pushnutý, remote SHA ověřený;
 [CI 18/18 SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37247712264).
 CODE kandidát **e3e15582**: cílený profil3/3 PASS, source review9fe85d5c…3122e60 PASS.
 Nejde o nový celý profil nebo živý úspěch aplikace. M6 fixture má CPU12/12;
-společné CODE+M6 review c735179f…77f0b22 PASS bez findings. Kandidát čeká na publish/current CI.
+společné review c735179f…77f0b22 PASS. Publikovaný 0be289d5 má [CI18/18 SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37251247298).
 Instalovaný BE c84b88cd se nezměnil; tento proud jej nenasadil.
 Externí c5309a0/bundle zde chybí; hlášené výsledky nejsou místně přijaté důkazy.
 
@@ -52,8 +52,8 @@ Actual review20f76f40…5563e4b a sourcee1e1bfe2…ece106 potvrzují APPLICATION
 CPU retention proof a3917093…ce5234 zachovává actualstore a validation; zbývají router/server2.
 CODE cap4096 platí jen pro vydaný exactCODE32k capture; generic8k2048 a schválený4k1024 zachované.
 Vyšší cap nezaručuje správnost: partialrouter opisoval komentáře a skutečné fatal dekódování chybělo.
-Nový omezený cyklus potřebuje explicitní freeze/povolení; původní jediná repair fáze je vyčerpaná.
-Žádná další inference zatím neběží. Další CPU příprava helperu probíhá bez app/DB/GPU efektů.
+Původní repair fáze je vyčerpaná. ROOT podle CONTRACT §11 rozhoduje nový cyklus max2/total8;
+retained helper CPU16/16 a review4aac88a2…94b37aa PASS; nový publish/CI/freeze před live. Inference neběží.
 
 ## Fan: konkrétní rozhodnutí čeká
 
@@ -71,8 +71,10 @@ Jde o periodické vzorky, nikoli souvislý důkaz. Source16384/serializer32000 a
 Own offline cache220/220 a Node24 ABI137 SQLite prebuild ověřené; sdílená cache neměněná.
 První actual109 upgrade FAIL po97,5s: předchozí d3d verze vyžaduje C3_* ENV, test posílal moderní názvy.
 Canary/backup-restore/count109 nebyly dosaženy; nejde o přijatý upgrade nebo prokázanou produktovou vadu.
-Previous-only13 aliases mají CPU12/12 a review PASS; currentENV/nonce/capability/oracle zachované.
-Další fyzický běh až na novém publikovaném čistém kandidátu; nový journal uchová bounded private failure evidence.
+Previous-only13 aliases: CPU12/12, review/CI PASS; retry na0be trval7,918s, cleanup/zdroje beze změny.
+Previous canary/count56, failed-upgrade+exactrestore56 a currentAPIcanary prošly; metadata FAIL.
+Old d3d píše .c3/project.json; moderní readers jej nečtou. Finalcount109/inode NOT_REACHED.
+Připravuji read-only kompatibilitu + ověření původních bajtů; žádné přejmenování dat/test-only fallback.
 M5/M6 otevřené:8 unsigned podkladů,13 signed receipts; rotace/N/A, history disposition, key custody a demo.
 Nové fresh install, backup/restore,24h soak a throughput jsou samostatné otevřené přejímky.
 Starý24h/throughput PASS na193e2351 zůstává historický. [M6 WP](wp/WP-M6-RELEASE.md).
@@ -80,7 +82,7 @@ Starý24h/throughput PASS na193e2351 zůstává historický. [M6 WP](wp/WP-M6-RE
 ## D1, Hunt a CHAT
 
 Classifier→D1:44/44 CPU +parser24 +review PASS; živý přirozený vstup není přijatý.
-Hunt vlastní jiný worker. Poslední metadata audit20:54 UTC:596/1173 odpovědí,2324/3689kritérií;
+Hunt vlastní jiný worker. Byte audit5Oct01:26 UTC:107 canonical souborů beze změny,596/1173 odpovědí,2324/3689kritérií;
 nový worker/path zatím nedoložený, cílený dotaz čeká. ROOT grading ani cizí proces nepřebírá.
 Gemma candidate9591ea1b ověřen; reportd86baa27 NO_GO není holdout acceptance.
 Operátor odpečetil `/mnt/vi7000/intentsmith/evidence/chat-holdout-20261002/holdout.json`; ROOT obsah nečetl.

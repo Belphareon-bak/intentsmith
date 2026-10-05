@@ -676,5 +676,7 @@ Bez capture zůstává2048; schválený4k model má1024; CHAT/D1/cache/activatio
 maxPromptBytes pro CODErepair60672→56576, stále nad serializer32000; úplnésources16384,
 strictstop/UTF8/JSON/exactreplacements/governance/M2approval zůstávají.
 CPU finite retention proof a3917093…ce5234 zachovává completeactualstore i validation.
-Router/server2 při dalším explicitlyapprovedcyklu jsou cumulative6+2=8; žádnéinferencezatím.
+CODE kandidát e3e15582 má focused3/3 a společné review c735179f…77f0b22 PASS;
+publikovaný 0be289d5/CI18SUCCESS. ROOT podle CONTRACT §11 rozhodl HTTP retained cyklus6+2=8;
+helper review4aac88a2…94b37aa PASS, nový explicitní freeze musí předcházet inference.
 Vyššílimit nezaručuje kvalitníopravu; oracle/API a historickéFAIL se nesmějí přizpůsobit.
