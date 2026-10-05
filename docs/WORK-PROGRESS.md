@@ -1,8 +1,8 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 5. 10. 2026, 01:35 CEST / 4. 10. 23:35 UTC.
+**Aktualizováno:** 5. 10. 2026, 02:29 CEST / 00:29 UTC.
 **Vlastník:** ROOT; CHAT/Gemma a zbývající Hunt mají jiné workery.
-**Release NOT_ACCEPTED; fan aplikace FAIL; generated HTTP NOT_RUN.**
+**Release NOT_ACCEPTED; fan aplikace FAIL; HTTP aplikace FAIL před náhledem.**
 
 ## Přijatý základ
 
@@ -20,13 +20,12 @@
 ## Společný kandidát a kontroly
 
 Merge 56138e4f převzal CHAT e066956b a vlastní CODE 32k/D1; preservation review PASS.
-Nový celý profil **eb482aca**,23:00–23:10 UTC: **399 PASS/11 FAIL/0 BLOCKED/0 TIMEOUT**,
-report 7e6428fe…44e05; [CI FAIL](https://github.com/Belphareon-bak/intentsmith/actions/runs/37242119604), remote SHA ověřený.
-Last green769d4930:408 PASS; nový strom tím nepřejímám. FAILy: census/bootstrap,
-V1 fixture ve2 Studio sadách +5 wrappers, migrační očekávání a M6 current count108/109.
-Adoptovány bounded opravy: census160 PASS, izolace bootstrap PASS, private103+72 PASS;
-M6 current109 má independent review50722146…f2967, previous56/SHA/oldreceipts zachované.
-Nový M6 physical upgrade NOT_RUN. Následuje společný čistý kandidát/410/current CI.
+Celý profil **c412865c**,23:37–23:47 UTC: **410 PASS/0 FAIL/0 BLOCKED/0 TIMEOUT**,
+report 5b404646…00a2b; [CI SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37244406326), remote SHA ověřený.
+Původní eb482aca399 PASS/11 FAIL a CI FAIL zůstávají historickým výsledkem.
+Opravy census/bootstrap/V1 fixtures a migračních očekávání mají review11d47dc2…94ec1.
+M6 current109 má review50722146…f2967; previous56/SHA/oldreceipts zachované.
+Nový M6 physical upgrade NOT_RUN; zelený profil není přijetí celého releasu.
 Instalovaný BE c84b88cd je jiný release; tento proud jej nenasadil.
 Externí c5309a0/bundle zde chybí; hlášené výsledky nejsou lokálně přijaté důkazy.
 
@@ -62,18 +61,22 @@ Landlock8/caps0/NNP1/seccomp2;19members verified, result d64900ca…254c.
 Controlled fixture, nikoli generovaná app/M2 commit. Physical cancel/timeout 2/2 PASS:
 1.14s/4.62s, PGID/PIDs empty, host unchanged; review b96326b7…80d34b PASS.
 Namespace TERM teardown; trusted host IPC není egress, samostatný KILL nedoložen.
-Private CPU: contracts35, provider9+abort2, SQL9+legacy27+startup2, runtime23,
-compiler/composer11, startup6+independent bounded-read4. Původní FAIL zachované.
+Soukromé CPU kontroly contracts/provider/SQL/runtime/compiler/startup mají PASS; přesné počty a původní FAIL jsou ve WP.
 Public targeted 13 PASS/1 actual-model GPU BLOCKED; následně service 107/Studio 28 ve 2/2 sadách PASS.
-Browser fixtures: canonicalV1 annotations; původní assertions zachované.
 Registry 596/35; graph 1507/3cykly/28,7 nutných SQL/config hran připnuto ke skutečnému e7ac78a8.
-Skutečný Studio production/consumer build PASS; bundle 7bf62455…bfe24.
-CI zachovává CHAT 7 a rozšiřuje CODE na 11; první whole/CI FAIL mají bounded opravy.
+Skutečný Studio build PASS/bundle7bf62455…bfe24; CI zachovává CHAT7 a CODE11.
 Late-cleanup: oldV2 false success → typed failure; V1 zachováno, review 01a9afff…c1963.
 Nová HTTP/SQLite příprava: 4 initial +jediná selected repair1..4/max 8 CODE,D1=0;
 Oracle2 0ba036cb…ca3a0 má AUTOINCREMENT/strictUTF8 review; API/originoracle1 nezměněné.
-Dva veřejné manual helpery mají review f46b64d2…8094d/CPU10; source/CI freeze a actual app čekají.
-Následuje CODE → Studio preview → exact M2 → actual HTTP/SQLite oracle → commit → restart/review.
+Freeze b4e7bd74…e2d86 má reviewcd60fdcb…70428; source/build/dependencies včetně aliasů ověřené.
+Skutečný běh23:51–23:53 UTC:4 úplné CODE výstupy/25 382 B; vstupy6 713–24 288 B.
+Helper vyřadil výchozí node:test; governance správně odmítla scaffold před náhledem.
+0 M2 authority řádků/efektů, všechny targety absent; vlastní cleanup/model unload/lease PASS.
+Source review95b9ab83…d73cda vyžaduje store/router/server; oracle dosud NOT_RUN.
+Následuje explicitně zmrazené veřejné /m2-plan ze stejných úplných výstupů, bez nové initial inference.
+Recovery source review67f751be…825b84 PASS; obal31/31 CPU, public NO_RUN/registry596 PASS.
+Pouze po actual FAILED+rollback selectedrepair≤4, celkem≤8; nový source/CI freeze před během.
+Původní výstupy/FAIL se nemění; cílem zůstává exact M2 → oracle → commit → restart/review.
 
 ## D1, Hunt a CHAT
 
@@ -95,5 +98,4 @@ M5/M6 otevřené:8 unsigned podkladů,13 signed receipts chybí; recovery/key cu
 Mobil po stabilním IDE/BE: conversation.create chybí, historicalCPU 47; physical 13+7 NOT_RUN.
 Device/signedAPK/VPN origin/pair-revoke/restart/exactM2/TalkBack čekají.
 Poslední cleanup:215 branches/72 worktrees, foreign/UNKNOWN/evidence HOLD; žádný nový worktree.
-
 [Archiv před HTTP adopcí](https://github.com/Belphareon-bak/intentsmith/blob/f530461918ce961f6ae2224f6aa062ef22e4bb51/docs/WORK-PROGRESS.md).

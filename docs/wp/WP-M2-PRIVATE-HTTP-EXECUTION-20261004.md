@@ -226,3 +226,52 @@ max8 CODE. Ostatní moduly reusePrevious=true přebírány byte exact z FAILED
 proposal po doloženém rollbacku; plný4souborový preview/approval/oracle zachován.
 Původní full4 DRAFT příprava zůstává; změna strategie před livefreeze nepovoluje
 no-op model output ani další opravu. Nový jointprofile/CI/live acceptance čekají.
+
+### Skutečný CODE běh a omezené veřejné pokračování
+
+Kandidát `c412865c` má celý profil410 PASS/0 FAIL/0 BLOCKED/0 TIMEOUT,
+23:37:03–23:47:10 UTC; report
+`5b4046462400b4009a548e570a2222e57217fb51709af29b610b28c54dd00a2b`.
+CI37244406326 SUCCESS, remote SHA ověřený. Původní eb482aca FAIL zůstává.
+Freeze `b4e7bd74f3d0d63a535998342899ff46c2a3fedc9297f38910a6785d1a5e2d86`
+ověřilo nezávislé review `cd60fdcbdc02a15107771c731e31f1ffd842a6b070d5bb4fd47479a655770428`.
+Skutečný běh23:51:12–23:53:51 UTC skončil governance409 před náhledem:
+ROOT helper nahradil výchozí importy, a tím zakázal `node:test` původního scaffoldu.
+Produktová výchozí policy `node:test` již dovoluje; produkt odmítl návrh správně.
+Čtyři skutečné CODE výstupy jsou úplné,25 382 B, vstupy6 713/12 137/19 529/24 288 B,
+prompt tokeny1 741/3 292/5 373/6 646. Model/context limity a úplné peers zachované.
+Žádný durable M2 plán/efekt nevznikl; všechny33 M2 tabulky mají0 řádků, targety absent,
+Git baseline beze změny. Vlastní Studio/BE/model/relay/lease cleanup PASS.
+Source review `95b9ab8386905584d518937bcfa3e79651bee89b80515f014391705215d73cda`
+zjišťuje vady store/router/server; žádný oracle se dosud nespustil.
+
+Nejmenší pokračování využije existující veřejný raw proposal port uvedený výše:
+nový baseline ponechá výchozí onboarding policy a přidá pouze `node:sqlite`.
+Přesný proposal se rekonstruuje produktovým compilerem ze čtyř zachovaných
+úplných modelových výstupů a odešle normálním Studio `/m2-plan` → `/prepare`.
+Nevkládá se DB, app source ani provider replay. Nový plán znovu projde manifestem,
+governance/preflight/náhledem a přesným schválením. Původní výstupy a FAIL zůstávají.
+Kontrakt této strategie ověřilo review
+`dc569a5ebe353192411b73d73a19700478fcaf6b3768f3ed6785497aaa9d8a3e`.
+Teprve skutečný focused FAILED+rollback dovolí `revisionOf` a jedinou selectedrepair≤4;
+rozpočet zůstává historické4 + nové≤4 = celkem≤8 CODE, D1/CLI0. Žádné další initial volání.
+Před inference vznikne nový explicitní source/representation/ref freeze a review.
+CPU rekonstrukce s úplnými původními zdroji/digests: repair19 527/29 746/27 628 B,
+nejmenší rezerva2 254 B. Budoucí změny dependencies jsou neznámé a skutečné guardy platí dál.
+
+### Recovery obal — CPU checkpoint, 5. 10. 2026, 00:24 UTC
+
+ROOT převzal pouze dva manual helpers: runner `4d059b16b4b61cb2ecea367fd9a9455bb08616657dede5c37ed13b67968f9b82`,
+controller `8116cf7945f2a17678715d32597c7486b05c5fecda32377d91b42ce063215130`.
+Finite CPU31/31 PASS (Node24.21.0, exit0,0.883s): přesných5 historical refs,
+raw request/response hashes a fatal UTF8, model/params/full dependency reconstruction,
+missing/tampered/incomplete provenance, unchanged3 product pins, defaultpolicy+SQLite,
+public proposal compiler/composer a zákaz initial forward/cumulative4+≤4.
+Public default NO_RUN, registry596/fingerprint47acf12…e748 a diffcheck PASS.
+Nový runtime má fresh authority DB a absent project; starý packet se nemění.
+Final independent source/CPU review `67f751be5c2ddeb1739acdde54dbd043e0da4da30d72bfc03529df0c9e825b84` PASS, openFindings0.
+Manifest `39423c9559133d854363bd3f57b79372f84d4fb18bcb77ba1cfa93359e556602`; reviewer0 reruns/effects.
+Nový exact SHA/CI/inputfreeze ještě před skutečným pokračováním.
+Původní GPU observer:81 vzorků/56 loaded, context32768/fullVRAM17,399,734,598 B,
+minimumfree2434 MiB/maxgap2.468s,0 errors. Jde o periodické vzorky původního
+čtyřgeneracového běhu, ne souvislý důkaz nebo funkční přijetí aplikace.

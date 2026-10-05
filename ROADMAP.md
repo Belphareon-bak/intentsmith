@@ -4,9 +4,9 @@
 Release `NOT_ACCEPTED`; instalovaný BE `c84b88cd` se nezměnil.
 Přijaté Ledger/TaskFlow/SQLite/AST/GPU UI a omezený cleanup se neopakují bez delty.
 CHAT `e066956b` je merged; další Gemma/Hunt mají jiné workery, ROOT holdout nečetl.
-Nový whole profile publikovaného `eb482aca`:399 PASS/11 FAIL/0 BLOCKED/0 TIMEOUT;
-CI37242119604 FAIL. Last green `769d4930`:408 PASS. Census/bootstrap/V1 fixtures
-a migrační očekávání včetně M6 current109 mají bounded opravy/review; nový profile čeká.
+Společný publikovaný `c412865c`:410 PASS/0 FAIL/0 BLOCKED/0 TIMEOUT;
+CI37244406326 SUCCESS. Původní eb482aca399 PASS/11 FAIL zůstává historickým výsledkem.
+Opravy mají review; M6 current109 je zdrojová změna, nový physical upgrade NOT_RUN.
 
 CODE32k krátká fullVRAM alokace/minfree2512 MiB a natural classifier→D1
 44/44 CPU +review PASS jsou zachované; živý natural entry není přijatý.
@@ -27,8 +27,11 @@ Sedm nutných SQL/config hran je připnuto ke source `e7ac78a8`.
 Nový Studio production/consumer build PASS, bundle7bf62455…bfe24;
 Physical cancel/timeout2/2 +independent review PASS; namespaceTERM, bez KILL claim.
 V2 late-cleanup guard adoptován po skutečném controlled RED/GREEN a source review PASS;
-V1 zachován. První whole/CI FAIL mají přesné integrační opravy; opakování čeká.
-Následuje zmrazená nová HTTP/SQLite CODE aplikace, exactM2/oracle/commit/restart/review.
+V1 zachován. HTTP běh vytvořil4 úplné CODE výstupy/25 382 B, ale helper vyřadil
+node:test z policy; governance odmítla scaffold před náhledem. Oracle/approval NOT_RUN.
+Následuje nové zmrazené veřejné /m2-plan z přesných původních výstupů bez initial inference;
+jen po focused FAILED+rollback jediná selectedrepair≤4, celkem4 historical+≤4new=≤8 CODE.
+Poté exactM2/oracle/commit/restart/review. Původní FAIL zůstává, produkt není přijatý.
 Pak obecnější repo/context průchod, společné IDE/BE/expertise/workers, M5/M6, mobil
 a závěrečný bezpečný cleanup. M5/M6/mobil/Hunt/model kvalita zůstávají otevřené.
 

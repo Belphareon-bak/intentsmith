@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {evaluateRenderer,waitUntil} from '../../scripts/run-project-build-journey.js';
 import {bindActualConversation,reloadActualStatus} from '../../scripts/manual/fan-monitor-studio2-controller.mjs';
+import {compileM2ProjectChangeProposal} from '../../src/lifecycle/m2-proposal-compiler.js';
 import {validateM2PrivateHttpNetworkPolicy,computeM2PrivateHttpNetworkPolicyDigest} from '../../contracts/m2/execution-v2.js';
 const require=createRequire(import.meta.url);
 const {validateBlueprint,createForm,composerDraft}=require('../../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/m2-composer.js');
@@ -95,16 +96,17 @@ export function validateHttpDraft(draft,{expected,repair=false}){
   return draft;
 }
 export function checkComposerRoundTrip(draft,origin){const output=composerDraft(createForm(origin,draft));assert.deepEqual(output,draft);return output;}
-export async function prepareHttpDraft(studio,{sessionId,projectId,conversationId,draft,expected,beforeSubmit}){
+export async function prepareHttpDraft(studio,{sessionId,projectId,conversationId,draft,expected,beforeSubmit,proposal=null}){
   validateHttpDraft(draft,{expected,repair:Boolean(draft.revisionOf)});
-  const command='/m2-build '+JSON.stringify(draft),args={sessionId,projectId,conversationId,command};
+  if(proposal){const p=compileM2ProjectChangeProposal(proposal);assert.equal(draft.revisionOf,undefined);assert.deepEqual(sorted(p.changes.map(x=>x.path)),sorted(TARGETS));assert.deepEqual(p.focusedTest,draft.focusedTest);assert.deepEqual(p.gitCommit,draft.gitCommit);}
+  const command=(proposal?'/m2-plan ':'/m2-build ')+JSON.stringify(proposal||draft),args={sessionId,projectId,conversationId,command};
   await waitUntil(async()=>{const r=await invoke(studio,manualColumnAction,{...args,action:'probe'});return r.ready?r:null;},'HTTP actual selected session Send',15000);
   await beforeSubmit(copy(draft));assert.equal((await invoke(studio,manualColumnAction,{...args,action:'send'})).ready,true);
   const result=await waitUntil(()=>invoke(studio,(model,args)=>{const s=model.widget.store.find(args.sessionId),entry=model.widget.m2.entry(s);if(entry.busy)return null;if(entry.error)throw Error('HTTP_CODE_PREPARE:'+entry.error);return entry.view?.state==='awaiting_approval'?{view:JSON.parse(JSON.stringify(entry.view)),userRecorded:s.chat.msgs.some(x=>x.role==='user'&&x.tag==='M2'&&x.text===args.command),ordinaryTurnActive:model.widget.transport.hasActiveM1Turn(s),proposal:s.chat._projectWorkProposal||null}:null;},{sessionId,command}),'HTTP full-source CODE preview',HTTP_JOURNEY_BOUNDS.phaseWaitMs);
   assert.equal(result.userRecorded,true);assert.equal(result.ordinaryTurnActive,false);assert.equal(result.proposal,null);
   assert.deepEqual(result.view.plan.origin,{surface:'studio',sessionId:conversationId,conversationId,projectId});
   assert.deepEqual(sorted(result.view.diff.map(f=>f.path)),sorted(TARGETS));assert.equal(result.view.plan.version,2);assert.equal(result.view.audit?.governanceDecision?.verdict,'allow');
-  return{...result,submittedDraft:copy(draft)};
+  return{...result,submittedDraft:copy(draft),...(proposal?{submittedProposal:copy(proposal),entryCommand:'/m2-plan'}:{entryCommand:'/m2-build'})};
 }
 export async function approveHttpPlan(studio,{sessionId,view,beforeClick=async()=>{}}){
   await invoke(studio,(model,args)=>{const s=model.widget.store.find(args.sessionId),e=model.widget.m2.entry(s);if(e.view?.state!=='awaiting_approval'||e.view.lifecycleId!==args.id||e.view.planDigest!==args.digest||s._m2Pending?.planDigest!==args.digest)throw Error('HTTP_APPROVAL_DRIFT');const b=[...document.querySelectorAll('button')].filter(x=>x.textContent.trim()==='Zobrazit změny');if(b.length!==1||b[0].disabled)throw Error('HTTP_SHOW_CHANGES');b[0].click();return true;},{sessionId,id:view.lifecycleId,digest:view.planDigest});
