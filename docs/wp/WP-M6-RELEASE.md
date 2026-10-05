@@ -318,3 +318,6 @@ Po společném publish/remote/CI a immutable inputfreeze ROOT provede jediný no
 izolovaný actual109 gate, max600s. Aktuálně `NOT_RUN`; source/CPU PASS není upgrade PASS.
 Úzké adoption/baseline/export review `d7671f03e3ce71ecc2e6ecb1ba772fc47cd1283c92ff3566d2f352fc3ed9b361`
 PASS: šest source hashů exact, +3/−0 edges/1510/3/28, provenance2d145220, HTTP export4/4 +API exact.
+
+Cílený společný profil na387be88f:7/7 PASS (welcome/sharedcontext/boundary/ratchet/artifacts),
+reportSHA `e4bdd295860f866ba7da88c8e20d609d7722ee8c56f8b5e2e025033bc8f249d2`. CI zachovává CHAT7 a přidává welcome do CODE12.

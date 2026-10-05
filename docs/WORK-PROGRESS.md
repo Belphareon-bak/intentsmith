@@ -26,7 +26,8 @@ Publikovaný **65ad7c05**, remote exact; [CI 18/18 SUCCESS](https://github.com/B
 CODE cap4096 pouze pro vydaný exact CODE32k; generic 8k / 2048 a schválený 4k / 1024 zachované.
 Source review 9fe85d5c…3122e60 + focused 3/3 PASS; není to release nebo nový celý profil.
 M6 metadata source 413917e2 / source review d66e6b2c…849455c + CPU 50/50 PASS; actual109 NOT_RUN.
-Registry 596/35; module graph 1510 / 3 cykly / 28 členů. Studio bundle7bf62455…bfe24 beze změny.
+Shared source 387be88f: cílených 7/7 PASS, report e4bdd295…f249d2.
+CI přidává project-welcome do CODE12; CHAT7 zachovaný. Registry596/35, graph1510/3/28; Studio beze změny.
 Instalovaný BE c84b88cd se nezměnil; žádný deploy/model activation/mobile/CHAT tuning.
 Externí c5309a0/bundle zde chybí; hlášené výsledky nejsou místně přijaté důkazy.
 
