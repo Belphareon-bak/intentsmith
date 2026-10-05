@@ -665,3 +665,16 @@ Preflight runtime receipt
 dokládá přesné piny a skutečné ces/eng data; původním options chyběla tato
 konkrétní toolchain povolení. Aktuální fan block je actual CHAT routing,
 nikoli kontextový overflow nebo zamítnutá GPU; žádný nový modelový běh nebyl.
+
+### Navazující CODE repair kandidát — 5. 10. 2026
+
+ROOT vlastní pouze m2-code-draft.js a přímé model-contract regrese. Fan i HTTP
+prokázaly OUTPUT_INCOMPLETE/length2048, nikoli kontextoverflow. HTTProuter input29967B,
+partialJSON7465B, z toho7138B dokončené řetězce; připravený text měl i semanticUTF8vadu.
+Navazující CPU kandidát zvedá repaircap na4096 pouze s opaque issued exactCODE32k capture.
+Bez capture zůstává2048; schválený4k model má1024; CHAT/D1/cache/activation zůstávají.
+maxPromptBytes pro CODErepair60672→56576, stále nad serializer32000; úplnésources16384,
+strictstop/UTF8/JSON/exactreplacements/governance/M2approval zůstávají.
+CPU finite retention proof a3917093…ce5234 zachovává completeactualstore i validation.
+Router/server2 při dalším explicitlyapprovedcyklu jsou cumulative6+2=8; žádnéinferencezatím.
+Vyššílimit nezaručuje kvalitníopravu; oracle/API a historickéFAIL se nesmějí přizpůsobit.

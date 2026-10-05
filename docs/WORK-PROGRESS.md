@@ -1,8 +1,8 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 5. 10. 2026, 02:29 CEST / 00:29 UTC.
+**Aktualizováno:** 5. 10. 2026, 03:01 CEST / 01:01 UTC.
 **Vlastník:** ROOT; CHAT/Gemma a zbývající Hunt mají jiné workery.
-**Release NOT_ACCEPTED; fan aplikace FAIL; HTTP aplikace FAIL před náhledem.**
+**Release NOT_ACCEPTED; fan/HTTP aplikace FAIL; další inference čeká na nový povolený freeze.**
 
 ## Přijatý základ
 
@@ -25,7 +25,7 @@ report 5b404646…00a2b; [CI SUCCESS](https://github.com/Belphareon-bak/intentsm
 Původní eb482aca399 PASS/11 FAIL a CI FAIL zůstávají historickým výsledkem.
 Opravy census/bootstrap/V1 fixtures a migračních očekávání mají review11d47dc2…94ec1.
 M6 current109 má review50722146…f2967; previous56/SHA/oldreceipts zachované.
-Nový M6 physical upgrade NOT_RUN; zelený profil není přijetí celého releasu.
+M6 physical109 FAIL před readiness: previous potřebuje C3_* ENV; canary/upgrade NOT_REACHED.
 Instalovaný BE c84b88cd je jiný release; tento proud jej nenasadil.
 Externí c5309a0/bundle zde chybí; hlášené výsledky nejsou lokálně přijaté důkazy.
 
@@ -38,11 +38,9 @@ ale vyčerpal2048 output tokens (`done_reason=length`), M2_CODE_DRAFT_OUTPUT_INC
 Nezávislé review 839ee340…35fa813:33 M2 tabulek/7 targetů/oracle/old1067 packet beze změny,
 0 nových plánů/efektů/commitů; oldoracle8 PASS/6 FAIL a rollback4/4 se nepřepisují.
 Owned Studio/BE/model/relay/lease cleanup PASS; actualresult09817197…46190.
-CODE 32k krátká alokace19:10:17.399 GB fullVRAM/minfree2512 MiB; není celý workload.
-Observer b67a6b32…a7485 má jen2 loaded samples, context32768/fullVRAM/free2476 MiB.
-Capture/serializer 32 000 B/initial 4096+repair2048/CHAT/D1 beze změny.
-GPU explicit manual opt-in/review drží3cold lease samples/free≥22000/emptycompute+ps/identity;
-known desktop util record-only, default util30 beze změny. Freeze d9a32bca…ff79879.
+CODE32k předchozí krátké alokace jsou historie; prvníHTTP měření81/56loaded,
+fullVRAM17,399,734,598B/minfree2434MiB. Periodické vzorky, nikoli souvislý důkaz.
+Capture/serializer32000B/source16384/initial4096 zůstávají; defaultGPUutil30 a canonicalreadiness.
 
 Produkt neumí durable partial draft resume. Nový repair4+CLI3 vyžaduje cumulative15,
 ne zbývající3. Doporučen scoped CODE 32k repair≤4096 a jeden nový frozen max15 běh,
@@ -68,15 +66,20 @@ Skutečný Studio build PASS/bundle7bf62455…bfe24; CI zachovává CHAT7 a CODE
 Late-cleanup: oldV2 false success → typed failure; V1 zachováno, review 01a9afff…c1963.
 Nová HTTP/SQLite příprava: 4 initial +jediná selected repair1..4/max 8 CODE,D1=0;
 Oracle2 0ba036cb…ca3a0 má AUTOINCREMENT/strictUTF8 review; API/originoracle1 nezměněné.
-Freeze b4e7bd74…e2d86 má reviewcd60fdcb…70428; source/build/dependencies včetně aliasů ověřené.
-Skutečný běh23:51–23:53 UTC:4 úplné CODE výstupy/25 382 B; vstupy6 713–24 288 B.
-Helper vyřadil výchozí node:test; governance správně odmítla scaffold před náhledem.
-0 M2 authority řádků/efektů, všechny targety absent; vlastní cleanup/model unload/lease PASS.
-Source review95b9ab83…d73cda vyžaduje store/router/server; oracle dosud NOT_RUN.
-Následuje explicitně zmrazené veřejné /m2-plan ze stejných úplných výstupů, bez nové initial inference.
-Recovery source review67f751be…825b84 PASS; obal31/31 CPU, public NO_RUN/registry596 PASS.
-Pouze po actual FAILED+rollback selectedrepair≤4, celkem≤8; nový source/CI freeze před během.
-Původní výstupy/FAIL se nemění; cílem zůstává exact M2 → oracle → commit → restart/review.
+Původní4 completeCODE/25 382 B skončily helper-policy FAIL před náhledem; packet nezměněný.
+Recovery source67f751be…825b84/31CPU a freeze b80a1014…fe0692 PASS; published50915ffd,
+[CI18/18 SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37247712264); whole410 stále patříc412.
+Actual recovery00:45–00:48 UTC: public /m2-plan→byteexactpreview→wrongdigest409→restart→approve200.
+Oracle: server skončil před readiness;0HTTP/0checks; rollback4/4/baseline8051f708 beze změny.
+Store repair11 complete; router15 length2048/neúplnýJSON → typedOUTPUT_INCOMPLETE502 před novým plánem.
+Input29 967 B/prompt8263 prošel; aktuální blocker je output/quality, nikoli context overflow.
+Cumulative6/8, server0; source/history/ownedcleanup/unload/lease beze změny a PASS.
+Actual review20f76f40…5563e4b/sourcee1e1bfe2…ece106 PASS s APPLICATION_FAIL; žádný commit/app přijetí.
+CPU příprava: zachovat actualstore+validation, další finite router/server2, stále cumulative≤8.
+Nový repair4096 pouze pro vydaný CODE32k capture je rozpracovaný CPU kandidát, nikoli livePASS.
+Další inference vyžaduje explicitní nový schválený cyklus/freeze; staré FAILy a oracle zachované.
+M6 owncache220/220+ABI137prebuild PASS; singlephysicalupgradeFAIL: legacy ENV fixture mismatch.
+Oprava previous-only C3 aliases se připravuje; currentENV/nonce/canary/56→109/rollback zachované.
 
 ## D1, Hunt a CHAT
 

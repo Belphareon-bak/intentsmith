@@ -1691,7 +1691,7 @@ try {
     const state = getCodeDraftRuntime(runtime.runtimeCapture);
     assertEqual(Object.isFrozen(state), true); assertEqual(Object.isFrozen(state.artifact), true);
     assertEqual(runtime.generationBudgets[0].maxPromptBytes, 56576);
-    assertEqual(runtime.generationBudgets[1].maxPromptBytes, 60672);
+    assertEqual(runtime.generationBudgets[1].maxPromptBytes, 56576);
     assertEqual(codeEndpoints.length, 1, 'one capture verifies the initial provider identity');
     for (const [repairBuild, cache] of [[false, 8192], [false, 4096], [true, 65536]]) {
       setNumCtx(CODE_RUNTIME_PROFILE.model, cache);
@@ -1701,13 +1701,16 @@ try {
       assert(response.content.includes('afterContent'));
     }
     assertEqual(JSON.stringify(codeRequests.map(body => body.options.num_ctx)), '[32768,32768,32768]');
-    assertEqual(JSON.stringify(codeRequests.map(body => body.options.num_predict)), '[4096,4096,2048]');
+    assertEqual(JSON.stringify(codeRequests.map(body => body.options.num_predict)), '[4096,4096,4096]');
     assertEqual(getNumCtx(CODE_RUNTIME_PROFILE.model), 65536, 'CODE requests do not rewrite the shared cache');
     setNumCtx(CODE_RUNTIME_PROFILE.model, 8192);
     const chatToken = makeToken();
     await callWithPolicy(chatToken, 'ordinary CHAT request', { model: CODE_RUNTIME_PROFILE.model, num_ctx: 16384,
       maxTokens: 20, capability: LLMCapability.REASONING, correlation: correlation('code-isolation') });
     assertEqual(codeRequests.at(-1).options.num_ctx, 8192);
+    const uncapturedRepair = await codeDraftModelBudget(true, true);
+    assertEqual(uncapturedRepair.numCtx, 8192);
+    assertEqual(uncapturedRepair.maxTokens, 2048, 'an unissued runtime cannot raise the repair ceiling');
     assertSemaphoreReleased();
   });
 
@@ -1759,6 +1762,7 @@ try {
     assertEqual(await captureCodeDraftRuntime(), null);
     const budget = await codeDraftModelBudget(true);
     assertEqual(budget.numCtx, 4096); assertEqual(budget.maxTokens, 1720);
+    assertEqual((await codeDraftModelBudget(true, true)).maxTokens, 1024);
     assertEqual(codeEndpoints.length, 0);
   });
 

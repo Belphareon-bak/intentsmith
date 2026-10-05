@@ -272,7 +272,7 @@ export async function codeDraftModelBudget(projectBuild = false, repairBuild = f
   const model = captured?.model ?? config.models?.CODE;
   if (typeof model !== 'string' || !model.trim()) throw codeDraftError('MODEL_UNAVAILABLE', 'Role CODE nemá nakonfigurovaný model.');
   const numCtx = captured?.numCtx ?? resolveNumCtx(model);
-  const maxTokens = repairBuild ? Math.min(2048, Math.floor(numCtx * 0.25))
+  const maxTokens = repairBuild ? Math.min(captured ? 4096 : 2048, Math.floor(numCtx * 0.25))
     : projectBuild ? Math.min(4096, Math.floor(numCtx * 0.42)) : 1536;
   return Object.freeze({ model, numCtx, maxTokens, maxPromptBytes: Math.floor((numCtx - maxTokens - 384) * 2) });
 }

@@ -275,3 +275,28 @@ Nový exact SHA/CI/inputfreeze ještě před skutečným pokračováním.
 Původní GPU observer:81 vzorků/56 loaded, context32768/fullVRAM17,399,734,598 B,
 minimumfree2434 MiB/maxgap2.468s,0 errors. Jde o periodické vzorky původního
 čtyřgeneracového běhu, ne souvislý důkaz nebo funkční přijetí aplikace.
+
+### Actual recovery uzavřen FAIL; další CPU strategie, 5. 10. 2026
+
+Published `50915ffdf3a55ee338519d98b9bae31208c86996`, CI37247712264 všech18SUCCESS.
+Freeze `cdef9c83516950a08a3c83df9e2545ccd8f78427fa3f0ba0f568d0133b30fec6` má independent
+review `b80a10141c15ca8d12928be08ae1b8553b2e4f95d6f74aa1a163b5ffb4fe0692`.
+Initial public M2-plan ze čtyř přesných historických výstupů: náhled, wrongdigest409,
+restart pending plánu a exactapprove200. Oracle fyzicky serverexitbefore readiness/0HTTP.
+Celé4fswrite/4rollbackdelete succeeded, žádnýgitcommit, všechnytargetyabsent, baseline8051f708.
+Samostatná trusted CPU SQLite diagnostika přesným Node24 prokázala nedostupnýcharindex;
+serverstderr je stdioignore, takže to není přímý výpis chyby původního serveru.
+Selectedrepair store11 complete113tokens/7171B; router15 done_reasonlength2048, JSON neúplný.
+Input29967B/prompt8263 splnil32000/32k. Starý oracle/API/inference parametry zůstaly.
+Cumulative historical4+new2=6/8; server0; repairplan/approval/write/commit nevznikly.
+Result `4ca9ee65350def918a43cc52125cbd64b1286fac546cddb63c6c92aca3d134e3`, cleanup/modelunload/leasePASS.
+Independent actual review `20f76f4001c8e2537b84036a1dd0745d0430bd01936dba3d4173b89ff5563e4b`,
+source/evidence `e1e1bfe2afe01a14b01a8fce1a2b6244fbdc57545172ba06c4704f08ceece106`; APPLICATION_FAIL.
+
+ROOT drží navazující omezený CODE output kandidát v m2-code-draft.js + přímém model-contract testu:
+4096 repairtokens pouze pro vydaný exactCODE32k capture, legacy/generic2048 a4k1024 zachované.
+maxPromptBytes60672→56576, oběnad serialized32000; capture/role/context/source16384/stop/UTF8/approval
+invarianty zachované. Samotné4096 neřeší kvalitu (partialrouter má komentáře místo fataldecoder).
+CPU připraví retainedactualstore+validation→publicproposal→actualFAILrollback→router/server2.
+Další actual fáze není autorizovaná samotnými2 zbývajícími calls; vyžaduje nový explicitní freeze
+a rozhodnutí pro omezený další cyklus. Do té doby žádné další inferencery.

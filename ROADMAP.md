@@ -6,7 +6,7 @@ Přijaté Ledger/TaskFlow/SQLite/AST/GPU UI a omezený cleanup se neopakují bez
 CHAT `e066956b` je merged; další Gemma/Hunt mají jiné workery, ROOT holdout nečetl.
 Společný publikovaný `c412865c`:410 PASS/0 FAIL/0 BLOCKED/0 TIMEOUT;
 CI37244406326 SUCCESS. Původní eb482aca399 PASS/11 FAIL zůstává historickým výsledkem.
-Opravy mají review; M6 current109 je zdrojová změna, nový physical upgrade NOT_RUN.
+Opravy mají review; M6 current109 je oracle, nový physical upgrade zatím readiness FAIL.
 
 CODE32k krátká fullVRAM alokace/minfree2512 MiB a natural classifier→D1
 44/44 CPU +review PASS jsou zachované; živý natural entry není přijatý.
@@ -27,11 +27,15 @@ Sedm nutných SQL/config hran je připnuto ke source `e7ac78a8`.
 Nový Studio production/consumer build PASS, bundle7bf62455…bfe24;
 Physical cancel/timeout2/2 +independent review PASS; namespaceTERM, bez KILL claim.
 V2 late-cleanup guard adoptován po skutečném controlled RED/GREEN a source review PASS;
-V1 zachován. HTTP běh vytvořil4 úplné CODE výstupy/25 382 B, ale helper vyřadil
-node:test z policy; governance odmítla scaffold před náhledem. Oracle/approval NOT_RUN.
-Následuje nové zmrazené veřejné /m2-plan z přesných původních výstupů bez initial inference;
-jen po focused FAILED+rollback jediná selectedrepair≤4, celkem4 historical+≤4new=≤8 CODE.
-Poté exactM2/oracle/commit/restart/review. Původní FAIL zůstává, produkt není přijatý.
+V1 zachován. Původní4CODE/25 382 B helper-policy FAIL zůstává. Recovery50915ffd/CI18PASS
+prošel veřejným náhledem, wrongdigest409, pendingrestart a exactapproval200;
+actualserverreadinessFAIL/0HTTP, rollback4/4. Store oprava complete, routerlength2048
+→ OUTPUT_INCOMPLETE502 před repairplanem; cumulative6/8, Git baseline beze změny.
+Nezávislé actual review20f76f40…5563e4b/sourcee1e1bfe2…ece106 potvrzují APPLICATION_FAIL.
+Další CPU strategie: zachovat actualstore+validation, finite router/server2, cumulative≤8;
+scopedCODErepair4096 kandidát a nový povolený freeze. Další inference zatím neběží.
+M6 owncache220/220+nativeABI137 PASS; actual109 FAIL před readiness kvůli legacyC3 ENV.
+Previous-only fixture oprava připravovaná; canary/upgrade/restore109 ještě NOT_REACHED.
 Pak obecnější repo/context průchod, společné IDE/BE/expertise/workers, M5/M6, mobil
 a závěrečný bezpečný cleanup. M5/M6/mobil/Hunt/model kvalita zůstávají otevřené.
 
