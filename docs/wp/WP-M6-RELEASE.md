@@ -420,7 +420,7 @@ Scope n=1 DB-only na86db; nepřijímá generated app/project/config/skills resto
 Stávající fresh install/build0d8 review PASS; zbývá celý fresh phase se všemi5 programy.
 [Aktuální souhrn](../WORK-PROGRESS.md) určuje další pořadí; žádná další CODE inference bez rozhodnutí ke kroku7.
 
-### Fresh5 uzavřený a omezená cache remediation,6. 10. 2026
+### Fresh5 uzavřený a omezená cache remediation, 6. 10. 2026, 12:02 UTC
 
 Actual source90c17489,5. 10.06:23:03–06:28:46UTC/343,277s: všech5 registered programů.
 PASS Electron boundary/Studio M1/Studio M2; FAIL M1 outage false-success a upgrade cache 0775 před DB.
@@ -442,3 +442,29 @@ M1 nově uloží před stejnými assertions klientem UTF-8 decoded body/status/r
 Post-fix physical NOT_RUN. Po CHAT opravě společný freeze/CI/volná GPU a původní celá fresh5 sada;
 žádná další V4–V7 monitor série ani změna oracle. M5 je 8/9; signed8 categories+history stále chybí,
 retain_and_rotate zvolené; custodyA/B+stále druhá operator kopie a reviewer recovery. Online zdroje zachovat.
+
+### Kopírovaná cache: skutečná přejímka upgradu, 6. 10. 2026, 12:36 UTC
+
+Zdroj `0d86b68ef94bfd260dfb6f06d2231d14865dc9f1`, CI37460776179 všech18 SUCCESS.
+ROOT freeze `a32db6d9c31446bb80e8eed900cb9c1a10b05076f62f66d7d124a77bb9938466`;
+jediný actual12:26:07.473–12:26:16.277UTC /8,804 s, budget600 s, nové modelové volání0.
+Použitý nezměněný public test `tests/m6-previous-version-upgrade.e2e.js` (84e960a4…11439e)
+a public copyCacheIfPresent/runLogged/owned termination, úplný auditENV, offline cache a loopback namespace.
+Dvě kopie0700; source cache, payload/executable modes zachované. Původní oracle56→forcedFAIL80→restore56→109,
+přesné backup/restore DB bytes, canary/project metadata, stejná obnovená DB a čisté shutdowny PASS.
+ROOT receipt `e7b527bd91d5ab13076886b6111eee1af730eb7a6eac38135ac453fcaffe1e09`,
+actual manifest `6feaa2e3046895ffe9ac9730cf703d813224a9a3819bbea20ef5eea26d03478c` /906 members.
+Raw oracle `83013355707e607458674bddcd2891fe1ad396cb2d957a4aad4bec2722475b65` přesně dekóduje jediný originální marker.
+Independent review `1223d2a84662530e8d10d3fabe169b98e415a45f563d25d5b3ec09cd69d95e79`:
+**COPIED_CACHE_UPGRADE_INTEGRATION_ACCEPTANCE_REVIEW_PASS**, n=1, findings[].
+Nezávisle všechny906 actual members,9464 source/dependency hashes,14 links a1180 source/první-copy cache entries;
+launcher nepřítomný, nested tmp uklizený, timeout/leak false, cleanup true, ROOT signals0.
+Omezení: ordinary owned PGID/test children; arbitrary escaped-session garance se nezavádí.
+Actual source cache0700;0775 regresi pokrývá samostatná CPU23, tento native běh ji neopakuje.
+Historický fresh5 zůstává3 PASS/2 FAIL. Whole fresh5/install/release tím nepřijaté; CHAT M1 outage stále čeká.
+Private evidence packet `.intentsmith-artifacts/m6-private-cache-remediation-20261006/`.
+Hunt dnešní RO metadata bez nové canonical aktivity po30.9.; nový grading owner/progresspath vyžádaný.
+Před publikací doc/artifact gate158 PASS/2 FAIL: stale test LOC po0d86 a chybějící explicitní current graph sentence.
+Přeměřeno src237108/688, tests270249/604, accepted baseline1510 hran; docs opravené, původní gate FAIL zachovaný.
+Stejný gate poté160/160 bez změny testu/oracle/source; nejde o nový celý profil.
+[Aktuální stručný postup a otevřené testy](../WORK-PROGRESS.md).

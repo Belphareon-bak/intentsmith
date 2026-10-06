@@ -1,17 +1,18 @@
 # Inventura #1 — Server, routing, DB, migrace
 
-Navazující kontrola 6. 10. 2026: upgrade56→109/ad93 a fresh offline install/build0d8
-přijaté jako unsigned dílčí výsledky. Fresh5 na90 dne5. 10.:3 PASS / 2 FAIL,review d3ce667d…15354.
-Electron boundary/Studio M1/Studio M2 PASS; M1 provider-outage false-success a upgrade cache 0775 FAIL.
-Nová oprava vlastního cache root 0700:CPU 23/review 69836bd2 PASS; post-fix physical NOT_RUN.
-M1 ukládá observed decoded body před stejným oracle; CHAT produktová logika nezměněná.
-**Full109 backup/CLI restore/restart na86dbca40 přijatý**, n=1/33,1497 s;
-review 493a5b69…bf7bdf4: přesné DB/safety bytes, původní data po restartu, marker404,
-109 migration identities/schema/quick/FK, nezměněný archiv82 files a vlastní cleanup PASS.
-Oba historické product/harness FAIL zachované; původní oracle beze změny.
-Private copy validace mimo archiv podporuje readonly archive, potřebuje writable dataDir/místo pro kopii.
-Poslední celý offline/database profil86db410/410 a datové testy24/24; signed M5/M6/release nepřijaté.
-[Aktuální výsledky a omezení](../WORK-PROGRESS.md).
+Navazující kontrola 6. 10. 2026: upgrade 56→109/ad93, fresh offline install/build0d8
+a full109@86db DB roundtrip jsou přijaté jako samostatné výsledky bez podpisové autority.
+**Upgrade s kopírovanou cache na0d86, 6. 10.,12:26 UTC /8,804 s /bez modelu: review 1223d2a8…9d95e79 PASS.**
+Dvě produktové kopie 0700 → původní test 56→forcedFAIL80→restore56→109: přesné DB/canary/metadata,
+stejná obnovená DB, loopback namespace a čisté ordinary PGID/child ukončení; n=1.
+Zdroj cache 0700, všech 1 180 položek i první kopie přesně zachované; zdroj 0775 pokrývá CPU23, ne tento actual.
+9 464 hashů zdrojů a závislostí a14 odkazů souhlasí. Historický fresh5 na90 stále 3 PASS/2 FAIL, M1 provider-outage otevřený.
+CPU cache23/source review 69836bd2 a CI0d86 všech 18 SUCCESS; M1 pouze pre-assert decoded body evidence,
+CHAT logika/oracle beze změny. Full109 review 493a5b69: přesné DB/safety bytes, data po restartu,
+109 identities/schema/quick/FK, marker404 a archiv82 bez sidecars; n=1 pouze DB.
+Private copy mimo archiv podporuje readonly archive, vyžaduje writable dataDir/místo pro kopii.
+Starší celý profil na86db 410/410 necertifikuje současný kandidát; všechny historické FAIL zachované.
+Signed M5/M6/release nepřijaté. [Aktuální výsledky a omezení](../WORK-PROGRESS.md).
 
 Aktuální navazující kvalifikace 2026-09-12: čistá core instalace a idempotentní
 opakování skutečného instalátoru prošly offline nad připravenými lockfile

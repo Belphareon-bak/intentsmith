@@ -1,96 +1,88 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 6. 10. 2026,14:02 CEST /12:02 UTC.
+**Aktualizováno:** 6. 10. 2026, 14:39 CEST /12:39 UTC.
 **Vlastník:** ROOT; CHAT/Gemma a zbývající Hunt mají jiné workery.
 **Release NOT_ACCEPTED. HTTP API FAIL. Fan FAIL. Mobil čeká na stabilní IDE/BE.**
 
 ## Přijaté dílčí výsledky
 
-| Oblast | Doložený výsledek | Zbývající omezení |
+| Oblast | Doložený výsledek | Omezení |
 | --- | --- | --- |
-| Ledger / TaskFlow | CODE → přesné M2 → oracle → commit → restart, review PASS | Malé projekty; obecná spolehlivost CODE neprokázaná |
-| SQLite | APPLICATION_ACCEPTANCE_REVIEW_PASS; 7 modulů, 8 965 B | n=1; DB mezi dvěma procesy v jednom sandboxu |
+| Ledger / TaskFlow | CODE → přesné M2 → oracle → commit → restart, review PASS | Malé projekty; obecná úspěšnost CODE neprokázaná |
+| SQLite | APPLICATION_ACCEPTANCE_REVIEW_PASS; 7 modulů, 8 965 B | n=1; DB mezi procesy v jednom sandboxu |
 | Packaged IDE Ledger | 6 generací; approval/oracle/commit/durable M2 | DOM kliknutí; fyzická dostupnost ovládání otevřená |
 | M3 / Worker | Izolace, původ dat, skutečný 5min worker/restart/čistý stop | Kvalita expertise, souběh a delší stabilita |
-| AST / GPU panel / Cleanup | AST review PASS, panel V7 a 3 vlastní refs přijaté | Hunt/model acceptance a cizí/evidence worktrees zachované |
-| M6 data | Full109 backup → CLI restore → restart, review PASS | n=1, pouze DB; celý M5/M6 ani release nepřijaté |
+| AST / GPU panel / Cleanup | Omezené AST review, panel V7 a 3 vlastní refs přijaté | Hunt/model acceptance a cizí/evidence checkouty zachované |
+| M6 data | Full109 backup → CLI restore → restart, review PASS | n=1, DB; project/config/skills restore otevřený |
+| Kopírovaná cache / upgrade | Původní 56→forcedFAIL80→restore56→109, review PASS | n=1, bez modelu; celý fresh5 ani release nepřijaté |
 
 [SQLite export](../examples/generated-apps/sqlite-catalog/README.md), [24 přijatých modulů](../examples/generated-apps/README.md).
-BE restart SQLite dokládá durable M2/zdroje, nikoli DB z dalšího nového sandboxu.
+BE restart SQLite dokládá durable M2/zdroje; nedokládá DB v dalším novém sandboxu.
 
-## Společná integrace a poslední úplný profil
+## Společný kandidát a kontroly
 
-Merge 56138e4f zachoval CHAT e066956b / CODE32k / D1; preservation review PASS.
-CHAT checkout 6. 10. znovu ověřený: clean e066956b; ROOT do jeho logiky nesahal.
+Zdroj cache opravy a přijatého upgradu: **0d86b68e**; [CI37460776179](https://github.com/Belphareon-bak/intentsmith/actions/runs/37460776179), všech 18 kroků SUCCESS.
+CHAT 7 / CODE 12 kontroly zachované; merge 56138e4f obsahuje CHAT e066956b / CODE32k / D1.
+CHAT checkout 6. 10. ověřený clean e066956b; produktovou logiku CHATu ROOT neměnil.
 Poslední celý offline/database profil **86dbca40: 410 PASS / 0 FAIL / BLOCKED / TIMEOUT**,
-5. 10.,04:44:14–04:54:05 UTC; report a5a2f4a3…326d11c, nezávisle ověřené všechny řádky/logy.
-Data 24/24, M1 kontrakt 74/74; tento profil nepřijímá následnou cache opravu ani release.
-Zveřejněný základ90c17489 měl [CI37267838658 všech18 SUCCESS](https://github.com/Belphareon-bak/intentsmith/actions/runs/37267838658).
-CI zachovává CHAT7/CODE12. Remote SHA a CI nového balíku se ověřují po publikaci.
-CODE4096 pouze pro vydaný přesný CODE32k; generic8k/2048 a approved4k/1024 zachované.
-Studio bundle 7bf62455…bfe24 a instalovaný BE c84b88cd nezměněné; žádný deploy/aktivace.
-Externí c5309a0/bundle zde chybí; jeho výsledky nejsou místně přijaté důkazy.
+5. 10., 04:44:14–04:54:05 UTC; report a5a2f4a3…326d11c, všechny řádky/logy nezávisle ověřené.
+Data 24/24, M1 kontrakt 74/74; tento starší profil necertifikuje cache opravu ani release.
+Doc/artifact gate 160/160 po přeměření tests LOC 270 196→270 249 a explicitním graph census; původní 158 PASS/2 doc FAIL zachované.
+Studio bundle 7bf62455…bfe24 / instalovaný BE c84b88cd nezměněné; žádný deploy ani aktivace.
+Externí c5309a0/bundle místně chybí; jeho výsledky nejsou přijaté místní důkazy.
 
-## Fresh integrační průchod — 3 PASS / 2 FAIL, nepřijatý
+## Poslední milník: cache oprava a skutečný upgrade
 
-Na90c17489,5. 10.,06:23:03–06:28:46 UTC: offline install/build a všech5 registered programů.
-**PASS:** Electron boundary, Studio M1 journey, Studio M2 composer. **FAIL:** M1 a previous upgrade.
-M1: outage URL správně9; classifier zachytí PROVIDER_UNAVAILABLE a pokračuje fallbackem → status ok.
-Přesný outage payload/intent před assert neuložený; zdroj/logy doložené, oprava patří CHAT workerovi.
-Upgrade: vlastní kopírovaná npm cache 0775, bootstrap správně vyžaduje0700; konec před DB/upgradem.
-Observer fungoval:10 dokončených odpovědí (4class/4answer/2summary),311 GPU vzorků/275 fullGPU,
-min volná VRAM 5 337 MiB.178 známých lifetimes skončilo, cleanup bez signálů; model unload/lease release.
-Review **d3ce667d…15354 FRESH5_3_PASS_2_FAIL_REVIEW_COMPLETE_NOT_ACCEPTED**;
-1636 bytehashů +8 cookie artefaktů pouze metadata; source/deps/14links zachované.
-Clone odstranil adapter před ROOT capture9 build hashů; nové install-only přijetí se netvrdí.
-Původní dva observer FAIL zachované. Adapter NOT_RUN je success-only counter; report dokládá všech5 běhů.
-**Nová omezená oprava:** cache helper ověří vlastní nový cíl a nastaví jen jeho kořen 0700;
-zdroj/payload/execute modes zachované. CPU 23/23, registry 596 valid; review 69836bd2…350de0 PASS.
-M1 pouze uloží dosavadní UTF-8 decoded body/status/roles před nezměněným oracle; nejde o arbitrary wire proof.
-**Po opravě nový fyzický běh NOT_RUN.** Žádné další monitor ladění ani přijetí releasu.
+Nový cache helper kontroluje vlastní nový cíl a nastaví pouze jeho kořen 0700;
+zdroj, payload a executable modes zachované. CPU 23/23; source review 69836bd2…350de0.
+Actual **6. 10., 12:26:07–12:26:16 UTC / 8,804 s / bez modelu**, zdroj 0d86b68e:
+dvě produktové kopie cache → původní upgrade test → vynucená chyba → přesná obnova → restart/upgradovaný projekt.
+Oracle nezměněný: 56→80→56→109, přesné DB bytes, canary/metadata, stejná obnovená DB, pouze loopback.
+Exit 0 / timeout 0 / ordinary PGID leak 0 / ROOT signals 0; nested runtime uklizený.
+Zdroj/závislosti: 9 464 bytehashů +14 odkazů beze změny; původních 1 180 cache položek zachovaných.
+Receipt e7b527bd…ffe1e09, raw oracle 83013355…2475b65; **review 1223d2a8…9d95e79 PASS**.
+Actual používá zdroj cache 0700; původní zdroj 0775 pokrývá CPU regrese, nebyl v tomto native běhu zopakován.
+[Existující M6 WP](wp/WP-M6-RELEASE.md) uchovává datované FAILy a úplné hranice výsledku.
 
-## HTTP / Fan — další CODE inference čeká na krok7
+## Otevřené implementace a rozhodnutí
 
-[HTTP WP](wp/WP-M2-PRIVATE-HTTP-EXECUTION-20261004.md): execution/lifecycle@2/policy/SQL122/M2/Studio;
-default offline V1 zachovaný. Retained@3 approval/oracle/Git1856920f/BE restart PASS, API SOURCE FAIL.
-70 HTTP +14 refused SQL /14 positive /AUTOINCREMENT /2 servers, stejná DB inode;26 139B/rollback4 PASS.
-[Source-only kandidát](../examples/generated-apps/http-items-candidate/README.md) NOT_ACCEPTED.
-Normal MODIFY@4 na42b3: cumulative10/10 CODE; úplné výstupy, context30 647/28 843B pod32 000B.
-A2/static import opravený; A1/slash aliases a A3/charset OWS FAIL. Helper2-vs4 CPU 6/review opravený.
-Žádné další approval/zápis/test/commit/restart; původní Git/233PK/hash/24pending zachované.
-Review abca4549…20b182 FAIL. CODE blokér je nyní kvalita opravy, nikoli context overflow.
-Doporučená omezená strategie: normální anchored edit s úplným before source/digest; CPU/review/freeze,
-max2 další CODE/cumulative12. Otázka čeká; alternativy jiný kvalifikovaný model nebo odklad HTTP.
-Fan frozen5f6c3fb7:8/11 použito, oracle8 PASS / 6 FAIL, rollback4/Git zachované; review 839ee340…35fa813 FAIL.
-Repair4+CLI3/cumulative15 má samostatnou otázku bez odpovědi. Další inference0.
+| Oblast | Co chybí / nejbližší krok |
+| --- | --- |
+| HTTP CODE | Normal MODIFY@4 vyčerpal cumulative10; A2 opravené, A1/slash aliases a A3/charset OWS FAIL |
+| HTTP strategie | Čeká konkrétní krok7: anchored normal edit s úplným before source/digest, max2 nové / cumulative12; alternativy kvalifikovaný jiný model nebo odklad |
+| Fan | Frozen5f6: 8/11 volání, oracle 8 PASS /6 FAIL; repair4+CLI3 / cumulative15 čeká na samostatnou odpověď |
+| Přirozené plánování | Classifier→D1 CPU 44 +parser 24 /review PASS; skutečný vstup přes Studio ještě nepřijatý |
+| M1 outage | Typed PROVIDER_UNAVAILABLE spolknutý classifierem → fallback/status ok; produktová oprava patří CHAT workerovi |
+| Mobil | Chybí conversation.create; implementace a device přejímka až po stabilním IDE/BE |
+| Hunt | Potřebujeme nový grading report/cestu a vlastníka pokračování; ROOT cizí hodnocení nepřebírá |
+
+[HTTP WP](wp/WP-M2-PRIVATE-HTTP-EXECUTION-20261004.md): linux-bwrap-private-loopback-v1 je zapojený, default offline V1 zachovaný.
+Retained@3 M2/oracle/Git1856920f/BE restart prošel; API SOURCE FAIL, [export](../examples/generated-apps/http-items-candidate/README.md) NOT_ACCEPTED.
+70 HTTP +14 refused SQL /14 positive, AUTOINCREMENT a dva servery se stejnou DB doložené; rollback4 PASS.
+Normal@4 měl úplné zdroje/výstupy a vstupy 30 647/28 843 B pod byte guard 32 000 B; nynější blokér je kvalita opravy.
+Žádné další approval/zápis/commit/restart ani CODE inference; původní Git/233 PK/hash/24 pending zachované.
+Fan 32k byl nejdřív změřen: krátká alokace fullGPU/min free 2 512 MiB; actual dvě loaded samples 2 476 MiB.
+To nedokládá zaplněné 32k okno. Output4096 platí jen pro vydaný exact CODE32k profil; ostatní parametry zachované.
 [CODE WP](wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md), [projektový WP](wp/WP-PROJECT-FLOW-20260918.md).
 
-## M5/M6 — data přijatá, release autorita otevřená
+## Zbývající testy a pořadí dokončení
 
-Upgrade56→forcedFAIL80→restore56→current109/ad93 review 82b6dd0a…75ca884 PASS, n=1/9,66055s.
-Fresh install/build0d8 review fdcd5548…6cdb80e PASS; offline npm/SQLite/Yarn/Electron/4ABI/9hashů.
-Full109@86db,5. 10.,05:18:36–05:19:09UTC/33,1497s/model0, oracle1101617a…7b8d8 beze změny:
-přesné DB/safety bytes před reopen, data/metadata po restartu,2marker404/109stamps/schema/quick/FK PASS.
-Archiv82files beze změny/bez sidecars, vlastní cleanup. Receipt d215cd75…774e79/review 493a5b69…bf7bdf4 PASS.
-Core validuje private copy mimo archiv; readonly archive podporovaný, writable dataDir/DB-copy disk nutný.
-Původní archive WAL/SHM PRODUCT FAIL i startup last_active HARNESS FAIL zachované; n=1 DB-only.
-**M5 je 8/9 REVIEW_PASSED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_PARTIAL / ACCEPTANCE_BLOCKED.**
-History **retain_and_rotate** již vybraná; chybí její signed receipt a8 category receipts (rotace/revokace
-nebo podepsané historic not-applicable). Offline médiumA/operátor aB/oddělený reviewer doložené.
-Chybí druhá ověřená offline operator kopie a reviewer recovery test s oddělenou dešifrovací autoritou;
-online zdroje se do splnění podmínek zachovají. Signed receipts13, demo9kroků+user approval otevřené.
-[M6 WP](wp/WP-M6-RELEASE.md): aktuální24h soak/5min throughput/Gate0;193e2351 pouze historický PASS.
+1. Po opravě M1 od CHAT workera společný freeze/CI a původní fresh5: poslední actual na90 zůstal **3 PASS /2 FAIL**.
+   Electron boundary/Studio M1/Studio M2 prošly; historický M1 a cache FAIL se nepřepisují. Nový whole fresh5 NOT_RUN.
+2. Po rozhodnutí krok7 dokončit HTTP/Fan: přesný náhled/schválení, frozen oracle, rollback, commit, restart/persistence; pak větší repo.
+3. Živý přirozený classifier→D1, fyzická ovladatelnost IDE/M2, file/web/export/skills a projektové A→B→A.
+4. Kvalita expertise/specialistů, worker souběh a delší stabilita; project/config/skills restore; společný profil a finální M5/M6.
+5. Mobil: historical CPU47, fyzická matice 13+7 NOT_RUN; device/APK/VPN/pair-revoke/M2/TalkBack.
+6. Po přejímce bezpečný cleanup vlastněných zastaralých refs; foreign/UNKNOWN/evidence HOLD (poslední census 215 branches /72 worktrees).
 
-## Nejbližší pořadí dokončení a zbývající testy
+## M5/M6 a Hunt: zbývající externí podmínky
 
-1. Publikovat cache/evidence opravu; po CHAT provider-error fixu společný freeze a fresh5 znovu.
-2. Po rozhodnutí CODE krok7 dokončit HTTP/Fan; větší reprezentativní repo, měření kontextu každého kroku.
-3. Živý classifier→D1 (CPU 44+parser 24/review PASS), fyzické IDE/M2; file/web/export/skills a A→B→A.
-4. Kvalita expertise/specialistů, worker souběh/delší stabilita; společný profil,24h/throughput/demo/M5/M6.
-5. Mobil po stabilním IDE/BE: conversation.create chybí; historicalCPU 47,physical 13+7 NOT_RUN;
-   device/APK/VPN/pair-revoke/M2/TalkBack. Pak bezpečný cleanup vlastněných zastaralých refs.
-Hunt má cizího vlastníka; poslední RO5.10.01:26UTC596/1173 responses,2324/3689 criteria/107files.
-Nový progresspath nedoložen; ROOT grading nepřebírá. Gemma9591ea1b poslední NO_GO, není aktuální aktivace.
-Holdout odpečetěn operátorem; ROOT obsah nečetl. CHAT/Gemma ladí druhý worker.
-Poslední cleanup census: 215 branches / 72 worktrees: foreign/UNKNOWN/evidence HOLD; žádný nový worktree.
-[Datovaný archiv](https://github.com/Belphareon-bak/intentsmith/blob/90c174893c5a61ae14cf1d6897f1eaf828063391/docs/WORK-PROGRESS.md).
+M5 **8/9 REVIEW_PASSED / PRIVACY_CHANGES_REQUIRED / KEY_CUSTODY_PARTIAL / ACCEPTANCE_BLOCKED**.
+History retain_and_rotate již vybraná; chybí její signed receipt a 8 category receipts (rotace/revokace nebo podepsané historic not-applicable).
+Offline A/operator a B/oddělený reviewer doložené; chybí druhá ověřená operator kopie a reviewer recovery s oddělenou dešifrovací autoritou.
+Online zdroje se zachovají. Signed receipts 13, aktuální 24h soak/5min throughput/Gate0 a demo 9 kroků + user approval otevřené.
+Hunt RO 6. 10., 12:18 UTC: canonical 107 JSON (106 batches +revision) +3 MD; poslední zápis 30. 9.,19:43 UTC.
+Poslední validované pokrytí 596/1173 responses,2324/3689 criteria; historický stop byl weekly API limit, dnešní quota tím nedoložená.
+Oddělený ROOT development draft 16/64 se nepřičítá. Nový worker progresspath vyžádaný; Gemma9591 poslední NO_GO, žádná aktivace.
+Holdout odpečetěn operátorem; jeho obsah ROOT nečetl, přejímku Gemma kandidáta vlastní CHAT worker.
+[Datovaný archiv](https://github.com/Belphareon-bak/intentsmith/blob/0d86b68ef94bfd260dfb6f06d2231d14865dc9f1/docs/WORK-PROGRESS.md).

@@ -1,47 +1,34 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktuální checkpoint 6. 10. 2026:** [stav a nejbližší pořadí](docs/WORK-PROGRESS.md).
-Release `NOT_ACCEPTED`; instalovaný BE `c84b88cd` a Studio bundle `7bf62455…bfe24` beze změny.
-Přijaté Ledger/TaskFlow/SQLite/AST/GPU UI a omezený cleanup se neopakují bez delty.
-CHAT `e066956b` zachovaný ve společném merge; Gemma/Hunt vlastní jiné workery, ROOT holdout nečetl.
+**Aktuální checkpoint 6. 10. 2026:** [stav, implementační mezery a zbývající testy](docs/WORK-PROGRESS.md).
+Release `NOT_ACCEPTED`; BE `c84b88cd` / Studio `7bf62455…bfe24` nezměněné.
+Přijaté Ledger/TaskFlow/SQLite, omezený AST/GPU panel/cleanup, full109 DB roundtrip a M3 worker;
+opakovat pouze při nové změně nebo konkrétní pochybnosti. CHAT `e066956b` zachovaný, ladí jiný worker.
 
-Poslední celý offline/database profil na `86dbca40`: **410 PASS / 0 FAIL / BLOCKED / TIMEOUT**,
-04:44:14–04:54:05 UTC; report `a5a2f4a3…326d11c`, všechny řádky/logy nezávisle ověřené.
-Nativní data 24/24 a M1 kontrakt 74/74; pouze harness počet29→74, bez ladění CHATu.
-Zveřejněný základ `90c17489`: [CI37267838658](https://github.com/Belphareon-bak/intentsmith/actions/runs/37267838658) všech18 SUCCESS, CHAT7/CODE12 zachované.
-CI/CPU nepřijímají release. Registry596/35; module graph1510/3cycles/28members zachovaný.
+Cache oprava `0d86b68e`: CPU 23/23 a source review; [CI37460776179](https://github.com/Belphareon-bak/intentsmith/actions/runs/37460776179) všech 18 kroků SUCCESS.
+**Copied-cache upgrade 6. 10., 12:26 UTC: 1223d2a8…9d95e79 PASS**, n=1 /8,804 s /bez modelu.
+Původní oracle 56→forcedFAIL80→restore56→109, přesné DB/canary/metadata, stejná DB a čistý stop.
+Dvě produktové kopie 0700, původní cache a source/deps/14 links zachované; fyzický zdroj700, CPU pokrývá775.
+Nejde o nový whole fresh5: historický fresh5 na90 má 3 PASS/2 FAIL, cizí M1 provider-outage vada otevřená.
+Poslední celý offline/database profil `86dbca40`: 410 PASS /0 FAIL /BLOCKED /TIMEOUT; netestoval následnou cache opravu.
+Registry 596/35; integrovaný module graph má 1 510 hran, 3 cykly /28 členů.
+CHAT7/CODE12 zachované, CI/CPU nejsou release acceptance.
 
-**Full109 databázový roundtrip přijatý na `86dbca40`**, n=1,05:18:36–05:19:09 UTC/33,1497 s/model0.
-Skutečný API backup → supported CLI restore → restart: přesné DB/safety bytes před reopen,
-původní obsah/metadata, dva marker404,109 migration identities/schema/quick/FK a archiv82 files PASS.
-Independent `493a5b69…bf7bdf4`: `FULL109_DATABASE_ROUNDTRIP_ACCEPTANCE_REVIEW_PASS`; vlastní procesy skončily.
-Původní0d8 archive WAL/SHM PRODUCT FAIL i druhý86db startup last_active HARNESS FAIL zůstávají.
-Core `d985dcbd` validuje private copy mimo archiv; readonly archive podporovaný,
-writable dataDir a místo pro DB kopii nutné. Test měří běžný startup last_active a vše ostatní přesně.
-Původní oracle `1101617a…7b8d8` nezměněný; nejde o project/config/skills restore ani signed release.
-Upgrade56→109/ad93 a fresh offline install/build0d8 přijaté jako samostatné unsigned dílčí výsledky.
-**Fresh5 na90,5. 10.06:23–06:28UTC:3 PASS/2 FAIL**, review d3ce667d…15354; celý phase nepřijatý.
-Electron boundary/Studio M1/Studio M2 PASS; M1 provider-outage false-success a upgrade cache 0775 FAIL.
-10 odpovědí/275 full GPU/min 5 337 MiB/cleanup 178 bez signálů; žádné nové install-only/signed přijetí.
-Cache vlastní nový kořen 0700 opravený, CPU 23/23/review 69836bd2 PASS; M1 jen pre-assert evidence.
-CHAT logika beze změny, post-fix live NOT_RUN; po cizí provider-error opravě nový společný freeze.
+HTTP private-loopback profil zapojený; retained execution/M2/oracle/commit/restart prošel, API SOURCE FAIL.
+Normal MODIFY@4 cumulative10: úplný kontext/výstupy; A1/slash aliases a A3/charset OWS neopravena.
+Krok7 čeká na rozhodnutí: anchored normal edit s full before source/digest, max2 nové/cumulative12;
+alternativy kvalifikovaný jiný model nebo odklad. Žádné automatické navýšení/inference.
+Fan 8/11, oracle 8 PASS/6 FAIL; repair4+CLI3/cumulative15 čeká na samostatnou odpověď.
+32k krátce změřené fullGPU/min free 2 512 MiB; celé okno ani kvalita aplikace tím nepřijaté.
+Classifier→D1 CPU 44 +parser 24/review PASS; živý přirozený vstup a fyzická ovladatelnost IDE/M2 otevřené.
 
-Private HTTP execution/lifecycle@2/policy/SQL122/M2/Studio zachované; default offline V1 beze změny.
-Retained@3 approval/oracle/Git/restart PASS, ale API SOURCE FAIL; source-only export není přijatá aplikace.
-Normal MODIFY@4 cumulative10 CODE: úplné výstupy/validní kontext, A2 opravené; A1/slash/A3/OWS FAIL.
-Helper preview2-vs4 opravený CPU 6/review; žádné další approval/zápis/commit ani inference.
-Krok7 zadání vyžaduje rozhodnutí: doporučené normální anchored edits s full before source/digest;
-alternativou je jiný kvalifikovaný CODE model nebo odklad HTTP. Žádné automatické navýšení rozpočtu.
-Fan použil8/11, oracle8 PASS / 6 FAIL; pokračování repair4+CLI3/cumulative15 čeká na konkrétní odpověď.
-CODE4096 pouze pro přesný vydaný CODE32k; generic/legacy parametry zachované.
-Classifier→D1 CPU 44+parser 24/review PASS, skutečný přirozený vstup nepřijatý.
-
-Další pořadí: fresh5 → CODE rozhodnutí/HTTP/Fan/větší repo → IDE/BE/expertise/workers → finální M5/M6.
-M5 je 8/9; retain_and_rotate vybrané,8 category + history receipts chybí. CustodyA/B doložená;
-druhá offline operator kopie/reviewer recovery/13 signed/24h/throughput/Gate0/demo zůstávají otevřené.
-Mobil13+7/device/APK/pair-revoke/M2/TalkBack až po stabilním IDE/BE; conversation.create ještě chybí.
-Hunt grading má cizího vlastníka a nový progresspath není doložen; ROOT jej nepřebírá.
-Cleanup foreign/UNKNOWN/evidence HOLD; žádný nový worktree, model activation ani produkční deploy.
+Další pořadí: CHAT M1 fix/společný fresh5 → CODE rozhodnutí/HTTP/Fan/větší repo → IDE/BE/expertise/workers → M5/M6.
+M5 je 8/9/privacy changes required; retain_and_rotate zvolené, signed 8 categories+history chybí.
+CustodyA/B doložená; druhá operator offline kopie/reviewer recovery/13 signed/24h/throughput/Gate0/demo otevřené.
+Mobil 13+7/device/pair-revoke/M2/TalkBack po stabilním IDE/BE; conversation.create chybí.
+Hunt RO 6. 10.,12:18 UTC: žádný nový canonical zápis po30.9.; coverage 596/1173 a2324/3689.
+Historický weekly API limit nedokládá dnešní quota. Nový grading owner/progresspath vyžádaný, ROOT jej nepřebírá.
+Foreign/UNKNOWN/evidence checkouty HOLD; žádný nový worktree, holdout read, model activation ani deploy.
 
 **Historický checkpoint 2. 10. 2026, 16:14 UTC:** ROOT převzal společnou
 integraci, naposledy CHAT `00ec5b52` do publikovaného `f2e6ac1a`.
