@@ -1,13 +1,16 @@
 # Inventura #1 — Server, routing, DB, migrace
 
-Navazující kontrola 5. 10. 2026: upgrade56→109/ad93 a fresh offline install/build0d8
-přijaté jako unsigned dílčí výsledky; pět registered fresh integračních programů NOT_RUN.
+Navazující kontrola 6. 10. 2026: upgrade56→109/ad93 a fresh offline install/build0d8
+přijaté jako unsigned dílčí výsledky. Fresh5 na90 dne5. 10.:3 PASS / 2 FAIL,review d3ce667d…15354.
+Electron boundary/Studio M1/Studio M2 PASS; M1 provider-outage false-success a upgrade cache 0775 FAIL.
+Nová oprava vlastního cache root 0700:CPU 23/review 69836bd2 PASS; post-fix physical NOT_RUN.
+M1 ukládá observed decoded body před stejným oracle; CHAT produktová logika nezměněná.
 **Full109 backup/CLI restore/restart na86dbca40 přijatý**, n=1/33,1497 s;
-review493a5b69…bf7bdf4: přesné DB/safety bytes, původní data po restartu, marker404,
+review 493a5b69…bf7bdf4: přesné DB/safety bytes, původní data po restartu, marker404,
 109 migration identities/schema/quick/FK, nezměněný archiv82 files a vlastní cleanup PASS.
 Oba historické product/harness FAIL zachované; původní oracle beze změny.
 Private copy validace mimo archiv podporuje readonly archive, potřebuje writable dataDir/místo pro kopii.
-Aktuální offline/database profil410/410 a datové testy24/24; signed M5/M6/release nepřijaté.
+Poslední celý offline/database profil86db410/410 a datové testy24/24; signed M5/M6/release nepřijaté.
 [Aktuální výsledky a omezení](../WORK-PROGRESS.md).
 
 Aktuální navazující kvalifikace 2026-09-12: čistá core instalace a idempotentní

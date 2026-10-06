@@ -2,7 +2,7 @@ import './helpers/isolated-test-db.js';
 
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { chmod, lstat, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,6 +20,7 @@ import {
 import {
   candidateModelResidencyOnly,
   captureGpuCensus,
+  copyCacheIfPresent,
   loadReportItem,
   validateM6CompletedAuditPhase,
 } from '../scripts/run-m6-candidate-evidence.js';
@@ -357,6 +358,50 @@ test('candidate runner materializes only named toolchain bindings', () => {
     /runFreshClonePhase\([\s\S]*waitForCandidateGpuQuiescence\([\s\S]*physical-ollama-gpu[\s\S]*controlled-soak/u,
   );
   assert.doesNotMatch(source, /\.\.\.process\.env/u);
+});
+
+await testAsync('fresh cache copy makes its own root private without altering source or payload modes', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'm6-private-cache-'));
+  try {
+    const source = path.join(root, 'source');
+    const destination = path.join(root, 'copy');
+    await mkdir(source);
+    await chmod(source, 0o775);
+    await writeFile(path.join(source, 'executable'), 'cached executable bytes\n');
+    await chmod(path.join(source, 'executable'), 0o755);
+    assert.equal(await copyCacheIfPresent(source, destination), true);
+    assert.equal((await lstat(destination)).mode & 0o777, 0o700);
+    assert.equal((await lstat(source)).mode & 0o777, 0o775);
+    assert.equal((await lstat(path.join(destination, 'executable'))).mode & 0o777, 0o755);
+    assert.deepEqual(await readFile(path.join(destination, 'executable')), await readFile(path.join(source, 'executable')));
+    const secondCopy = path.join(root, 'program-cache');
+    assert.equal(await copyCacheIfPresent(destination, secondCopy), true);
+    assert.equal((await lstat(secondCopy)).mode & 0o777, 0o700);
+    assert.equal(await copyCacheIfPresent(path.join(root, 'missing'), path.join(root, 'unused')), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+await testAsync('fresh cache copy refuses existing targets and symlink parents without changing their referents', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'm6-cache-destination-'));
+  try {
+    const source = path.join(root, 'source');
+    const existing = path.join(root, 'existing');
+    await mkdir(source);
+    await mkdir(existing);
+    await writeFile(path.join(existing, 'sentinel'), 'unchanged\n');
+    const alias = path.join(root, 'alias');
+    await symlink(existing, alias);
+    await assert.rejects(copyCacheIfPresent(source, existing), /destination already exists/u);
+    await assert.rejects(copyCacheIfPresent(source, alias), /destination already exists/u);
+    await assert.rejects(copyCacheIfPresent(source, path.join(alias, 'cache')), /canonical private parent/u);
+    assert.equal(await readFile(path.join(existing, 'sentinel'), 'utf8'), 'unchanged\n');
+    assert.equal((await lstat(existing)).mode & 0o777, 0o700);
+    assert.deepEqual(await readdir(existing), ['sentinel']);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
 });
 
 test('deterministic phase opens only exact locally preflighted toolchains', () => {

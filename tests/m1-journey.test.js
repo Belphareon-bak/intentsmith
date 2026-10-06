@@ -806,6 +806,14 @@ async function main() {
       ),
     );
     const outageMessages = await listMessages(server, outageConversation);
+    // Keep the emitted boundary even when the negative oracle fails.
+    writeFileSync(path.join(runtime.artifacts, 'provider-outage-response.bin'), outage.raw, { mode: 0o600 });
+    writeFileSync(path.join(runtime.artifacts, 'provider-outage-observation.json'), JSON.stringify({
+      httpStatus: outage.statusCode,
+      terminalStatus: outage.json?.status || null,
+      errorCode: outage.json?.error?.code || outage.json?.code || null,
+      persistedRoles: outageMessages.map(message => message.role),
+    }, null, 2) + '\n', { mode: 0o600 });
     assert.notEqual(outage.json?.status, 'ok', 'provider outage became false success');
     assert.equal(Object.hasOwn(outage.json || {}, 'response'), false, 'provider error invented a response');
     assert.equal(

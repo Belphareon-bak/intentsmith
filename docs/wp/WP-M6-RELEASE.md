@@ -2,7 +2,14 @@
 
 **Typ:** zapisující Work Package · **Stav:** KEY_CUSTODY_CHANGES_REQUIRED / PRODUCT_REMEDIATION_IMPLEMENTED / RE_REVIEW_REQUIRED / TECHNICAL_REVIEW_CHANGES_REQUESTED / ACCEPTANCE_BLOCKED
 **Vstupní revision:** `55938fd0628bdb725736acdf21a451854580aaa7`
-**Vlastník:** `codex/m6-release-20260827`, jediný writer tohoto checkoutu
+**Původní vlastník:** `codex/m6-release-20260827`; navazující ROOT scope níže.
+
+**Aktuální ROOT scope,6. 10. 2026:** pouze vlastní cache/evidence oprava v
+`scripts/run-m6-candidate-evidence.js`, `tests/m6-candidate-plan.test.js`,
+`tests/m1-journey.test.js` a zdejší report/maps/inventura. M1 oracle/CHAT logika,
+model parametry a historické FAIL beze změny. M5 aktuálně8/9/privacy changes required;
+retain_and_rotate již zvolené, custodyA/B doložená, druhá operator kopie/reviewer recovery
+ani13 signed receipts se nepředstírají. Starší datované autority/výsledky níže jsou archiv.
 
 Operátor 2026-08-27 výslovně povolil implementovat všechny bloky M6 bez čekání
 na technické re-review M5. Toto povolení mění pořadí práce, nikoli pravdu o
@@ -412,3 +419,26 @@ archiv82 files/81 payload beze změny a bez sidecars, čistý konec own procesů
 Scope n=1 DB-only na86db; nepřijímá generated app/project/config/skills restore ani signed M5/M6/release.
 Stávající fresh install/build0d8 review PASS; zbývá celý fresh phase se všemi5 programy.
 [Aktuální souhrn](../WORK-PROGRESS.md) určuje další pořadí; žádná další CODE inference bez rozhodnutí ke kroku7.
+
+### Fresh5 uzavřený a omezená cache remediation,6. 10. 2026
+
+Actual source90c17489,5. 10.06:23:03–06:28:46UTC/343,277s: všech5 registered programů.
+PASS Electron boundary/Studio M1/Studio M2; FAIL M1 outage false-success a upgrade cache 0775 před DB.
+ROOT receiptb00ca2c2…33cd0b/manifest39bf7a85…3bc3fc; independentd3ce667d…15354/4589b821…7c3d6:
+FRESH5_3_PASS_2_FAIL_REVIEW_COMPLETE_NOT_ACCEPTED.1636 independent bytehashů +8cookie metadata-only.
+10 dokončených exact-model odpovědí (4class/4answer/2summary),311 samples/275 full GPU/min 5 337 MiB.
+178 lifetimes absent/0cleanup signals; unload/lease/failedclone cleanup potvrzené. Root closure po přerušení;
+3 pozdější tracked změny nezávisle rekonstruované z Git90; historické bytes beze změny.
+Adapter NOT_RUN je success-only counter, nikoli pravda o pěti skutečných bězích.
+Clone uklizený před ROOT9buildhash capture; žádné nové install-only přijetí/release/wholeprofile.
+M1 classifier zachytí typed PROVIDER_UNAVAILABLE a pokračuje fallbackem; přesný outagepayload/intent
+před assert nezachovaný. CHAT vlastní jiný worker; doporučená propagation do stávajícího error mappingu.
+Cache cp zachoval0775 při obou kopiích. Nový helper kontroluje private canonical owned parent/new target,
+po cp jen own root 0700; source/cache bytes/nested execute modes beze změny, bootstrap nezměněný.
+Behaviorální regresní test oba copy kroky,0775→0700,source/payload/mode preservation/missing source,
+existing target/symlink target/parent;23/23CPU,registry 596 valid. Source review 69836bd2…350de0 PASS.
+LOCAL-CHECKSb044ac1a…82623 zaznamenává tool výsledky, není raw-log ani reviewer rerun.
+M1 nově uloží před stejnými assertions klientem UTF-8 decoded body/status/roles; žádný arbitrary wire proof.
+Post-fix physical NOT_RUN. Po CHAT opravě společný freeze/CI/volná GPU a původní celá fresh5 sada;
+žádná další V4–V7 monitor série ani změna oracle. M5 je 8/9; signed8 categories+history stále chybí,
+retain_and_rotate zvolené; custodyA/B+stále druhá operator kopie a reviewer recovery. Online zdroje zachovat.

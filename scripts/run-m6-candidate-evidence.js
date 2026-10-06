@@ -570,13 +570,27 @@ async function waitForCandidateGpuQuiescence(evidenceRoot) {
   }
 }
 
-async function copyCacheIfPresent(source, destination) {
+export async function copyCacheIfPresent(source, destination) {
   try {
     const metadata = await lstat(source);
     if (!metadata.isDirectory() || metadata.isSymbolicLink()) return false;
   } catch (error) {
     if (error.code === 'ENOENT') return false;
     throw error;
+  }
+  const parent = path.dirname(destination);
+  const parentMetadata = await lstat(parent);
+  if (!path.isAbsolute(destination) || !parentMetadata.isDirectory()
+    || parentMetadata.isSymbolicLink() || parentMetadata.uid !== process.getuid()
+    || (parentMetadata.mode & 0o077) !== 0
+    || await realpath(parent) !== parent) {
+    throw new Error('M6 cache destination requires an owned canonical private parent');
+  }
+  try {
+    await lstat(destination);
+    throw new Error('M6 cache destination already exists');
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
   }
   await cp(source, destination, {
     recursive: true,
@@ -585,6 +599,17 @@ async function copyCacheIfPresent(source, destination) {
     force: false,
     preserveTimestamps: true,
   });
+  const copied = await lstat(destination);
+  if (!copied.isDirectory() || copied.isSymbolicLink()
+    || copied.uid !== process.getuid() || await realpath(destination) !== destination) {
+    throw new Error('M6 copied cache is not an owned canonical directory');
+  }
+  // cp preserves the source cache mode; the new root contains private runtime data.
+  // Keep cached payload and executable modes intact behind this private root.
+  await chmod(destination, 0o700);
+  if (((await lstat(destination)).mode & 0o777) !== 0o700) {
+    throw new Error('M6 copied cache root is not private');
+  }
   return true;
 }
 

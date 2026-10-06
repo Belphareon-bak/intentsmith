@@ -1,14 +1,14 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktuální checkpoint 5. 10. 2026:** [stav a nejbližší pořadí](docs/WORK-PROGRESS.md).
+**Aktuální checkpoint 6. 10. 2026:** [stav a nejbližší pořadí](docs/WORK-PROGRESS.md).
 Release `NOT_ACCEPTED`; instalovaný BE `c84b88cd` a Studio bundle `7bf62455…bfe24` beze změny.
 Přijaté Ledger/TaskFlow/SQLite/AST/GPU UI a omezený cleanup se neopakují bez delty.
 CHAT `e066956b` zachovaný ve společném merge; Gemma/Hunt vlastní jiné workery, ROOT holdout nečetl.
 
-Aktuální celý offline/database profil na `86dbca40`: **410 PASS / 0 FAIL / BLOCKED / TIMEOUT**,
+Poslední celý offline/database profil na `86dbca40`: **410 PASS / 0 FAIL / BLOCKED / TIMEOUT**,
 04:44:14–04:54:05 UTC; report `a5a2f4a3…326d11c`, všechny řádky/logy nezávisle ověřené.
 Nativní data 24/24 a M1 kontrakt 74/74; pouze harness počet29→74, bez ladění CHATu.
-Remote `86dbca40` exact; [CI37264792541](https://github.com/Belphareon-bak/intentsmith/actions/runs/37264792541) všech18 SUCCESS, CHAT7/CODE12 zachované.
+Zveřejněný základ `90c17489`: [CI37267838658](https://github.com/Belphareon-bak/intentsmith/actions/runs/37267838658) všech18 SUCCESS, CHAT7/CODE12 zachované.
 CI/CPU nepřijímají release. Registry596/35; module graph1510/3cycles/28members zachovaný.
 
 **Full109 databázový roundtrip přijatý na `86dbca40`**, n=1,05:18:36–05:19:09 UTC/33,1497 s/model0.
@@ -20,20 +20,25 @@ Core `d985dcbd` validuje private copy mimo archiv; readonly archive podporovaný
 writable dataDir a místo pro DB kopii nutné. Test měří běžný startup last_active a vše ostatní přesně.
 Původní oracle `1101617a…7b8d8` nezměněný; nejde o project/config/skills restore ani signed release.
 Upgrade56→109/ad93 a fresh offline install/build0d8 přijaté jako samostatné unsigned dílčí výsledky.
-**Pět registered fresh programů/full phase NOT_RUN**; vlastní provider/GPU lease/source review/freeze před live.
+**Fresh5 na90,5. 10.06:23–06:28UTC:3 PASS/2 FAIL**, review d3ce667d…15354; celý phase nepřijatý.
+Electron boundary/Studio M1/Studio M2 PASS; M1 provider-outage false-success a upgrade cache 0775 FAIL.
+10 odpovědí/275 full GPU/min 5 337 MiB/cleanup 178 bez signálů; žádné nové install-only/signed přijetí.
+Cache vlastní nový kořen 0700 opravený, CPU 23/23/review 69836bd2 PASS; M1 jen pre-assert evidence.
+CHAT logika beze změny, post-fix live NOT_RUN; po cizí provider-error opravě nový společný freeze.
 
 Private HTTP execution/lifecycle@2/policy/SQL122/M2/Studio zachované; default offline V1 beze změny.
 Retained@3 approval/oracle/Git/restart PASS, ale API SOURCE FAIL; source-only export není přijatá aplikace.
 Normal MODIFY@4 cumulative10 CODE: úplné výstupy/validní kontext, A2 opravené; A1/slash/A3/OWS FAIL.
-Helper preview2-vs4 opravený CPU6/review; žádné další approval/zápis/commit ani inference.
+Helper preview2-vs4 opravený CPU 6/review; žádné další approval/zápis/commit ani inference.
 Krok7 zadání vyžaduje rozhodnutí: doporučené normální anchored edits s full before source/digest;
 alternativou je jiný kvalifikovaný CODE model nebo odklad HTTP. Žádné automatické navýšení rozpočtu.
-Fan použil8/11, oracle8PASS/6FAIL; pokračování repair4+CLI3/cumulative15 čeká na konkrétní odpověď.
+Fan použil8/11, oracle8 PASS / 6 FAIL; pokračování repair4+CLI3/cumulative15 čeká na konkrétní odpověď.
 CODE4096 pouze pro přesný vydaný CODE32k; generic/legacy parametry zachované.
-Classifier→D1 CPU44+parser24/review PASS, skutečný přirozený vstup nepřijatý.
+Classifier→D1 CPU 44+parser 24/review PASS, skutečný přirozený vstup nepřijatý.
 
 Další pořadí: fresh5 → CODE rozhodnutí/HTTP/Fan/větší repo → IDE/BE/expertise/workers → finální M5/M6.
-Signed receipts, custody/rotation/history/privacy, aktuální soak/throughput/Gate0 a demo zůstávají otevřené.
+M5 je 8/9; retain_and_rotate vybrané,8 category + history receipts chybí. CustodyA/B doložená;
+druhá offline operator kopie/reviewer recovery/13 signed/24h/throughput/Gate0/demo zůstávají otevřené.
 Mobil13+7/device/APK/pair-revoke/M2/TalkBack až po stabilním IDE/BE; conversation.create ještě chybí.
 Hunt grading má cizího vlastníka a nový progresspath není doložen; ROOT jej nepřebírá.
 Cleanup foreign/UNKNOWN/evidence HOLD; žádný nový worktree, model activation ani produkční deploy.
