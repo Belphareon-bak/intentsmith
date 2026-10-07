@@ -1,0 +1,129 @@
+diff --git a/src/chat/cre-decision.js b/src/chat/cre-decision.js
+index 72daee65..083ad154 100644
+--- a/src/chat/cre-decision.js
++++ b/src/chat/cre-decision.js
+@@ -3436,6 +3436,26 @@ PRAVIDLA:
+       if (requiresProjectScopeInterpretation) throwIfAborted(context.signal);
+       _classificationTimeMs = Math.round(performance.now() - _classStart);
+ 
++      // Uncertainty about intent is a reason to ask, not to discard a concrete
++      // question and let regex/sticky routing invent project work. Only the
++      // validated read-only AMBIGUOUS result can take this terminal path.
++      // Do not carry low-confidence file/operation/planner metadata forward;
++      // retain the canonical existing pending operation before its intent becomes
++      // AMBIGUOUS, including file questions without explicit operation metadata.
++      if (llmResult?.intent === IntentType.AMBIGUOUS && llmResult.confidence < 0.7
++        && llmResult.contextualInterpretation === true && llmResult.question) {
++        llmMeta = { confidence: llmResult.confidence, question: llmResult.question,
++          contextualInterpretation: true, continuesPending: llmResult.continuesPending,
++          responseScope: 'conversation', responseWordCount: null,
++          ...(llmResult.continuesPending ? {
++            requestedOperation: pendingConversationQuestion(context)?.requestedOperation,
++          } : {}) };
++        _diag.initialIntent = IntentType.AMBIGUOUS;
++        return _makeDecision({ type: DecisionType.ASK_USER, intent: IntentType.AMBIGUOUS,
++          tools: [], slots: ['intent_clarification'], confidence: llmResult.confidence,
++          reason: 'Uncertain intent needs the concrete clarification' });
++      }
++
+       // v71.1: Confidence AND required fields validation
+       // LLM confidence alone is not enough — action intents need valid metadata.
+       const llmAccepted = llmResult && llmResult.confidence >= 0.7 &&
+diff --git a/tests/chat-context-interpretation.test.js b/tests/chat-context-interpretation.test.js
+index e0fc7c0a..bab74e59 100644
+--- a/tests/chat-context-interpretation.test.js
++++ b/tests/chat-context-interpretation.test.js
+@@ -21,7 +21,7 @@ import { buildInterpretationContext, memoryReferenceBlock } from '../src/chat/co
+ import { config } from '../src/config.js';
+ import { setNumCtx, clearNumCtxCache } from '../src/llm/model-ctx.js';
+ import { resolveFileSavePlan, generateSaveContent } from '../src/chat/file-save-plan.js';
+-import { formatClarificationRequest } from '../src/chat/handlers/ask-user.js';
++import { formatClarificationRequest, handleAskUserDecision } from '../src/chat/handlers/ask-user.js';
+ import { enforceOutputContract } from '../src/chat/handlers/utils/output-gate.js';
+ import { getLanguageContext } from '../src/chat/handlers/utils/language.js';
+ import { assertCreativeQuality } from '../src/chat/handlers/utils/quality.js';
+@@ -314,6 +314,75 @@ test('classifier grounds unavailable plans in the current request and discards e
+   } finally { llmGateway.call = original; }
+ });
+ 
++test('uncertain AMBIGUOUS classification preserves its concrete question without action metadata', async () => {
++  const original = llmGateway.call;
++  const question = 'Kterou konkrétní část chceš změnit?';
++  try {
++    for (const confidence of [0.1, 0.5, 0.69]) {
++      for (const input of ['Pomoz mi s výběrem.', 'asdf qwer', 'Navrhni změnu projektu.']) {
++        const state = new SessionState(`uncertain-${confidence}-${input}`);
++        state.setPendingDecision({ type: 'ASK_USER', intent: 'FILE_WRITE', metadata: {
++          originalRequest: 'Ulož původní odpověď, nic nepřepisuj.',
++          clarificationQuestion: 'Do kterého souboru?',
++        } }, ['intent_clarification']);
++        let calls = 0;
++        llmGateway.call = async () => {
++          calls++;
++          return { content: JSON.stringify({ intent: 'AMBIGUOUS', confidence, question,
++            continuesPending: true, responseScope: 'project', requestedOperation: 'delete',
++            fileTarget: 'untrusted.txt', shellCommand: 'do not execute',
++            unavailableAction: { kind: 'calendar' }, briefResponse: true, responseWordCount: 5 }),
++            finishReason: 'stop' };
++        };
++        const context = { history: [], sessionState: state, project: { id: 123 },
++          hasActiveProject: true, m2LifecycleOnly: true };
++        const decision = await creDecisionEngine.decide(input, context);
++        assert.equal(decision.type, 'ASK_USER', `${confidence}: ${input}`);
++        assert.equal(decision.intent, 'AMBIGUOUS');
++        assert.equal(decision.metadata.clarificationQuestion, question);
++        assert.equal(decision.metadata.responseScope, 'conversation');
++        assert.equal(decision.metadata.classifiedBy, 'llm');
++        assert.equal(decision.metadata.llmConfidence, confidence);
++        assert.equal(decision.metadata.clarificationRequest, 'Ulož původní odpověď, nic nepřepisuj.');
++        assert.equal(decision.metadata.requestedOperation, 'write', 'derive operation from existing FILE_WRITE pending, never the proposed delete');
++        for (const key of ['fileTarget', 'unavailableAction', 'shellCommand',
++          'briefResponse', 'responseWordCount']) assert.equal(decision.metadata[key], undefined, key);
++        assert.deepEqual(decision.tools, []);
++        const reply = await handleAskUserDecision(input, decision, context);
++        assert.equal(reply.content, question);
++        assert.equal(state.pendingDecision.metadata.originalRequest, 'Ulož původní odpověď, nic nepřepisuj.');
++        assert.equal(state.pendingDecision.metadata.originalRequestedOperation, 'write');
++        assert.equal(calls, 1, 'clarification must not dispatch a planner or generate another answer');
++        llmGateway.call = async () => ({ content: JSON.stringify({ intent: 'FILE_READ',
++          confidence: 0.95, fileTarget: 'notes.md', requestedOperation: 'read',
++          continuesPending: true, responseScope: 'conversation' }), finishReason: 'stop' });
++        const incompatible = await creDecisionEngine.decide('notes.md', context);
++        assert.equal(incompatible.type, 'ASK_USER');
++        assert.match(incompatible.metadata.clarificationQuestion, /Jakou operaci/u);
++        assert.deepEqual(incompatible.tools, []);
++
++      }
++    }
++    const input = 'Pomoz mi s výběrem.';
++    for (const [payload, finishReason] of [
++      [{ intent: 'FILE_WRITE', confidence: 0.1, question, fileTarget: 'untrusted.txt' }, 'stop'],
++      [{ intent: 'UNKNOWN', confidence: 0.1, question }, 'stop'],
++      [{ intent: 'AMBIGUOUS', confidence: -1, question }, 'stop'],
++      [{ intent: 'AMBIGUOUS', confidence: 2, question }, 'stop'],
++      [{ intent: 'AMBIGUOUS', confidence: '0.1', question }, 'stop'],
++      [{ intent: 'AMBIGUOUS', confidence: 0.1, question: ' '.repeat(5) }, 'stop'],
++      [{ intent: 'AMBIGUOUS', confidence: 0.1, question: question.repeat(30) }, 'stop'],
++      [{ intent: 'AMBIGUOUS', confidence: 0.1, question }, 'length'],
++    ]) {
++      llmGateway.call = async () => ({ content: JSON.stringify(payload), finishReason });
++      const decision = await creDecisionEngine.decide(input, { history: [] });
++      assert.notEqual(decision.metadata.clarificationQuestion, question,
++        'invalid output/action classification must not use the read-only question path');
++      assert.deepEqual(decision.tools, []);
++    }
++  } finally { llmGateway.call = original; }
++});
++
+ test('first-turn ASK_USER is returned verbatim without a generation call or category menu', async () => {
+   const originalDecide = creDecisionEngine.decide;
+   const originalCall = llmGateway.call;
+@@ -941,7 +1010,7 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
+       const write = parsed?.pending?.intent === 'FILE_WRITE' || /ulož/i.test(parsed?.request || raw);
+       content = JSON.stringify({ intent: ambiguous ? 'AMBIGUOUS' : write ? 'FILE_WRITE'
+         : parsed?.request?.includes('faktoriál') ? 'CODE' : 'CONVERSATIONAL',
+-        confidence: 0.95, fileTarget: null, question: ambiguous ? 'Mezi čím se rozhoduješ?'
++        confidence: ambiguous ? 0.1 : 0.95, fileTarget: null, question: ambiguous ? 'Mezi čím se rozhoduješ?'
+           : parsed?.request === 'Shrň odpověď a ulož ji do nového souboru, nic existujícího nepřepisuj.' ? question : null,
+         continuesPending: parsed?.request === freshLiteralRequest ? false : Boolean(parsed?.pending), responseScope: 'conversation',
+         briefResponse: parsed?.request === failedBriefRequest,

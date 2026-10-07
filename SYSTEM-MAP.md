@@ -23,9 +23,10 @@ a 3× Gemma9591ea1b v jednom okně. Plaintext odstraněn, sběr NOT_RUN;
 zaslepený hodnoticí balík po bězích sestaví operátor.
 Dva původní environment FAIL reporty zachované.
 C2 diagnóza36/22 a CPU experiment mají samostatná review; modelová kvalita stále NO_GO.
-C3 source bdf461d2: read-only AMBIGUOUS doptání se při nízké confidence neztrácí.
-RED2FAIL→context28PASS, řízený replay15/15 s nulovými efekty a jednou klasifikací;
-source review PASS, integrační a evidence review PENDING. Žádné nové modelové skóre.
+C3 v2 source3bfebf98: konkrétní AMBIGUOUS otázka i kanonická pending operace zachované.
+První verzi vrátilo DB review přes19 zelených sad; nový RED1FAIL→context28PASS,
+řízený replay15/15 bez efektů,5/5 pending write zachováno. Nezávislé source/evidence
+review v2 PASS, nové integrační opakování19 sad PENDING. Žádné nové modelové skóre.
 [Revizní paket](docs/review/2026-10-07-CHAT-M1-OUTAGE.md); CI/CPU nejsou release acceptance.
 
 HTTP private-loopback profil zapojený; retained execution/M2/oracle/commit/restart prošel, API SOURCE FAIL.
@@ -767,8 +768,8 @@ Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
-| `src/**/*.js` | **237 222 ř.**, 688 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **270 599 ř.**, 604 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **237 226 ř.**, 688 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **270 608 ř.**, 604 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **596** (`498 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 109** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |

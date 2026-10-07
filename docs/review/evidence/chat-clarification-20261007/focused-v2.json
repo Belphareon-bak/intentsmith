@@ -1,0 +1,290 @@
+{
+  "baseRevision": "228caaf680002f062dabc47f65dd2b18aca84fc7",
+  "candidateRevision": "3bfebf98b8495c455d3193d22aaf2579afbf040e",
+  "node": "v24.21.0",
+  "scope": "Controlled provider, known exposed regression, not model acceptance",
+  "red": {
+    "command": "node --test --test-name-pattern='uncertain AMBIGUOUS|M1 restart resumes' tests/chat-context-interpretation.test.js",
+    "exit": 1,
+    "tests": 2,
+    "fail": 2
+  },
+  "greenContext": {
+    "command": "node --test tests/chat-context-interpretation.test.js",
+    "exit": 0,
+    "tests": 28,
+    "pass": 28
+  },
+  "replay": {
+    "command": "env PATH=/home/belphareon/.nvm/versions/node/v24.21.0/bin:/usr/bin:/bin KEEP_TEST_RUNTIME=1 node .intentsmith-artifacts/chat-clarification-20261007/c3-experiment-v2/run.mjs",
+    "exit": 0,
+    "observed": 15,
+    "inconclusive": 0,
+    "sourceStable": true,
+    "outcomes": [
+      {
+        "caseId": "ambiguous",
+        "confidence": 0.1,
+        "phase": "OBSERVED",
+        "resultStatus": 200,
+        "questionPreserved": true,
+        "targetInferenceCount": 1,
+        "extraInferenceRejected": false,
+        "noEffects": true,
+        "errors": null,
+        "violations": [],
+        "evidence": "ambiguous-0_1.json"
+      },
+      {
+        "caseId": "ambiguous",
+        "confidence": 0.5,
+        "phase": "OBSERVED",
+        "resultStatus": 200,
+        "questionPreserved": true,
+        "targetInferenceCount": 1,
+        "extraInferenceRejected": false,
+        "noEffects": true,
+        "errors": null,
+        "violations": [],
+        "evidence": "ambiguous-0_5.json"
+      },
+      {
+        "caseId": "ambiguous",
+        "confidence": 0.69,
+        "phase": "OBSERVED",
+        "resultStatus": 200,
+        "questionPreserved": true,
+        "targetInferenceCount": 1,
+        "extraInferenceRejected": false,
+        "noEffects": true,
+        "errors": null,
+        "violations": [],
+        "evidence": "ambiguous-0_69.json"
+      },
+      {
+        "caseId": "ambiguous",
+        "confidence": 0.7,
+        "phase": "OBSERVED",
+        "resultStatus": 200,
+        "questionPreserved": true,
+        "targetInferenceCount": 1,
+        "extraInferenceRejected": false,
+        "noEffects": true,
+        "errors": null,
+        "violations": [],
+        "evidence": "ambiguous-0_7.json"
+      },
+      {
+        "caseId": "ambiguous",
+        "confidence": 0.9,
+        "phase": "OBSERVED",
+        "resultStatus": 200,
+        "questionPreserved": true,
+        "targetInferenceCount": 1,
+        "extraInferenceRejected": false,
+        "noEffects": true,
+        "errors": null,
+        "violations": [],
+        "evidence": "ambiguous-0_9.json"
+      },
+      {
+        "caseId": "missing-target-yes",
+        "confidence": 0.1,
+        "phase": "OBSERVED",
+        "resultStatus": 200,
+        "questionPreserved": true,
+        "targetInferenceCount": 1,
+        "extraInferenceRejected": false,
+        "noEffects": true,
+        "errors": null,
+        "violations": [],
+        "evidence": "missing-target-yes-0_1.json"
+      },
+      {
+        "caseId": "missing-target-yes",
+        "confidence": 0.5,
+        "phase": "OBSERVED",
+        "resultStatus": 200,
+        "questionPreserved": true,
+        "targetInferenceCount": 1,
+        "extraInferenceRejected": false,
+        "noEffects": true,
+        "errors": null,
+        "violations": [],
+        "evidence": "missing-target-yes-0_5.json"
+      },
+      {
+        "caseId": "missing-target-yes",
+        "confidence": 0.69,
+        "phase": "OBSERVED",
+        "resultStatus": 200,
+        "questionPreserved": true,
+        "targetInferenceCount": 1,
+        "extraInferenceRejected": false,
+        "noEffects": true,
+        "errors": null,
+        "violations": [],
+        "evidence": "missing-target-yes-0_69.json"
+      },
+      {
+        "caseId": "missing-target-yes",
+        "confidence": 0.7,
+        "phase": "OBSERVED",
+        "resultStatus": 200,
+        "questionPreserved": true,
+        "targetInferenceCount": 1,
+        "extraInferenceRejected": false,
+        "noEffects": true,
+        "errors": null,
+        "violations": [],
+        "evidence": "missing-target-yes-0_7.json"
+      },
+      {
+        "caseId": "missing-target-yes",
+        "confidence": 0.9,
+        "phase": "OBSERVED",
+        "resultStatus": 200,
+        "questionPreserved": true,
+        "targetInferenceCount": 1,
+        "extraInferenceRejected": false,
+        "noEffects": true,
+        "errors": null,
+        "violations": [],
+        "evidence": "missing-target-yes-0_9.json"
+      },
+      {
+        "caseId": "gibberish",
+        "confidence": 0.1,
+        "phase": "OBSERVED",
+        "resultStatus": 200,
+        "questionPreserved": true,
+        "targetInferenceCount": 1,
+        "extraInferenceRejected": false,
+        "noEffects": true,
+        "errors": null,
+        "violations": [],
+        "evidence": "gibberish-0_1.json"
+      },
+      {
+        "caseId": "gibberish",
+        "confidence": 0.5,
+        "phase": "OBSERVED",
+        "resultStatus": 200,
+        "questionPreserved": true,
+        "targetInferenceCount": 1,
+        "extraInferenceRejected": false,
+        "noEffects": true,
+        "errors": null,
+        "violations": [],
+        "evidence": "gibberish-0_5.json"
+      },
+      {
+        "caseId": "gibberish",
+        "confidence": 0.69,
+        "phase": "OBSERVED",
+        "resultStatus": 200,
+        "questionPreserved": true,
+        "targetInferenceCount": 1,
+        "extraInferenceRejected": false,
+        "noEffects": true,
+        "errors": null,
+        "violations": [],
+        "evidence": "gibberish-0_69.json"
+      },
+      {
+        "caseId": "gibberish",
+        "confidence": 0.7,
+        "phase": "OBSERVED",
+        "resultStatus": 200,
+        "questionPreserved": true,
+        "targetInferenceCount": 1,
+        "extraInferenceRejected": false,
+        "noEffects": true,
+        "errors": null,
+        "violations": [],
+        "evidence": "gibberish-0_7.json"
+      },
+      {
+        "caseId": "gibberish",
+        "confidence": 0.9,
+        "phase": "OBSERVED",
+        "resultStatus": 200,
+        "questionPreserved": true,
+        "targetInferenceCount": 1,
+        "extraInferenceRejected": false,
+        "noEffects": true,
+        "errors": null,
+        "violations": [],
+        "evidence": "gibberish-0_9.json"
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/chat-clarification-20261007/pending-red.log",
+      "bytes": 33477,
+      "sha256": "a23d7804611462dde5ac386c519492545dedbf29e6eecd6f83288a561fb17dd8"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/chat-clarification-20261007/context-v2-green.log",
+      "bytes": 73863,
+      "sha256": "f8981f6bb46806f3823d4936e25e62b22623a04ed163c11e8b1f900e01e6d2f4"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/chat-clarification-20261007/c3-experiment-v2/results.json",
+      "bytes": 7094,
+      "sha256": "2e7f24b5cb94fe208161de7b055b88d03f4573835d02c5553394ee23faa22e3d"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/chat-clarification-20261007/c3-experiment-v2/run.mjs",
+      "bytes": 15423,
+      "sha256": "8dccb86fc7019640bc6a74619d313bdc76d62ef18ec3bc5f9b04ef0503380dda"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/chat-clarification-20261007/c3-experiment-v2/manifest-start.json",
+      "bytes": 1699,
+      "sha256": "e349e81911f80bc5c4699e8cb8ce349dc8581c5eb2be77ce9caedf5e1db5b8ad"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/chat-clarification-20261007/c3-experiment-v2/run.log",
+      "bytes": 3719,
+      "sha256": "d0d71deee0a3db2793c765d4eaaf5d292a31634efd474b30e4820857c6d9a3e1"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c3-review-20261007/m1-outage-review-v2-siurtk6f/receipt.json",
+      "bytes": 570,
+      "sha256": "5bb42f7ceceb3c8d541e8d53d7e1863d2a4488ca5c7d3d288f4ce37204c1a72a"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c3-review-20261007/m1-outage-review-v2-siurtk6f/replay-v2-audit.json",
+      "bytes": 19139,
+      "sha256": "ebe2c5f933f39b6ab02b2d889e9c4b85590fec963717032a3a55b853a86146e8"
+    }
+  ],
+  "supersedes": "v1 evidence review found three lost canonical pending operations; historical evidence preserved",
+  "pendingOperationRed": {
+    "command": "node --test --test-name-pattern='uncertain AMBIGUOUS' tests/chat-context-interpretation.test.js",
+    "exit": 1,
+    "tests": 1,
+    "fail": 1
+  },
+  "independentReplayChecks": {
+    "all15Observed": true,
+    "all15ExactQuestions": true,
+    "all15TargetCalls1": true,
+    "all15ZeroEffects": true,
+    "all15Exit0": true,
+    "all15DbMatched": true,
+    "all5PendingWritePreserved": true,
+    "all5PendingOriginalRequestPreserved": true,
+    "inputBytesStableWithinCaseAndVersusV1": true,
+    "onlyConfidenceChanged": true,
+    "sourceStable": true,
+    "old45RawArtifactHashesPreserved": true,
+    "inputSha256ByCase": {
+      "ambiguous": "fb9ea648aa366b5583e6a52721ab38e0566b673f81c548b295e0f9c569185c0c",
+      "missing-target-yes": "c629791f579efc29c66b291b2d00ab43ccdc9d5c5b6d27fc1e14a24fa40f5a0d",
+      "gibberish": "eb21428e3b3c13578e26a07a4f079445c677333251ad73425676cfc6667ba145"
+    }
+  }
+}

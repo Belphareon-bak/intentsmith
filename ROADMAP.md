@@ -23,9 +23,10 @@ a 3× Gemma9591ea1b v jednom okně. Plaintext odstraněn, sběr NOT_RUN;
 zaslepený hodnoticí balík po bězích sestaví operátor.
 Dva původní environment FAIL reporty zachované.
 C2 diagnóza36/22 a CPU experiment mají samostatná review; modelová kvalita stále NO_GO.
-C3 source bdf461d2: read-only AMBIGUOUS doptání se při nízké confidence neztrácí.
-RED2FAIL→context28PASS, řízený replay15/15 s nulovými efekty a jednou klasifikací;
-source review PASS, integrační a evidence review PENDING. Žádné nové modelové skóre.
+C3 v2 source3bfebf98: konkrétní AMBIGUOUS otázka i kanonická pending operace zachované.
+První verzi vrátilo DB review přes19 zelených sad; nový RED1FAIL→context28PASS,
+řízený replay15/15 bez efektů,5/5 pending write zachováno. Nezávislé source/evidence
+review v2 PASS, nové integrační opakování19 sad PENDING. Žádné nové modelové skóre.
 [Revizní paket](docs/review/2026-10-07-CHAT-M1-OUTAGE.md); CI/CPU nejsou release acceptance.
 
 HTTP private-loopback profil zapojený; retained execution/M2/oracle/commit/restart prošel, API SOURCE FAIL.

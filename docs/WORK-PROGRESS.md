@@ -160,28 +160,27 @@ nové efekty a čistý stop, 2600 hashů ověřeno. Produkt ani modelové skóre
 neměnily. Další C3 má opravit zachování validního read-only doptání bez nových
 pravomocí, s vlastní reprodukcí/revizí; C1 freeze pro ROOT se tím nepřesouvá.
 
-### C3 — zachování konkrétního doptání (SOURCE_REVIEW_PASS; INTEGRATION_PENDING)
+### C3 — zachování konkrétního doptání (SOURCE_AND_EVIDENCE_REVIEW_PASS; INTEGRATION_V2_PENDING)
 
 Autorita: přijatý chat WP (přirozené doptání a obnovení původního zadání),
 operátorův pokyn pokračovat autonomně a 7. 10. „udělej toho co nejvíc“.
-Vstup ROOT `228caaf680002f062dabc47f65dd2b18aca84fc7`; přijímací prahy beze změny.
-Jeden výsledek: validní AMBIGUOUS s konkrétní otázkou se při confidence pod0.7
-neztratí v regex fallbacku ani nepokračuje do D1. Pouze ASK_USER, žádné nástroje,
-fileTarget, návrh ani nové oprávnění z nízké confidence; původní pending zůstane
-podkladem pro navázání. Při chybné/truncated klasifikaci platí dosavadní fallback.
-Vlastněné: `src/chat/cre-decision.js`, stávající context test a jeho důkazy,
-dotčená dokumentace/mapy. ROOT jediný writer; druhý worker provede review.
-RED/green: skutečný parser/CRE, negativní action/invalid kontroly, M1 restart
-se zachovaným původním zadáním a řízený CPU replay tří známých vstupů 3×5.
-Ověření Node24: context, M1 kontrakt, projektový classifier/bridge a relevantní
-CHAT/CODE integrační profil. Stop při nové autoritě efektu, ztrátě původního
-významu nebo regresi; nezávislé review před přijetím. H1/raw/restricted mimo rozsah.
-Produkt/testy `bdf461d262128cc168de6fdc805119fbc0f4e5c4`: RED2/2FAIL doložil
-ztrátu otázky v CRE a M1 HTTP. Po opravě context28/28 PASS včetně skutečného
-restartu; řízený replay3×5 má15/15 zachovaných otázek, každá právě1 klasifikace,
-0 nových efektů a0 INCONCLUSIVE. Samotný provider je fixture, nové skóre modelu
-se netvrdí. Nezávislé source review PASS; opakování/regrese/evidence review běží.
-[Revizní paket](review/2026-10-07-CHAT-CONCRETE-CLARIFICATION.md).
+BASE `228caaf680002f062dabc47f65dd2b18aca84fc7`; produkt v2 `3bfebf98b8495c455d3193d22aaf2579afbf040e`.
+Jeden výsledek: validní AMBIGUOUS s konkrétní otázkou při confidence pod0.7
+vrací ASK_USER před regex/project fallbackem. Žádné tools ani akční metadata
+z nejistého modelu; kanonická operace a původní zadání z již uloženého pending
+stavu zůstávají zachované. Přijímací prahy beze změny, H1/raw/restricted mimo rozsah.
+ROOT je jediný writer CRE, stávajícího context testu, důkazů a dotčené dokumentace.
+
+První kandidát bdf461d2 měl RED2FAIL→context28PASS a checkpoint6b593a58
+CHAT7/CODE12 19PASS +CI37654239411 success. Nezávislá kontrola DB jej přesto
+vrátila: tři nízké confidence ztratily implicitní pending FILE_WRITE operaci.
+Nový RED1FAIL doložil vadu; v2 uchovává operaci existujícím canonical helperem.
+Context v2 28/28 PASS. Řízený replay3×5:15/15 konkrétních otázek, právě1
+klasifikace,0 efektů,0 INCONCLUSIVE, všech5 pending write i původní zadání zachováno.
+Nezávislé source/evidence review v2 PASS; DB snapshoty,49 hashovaných artefaktů
+ověřené, starých45 raw souborů zachováno. Jde o fixture provider, skóre modelů
+se nemění. Opakování19 původních CI integračních sad na v2 probíhá.
+[Revizní paket s příkazy/exity/diffem/sha256](review/2026-10-07-CHAT-CONCRETE-CLARIFICATION.md).
 
 ## Přijaté dílčí výsledky
 
