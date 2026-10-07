@@ -35,6 +35,7 @@ import { extractJSON } from '../llm/client.js';
 import { config } from '../config.js';
 import { featureManager } from '../core/feature-manager.js';
 import { throwIfAborted } from '../core/abort-error.js';
+import { ChatTurnErrorCode, LLMProviderUnavailableError } from '../core/chat-turn-error.js';
 import { buildProjectHint } from './handlers/utils/project-context-prompt.js';
 import { buildInterpretationContext, pendingConversationQuestion } from './conversation-context.js';
 import { getNumCtx } from '../llm/model-ctx.js';
@@ -2720,6 +2721,20 @@ PRAVIDLA:
     } catch (err) {
       if (context.signal?.aborted) {
         throwIfAborted(context.signal);
+      }
+      // A provider outage is a failed turn, not uncertainty about the user's
+      // intent. Preserve the existing M1 error boundary before regex fallback
+      // can fabricate and persist a successful clarification response.
+      // The legacy classification bridge wraps the gateway error in cause;
+      // fetch connection failures may be nested one level further. Match only
+      // the unavailable codes used by the gateway, never provider message text.
+      const visited = new Set();
+      for (let cause = err; cause && typeof cause === 'object' && !visited.has(cause); cause = cause.cause) {
+        visited.add(cause);
+        if ([ChatTurnErrorCode.LLM_PROVIDER_UNAVAILABLE,
+          'ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'EHOSTUNREACH'].includes(cause.code)) {
+          throw new LLMProviderUnavailableError('INTENT_CLASSIFICATION_PROVIDER_UNAVAILABLE');
+        }
       }
       logger.warn('CRE:LLM', `LLM intent classification failed: ${err.message}`, {
         input: input.substring(0, 60),

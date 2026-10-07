@@ -119,6 +119,28 @@ test('M1 classifier outage is a typed error with no assistant persistence or eff
   }
 });
 
+test('classifier error handling preserves cancellation and invalid-output fallback', async () => {
+  const original = llmGateway.call;
+  try {
+    for (const content of ['not JSON', '{"intent":"UNKNOWN","confidence":0.9}',
+      '{"intent":"CONVERSATIONAL","confidence":2}']) {
+      llmGateway.call = async () => ({ content, finishReason: 'stop' });
+      assert.equal(await creDecisionEngine._llmClassifyIntent('Pomoz mi s výběrem.', {}), null);
+    }
+    // Text mentioning an outage is not a transport error or permission to change routing.
+    llmGateway.call = async () => { throw new Error('LLM_PROVIDER_UNAVAILABLE'); };
+    assert.equal(await creDecisionEngine._llmClassifyIntent('Pomoz mi s výběrem.', {}), null);
+    const controller = new AbortController();
+    llmGateway.call = async () => {
+      controller.abort();
+      throw Object.assign(new Error('provider became unavailable while cancelling'),
+        { code: 'LLM_PROVIDER_UNAVAILABLE' });
+    };
+    await assert.rejects(creDecisionEngine._llmClassifyIntent('Pomoz mi s výběrem.',
+      { signal: controller.signal }), error => error.name === 'AbortError' && error.code === 'ABORT_ERR');
+  } finally { llmGateway.call = original; }
+});
+
 test('unavailable effects have application status; independent text is generated without the effect clause', async () => {
   const original = llmGateway.call;
   const request = 'Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.';
