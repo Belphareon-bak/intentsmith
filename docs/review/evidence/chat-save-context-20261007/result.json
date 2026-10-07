@@ -1,0 +1,821 @@
+{
+  "kind": "ReviewedPublicCpuEvidenceWithCurrentStatus@1",
+  "assembledAt": "2026-10-07T20:40:35.732581+00:00",
+  "assembler": "/root",
+  "packetReview": "CPU_REFERENCES_AND_CLAIMS_REVIEW_PASS",
+  "trackedPublication": true,
+  "referencePolicy": "Compact key references with absolute paths, sizes and SHA-256; full raw membership remains in original immutable manifests.",
+  "workPackage": "C7",
+  "baseSha": "cd3b8f02b65dbe0a92eab625ff39a5447f00cdb0",
+  "targetSha": "1c7617a218183470c6b8d51c57e59c3dad797ede",
+  "currentCombinedSourceSha": "e6b83884417b066e9d9b40286350255ee3dd4b30",
+  "acceptedFiles": [
+    {
+      "commit": "1c7617a218183470c6b8d51c57e59c3dad797ede",
+      "trackedPath": "src/chat/handlers/ask-user.js",
+      "bytes": 5104,
+      "sha256": "189ae5916d7693665d9b58bd046a1e80e1c1eb61cada4d8d7182254210195d29",
+      "gitBlob": "db06305556e987fbca26798677a1062c54b22d96",
+      "immutableCandidate": {
+        "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/ask-user.candidate.js",
+        "bytes": 5104,
+        "sha256": "189ae5916d7693665d9b58bd046a1e80e1c1eb61cada4d8d7182254210195d29"
+      }
+    },
+    {
+      "commit": "1c7617a218183470c6b8d51c57e59c3dad797ede",
+      "trackedPath": "tests/chat-context-interpretation.test.js",
+      "bytes": 93294,
+      "sha256": "7bc106f71e20def7772b329ab9cbd530509bc0f93c1c92f46405078e86e9957b",
+      "gitBlob": "a00b95a2ba0b090a20fe55a649a9b203aa392007",
+      "immutableCandidate": {
+        "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/chat-context-test.candidate-v2.js",
+        "bytes": 93294,
+        "sha256": "7bc106f71e20def7772b329ab9cbd530509bc0f93c1c92f46405078e86e9957b"
+      }
+    }
+  ],
+  "sourceBehavior": "Preserve only existing canonical file-save provenance during active clarification with continuesPending === true and matching project; reject incoming model provenance. Save resolver and effect approval authority remain unchanged.",
+  "cpuAcceptance": {
+    "verdict": "SOURCE_AND_EVIDENCE_REVIEW_PASS",
+    "reviewRef": "sourceEvidenceReview",
+    "fullContextTests": 38,
+    "fullContextPass": 38,
+    "httpRestartEvidence": {
+      "summary": {
+        "projectId": 1,
+        "sourceMessageId": 12,
+        "userMessageId": 13
+      },
+      "literal": {
+        "projectId": 1,
+        "sourceMessageId": null,
+        "userMessageId": 24
+      },
+      "observation": "Core provenance, original request and write operation survive ambiguous yes (.5) and backend restart."
+    },
+    "effects": {
+      "approvedExactEffects": 4,
+      "toolRequests": 4,
+      "effectRequests": 4,
+      "effectGrants": 4,
+      "effectResults": 4,
+      "preApprovalEffects": 0,
+      "observation": "Independent review joined exact owned tool/request/grant/result records and approved file bytes; no stale.md/decomposed.txt/invented.md."
+    },
+    "greenRawManifestRef": "greenManifest",
+    "greenRawRefCount": 1280
+  },
+  "executions": [
+    {
+      "id": "causalRed1",
+      "commandRef": "causalRed1Command",
+      "exitRef": "causalRed1Exit",
+      "logRef": "causalRed1Log",
+      "argv": [
+        "/usr/bin/bwrap",
+        "--unshare-net",
+        "--die-with-parent",
+        "--dev-bind",
+        "/",
+        "/",
+        "--proc",
+        "/proc",
+        "/home/belphareon/.nvm/versions/node/v24.21.0/bin/node",
+        "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/run.mjs",
+        "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930"
+      ],
+      "cwd": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "meaning": "Expected RED: inserting ambiguous yes loses stored save provenance; control without yes retains it. Second run additionally retains durable session snapshots.",
+      "environment": "Exact environment and overlay bindings are retained in commandRef; not duplicated here."
+    },
+    {
+      "id": "causalRed2",
+      "commandRef": "causalRed2Command",
+      "exitRef": "causalRed2Exit",
+      "logRef": "causalRed2Log",
+      "argv": [
+        "/usr/bin/bwrap",
+        "--unshare-net",
+        "--die-with-parent",
+        "--dev-bind",
+        "/",
+        "/",
+        "--proc",
+        "/proc",
+        "/home/belphareon/.nvm/versions/node/v24.21.0/bin/node",
+        "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/run-v2.mjs",
+        "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930"
+      ],
+      "cwd": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "meaning": "Expected RED: inserting ambiguous yes loses stored save provenance; control without yes retains it. Second run additionally retains durable session snapshots.",
+      "environment": "Exact environment and overlay bindings are retained in commandRef; not duplicated here."
+    },
+    {
+      "id": "candidateRed",
+      "commandRef": "candidateRedCommand",
+      "exitRef": "candidateRedExit",
+      "logRef": "candidateRedLog",
+      "argv": [
+        "/usr/bin/bwrap",
+        "--unshare-net",
+        "--die-with-parent",
+        "--dev-bind",
+        "/",
+        "/",
+        "--proc",
+        "/proc",
+        "/home/belphareon/.nvm/versions/node/v24.21.0/bin/node",
+        "--test",
+        "--test-name-pattern=ASK_USER save provenance|M1 restart resumes",
+        "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/chat-context-test.run.js"
+      ],
+      "cwd": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930",
+      "expectedExit": 1,
+      "actualExit": 1,
+      "meaning": "Expected regression RED on old source; test import redirects only.",
+      "environment": "Exact environment and overlay bindings are retained in commandRef; not duplicated here.",
+      "counts": {
+        "nodeTests": 11,
+        "PASS": 1,
+        "FAIL": 10,
+        "leafTests": 10,
+        "leafPASS": 1,
+        "leafFAIL": 9
+      }
+    },
+    {
+      "id": "initialGreenFailed",
+      "commandRef": "initialGreenFailedCommand",
+      "exitRef": "initialGreenFailedExit",
+      "logRef": "initialGreenFailedLog",
+      "argv": [
+        "/home/belphareon/.nvm/versions/node/v24.21.0/bin/node",
+        "--test",
+        "tests/chat-context-interpretation.test.js"
+      ],
+      "cwd": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930",
+      "expectedExit": 0,
+      "actualExit": 1,
+      "meaning": "FAIL preserved: stale.md fixture branch omitted; later minimal fixture correction, no assertion weakening.",
+      "environment": "Exact environment and overlay bindings are retained in commandRef; not duplicated here.",
+      "counts": {
+        "nodeTests": 38,
+        "PASS": 37,
+        "FAIL": 1
+      }
+    },
+    {
+      "id": "retentionSetupFailed",
+      "commandRef": "retentionSetupFailedCommand",
+      "exitRef": "retentionSetupFailedExit",
+      "logRef": "retentionSetupFailedLog",
+      "argv": [
+        "/usr/bin/bwrap",
+        "--unshare-net",
+        "--die-with-parent",
+        "--dev-bind",
+        "/",
+        "/",
+        "--proc",
+        "/proc",
+        "/home/belphareon/.nvm/versions/node/v24.21.0/bin/node",
+        "--test",
+        "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/tests/chat-context-interpretation.test.js"
+      ],
+      "cwd": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930",
+      "expectedExit": 0,
+      "actualExit": 1,
+      "meaning": "Private-directory permissions setup failed before tests; not a product result.",
+      "environment": "Exact environment and overlay bindings are retained in commandRef; not duplicated here."
+    },
+    {
+      "id": "retainedGreen",
+      "commandRef": "retainedGreenCommand",
+      "exitRef": "retainedGreenExit",
+      "logRef": "retainedGreenLog",
+      "argv": [
+        "/usr/bin/bwrap",
+        "--unshare-net",
+        "--die-with-parent",
+        "--dev-bind",
+        "/",
+        "/",
+        "--proc",
+        "/proc",
+        "/home/belphareon/.nvm/versions/node/v24.21.0/bin/node",
+        "--test",
+        "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/tests/chat-context-interpretation.test.js"
+      ],
+      "cwd": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "meaning": "Corrected fixture; unchanged source fix and assertions; retained full CPU/HTTP/restart run.",
+      "environment": "Exact environment and overlay bindings are retained in commandRef; not duplicated here.",
+      "counts": {
+        "nodeTests": 38,
+        "PASS": 38,
+        "FAIL": 0
+      }
+    },
+    {
+      "id": "dirtyIntegrationRefused",
+      "commandRef": "dirtyIntegrationRefusedCommand",
+      "exitRef": "dirtyIntegrationRefusedExit",
+      "logRef": "dirtyIntegrationRefusedLog",
+      "argv": [
+        "/home/belphareon/.nvm/versions/node/v24.21.0/bin/node",
+        "scripts/nightly-audit.js",
+        "--run-id=chat-c7-context-integration-20261007",
+        "--suite=IS-T1-TESTS-CHAT-CONTEXT-INTERPRETATION-TEST,IS-T3-TESTS-CHAT-LITERAL-WRITE-HTTP-TEST,IS-T3-TESTS-CHAT-REPEAT-SAVE-HTTP-TEST,IS-T1-TESTS-CHAT-RESILIENCE-RUNNER-CONTRACT-TEST,IS-T3-TESTS-CRE-BUILD-ARBITRATION-TEST,IS-T2-TESTS-M1-CHAT-CONTRACT-TEST,IS-T1-TESTS-MODULE-BOUNDARY-RATCHET-TEST,IS-T1-TESTS-PROJECT-APP-ACCEPTANCE-TEST,IS-T1-TESTS-PROJECT-APP-M2-FUNCTIONAL-TEST,IS-T1-TESTS-M2-GOVERNANCE-EVALUATOR-TEST,IS-T1-TESTS-M2-LIFECYCLE-APPLICATION-SERVICE-TEST,IS-T1-TESTS-M1-MODEL-CONTRACT-TEST,IS-T1-TESTS-MODEL-CTX-TEST,IS-T1-TESTS-PROJECT-COLLABORATION-TEST,IS-T1-TESTS-M2-PRIVATE-HTTP-CONTRACT-TEST,IS-T1-TESTS-M2-PRIVATE-HTTP-STARTUP-TEST,IS-T1-TESTS-M2-LIFECYCLE-STUDIO-SURFACE-TEST,IS-T1-TESTS-M2-EXECUTION-PROCESS-SUPERVISION-TEST,IS-T1-TESTS-PROJECT-WELCOME-TEST",
+        "--concurrency=1",
+        "--allow-blocker=toolchain:bubblewrap,toolchain:bwrap,toolchain:git,toolchain:prlimit,toolchain:iproute2,toolchain:nftables"
+      ],
+      "cwd": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930",
+      "expectedExit": 0,
+      "actualExit": 2,
+      "meaning": "Dirty-source admission refused before integration suites. Exit 2 preserved; not a suite FAIL.",
+      "environment": "Exact environment and overlay bindings are retained in commandRef; not duplicated here."
+    },
+    {
+      "id": "liveSeries1",
+      "commandRef": "liveCommand",
+      "exitRef": "liveExit",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "meaning": "Transport completed; exact save not completed. Original raw command contains argv/env.",
+      "cleanupExpectedExit": 0,
+      "cleanupActualExit": 1,
+      "postflightExpectedExit": 0,
+      "postflightActualExit": 1
+    }
+  ],
+  "liveRegression": {
+    "status": "STOPPED_INCOMPLETE_WITH_OBSERVED_SAVE_FAILURE",
+    "sourceSha": "e6b83884417b066e9d9b40286350255ee3dd4b30",
+    "plannedSeries": 3,
+    "completedTransportSeries": 1,
+    "remainingSeries": "NOT_RUN",
+    "caseTurns": 4,
+    "inferenceComplete": 7,
+    "model": "gemma4:26b",
+    "digest": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+    "numCtx": 4096,
+    "runnerExit": 0,
+    "practicalSave": "FAIL_NO_PROPOSAL_NO_APPROVAL_NO_FILE",
+    "beforeApprovalNoEffects": true,
+    "cleanupExit": 1,
+    "postflightExit": 1,
+    "resumeAllowed": false,
+    "review": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-live-preparation-20261007/LIVE-PARTIAL-REVIEW.json",
+      "bytes": 9443,
+      "sha256": "a71b81c7449e2bed4363d812eb988499d17ddd2c2bc02df429a4a96595eb69ec"
+    },
+    "cleanupReview": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-live-preparation-20261007/independent-review/CLEANUP-REVIEW.json",
+      "bytes": 11166,
+      "sha256": "f81c6933ced967d60bc9f2cb47c9e3e31ed8ea615110d6eb7735a6902a18b39f"
+    },
+    "laterRecoveryObservation": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-live-preparation-20261007/ROOT-POST-FAILURE-RECOVERY.json",
+      "bytes": 1587,
+      "sha256": "ca78a821eb4a3623b57961923b5dd9c9c36ba5bfa2411aad04b2ad20856329b6"
+    },
+    "recoveryScope": "Separate 3 empty metadata samples without holding lease; not READY, not cleanup reclassification.",
+    "provenance": "Stored lastDecision after yes retains source2/user3/original request; filename classifier received original pending but returned continuesPending:false. Save planner received filename and correct eligible answer2; unnecessary confirmation followed.",
+    "notClaimed": [
+      "three-series completion",
+      "isolated C7 causal effect",
+      "new 53/159 score",
+      "H1/H2",
+      "release acceptance"
+    ]
+  },
+  "limits": [
+    "Controlled CPU fixture responses; no live model quality acceptance.",
+    "Cross-project negative is handler/resolver evidence, not an HTTP project-switch journey.",
+    "Create-only assertion verifies proposal operation; no newly added existing-file collision test.",
+    "Original 37/1 attempt auto-cleaned its runtime: retained log only; do not claim retained DB inspection for that attempt.",
+    "Retained bwrap runs isolate network and private environment; --dev-bind / / is not a read-only host filesystem.",
+    "No H1/H2/restricted corpus, production data, GPU or live inference was used in this packet assembly.",
+    "Existing C5 FAIL and C6 historical limits are not superseded by this CPU fix."
+  ],
+  "refs": {
+    "sourceEvidenceReview": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/green-independent-review/review.json",
+      "bytes": 18305,
+      "sha256": "ee5b34a57c0c47099e134bdc8978fceff7e8edd8dcfe40a36b6814a0c48abe3c"
+    },
+    "greenManifest": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/GREEN-MANIFEST.json",
+      "bytes": 509709,
+      "sha256": "c475fc810cd02a73a9dc07f1402185d73616bb379d8181b36b0da7737fa10e17"
+    },
+    "redSummary": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/SUMMARY.json",
+      "bytes": 12234,
+      "sha256": "9d59082c7786606f545e641dbedf5ca978aa5d18d56605d44df95b74c6a915bc"
+    },
+    "redManifest": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/MANIFEST.json",
+      "bytes": 559643,
+      "sha256": "b5f7c65cce0617511fce85453a48738bf0576a50d33ad4bf36ae478faf86d3ea"
+    },
+    "testCandidateRed": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/TEST-CANDIDATE-RED.json",
+      "bytes": 8244,
+      "sha256": "88c1f05363cd8d6772d80b6fe049bee203e88155663845d3a1517d8fddb162cb"
+    },
+    "testCandidateRedManifest": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/TEST-CANDIDATE-RED-MANIFEST.json",
+      "bytes": 213767,
+      "sha256": "7e305feedb096943ef0505eadf2a5d58344538592226a45f41c18621f1ffc952"
+    },
+    "fixtureCorrection": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/TEST-FIXTURE-CORRECTION.json",
+      "bytes": 2866,
+      "sha256": "2068a8af5db3f918f2edb1091269b407293fd18fd47a4eb7d50fbbeb67585fc2"
+    },
+    "sourcePatch": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/candidate.patch",
+      "bytes": 1946,
+      "sha256": "22253c9aaaa27b72585c32add19fe2cc477c1eb1b9fc1a5ef024f11c33bacab9"
+    },
+    "testPatchOriginal": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/chat-context-test.candidate.patch",
+      "bytes": 17385,
+      "sha256": "73da091b8d76ee19a3fedc562e308ebe0abb78a4c52a67340efa9a0fefcab774"
+    },
+    "testFixturePatch": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/chat-context-test.fixture-correction.patch",
+      "bytes": 946,
+      "sha256": "1a1cd0a99d15f18bf3ba01a7de24d3255e5eecf466f0f87dcb93b13f4b4b9fa7"
+    },
+    "combinedProductTestPatch": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/product-and-regression-v2.patch",
+      "bytes": 21198,
+      "sha256": "abbe73eb6431f5c6ecb60d4a22b1692b289acc038f8e8cb1800600d96d5fe694"
+    },
+    "cpuHandoff": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/CPU-HANDOFF.json",
+      "bytes": 4908,
+      "sha256": "4207f59e48af3f7f1951b87dd939c67e100ba786b977128c2a633dea82929bf2"
+    },
+    "sourcePublication": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/SOURCE-PUBLICATION.json",
+      "bytes": 391,
+      "sha256": "f1f26b89a4c55a40872f3d620d6e3a98160c4647785a0422acb7de9903cde1e6"
+    },
+    "causalRed1Command": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/COMMAND-1.json",
+      "bytes": 1042,
+      "sha256": "345a592c9eeb4db4d74a7a4b2cd75a6221787fb19f635b72660be1ce2b12a3e2"
+    },
+    "causalRed1Exit": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/EXIT-1.json",
+      "bytes": 57,
+      "sha256": "d8da9bc910a2b4fa2191d4c4153623558868f2db9ba31ad71c9d69ef93d0ddc7"
+    },
+    "causalRed1Log": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/run-1.log",
+      "bytes": 586,
+      "sha256": "6ac23fcf643cb1c219ee7647c30ce9e51897937ecd1136abaa05751440e99fd7"
+    },
+    "causalRed2Command": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/COMMAND-2.json",
+      "bytes": 1041,
+      "sha256": "07cef9918bb58f6c0e6348d3aa3d15a0db11da1aeee8007bb32a75a2570ca29b"
+    },
+    "causalRed2Exit": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/EXIT-2.json",
+      "bytes": 57,
+      "sha256": "0087608d15bff8ace313d6a64e8d1ced15461087cf610a7b47758b39ab37d976"
+    },
+    "causalRed2Log": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/run-2.log",
+      "bytes": 586,
+      "sha256": "a78de86f890bf4aeeeca2dd19c68a3f08c35fbf445c9d7b2d874bfa39e5c010c"
+    },
+    "candidateRedCommand": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/candidate-red-ve0m8hns/COMMAND.json",
+      "bytes": 5625,
+      "sha256": "26b76cf4ad5f51d18c8a64ef82ca878446363a2052289a0454af3e8b3ecec3f6"
+    },
+    "candidateRedExit": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/candidate-red-ve0m8hns/EXIT.json",
+      "bytes": 86,
+      "sha256": "549810296c4ebb6862bb012b09fcd7663b25e31cb05927facd009ccd6ebf8139"
+    },
+    "candidateRedLog": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/candidate-red-ve0m8hns/test.log",
+      "bytes": 53637,
+      "sha256": "1475c22c91d86a99b45d28b243cc9c3b3b954f765e2afd57b2ba40a8508a7d02"
+    },
+    "initialGreenFailedCommand": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/ROOT-GREEN-command.json",
+      "bytes": 189,
+      "sha256": "c4b4446a73e426680e90bd0ac4631098779b1776488ec378ba56cadc455b06f3"
+    },
+    "initialGreenFailedExit": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/ROOT-GREEN-exit.json",
+      "bytes": 59,
+      "sha256": "3d49ec1831bfd04d50b8182d51c370db700b03f9d749b2cd4df81e4ce9610c13"
+    },
+    "initialGreenFailedLog": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/ROOT-GREEN.log",
+      "bytes": 79743,
+      "sha256": "c5c7b6d815a70713814d3cdfca263847187adfd41b9b6299a53e14066b10b0a0"
+    },
+    "retentionSetupFailedCommand": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/green-v2-qfk_abac/COMMAND.json",
+      "bytes": 4289,
+      "sha256": "80ac98259aca3a26e08d8db11bbea2dc93c97857818bd89e4aba46b0bf09f529"
+    },
+    "retentionSetupFailedExit": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/green-v2-qfk_abac/EXIT.json",
+      "bytes": 64,
+      "sha256": "8a6ecc8c9c19d17df37d9381bb5e89cbbb693ecf3f3efeade6f0c528c9ed9867"
+    },
+    "retentionSetupFailedLog": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/green-v2-qfk_abac/test.log",
+      "bytes": 1514,
+      "sha256": "b73677f3e1960aeb10e2ae8c3f62b882da9fff406d737f3dc786314c11fe4f29"
+    },
+    "retainedGreenCommand": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/green-v3-0lvzwkdd/COMMAND.json",
+      "bytes": 4289,
+      "sha256": "321297ad38eb77c7f63eaf9de01447b55bdbfd2dad19de4e5bb27efc2089d4fa"
+    },
+    "retainedGreenExit": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/green-v3-0lvzwkdd/EXIT.json",
+      "bytes": 64,
+      "sha256": "90f3cab8892e6c580e8ba15d7d4c9736112b9fe0fd04d22c9373326b5f27f893"
+    },
+    "retainedGreenLog": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/green-v3-0lvzwkdd/test.log",
+      "bytes": 78896,
+      "sha256": "a77ee05fa015476cb34022d632fc41c8cff4b95ea93e8ff7fe3caa1600c8eb2b"
+    },
+    "dirtyIntegrationRefusedCommand": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/INTEGRATION-command.json",
+      "bytes": 1717,
+      "sha256": "c0e736f4069dd8dbe72d35895f1da249edd5d3d4aae9ce7a60193ce8b2981b59"
+    },
+    "dirtyIntegrationRefusedExit": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/INTEGRATION-exit.json",
+      "bytes": 63,
+      "sha256": "646b1166786109cfe3b45db5653ca3dfb70f7bb40ac73e073dd987b8bb708eab"
+    },
+    "dirtyIntegrationRefusedLog": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/INTEGRATION.log",
+      "bytes": 764,
+      "sha256": "fb45052229b93042b7cd39d633052dd4897c521885593181b36059702ea6fcd6"
+    },
+    "originalIntegrationReview": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/independent-review/INTEGRATION-REVIEW.json",
+      "bytes": 15682,
+      "sha256": "777478bef21f8c890cc30359fe879755afc3d29c3e487fba2d58a62b102bfd0f"
+    },
+    "originalIntegrationReport": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/test-runs/chat-c7-context-integration-v2-20261007/report.json",
+      "bytes": 81026,
+      "sha256": "098532bf9a37e22c5fed47f0115897d35c36912954be8fd55768da880e38cab1"
+    },
+    "originalIntegrationCommand": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/INTEGRATION-v2-command.json",
+      "bytes": 1342,
+      "sha256": "57541ff3776a33e4d670a56724cab9f4a358c5bf28450c91a285431dba021eae"
+    },
+    "originalIntegrationExit": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/INTEGRATION-v2-exit.json",
+      "bytes": 63,
+      "sha256": "466ee48f48c0461558aa7d6b0cbda15fa0b29df9e147fdb0de1041271e746cad"
+    },
+    "originalIntegrationLog": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/INTEGRATION-v2.log",
+      "bytes": 1514,
+      "sha256": "af95119eaa0dd5d8d4c3ec4e47035b8f99e301905c4f2b752433bbba6f569bfd"
+    },
+    "originalCiRun": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/ci-1c7617a2/run.json",
+      "bytes": 14312,
+      "sha256": "db16a01b886f75a454c0b1a073cf16f774c15dc95f459a60e0a70ac1490a04da"
+    },
+    "originalCiJobs": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/ci-1c7617a2/jobs.json",
+      "bytes": 6013,
+      "sha256": "bf6e5eabe7ff92ea2fcd7e2307dac351026f69de061b1a5d472a7d8fed744d17"
+    },
+    "ciRerun403": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/ci-1c7617a2/RERUN-403.json",
+      "bytes": 881,
+      "sha256": "3a18d865f2d2b4ab4d9fb94a98eebae1abcf8a9ccc172332318a7b61db9de64c"
+    },
+    "cancelledCiJobLog": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/ci-1c7617a2/job-112985383501.log",
+      "bytes": 139606,
+      "sha256": "e2c6f65f5b60874f837ba181d19fde2f1bea5e5a10b2dcde903f9b713adbf792"
+    },
+    "combinedIntegrationReview": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c8-m1-operational-failure-20261007/independent-review/INTEGRATION-REVIEW.json",
+      "bytes": 15594,
+      "sha256": "c8e8460df67ab406afadeae497d0e3b86af1c5bd69eb5454aea8265f3a093b4f"
+    },
+    "combinedIntegrationReport": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/test-runs/chat-c8-transport-integration-20261007/report.json",
+      "bytes": 80793,
+      "sha256": "b59b4233d538ec6977124f5697bb1da7f02793809ae8f74331c3554233ec580f"
+    },
+    "combinedIntegrationCommand": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c8-m1-operational-failure-20261007/INTEGRATION-command.json",
+      "bytes": 1322,
+      "sha256": "60f137da30f221322622b8dc2ba59a596c5c271a08c8d434e025b3f71354e8ac"
+    },
+    "combinedIntegrationExit": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c8-m1-operational-failure-20261007/INTEGRATION-exit.json",
+      "bytes": 63,
+      "sha256": "e8298b81b0c7753e525e32ff4eec77d441747d8eb902f6780b81da288a4e79c0"
+    },
+    "combinedIntegrationLog": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c8-m1-operational-failure-20261007/INTEGRATION.log",
+      "bytes": 1512,
+      "sha256": "0e89c8374798198d0e246e8fe31fbe2eb2a39a33ac7b06ff2227e17094b2f19a"
+    },
+    "combinedCiRun": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c8-m1-operational-failure-20261007/ci-e6b83884/run.json",
+      "bytes": 14285,
+      "sha256": "2389224f92f98c020583f36b700ad5dd11f8854e52eae4a4ca4a51a05ac27fb4"
+    },
+    "combinedCiJobs": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c8-m1-operational-failure-20261007/ci-e6b83884/jobs.json",
+      "bytes": 6009,
+      "sha256": "8ee3697c742d0257709f265448cef3664fabbef243f211d7f4732da9a5b7a004"
+    },
+    "c8SourceEvidenceReview": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c8-m1-operational-failure-20261007/independent-review/review.json",
+      "bytes": 25890,
+      "sha256": "15e0b54c158c488dfc875d600b17837183892f36a476d334fb7ce959cec0ffbc"
+    },
+    "combinedCiResult": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c8-m1-operational-failure-20261007/ci-e6b83884/result.json",
+      "bytes": 292,
+      "sha256": "e74b7a8fe42b5ddf83e776352e64b8b1bddd9be378d09901cf0c0341c3dd2044"
+    },
+    "liveCommand": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-live-preparation-20261007/c7-context-1-command.json",
+      "bytes": 1394,
+      "sha256": "46bb9865b149f3368da19921377959fafbeb49d57114f4652585e102a444a4f0"
+    },
+    "liveExit": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-live-preparation-20261007/c7-context-1-exit.json",
+      "bytes": 225,
+      "sha256": "82b6cdcd9f4c0b5032b89d0d96a28b47a52926b29ca7820942bb6c75d42edb2d"
+    },
+    "liveStageExit": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-live-preparation-20261007/ROOT-c7-context-1-EXIT.json",
+      "bytes": 95,
+      "sha256": "27831f3e3d1488bfb1bb1ca2c0c31d085d823590fcfc1e720e0282ef51e2ba78"
+    },
+    "liveBeforeClosure": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-live-preparation-20261007/ROOT-c7-context-1-before-closure.json",
+      "bytes": 250,
+      "sha256": "1b4fd928dc2f2480c6642b1350250277351cbcf0678ecd94fbf3524b1d05ff03"
+    },
+    "liveAfterClosure": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-live-preparation-20261007/ROOT-c7-context-1-after-closure.json",
+      "bytes": 250,
+      "sha256": "03a2d6c36d2a71f73e48727c9a3661cb786cdb80cd3f522ef48d73794cfc5791"
+    },
+    "liveUnload": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-live-preparation-20261007/c7-context-1-unload.jsonl",
+      "bytes": 11924,
+      "sha256": "42f675d947dc3d09e7e976760484e052357e504a20eed947344acbf3dda472f9"
+    },
+    "livePostflight": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-live-preparation-20261007/c7-context-1-after.json",
+      "bytes": 10936,
+      "sha256": "b21adf4c8c3f65090ff7dbd8aae7de77204e1203ca17d4ad3e4ba7598c994952"
+    },
+    "liveFreeze": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-live-preparation-20261007/PREPARATION-final.json",
+      "bytes": 2428366,
+      "sha256": "e99325a5852d6037d3b955fd3bbfdd30db64e7953036c8155ac7a41d584f50ea"
+    },
+    "liveReadyReview": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-live-preparation-20261007/independent-review/READY.json",
+      "bytes": 8089,
+      "sha256": "10faef09734c46367dfbd836ec29a6d1b11afb0b3d4eeb61e002ddcd53f03202"
+    },
+    "livePreparationReview": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-live-preparation-20261007/independent-review/REVIEW-v2.json",
+      "bytes": 6864,
+      "sha256": "a9680a4f91ddf9ea017c1d2489350d9dbc678d3a375bdfdd35f51f1b261eed49"
+    }
+  },
+  "diffRefs": [
+    "sourcePatch",
+    "testPatchOriginal",
+    "testFixturePatch",
+    "combinedProductTestPatch"
+  ],
+  "originalCheckpointIntegration": {
+    "sourceSha": "1c7617a218183470c6b8d51c57e59c3dad797ede",
+    "runId": "chat-c7-context-integration-v2-20261007",
+    "statusCounts": {
+      "PASS": 19,
+      "FAIL": 0,
+      "TIMEOUT": 0,
+      "BLOCKED": 0,
+      "SKIPPED": 0
+    },
+    "exitCode": 0,
+    "reviewVerdict": "INTEGRATION_EVIDENCE_REVIEW_PASS",
+    "reviewRef": "originalIntegrationReview",
+    "reportRef": "originalIntegrationReport",
+    "execution": {
+      "id": "originalIntegration",
+      "commandRef": "originalIntegrationCommand",
+      "exitRef": "originalIntegrationExit",
+      "logRef": "originalIntegrationLog",
+      "argv": [
+        "/home/belphareon/.nvm/versions/node/v24.21.0/bin/node",
+        "scripts/nightly-audit.js",
+        "--run-id=chat-c7-context-integration-v2-20261007",
+        "--suite=IS-T1-TESTS-CHAT-CONTEXT-INTERPRETATION-TEST,IS-T3-TESTS-CHAT-LITERAL-WRITE-HTTP-TEST,IS-T3-TESTS-CHAT-REPEAT-SAVE-HTTP-TEST,IS-T1-TESTS-CHAT-RESILIENCE-RUNNER-CONTRACT-TEST,IS-T3-TESTS-CRE-BUILD-ARBITRATION-TEST,IS-T2-TESTS-M1-CHAT-CONTRACT-TEST,IS-T1-TESTS-MODULE-BOUNDARY-RATCHET-TEST,IS-T1-TESTS-PROJECT-APP-ACCEPTANCE-TEST,IS-T1-TESTS-PROJECT-APP-M2-FUNCTIONAL-TEST,IS-T1-TESTS-M2-GOVERNANCE-EVALUATOR-TEST,IS-T1-TESTS-M2-LIFECYCLE-APPLICATION-SERVICE-TEST,IS-T1-TESTS-M1-MODEL-CONTRACT-TEST,IS-T1-TESTS-MODEL-CTX-TEST,IS-T1-TESTS-PROJECT-COLLABORATION-TEST,IS-T1-TESTS-M2-PRIVATE-HTTP-CONTRACT-TEST,IS-T1-TESTS-M2-PRIVATE-HTTP-STARTUP-TEST,IS-T1-TESTS-M2-LIFECYCLE-STUDIO-SURFACE-TEST,IS-T1-TESTS-M2-EXECUTION-PROCESS-SUPERVISION-TEST,IS-T1-TESTS-PROJECT-WELCOME-TEST",
+        "--concurrency=1",
+        "--allow-blocker=toolchain:bubblewrap,toolchain:bwrap,toolchain:git,toolchain:prlimit,toolchain:iproute2,toolchain:nftables"
+      ],
+      "cwd": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930",
+      "expectedExit": 0,
+      "actualExit": 0,
+      "meaning": "Original 19-suite CHAT7/CODE12 CPU integration; no retry.",
+      "environment": "Exact environment and overlay bindings are retained in commandRef; not duplicated here.",
+      "counts": {
+        "PASS": 19,
+        "FAIL": 0
+      }
+    },
+    "contextSuiteTests": 38
+  },
+  "originalCheckpointCI": {
+    "sourceSha": "1c7617a218183470c6b8d51c57e59c3dad797ede",
+    "runId": 37677710751,
+    "url": "https://github.com/Belphareon-bak/intentsmith/actions/runs/37677710751",
+    "status": "completed",
+    "conclusion": "cancelled",
+    "runRef": "originalCiRun",
+    "jobsRef": "originalCiJobs",
+    "stepCount": 18,
+    "stepConclusions": {
+      "success": 10,
+      "cancelled": 1,
+      "skipped": 6,
+      "failure": 1
+    },
+    "nonSuccessSteps": [
+      {
+        "name": "Install chat and M2 isolation tools",
+        "conclusion": "cancelled"
+      },
+      {
+        "name": "Prepare Ubuntu namespace policy for M2 sandbox tests",
+        "conclusion": "skipped"
+      },
+      {
+        "name": "Verify chat context and approved effects (offline)",
+        "conclusion": "skipped"
+      },
+      {
+        "name": "Verify functional M2 application controls (offline)",
+        "conclusion": "skipped"
+      },
+      {
+        "name": "Preserve chat and M2 audit reports",
+        "conclusion": "failure"
+      },
+      {
+        "name": "Verify Studio 2 stores, rendering and authority adapters",
+        "conclusion": "skipped"
+      },
+      {
+        "name": "Verify source hygiene",
+        "conclusion": "skipped"
+      },
+      {
+        "name": "Post Run actions/setup-node@v5",
+        "conclusion": "skipped"
+      }
+    ],
+    "evidenceMode": "Recorded GitHub API receipts; no new remote query during assembly.",
+    "rerunStatus": "API rerun attempt rejected HTTP 403; no successful rerun evidence.",
+    "rerunRef": "ciRerun403",
+    "jobLogRef": "cancelledCiJobLog",
+    "limit": "Cancelled is not PASS. One cancelled isolation-install step, one failed artifact-preservation step and six skipped steps remain recorded."
+  },
+  "currentCombinedEvidence": {
+    "sourceSha": "e6b83884417b066e9d9b40286350255ee3dd4b30",
+    "originalC7IsAncestor": true,
+    "askUserBytesUnchanged": true,
+    "integration": {
+      "sourceSha": "e6b83884417b066e9d9b40286350255ee3dd4b30",
+      "runId": "chat-c8-transport-integration-20261007",
+      "statusCounts": {
+        "PASS": 19,
+        "FAIL": 0,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "exitCode": 0,
+      "reviewVerdict": "INTEGRATION_EVIDENCE_REVIEW_PASS",
+      "reviewRef": "combinedIntegrationReview",
+      "reportRef": "combinedIntegrationReport",
+      "execution": {
+        "id": "combinedIntegration",
+        "commandRef": "combinedIntegrationCommand",
+        "exitRef": "combinedIntegrationExit",
+        "logRef": "combinedIntegrationLog",
+        "argv": [
+          "/home/belphareon/.nvm/versions/node/v24.21.0/bin/node",
+          "scripts/nightly-audit.js",
+          "--run-id=chat-c8-transport-integration-20261007",
+          "--suite=IS-T1-TESTS-CHAT-CONTEXT-INTERPRETATION-TEST,IS-T3-TESTS-CHAT-LITERAL-WRITE-HTTP-TEST,IS-T3-TESTS-CHAT-REPEAT-SAVE-HTTP-TEST,IS-T1-TESTS-CHAT-RESILIENCE-RUNNER-CONTRACT-TEST,IS-T3-TESTS-CRE-BUILD-ARBITRATION-TEST,IS-T2-TESTS-M1-CHAT-CONTRACT-TEST,IS-T1-TESTS-MODULE-BOUNDARY-RATCHET-TEST,IS-T1-TESTS-PROJECT-APP-ACCEPTANCE-TEST,IS-T1-TESTS-PROJECT-APP-M2-FUNCTIONAL-TEST,IS-T1-TESTS-M2-GOVERNANCE-EVALUATOR-TEST,IS-T1-TESTS-M2-LIFECYCLE-APPLICATION-SERVICE-TEST,IS-T1-TESTS-M1-MODEL-CONTRACT-TEST,IS-T1-TESTS-MODEL-CTX-TEST,IS-T1-TESTS-PROJECT-COLLABORATION-TEST,IS-T1-TESTS-M2-PRIVATE-HTTP-CONTRACT-TEST,IS-T1-TESTS-M2-PRIVATE-HTTP-STARTUP-TEST,IS-T1-TESTS-M2-LIFECYCLE-STUDIO-SURFACE-TEST,IS-T1-TESTS-M2-EXECUTION-PROCESS-SUPERVISION-TEST,IS-T1-TESTS-PROJECT-WELCOME-TEST",
+          "--concurrency=1",
+          "--allow-blocker=toolchain:bubblewrap,toolchain:bwrap,toolchain:git,toolchain:prlimit,toolchain:iproute2,toolchain:nftables"
+        ],
+        "cwd": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930",
+        "expectedExit": 0,
+        "actualExit": 0,
+        "meaning": "Original 19-suite CHAT7/CODE12 CPU integration; no retry.",
+        "environment": "Exact environment and overlay bindings are retained in commandRef; not duplicated here.",
+        "counts": {
+          "PASS": 19,
+          "FAIL": 0
+        }
+      },
+      "contextSuiteTests": 41
+    },
+    "ci": {
+      "sourceSha": "e6b83884417b066e9d9b40286350255ee3dd4b30",
+      "runId": 37680691150,
+      "url": "https://github.com/Belphareon-bak/intentsmith/actions/runs/37680691150",
+      "status": "completed",
+      "conclusion": "success",
+      "runRef": "combinedCiRun",
+      "jobsRef": "combinedCiJobs",
+      "stepCount": 18,
+      "stepConclusions": {
+        "success": 18
+      },
+      "nonSuccessSteps": [],
+      "evidenceMode": "Recorded GitHub API receipts; no new remote query during assembly."
+    },
+    "c8SourceEvidenceReviewRef": "c8SourceEvidenceReview",
+    "limit": "This is new combined-source evidence; it does not relabel the original C7 CI run."
+  },
+  "derivedFrom": {
+    "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/PUBLIC-CPU-EVIDENCE.json",
+    "bytes": 34509,
+    "sha256": "40755fc2fdd792cdac578413f11fcdc22bfaaf73b106ae03c505fc3e880496e1"
+  },
+  "cpuPacketReview": {
+    "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c8-m1-operational-failure-20261007/public-cpu-review/REVIEW.json",
+    "bytes": 6953,
+    "sha256": "d304eca5da6723924b608c65098eb9d3b8f8da3013fd9319ba73f85ac2c01852"
+  },
+  "forbiddenInputs": [
+    "restricted/",
+    "H1 and H2 plaintext, outputs, raw logs and evidence directories"
+  ],
+  "publicationMeaning": "Versioned result documentation, not deployment or product/release acceptance.",
+  "gpuWindow": {
+    "status": "CLOSED_STOPPED",
+    "endedObservationAt": "2026-10-07T20:35:27.122908+00:00",
+    "repeatPolicy": "New independently reviewed serial window/lease and outputs required; consumed phase1 freeze cannot resume."
+  },
+  "historicalCpuSnapshot": {
+    "reference": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c7-save-context-20261007/PUBLIC-CPU-EVIDENCE.json",
+      "bytes": 34509,
+      "sha256": "40755fc2fdd792cdac578413f11fcdc22bfaaf73b106ae03c505fc3e880496e1"
+    },
+    "liveStatusThen": "STALE_NOT_RUN_FIELD",
+    "limit": "Historical CPU snapshot retaining a stale pre-actual NOT_RUN field; assembled after phase1, before its actual evidence was incorporated. Superseded by current liveRegression."
+  },
+  "privateAssemblyActions": {
+    "gpuOrProviderCalls": 0,
+    "trackedWrites": 0,
+    "originalDatabaseOpens": 0,
+    "newTestRuns": 0
+  },
+  "privateAssembler": "/root/m1_outage_review",
+  "publicationAssembly": {
+    "author": "/root",
+    "scope": "Derived tracked documentation; no new tests, original database opens or GPU/provider calls during publication assembly."
+  }
+}

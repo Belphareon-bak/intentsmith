@@ -33,10 +33,25 @@ významové posudky mají konsenzus118/159(74,21%) užitečných,24/159(15,09%)
 zastavení a0kritických. Kvalita NO_GO,3neshody vyřešeny oběma hodnotiteli.
 C3 tím nemá prokázaný příčinný pokles/zlepšení proti jinak hodnocené historii.
 Final3cleanup FAIL/UNKNOWN PID zachován. [Paket C6](../review/2026-10-07-CHAT-REGRESSION-C3.md).
-C5 skutečný Studio vstup zatím zastavil ovladač se dvěma sloupci před emisí;
-modelový classifier ani D1 tím nebyly otestovány. Úzká slot0 oprava má CPU/DOM review PASS; celkový CPU pokus FAIL kvůli
-doplňkovému WS guardu, jeho oprava a nový actual jsou otevřené.
-[Paket C5](../review/2026-10-07-STUDIO-D1-ENTRY.md).
+C5 v5 po přijaté opravě ovladače a WS guardu vstup odeslal, ale GPU monitor
+běh přerušil po1classifier requestu/0úplných odpovědí/0D1. Actual FAIL a
+nepřijaté identity zůstaly; samostatná own-lease recovery má review.
+[Paket C5](../review/2026-10-07-STUDIO-D1-ENTRY.md). Další retry v tomto cyklu zastaven.
+
+C7 `1c7617a2` zachovává uloženou fileSaveClarification při aktivním pokračování
+ve stejném projektu. RED prokázal ztrátu po AMBIGUOUS .5/„ano“, GREEN38PASS,
+skutečná HTTP/restart/approval cesta a9handler→resolver kontrol, nezávislé review.
+C8 `e6b83884` rozšiřuje C1 o UND_ERR_SOCKET→503 a typed HTTP_ERROR/
+MALFORMED_RESPONSE→500. Bližší typed chyba má přednost, zrušení zůstává první;
+neplatná klasifikace v platné provider odpovědi stále fallbackuje. Pět skutečných
+HTTP poruch po restartu zachovává jen user, bez nového tool/effectu. Interní
+user m7.status se tím nemění. Žádná nová importní hrana/prompt/retry/binding.
+Aktuální context41/integrace19/CI37680691150 všech18PASS a source/evidence review.
+C7+C8 první živá série4známých případů/7Gemma4K volání má praktický save FAIL:
+model odmítl návaznost, konečný výstup znovu doptání místo proposal. Cleanup také
+FAIL, další2série NOT_RUN; není to3×přejímka ani nové53skóre.
+[Paket C7](../review/2026-10-07-CHAT-SAVE-CONTEXT.md),
+[paket C8](../review/2026-10-07-CHAT-TRANSPORT-FAILURES.md).
 
 Následující inventura popisuje historický stav 2. 8.; její popis fallbacku při
 výpadku ani počty řádků nejsou aktuálním chováním výše uvedeného kandidáta.

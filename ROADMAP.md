@@ -3,7 +3,8 @@
 **Aktuální checkpoint 7. 10. 2026:** [stav, implementační mezery a zbývající testy](docs/WORK-PROGRESS.md).
 Release `NOT_ACCEPTED`; BE `c84b88cd` / Studio `7bf62455…bfe24` nezměněné.
 Přijaté Ledger/TaskFlow/SQLite, omezený AST/GPU panel/cleanup, full109 DB roundtrip a M3 worker;
-opakovat pouze při nové změně nebo konkrétní pochybnosti. CHAT převzal nový worker; úzký C1 kandidát `1f098912` má nezávislé SOURCE_REVIEW_PASS.
+opakovat pouze při nové změně nebo konkrétní pochybnosti. ROOT vlastní integraci i CHAT. Aktuální produktový zdroj `e6b83884` zahrnuje
+přezkoumané C7/C8; context41/integrace19/[CI18](https://github.com/Belphareon-bak/intentsmith/actions/runs/37680691150) PASS. Živá kvalita nepřijatá.
 
 Cache oprava `0d86b68e`: CPU 23/23 a source review; [CI37460776179](https://github.com/Belphareon-bak/intentsmith/actions/runs/37460776179) všech 18 kroků SUCCESS.
 **Copied-cache upgrade 6. 10., 12:26 UTC: 1223d2a8…9d95e79 PASS**, n=1 /8,804 s /bez modelu.
@@ -12,16 +13,17 @@ Dvě produktové kopie 0700, původní cache a source/deps/14 links zachované; 
 C4 nový původní fresh5 na b959a468: **5PASS/review PASS**, actual17:25:47–17:33:05UTC, exit0.
 Historický90/3PASS2FAIL zachovaný. ExactQwen4K,10/10odpovědí,min5875MiB,source/cache/cleanup PASS.
 [Paket a limity n=1](docs/review/2026-10-07-FRESH5-C1-C3.md); celý M6/release a Studio→D1 tím nepřijaté.
-C5 v2/v4 skutečný DOM FAIL před emisí,0modelcalls/efektů; příčina druhý sloupec
-v ovladači. Slot0 CPU/DOM review PASS, celkový CPU pokus FAIL kvůli supplemental WS
-guardu; jeho oprava v přípravě, Studio→D1 dosud nepřijaté. [Paket C5](docs/review/2026-10-07-STUDIO-D1-ENTRY.md).
+C5 v2/v4 DOM FAIL zachované; slot0 a WS guard opravené/review PASS.
+Actual v5 na cd3b8f02 odeslal vstup,1classifier request/0úplných odpovědí/0D1;
+GPU monitor a cleanup FAIL, samostatná own-lease recovery přezkoumaná.
+Stagnace: další C5 retry v tomto cyklu zastaven, Studio→D1 nepřijaté. [Paket C5](docs/review/2026-10-07-STUDIO-D1-ENTRY.md).
 Historický ROOT offline/database profil `86dbca40`: 410 PASS /0 FAIL /BLOCKED /TIMEOUT; netestoval následnou cache opravu.
 Registry 596/35; CHAT kandidát: module graph má 1 512 hran, 3 cykly /28 členů.
 Jediná nová hrana CRE → chat-turn-error nezávisle schválená, baseline připnutý na `1f098912`.
 C1 context27/M1 74/project44 nezávisle opakované. Nový CHAT checkpoint `b9cfc7c5`:
 full offline/database410 PASS/0 FAIL/BLOCKED/TIMEOUT, CHAT7/CODE12 PASS;
 CI37644166375 všech18 SUCCESS; FINAL_EVIDENCE_REVIEW_PASS.
-ROOT převzal C1/C2 fast-forwardem a61fe70d→e15264f1; poslední commit má CI37648451862
+ROOT převzal C1/C2 fast-forwardem a61fe70d→e15264f1; tento checkpoint má CI37648451862
 všech18 SUCCESS. Koordinaci nyní vlastní navazující agent v ROOT checkoutu.
 D1 pořadová podmínka zrušena operátorem; H1 je samostatný sběr 3× Qwen c7f03d56
 a 3× Gemma9591ea1b v jednom okně. Plaintext odstraněn, sběr NOT_RUN;
@@ -39,6 +41,16 @@ zastavení,0kritických; kvalita NO_GO,3neshody vyřešené. Final3cleanup FAIL
 (PID1359590 UNKNOWN) zachován, následný3empty postflight PASS.
 [Paket C6](docs/review/2026-10-07-CHAT-REGRESSION-C3.md); nejde o H1/H2 ani příčinný C3 delta.
 [Revizní paket](docs/review/2026-10-07-CHAT-M1-OUTAGE.md); CI/CPU nejsou release acceptance.
+C7 1c7617a2 opravuje doloženou ztrátu core save kontextu při opakovaném doptání,
+CPU38/review/integrace19 PASS. Původní CI1c cancelled při apt timeoutu zachované.
+C8 e6b83884 propaguje typed provozní provider chyby jako500/503 místo falešného
+úspěchu; skutečný HTTP/restart/context41/integrace19/CI18 a nezávislé review PASS.
+C7+C8 živá regrese: první ze3sérií,4známé případy/7Gemma4K volání, runnerexit0,
+ale save FAIL (další doptání,0proposal/efektů). Cleanup/postflight FAIL na novém
+gpu-discover PID; pozdější3empty pozorování bez lease není přepsání FAIL.
+Další2série NOT_RUN, žádné nové53skóre ani H1/H2.
+[Kontext a částečný live výsledek](docs/review/2026-10-07-CHAT-SAVE-CONTEXT.md),
+[providerové chyby](docs/review/2026-10-07-CHAT-TRANSPORT-FAILURES.md).
 
 HTTP private-loopback profil zapojený; retained execution/M2/oracle/commit/restart prošel, API SOURCE FAIL.
 Normal MODIFY@4 cumulative10: úplný kontext/výstupy; A1/slash aliases a A3/charset OWS neopravena.
@@ -54,8 +66,9 @@ Fan 8/11, oracle 8 PASS/6 FAIL; repair4+CLI3/cumulative15 čeká na samostatnou 
 32k krátce změřené fullGPU/min free 2 512 MiB; celé okno ani kvalita aplikace tím nepřijaté.
 Classifier→D1 CPU 44 +parser 24/review PASS; živý přirozený vstup a fyzická ovladatelnost IDE/M2 otevřené.
 
-Nynější úkol: C5 oprava doloženého testovacího ovladače a skutečný Studio→D1;
-C6 NO_GO vede ke kontrolovanému porovnání rolí. C3/C4 přezkoumány,
+Nynější úkol: po přezkoumaných C7/C8 oddělit návaznost a save interpretaci
+na již známých vstupech; C6 NO_GO a C7 živý FAIL zůstávají. C5 retry zastaven,
+před návratem jiná omezená strategie; C3/C4 přezkoumány,
 H1 čeká na custody/dešifrovací krok operátora. Další:
 HTTP/Fan v přijatých budgetech → IDE/BE/expertise/workers → M5/M6.
 M5 je 8/9/privacy changes required; retain_and_rotate zvolené, signed 8 categories+history chybí.
