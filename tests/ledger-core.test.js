@@ -2,6 +2,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { strict as assert } from 'assert';
+import { test as it } from 'node:test';
 import Database from 'better-sqlite3';
 import { LedgerRepository } from '../specialists/accountant-cz/ledger/ledger-repository.js';
 import {
@@ -9,14 +10,6 @@ import {
   computeIncomeTax, computeSocial, computeHealth, computeAnnualSummary,
 } from '../specialists/accountant-cz/ledger/ledger-engine.js';
 import { RATES } from '../specialists/accountant-cz/tools/tax-rates.js';
-
-let passed = 0, failed = 0;
-const failures = [];
-
-function it(name, fn) {
-  try { fn(); passed++; console.log(`  ✅ ${name}`); }
-  catch (err) { failed++; failures.push(name); console.log(`  ❌ ${name}: ${err.message}`); }
-}
 
 // ─── Setup: in-memory DB with migration ──────────────────────────────────────
 
@@ -33,27 +26,27 @@ const repo = new LedgerRepository(db);
 
 console.log('\n── 1. Schema ──');
 
-it('entity_profiles table exists', () => {
+await it('entity_profiles table exists', () => {
   const row = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='entity_profiles'").get();
   assert(row);
 });
 
-it('financial_entries table exists', () => {
+await it('financial_entries table exists', () => {
   const row = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='financial_entries'").get();
   assert(row);
 });
 
-it('entry_history table exists', () => {
+await it('entry_history table exists', () => {
   const row = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='entry_history'").get();
   assert(row);
 });
 
-it('calculation_runs table exists', () => {
+await it('calculation_runs table exists', () => {
   const row = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='calculation_runs'").get();
   assert(row);
 });
 
-it('indexes created', () => {
+await it('indexes created', () => {
   const indexes = db.prepare("SELECT name FROM sqlite_master WHERE type='index'").all().map(r => r.name);
   assert(indexes.includes('idx_fe_entity_year'));
   assert(indexes.includes('idx_fe_entity_date'));
@@ -68,13 +61,13 @@ console.log('\n── 2. Entity CRUD ──');
 
 let entityId;
 
-it('createEntity returns id', () => {
+await it('createEntity returns id', () => {
   const result = repo.createEntity({ name: 'Jan Novák', entity_type: 'osvc' });
   assert(result.id);
   entityId = result.id;
 });
 
-it('getEntity retrieves entity', () => {
+await it('getEntity retrieves entity', () => {
   const e = repo.getEntity(entityId);
   assert(e);
   assert.equal(e.name, 'Jan Novák');
@@ -84,7 +77,7 @@ it('getEntity retrieves entity', () => {
   assert.equal(e.children, 0);
 });
 
-it('updateEntity patches fields', () => {
+await it('updateEntity patches fields', () => {
   repo.updateEntity(entityId, { children: 2, tax_regime: 'flat_expense', flat_expense_category: 'rate_60' });
   const e = repo.getEntity(entityId);
   assert.equal(e.children, 2);
@@ -94,20 +87,20 @@ it('updateEntity patches fields', () => {
   repo.updateEntity(entityId, { children: 0, tax_regime: 'actual', flat_expense_category: null });
 });
 
-it('listEntities includes created entity', () => {
+await it('listEntities includes created entity', () => {
   const list = repo.listEntities();
   assert(list.some(e => e.id === entityId));
 });
 
-it('getEntity returns null for missing', () => {
+await it('getEntity returns null for missing', () => {
   assert.equal(repo.getEntity('nonexistent'), null);
 });
 
-it('updateEntity throws for missing entity', () => {
+await it('updateEntity throws for missing entity', () => {
   assert.throws(() => repo.updateEntity('nonexistent', { name: 'x' }), /not found/);
 });
 
-it('createEntity with custom id', () => {
+await it('createEntity with custom id', () => {
   const result = repo.createEntity({ id: 'default', name: 'Default OSVČ' });
   assert.equal(result.id, 'default');
   const e = repo.getEntity('default');
@@ -120,7 +113,7 @@ console.log('\n── 3. Entry CRUD ──');
 
 let entryId;
 
-it('addEntry creates income entry', () => {
+await it('addEntry creates income entry', () => {
   const result = repo.addEntry(entityId, {
     entry_type: 'income', amount_cents: 100000_00,
     category: 'services', description: 'Faktura #001',
@@ -130,7 +123,7 @@ it('addEntry creates income entry', () => {
   entryId = result.id;
 });
 
-it('getEntry retrieves entry', () => {
+await it('getEntry retrieves entry', () => {
   const e = repo.getEntry(entryId);
   assert(e);
   assert.equal(e.entry_type, 'income');
@@ -141,7 +134,7 @@ it('getEntry retrieves entry', () => {
   assert.equal(e.deleted_at, null);
 });
 
-it('addEntry creates expense entry', () => {
+await it('addEntry creates expense entry', () => {
   const result = repo.addEntry(entityId, {
     entry_type: 'expense', amount_cents: 25000_00,
     category: 'office', description: 'Nájem kancelář',
@@ -150,7 +143,7 @@ it('addEntry creates expense entry', () => {
   assert(result.id > 0);
 });
 
-it('addEntry creates tax_payment entry', () => {
+await it('addEntry creates tax_payment entry', () => {
   const result = repo.addEntry(entityId, {
     entry_type: 'tax_payment', amount_cents: 5000_00,
     category: 'income_tax', description: 'Záloha Q1',
@@ -159,7 +152,7 @@ it('addEntry creates tax_payment entry', () => {
   assert(result.id > 0);
 });
 
-it('addEntry creates insurance_payment entry', () => {
+await it('addEntry creates insurance_payment entry', () => {
   const result = repo.addEntry(entityId, {
     entry_type: 'insurance_payment', amount_cents: 3852_00,
     category: 'social', description: 'Sociální záloha březen',
@@ -168,22 +161,22 @@ it('addEntry creates insurance_payment entry', () => {
   assert(result.id > 0);
 });
 
-it('getEntriesByYear returns all active entries', () => {
+await it('getEntriesByYear returns all active entries', () => {
   const entries = repo.getEntriesByYear(entityId, 2024);
   assert.equal(entries.length, 4);
 });
 
-it('getEntriesByType filters correctly', () => {
+await it('getEntriesByType filters correctly', () => {
   const incomes = repo.getEntriesByType(entityId, 2024, 'income');
   assert.equal(incomes.length, 1);
   assert.equal(incomes[0].amount_cents, 100000_00);
 });
 
-it('countEntries returns correct count', () => {
+await it('countEntries returns correct count', () => {
   assert.equal(repo.countEntries(entityId, 2024), 4);
 });
 
-it('getEntry returns null for missing', () => {
+await it('getEntry returns null for missing', () => {
   assert.equal(repo.getEntry(99999), null);
 });
 
@@ -191,7 +184,7 @@ it('getEntry returns null for missing', () => {
 
 console.log('\n── 4. Update + Audit Trail ──');
 
-it('updateEntry increments version and snapshots', () => {
+await it('updateEntry increments version and snapshots', () => {
   repo.updateEntry(entryId, { amount_cents: 120000_00, description: 'Faktura #001 (opraveno)' });
   const e = repo.getEntry(entryId);
   assert.equal(e.amount_cents, 120000_00);
@@ -199,14 +192,14 @@ it('updateEntry increments version and snapshots', () => {
   assert(e.updated_at);
 });
 
-it('getEntryHistory shows old snapshot', () => {
+await it('getEntryHistory shows old snapshot', () => {
   const history = repo.getEntryHistory(entryId);
   assert.equal(history.length, 1);
   assert.equal(history[0].snapshot.amount_cents, 100000_00);
   assert.equal(history[0].snapshot.version, 1);
 });
 
-it('second update creates second history entry', () => {
+await it('second update creates second history entry', () => {
   repo.updateEntry(entryId, { description: 'Faktura #001 (final)' });
   const history = repo.getEntryHistory(entryId);
   assert.equal(history.length, 2);
@@ -216,7 +209,7 @@ it('second update creates second history entry', () => {
   assert.equal(history[1].snapshot.version, 1);
 });
 
-it('updateEntry throws for missing entry', () => {
+await it('updateEntry throws for missing entry', () => {
   assert.throws(() => repo.updateEntry(99999, { amount_cents: 1 }), /not found/);
 });
 
@@ -224,7 +217,7 @@ it('updateEntry throws for missing entry', () => {
 
 console.log('\n── 5. Soft Delete ──');
 
-it('softDeleteEntry marks entry as deleted', () => {
+await it('softDeleteEntry marks entry as deleted', () => {
   // Create a temp entry to delete
   const { id } = repo.addEntry(entityId, {
     entry_type: 'expense', amount_cents: 999_00,
@@ -237,7 +230,7 @@ it('softDeleteEntry marks entry as deleted', () => {
   assert.equal(repo.countEntries(entityId, 2024), 4); // Not counted
 });
 
-it('softDeleteEntry creates history snapshot', () => {
+await it('softDeleteEntry creates history snapshot', () => {
   // The temp entry from above should have 1 history entry (the pre-delete snapshot)
   // We need to track the id — let's create a fresh one
   const { id } = repo.addEntry(entityId, {
@@ -250,7 +243,7 @@ it('softDeleteEntry creates history snapshot', () => {
   assert.equal(history[0].snapshot.deleted_at, null); // Snapshot was before delete
 });
 
-it('softDeleteEntry throws for already deleted', () => {
+await it('softDeleteEntry throws for already deleted', () => {
   const { id } = repo.addEntry(entityId, {
     entry_type: 'expense', amount_cents: 100_00,
     category: 'test', entry_date: '2024-08-01', period_year: 2024,
@@ -263,12 +256,12 @@ it('softDeleteEntry throws for already deleted', () => {
 
 console.log('\n── 6. Date Range Queries ──');
 
-it('getEntriesByDateRange filters correctly', () => {
+await it('getEntriesByDateRange filters correctly', () => {
   const entries = repo.getEntriesByDateRange(entityId, '2024-03-01', '2024-03-31');
   assert(entries.length >= 3); // income, expense, tax_payment, insurance from March
 });
 
-it('getEntriesByDateRange returns empty for no matches', () => {
+await it('getEntriesByDateRange returns empty for no matches', () => {
   const entries = repo.getEntriesByDateRange(entityId, '2023-01-01', '2023-12-31');
   assert.equal(entries.length, 0);
 });
@@ -277,7 +270,7 @@ it('getEntriesByDateRange returns empty for no matches', () => {
 
 console.log('\n── 7. Calculation Runs ──');
 
-it('saveCalculationRun stores run', () => {
+await it('saveCalculationRun stores run', () => {
   const { id } = repo.saveCalculationRun({
     entity_id: entityId, year: 2024, rates_version: '2024_v1',
     input: { gross_income: 1000000 }, result: { net_income: 750000 },
@@ -285,14 +278,14 @@ it('saveCalculationRun stores run', () => {
   assert(id);
 });
 
-it('getCalculationRuns retrieves runs with parsed JSON', () => {
+await it('getCalculationRuns retrieves runs with parsed JSON', () => {
   const runs = repo.getCalculationRuns(entityId, 2024);
   assert(runs.length >= 1);
   assert.equal(runs[0].input.gross_income, 1000000);
   assert.equal(runs[0].result.net_income, 750000);
 });
 
-it('getLatestRun returns most recent', () => {
+await it('getLatestRun returns most recent', () => {
   repo.saveCalculationRun({
     entity_id: entityId, year: 2024, rates_version: '2024_v2',
     input: { gross_income: 1200000 }, result: { net_income: 880000 },
@@ -302,7 +295,7 @@ it('getLatestRun returns most recent', () => {
   assert.equal(latest.input.gross_income, 1200000);
 });
 
-it('getLatestRun returns null for no runs', () => {
+await it('getLatestRun returns null for no runs', () => {
   assert.equal(repo.getLatestRun(entityId, 2099), null);
 });
 
@@ -310,7 +303,7 @@ it('getLatestRun returns null for no runs', () => {
 
 console.log('\n── 8. Bulk Operations ──');
 
-it('addEntries inserts in transaction', () => {
+await it('addEntries inserts in transaction', () => {
   const before = repo.countEntries(entityId, 2025);
   const { ids } = repo.addEntries(entityId, [
     { entry_type: 'income', amount_cents: 50000_00, category: 'consulting', entry_date: '2025-01-15', period_year: 2025 },
@@ -325,7 +318,7 @@ it('addEntries inserts in transaction', () => {
 
 console.log('\n── 9. Entity Cascade Delete ──');
 
-it('deleteEntity cascades to entries', () => {
+await it('deleteEntity cascades to entries', () => {
   const { id } = repo.createEntity({ name: 'Temp Entity' });
   repo.addEntry(id, {
     entry_type: 'income', amount_cents: 1000_00,
@@ -344,13 +337,13 @@ it('deleteEntity cascades to entries', () => {
 
 console.log('\n── 10. Engine: Helpers ──');
 
-it('toCents converts correctly', () => {
+await it('toCents converts correctly', () => {
   assert.equal(toCents(1000), 100000);
   assert.equal(toCents(0.5), 50);
   assert.equal(toCents(1234567.89), 123456789);
 });
 
-it('toCZK converts correctly', () => {
+await it('toCZK converts correctly', () => {
   assert.equal(toCZK(100000), 1000);
   assert.equal(toCZK(50), 0.5);
 });
@@ -368,7 +361,7 @@ const testEntries = [
   { entry_type: 'insurance_payment', amount_cents: 3852_00, category: 'social', is_tax_deductible: 0 },
 ];
 
-it('aggregateEntries computes totals', () => {
+await it('aggregateEntries computes totals', () => {
   const agg = aggregateEntries(testEntries);
   assert.equal(agg.totalIncome, 150000_00);
   assert.equal(agg.totalExpense, 25000_00);
@@ -377,14 +370,14 @@ it('aggregateEntries computes totals', () => {
   assert.equal(agg.totalInsurancePayments, 3852_00);
 });
 
-it('aggregateEntries builds category breakdown', () => {
+await it('aggregateEntries builds category breakdown', () => {
   const agg = aggregateEntries(testEntries);
   assert.equal(agg.byCategory.services.income, 100000_00);
   assert.equal(agg.byCategory.consulting.income, 50000_00);
   assert.equal(agg.byCategory.office.expense, 20000_00);
 });
 
-it('aggregateEntries handles empty entries', () => {
+await it('aggregateEntries handles empty entries', () => {
   const agg = aggregateEntries([]);
   assert.equal(agg.totalIncome, 0);
   assert.equal(agg.totalExpense, 0);
@@ -407,7 +400,7 @@ const incomeEntries = [
   { entry_type: 'expense', amount_cents: toCents(300000), category: 'costs', is_tax_deductible: 1 },
 ];
 
-it('computeAnnualSummary: standard OSVČ 1M income', () => {
+await it('computeAnnualSummary: standard OSVČ 1M income', () => {
   const result = computeAnnualSummary({
     entity: standardEntity, entries: incomeEntries, rates: rates2024, year: 2024,
   });
@@ -442,7 +435,7 @@ const flatEntity = {
   main_or_secondary: 'main', children: 1, spouse_credit: 0,
 };
 
-it('computeAnnualSummary: flat expense OSVČ', () => {
+await it('computeAnnualSummary: flat expense OSVČ', () => {
   const onlyIncome = [
     { entry_type: 'income', amount_cents: toCents(800000), category: 'services', is_tax_deductible: 1 },
   ];
@@ -461,7 +454,7 @@ it('computeAnnualSummary: flat expense OSVČ', () => {
 });
 
 // Zero income
-it('computeAnnualSummary: zero income → tax=0, minimums for insurance', () => {
+await it('computeAnnualSummary: zero income → tax=0, minimums for insurance', () => {
   const result = computeAnnualSummary({
     entity: standardEntity, entries: [], rates: rates2024, year: 2024,
   });
@@ -475,7 +468,7 @@ it('computeAnnualSummary: zero income → tax=0, minimums for insurance', () => 
 });
 
 // Negative tax base (expenses > income)
-it('computeAnnualSummary: negative base → clamped to 0', () => {
+await it('computeAnnualSummary: negative base → clamped to 0', () => {
   const lossEntries = [
     { entry_type: 'income', amount_cents: toCents(100000), category: 'services', is_tax_deductible: 1 },
     { entry_type: 'expense', amount_cents: toCents(200000), category: 'costs', is_tax_deductible: 1 },
@@ -491,7 +484,7 @@ it('computeAnnualSummary: negative base → clamped to 0', () => {
 });
 
 // Secondary activity below threshold
-it('computeAnnualSummary: secondary activity below threshold → social=0', () => {
+await it('computeAnnualSummary: secondary activity below threshold → social=0', () => {
   const secondaryEntity = { ...standardEntity, main_or_secondary: 'secondary' };
   const smallIncome = [
     { entry_type: 'income', amount_cents: toCents(50000), category: 'services', is_tax_deductible: 1 },
@@ -506,7 +499,7 @@ it('computeAnnualSummary: secondary activity below threshold → social=0', () =
 });
 
 // Children tax bonus
-it('computeAnnualSummary: 3 children with low income → tax bonus', () => {
+await it('computeAnnualSummary: 3 children with low income → tax bonus', () => {
   const familyEntity = { ...standardEntity, children: 3 };
   const lowIncome = [
     { entry_type: 'income', amount_cents: toCents(300000), category: 'services', is_tax_deductible: 1 },
@@ -525,7 +518,7 @@ it('computeAnnualSummary: 3 children with low income → tax bonus', () => {
 });
 
 // Flat tax regime
-it('computeAnnualSummary: flat tax regime', () => {
+await it('computeAnnualSummary: flat tax regime', () => {
   const flatTaxEntity = { ...standardEntity, tax_regime: 'flat_tax' };
   const income = [
     { entry_type: 'income', amount_cents: toCents(900000), category: 'services', is_tax_deductible: 1 },
@@ -542,7 +535,7 @@ it('computeAnnualSummary: flat tax regime', () => {
 });
 
 // High income → higher rate
-it('computeAnnualSummary: high income triggers higher rate', () => {
+await it('computeAnnualSummary: high income triggers higher rate', () => {
   const highIncome = [
     { entry_type: 'income', amount_cents: toCents(3000000), category: 'services', is_tax_deductible: 1 },
   ];
@@ -560,7 +553,7 @@ it('computeAnnualSummary: high income triggers higher rate', () => {
 });
 
 // Spouse credit
-it('computeAnnualSummary: spouse credit reduces tax', () => {
+await it('computeAnnualSummary: spouse credit reduces tax', () => {
   const spouseEntity = { ...standardEntity, spouse_credit: 1 };
   const income = [
     { entry_type: 'income', amount_cents: toCents(800000), category: 'services', is_tax_deductible: 1 },
@@ -578,7 +571,7 @@ it('computeAnnualSummary: spouse credit reduces tax', () => {
 });
 
 // 2025 rates
-it('computeAnnualSummary: works with 2025 rates', () => {
+await it('computeAnnualSummary: works with 2025 rates', () => {
   const result = computeAnnualSummary({
     entity: standardEntity,
     entries: [{ entry_type: 'income', amount_cents: toCents(1000000), category: 'services', is_tax_deductible: 1 }],
@@ -592,7 +585,7 @@ it('computeAnnualSummary: works with 2025 rates', () => {
 });
 
 // Flat expense cap
-it('computeAnnualSummary: flat expense capped at max', () => {
+await it('computeAnnualSummary: flat expense capped at max', () => {
   const highFlatEntity = {
     ...standardEntity, tax_regime: 'flat_expense', flat_expense_category: 'rate_60',
   };
@@ -616,7 +609,7 @@ console.log('\n── 13. Cross-check with tax-calc.js ──');
 // Import existing calculator for comparison
 const { calculateTax } = await import('../src/expertises/tools/tax-calc.js');
 
-it('engine matches tax-calc.js for standard OSVČ 1M', () => {
+await it('engine matches tax-calc.js for standard OSVČ 1M', () => {
   // Engine calculation
   const engineResult = computeAnnualSummary({
     entity: standardEntity,
@@ -644,7 +637,7 @@ it('engine matches tax-calc.js for standard OSVČ 1M', () => {
   assert.equal(toCZK(engineResult.health_insurance_cents), calc.health_insurance);
 });
 
-it('engine matches tax-calc.js for flat_60 OSVČ 800K', () => {
+await it('engine matches tax-calc.js for flat_60 OSVČ 800K', () => {
   const engineResult = computeAnnualSummary({
     entity: { ...standardEntity, tax_regime: 'flat_expense', flat_expense_category: 'rate_60' },
     entries: [{ entry_type: 'income', amount_cents: toCents(800000), category: 'services', is_tax_deductible: 1 }],
@@ -660,12 +653,6 @@ it('engine matches tax-calc.js for flat_60 OSVČ 800K', () => {
   assert.equal(toCZK(engineResult.income_tax_cents), calcResult.result.income_tax);
 });
 
-// ─── Summary ─────────────────────────────────────────────────────────────────
-
-console.log(`\n══════════════════════════════════════════════════════════`);
-console.log(`  Ledger Core: ${passed}/${passed + failed} PASS, ${failed} FAIL`);
-console.log(`══════════════════════════════════════════════════════════`);
-if (failed === 0) console.log('✅ ALL LEDGER CORE TESTS PASS');
-else console.log(`❌ Failures: ${failures.join(', ')}`);
+// ─── Cleanup ─────────────────────────────────────────────────────────────────
 
 db.close();

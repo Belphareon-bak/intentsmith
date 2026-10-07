@@ -12,35 +12,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { strict as assert } from 'assert';
-
-// ─── Test Infrastructure ─────────────────────────────────────────────────────
-
-let passed = 0;
-let failed = 0;
-const failures = [];
-const pendingTests = [];
-
-function describe(name, fn) {
-  pendingTests.push(async () => {
-    console.log(`\n${'═'.repeat(70)}`);
-    console.log(`  ${name}`);
-    console.log(`${'═'.repeat(70)}`);
-    await fn();
-  });
-}
-
-async function it(name, fn) {
-  try {
-    await fn();
-    passed++;
-    console.log(`  ✅ ${name}`);
-  } catch (err) {
-    failed++;
-    failures.push({ name, error: err.message });
-    console.log(`  ❌ ${name}`);
-    console.log(`     ${err.message}`);
-  }
-}
+import { describe, it } from 'node:test';
 
 // ─── Imports ─────────────────────────────────────────────────────────────────
 
@@ -550,38 +522,4 @@ describe('T10.7: Builtin experts', () => {
     assert.ok(expertsWithRules.length > 0, 'Should have some experts with forbiddenPhrases');
   });
 
-});
-
-// ══════════════════════════════════════════════════════════════════════════════
-// RUN TESTS
-// ══════════════════════════════════════════════════════════════════════════════
-
-async function runTests() {
-  console.log('\n');
-  console.log('╔══════════════════════════════════════════════════════════════════════╗');
-  console.log('║           IntentSmith-Agent v57.0 — Expert System Tests                       ║');
-  console.log('╚══════════════════════════════════════════════════════════════════════╝');
-
-  for (const test of pendingTests) {
-    await test();
-  }
-
-  console.log('\n' + '═'.repeat(70));
-  console.log(`\n  RESULTS: ${passed} passed, ${failed} failed\n`);
-
-  if (failures.length > 0) {
-    console.log('  FAILURES:');
-    for (const f of failures) {
-      console.log(`    ❌ ${f.name}`);
-      console.log(`       ${f.error}`);
-    }
-    console.log();
-  }
-
-  process.exit(failed > 0 ? 1 : 0);
-}
-
-runTests().catch(err => {
-  console.error('Test runner failed:', err);
-  process.exit(1);
 });

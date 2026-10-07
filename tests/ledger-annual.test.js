@@ -2,6 +2,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { strict as assert } from 'assert';
+import { test as it } from 'node:test';
 import Database from 'better-sqlite3';
 import { LedgerRepository } from '../specialists/accountant-cz/ledger/ledger-repository.js';
 import { toCents, toCZK, computeAnnualSummary } from '../specialists/accountant-cz/ledger/ledger-engine.js';
@@ -9,14 +10,6 @@ import {
   applyTaxLosses, detectTaxLoss, generateTaxReturnData, computeYearCloseSummary,
 } from '../specialists/accountant-cz/ledger/ledger-annual.js';
 import { RATES } from '../specialists/accountant-cz/tools/tax-rates.js';
-
-let passed = 0, failed = 0;
-const failures = [];
-
-function it(name, fn) {
-  try { fn(); passed++; console.log(`  ✅ ${name}`); }
-  catch (err) { failed++; failures.push(name); console.log(`  ❌ ${name}: ${err.message}`); }
-}
 
 // ─── Setup: in-memory DB with migrations ─────────────────────────────────────
 
@@ -52,17 +45,17 @@ repo.addEntries(entityId, [
 
 console.log('\n── 1. Schema ──');
 
-it('period_locks table exists', () => {
+await it('period_locks table exists', () => {
   const row = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='period_locks'").get();
   assert(row);
 });
 
-it('tax_losses table exists', () => {
+await it('tax_losses table exists', () => {
   const row = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='tax_losses'").get();
   assert(row);
 });
 
-it('indexes created', () => {
+await it('indexes created', () => {
   const indexes = db.prepare("SELECT name FROM sqlite_master WHERE type='index'").all().map(r => r.name);
   assert(indexes.includes('idx_pl_entity'));
   assert(indexes.includes('idx_tl_entity'));
@@ -72,16 +65,16 @@ it('indexes created', () => {
 
 console.log('\n── 2. Period Locking ──');
 
-it('isPeriodLocked returns false initially', () => {
+await it('isPeriodLocked returns false initially', () => {
   assert.equal(repo.isPeriodLocked(entityId, 2024), false);
 });
 
-it('lockPeriod locks a year', () => {
+await it('lockPeriod locks a year', () => {
   repo.lockPeriod(entityId, 2024, { locked_by: 'test', notes: 'Year close test' });
   assert.equal(repo.isPeriodLocked(entityId, 2024), true);
 });
 
-it('getPeriodLock returns lock details', () => {
+await it('getPeriodLock returns lock details', () => {
   const lock = repo.getPeriodLock(entityId, 2024);
   assert(lock);
   assert.equal(lock.entity_id, entityId);
@@ -90,11 +83,11 @@ it('getPeriodLock returns lock details', () => {
   assert(lock.locked_at);
 });
 
-it('lockPeriod throws for already locked', () => {
+await it('lockPeriod throws for already locked', () => {
   assert.throws(() => repo.lockPeriod(entityId, 2024), /already locked/);
 });
 
-it('getLockedYears returns all locked years', () => {
+await it('getLockedYears returns all locked years', () => {
   const years = repo.getLockedYears(entityId);
   assert.equal(years.length, 1);
   assert.equal(years[0].year, 2024);
@@ -104,7 +97,7 @@ it('getLockedYears returns all locked years', () => {
 
 console.log('\n── 3. Period Lock Guards ──');
 
-it('addEntry rejects when period is locked', () => {
+await it('addEntry rejects when period is locked', () => {
   assert.throws(
     () => repo.addEntry(entityId, {
       entry_type: 'income', amount_cents: 1000_00,
@@ -114,7 +107,7 @@ it('addEntry rejects when period is locked', () => {
   );
 });
 
-it('updateEntry rejects when period is locked', () => {
+await it('updateEntry rejects when period is locked', () => {
   // Get an existing entry from 2024
   const entries = repo.getEntriesByYear(entityId, 2024);
   assert(entries.length > 0);
@@ -124,7 +117,7 @@ it('updateEntry rejects when period is locked', () => {
   );
 });
 
-it('softDeleteEntry rejects when period is locked', () => {
+await it('softDeleteEntry rejects when period is locked', () => {
   const entries = repo.getEntriesByYear(entityId, 2024);
   assert.throws(
     () => repo.softDeleteEntry(entries[0].id),
@@ -132,7 +125,7 @@ it('softDeleteEntry rejects when period is locked', () => {
   );
 });
 
-it('addEntry still works for unlocked periods', () => {
+await it('addEntry still works for unlocked periods', () => {
   // 2025 is not locked
   const { id } = repo.addEntry(entityId, {
     entry_type: 'income', amount_cents: 50000_00,
@@ -147,16 +140,16 @@ it('addEntry still works for unlocked periods', () => {
 
 console.log('\n── 4. Unlock Period ──');
 
-it('unlockPeriod removes lock', () => {
+await it('unlockPeriod removes lock', () => {
   repo.unlockPeriod(entityId, 2024);
   assert.equal(repo.isPeriodLocked(entityId, 2024), false);
 });
 
-it('unlockPeriod throws if not locked', () => {
+await it('unlockPeriod throws if not locked', () => {
   assert.throws(() => repo.unlockPeriod(entityId, 2024), /not locked/);
 });
 
-it('addEntry works after unlock', () => {
+await it('addEntry works after unlock', () => {
   const { id } = repo.addEntry(entityId, {
     entry_type: 'expense', amount_cents: 1000_00,
     category: 'test-unlock', entry_date: '2024-12-30', period_year: 2024,
@@ -170,7 +163,7 @@ it('addEntry works after unlock', () => {
 
 console.log('\n── 5. Tax Loss Detection ──');
 
-it('detectTaxLoss: no loss when income > expenses', () => {
+await it('detectTaxLoss: no loss when income > expenses', () => {
   const entries = [
     { entry_type: 'income', amount_cents: toCents(500000), category: 'a', is_tax_deductible: 1 },
     { entry_type: 'expense', amount_cents: toCents(200000), category: 'b', is_tax_deductible: 1 },
@@ -180,7 +173,7 @@ it('detectTaxLoss: no loss when income > expenses', () => {
   assert.equal(result.lossAmountCents, 0);
 });
 
-it('detectTaxLoss: detects loss when expenses > income', () => {
+await it('detectTaxLoss: detects loss when expenses > income', () => {
   const entries = [
     { entry_type: 'income', amount_cents: toCents(100000), category: 'a', is_tax_deductible: 1 },
     { entry_type: 'expense', amount_cents: toCents(250000), category: 'b', is_tax_deductible: 1 },
@@ -190,7 +183,7 @@ it('detectTaxLoss: detects loss when expenses > income', () => {
   assert.equal(result.lossAmountCents, toCents(150000));
 });
 
-it('detectTaxLoss: flat_expense never has loss (expenses ≤ income)', () => {
+await it('detectTaxLoss: flat_expense never has loss (expenses ≤ income)', () => {
   const entries = [
     { entry_type: 'income', amount_cents: toCents(100000), category: 'a', is_tax_deductible: 1 },
   ];
@@ -199,7 +192,7 @@ it('detectTaxLoss: flat_expense never has loss (expenses ≤ income)', () => {
   assert.equal(result.hasLoss, false);
 });
 
-it('detectTaxLoss: flat_tax returns no loss', () => {
+await it('detectTaxLoss: flat_tax returns no loss', () => {
   const result = detectTaxLoss([], { tax_regime: 'flat_tax' }, rates2024);
   assert.equal(result.hasLoss, false);
 });
@@ -208,7 +201,7 @@ it('detectTaxLoss: flat_tax returns no loss', () => {
 
 console.log('\n── 6. Tax Loss Carryforward ──');
 
-it('applyTaxLosses: applies single loss', () => {
+await it('applyTaxLosses: applies single loss', () => {
   const losses = [
     { origin_year: 2022, remaining_cents: toCents(100000), expires_year: 2027 },
   ];
@@ -219,7 +212,7 @@ it('applyTaxLosses: applies single loss', () => {
   assert.equal(result.lossesApplied[0].new_remaining_cents, 0);
 });
 
-it('applyTaxLosses: applies multiple losses FIFO', () => {
+await it('applyTaxLosses: applies multiple losses FIFO', () => {
   const losses = [
     { origin_year: 2021, remaining_cents: toCents(50000), expires_year: 2026 },
     { origin_year: 2022, remaining_cents: toCents(80000), expires_year: 2027 },
@@ -236,7 +229,7 @@ it('applyTaxLosses: applies multiple losses FIFO', () => {
   assert.equal(result.lossesApplied[1].new_remaining_cents, toCents(30000));
 });
 
-it('applyTaxLosses: skips expired losses', () => {
+await it('applyTaxLosses: skips expired losses', () => {
   const losses = [
     { origin_year: 2018, remaining_cents: toCents(100000), expires_year: 2023 }, // expired
     { origin_year: 2022, remaining_cents: toCents(50000), expires_year: 2027 },
@@ -247,14 +240,14 @@ it('applyTaxLosses: skips expired losses', () => {
   assert.equal(result.lossesApplied[0].origin_year, 2022);
 });
 
-it('applyTaxLosses: no losses to apply', () => {
+await it('applyTaxLosses: no losses to apply', () => {
   const result = applyTaxLosses(toCents(300000), [], 2024);
   assert.equal(result.adjustedTaxBase, toCents(300000));
   assert.equal(result.totalApplied, 0);
   assert.equal(result.lossesApplied.length, 0);
 });
 
-it('applyTaxLosses: loss > tax base → base = 0', () => {
+await it('applyTaxLosses: loss > tax base → base = 0', () => {
   const losses = [
     { origin_year: 2023, remaining_cents: toCents(500000), expires_year: 2028 },
   ];
@@ -268,7 +261,7 @@ it('applyTaxLosses: loss > tax base → base = 0', () => {
 
 console.log('\n── 7. Tax Loss Repository ──');
 
-it('recordTaxLoss stores loss', () => {
+await it('recordTaxLoss stores loss', () => {
   repo.recordTaxLoss(entityId, 2023, toCents(150000));
   const loss = repo.getTaxLoss(entityId, 2023);
   assert(loss);
@@ -277,13 +270,13 @@ it('recordTaxLoss stores loss', () => {
   assert.equal(loss.expires_year, 2028);
 });
 
-it('getActiveLosses returns unexpired losses', () => {
+await it('getActiveLosses returns unexpired losses', () => {
   const losses = repo.getActiveLosses(entityId, 2024);
   assert.equal(losses.length, 1);
   assert.equal(losses[0].origin_year, 2023);
 });
 
-it('updateLossRemaining reduces remaining', () => {
+await it('updateLossRemaining reduces remaining', () => {
   repo.updateLossRemaining(entityId, 2023, toCents(50000));
   const loss = repo.getTaxLoss(entityId, 2023);
   assert.equal(loss.remaining_cents, toCents(50000));
@@ -291,7 +284,7 @@ it('updateLossRemaining reduces remaining', () => {
   repo.updateLossRemaining(entityId, 2023, toCents(150000));
 });
 
-it('getActiveLosses excludes fully used losses', () => {
+await it('getActiveLosses excludes fully used losses', () => {
   repo.recordTaxLoss(entityId, 2022, toCents(100000));
   repo.updateLossRemaining(entityId, 2022, 0); // fully used
   const losses = repo.getActiveLosses(entityId, 2024);
@@ -311,7 +304,7 @@ const testEntity = {
 
 const entries2024 = repo.getEntriesByYear(entityId, 2024);
 
-it('generateTaxReturnData produces valid form', () => {
+await it('generateTaxReturnData produces valid form', () => {
   const form = generateTaxReturnData({
     entity: testEntity, entries: entries2024, rates: rates2024, year: 2024,
   });
@@ -331,28 +324,28 @@ it('generateTaxReturnData produces valid form', () => {
   assert(form.efektivni_sazba > 0);
 });
 
-it('generateTaxReturnData: příjmy = 1200000', () => {
+await it('generateTaxReturnData: příjmy = 1200000', () => {
   const form = generateTaxReturnData({
     entity: testEntity, entries: entries2024, rates: rates2024, year: 2024,
   });
   assert.equal(form.p1_prijmy_celkem, 1200000);
 });
 
-it('generateTaxReturnData: výdaje = 350000', () => {
+await it('generateTaxReturnData: výdaje = 350000', () => {
   const form = generateTaxReturnData({
     entity: testEntity, entries: entries2024, rates: rates2024, year: 2024,
   });
   assert.equal(form.p1_vydaje_celkem, 350000);
 });
 
-it('generateTaxReturnData: základ daně = 850000', () => {
+await it('generateTaxReturnData: základ daně = 850000', () => {
   const form = generateTaxReturnData({
     entity: testEntity, entries: entries2024, rates: rates2024, year: 2024,
   });
   assert.equal(form.p1_rozdil, 850000);
 });
 
-it('generateTaxReturnData includes advance payments', () => {
+await it('generateTaxReturnData includes advance payments', () => {
   const form = generateTaxReturnData({
     entity: testEntity, entries: entries2024, rates: rates2024, year: 2024,
   });
@@ -360,7 +353,7 @@ it('generateTaxReturnData includes advance payments', () => {
   assert.equal(form.zaplacene_zalohy_pojistne, 46224);
 });
 
-it('generateTaxReturnData: doplatek daně calculated', () => {
+await it('generateTaxReturnData: doplatek daně calculated', () => {
   const form = generateTaxReturnData({
     entity: testEntity, entries: entries2024, rates: rates2024, year: 2024,
   });
@@ -368,7 +361,7 @@ it('generateTaxReturnData: doplatek daně calculated', () => {
   assert.equal(form.doplatek_dan, form.dan_celkem - form.zaplacene_zalohy_dan);
 });
 
-it('generateTaxReturnData: with loss carryforward', () => {
+await it('generateTaxReturnData: with loss carryforward', () => {
   const losses = [
     { origin_year: 2023, remaining_cents: toCents(100000), expires_year: 2028 },
   ];
@@ -385,7 +378,7 @@ it('generateTaxReturnData: with loss carryforward', () => {
 
 console.log('\n── 9. Year Close Summary ──');
 
-it('computeYearCloseSummary produces complete data', () => {
+await it('computeYearCloseSummary produces complete data', () => {
   const result = computeYearCloseSummary({
     entity: testEntity, entries: entries2024, rates: rates2024, year: 2024,
   });
@@ -400,14 +393,14 @@ it('computeYearCloseSummary produces complete data', () => {
   assert.equal(result.rates_version, '2024_v1');
 });
 
-it('computeYearCloseSummary: no loss for profitable year', () => {
+await it('computeYearCloseSummary: no loss for profitable year', () => {
   const result = computeYearCloseSummary({
     entity: testEntity, entries: entries2024, rates: rates2024, year: 2024,
   });
   assert.equal(result.loss.hasLoss, false);
 });
 
-it('computeYearCloseSummary: detects loss for unprofitable year', () => {
+await it('computeYearCloseSummary: detects loss for unprofitable year', () => {
   const lossEntries = [
     { entry_type: 'income', amount_cents: toCents(50000), category: 'a', is_tax_deductible: 1 },
     { entry_type: 'expense', amount_cents: toCents(200000), category: 'b', is_tax_deductible: 1 },
@@ -423,7 +416,7 @@ it('computeYearCloseSummary: detects loss for unprofitable year', () => {
 
 console.log('\n── 10. Lock with Calculation Run ──');
 
-it('lockPeriod with calculation_run_id', () => {
+await it('lockPeriod with calculation_run_id', () => {
   const closeSummary = computeYearCloseSummary({
     entity: testEntity, entries: entries2024, rates: rates2024, year: 2024,
   });
@@ -444,7 +437,7 @@ it('lockPeriod with calculation_run_id', () => {
   assert(lock.notes.includes('2024'));
 });
 
-it('locked period has associated calculation run', () => {
+await it('locked period has associated calculation run', () => {
   const lock = repo.getPeriodLock(entityId, 2024);
   const run = repo.getLatestRun(entityId, 2024);
   assert(run);
@@ -455,7 +448,7 @@ it('locked period has associated calculation run', () => {
 
 console.log('\n── 11. Edge Cases ──');
 
-it('generateTaxReturnData: zero income year', () => {
+await it('generateTaxReturnData: zero income year', () => {
   const form = generateTaxReturnData({
     entity: testEntity, entries: [], rates: rates2024, year: 2024,
   });
@@ -466,7 +459,7 @@ it('generateTaxReturnData: zero income year', () => {
   assert(form.zdravotni_pojistne > 0); // minimums
 });
 
-it('generateTaxReturnData: with children', () => {
+await it('generateTaxReturnData: with children', () => {
   const entityKids = { ...testEntity, children: 2 };
   const form = generateTaxReturnData({
     entity: entityKids, entries: entries2024, rates: rates2024, year: 2024,
@@ -474,7 +467,7 @@ it('generateTaxReturnData: with children', () => {
   assert(form.zvyhodneni_deti > 0);
 });
 
-it('generateTaxReturnData: flat_expense entity', () => {
+await it('generateTaxReturnData: flat_expense entity', () => {
   const flatEntity = {
     ...testEntity, tax_regime: 'flat_expense', flat_expense_category: 'rate_60',
   };
@@ -487,7 +480,7 @@ it('generateTaxReturnData: flat_expense entity', () => {
   assert.equal(form.p1_rozdil, 480000);
 });
 
-it('generateTaxReturnData: 2025 rates', () => {
+await it('generateTaxReturnData: 2025 rates', () => {
   const form = generateTaxReturnData({
     entity: testEntity,
     entries: [{ entry_type: 'income', amount_cents: toCents(800000), category: 'a', is_tax_deductible: 1 }],
@@ -497,15 +490,9 @@ it('generateTaxReturnData: 2025 rates', () => {
   assert(form.socialni_mesicni >= Math.round(rates2025.social.osvc_min_monthly));
 });
 
-// ─── Summary ─────────────────────────────────────────────────────────────────
+// ─── Cleanup ─────────────────────────────────────────────────────────────────
 
 // Cleanup
 repo.unlockPeriod(entityId, 2024);
-
-console.log(`\n══════════════════════════════════════════════════════════`);
-console.log(`  Annual Engine: ${passed}/${passed + failed} PASS, ${failed} FAIL`);
-console.log(`══════════════════════════════════════════════════════════`);
-if (failed === 0) console.log('✅ ALL ANNUAL ENGINE TESTS PASS');
-else console.log(`❌ Failures: ${failures.join(', ')}`);
 
 db.close();

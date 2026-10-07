@@ -13,35 +13,7 @@ import './helpers/isolated-test-db.js';
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { strict as assert } from 'assert';
-
-// ─── Test Infrastructure ─────────────────────────────────────────────────────
-
-let passed = 0;
-let failed = 0;
-const failures = [];
-const pendingTests = [];
-
-function describe(name, fn) {
-  pendingTests.push(async () => {
-    console.log(`\n${'═'.repeat(70)}`);
-    console.log(`  ${name}`);
-    console.log(`${'═'.repeat(70)}`);
-    await fn();
-  });
-}
-
-async function it(name, fn) {
-  try {
-    await fn();
-    passed++;
-    console.log(`  ✅ ${name}`);
-  } catch (err) {
-    failed++;
-    failures.push({ name, error: err.message });
-    console.log(`  ❌ ${name}`);
-    console.log(`     ${err.message}`);
-  }
-}
+import { describe, it } from 'node:test';
 
 // ─── Imports ─────────────────────────────────────────────────────────────────
 
@@ -297,23 +269,3 @@ describe('T8.4: Confidence-based response styling', () => {
     assert.ok(Array.isArray(confidence.factors), 'Should have factors array');
   });
 });
-
-
-// ══════════════════════════════════════════════════════════════════════════════
-// RUN ALL TESTS
-// ══════════════════════════════════════════════════════════════════════════════
-
-for (const test of pendingTests) {
-  await test();
-}
-
-console.log(`\n${'═'.repeat(70)}`);
-console.log(`  RESULTS: ${passed} passed, ${failed} failed (${passed + failed} total)`);
-console.log(`${'═'.repeat(70)}`);
-
-if (failures.length > 0) {
-  console.log('\nFailed tests:');
-  failures.forEach(f => console.log(`  ❌ ${f.name}: ${f.error}`));
-}
-
-process.exit(failed > 0 ? 1 : 0);
