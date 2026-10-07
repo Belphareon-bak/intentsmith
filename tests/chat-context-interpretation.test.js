@@ -11,10 +11,10 @@ import { buildAnswerContext } from '../src/chat/handlers/decisions.js';
 import { llmGateway } from '../src/llm/gateway.js';
 import http from 'node:http';
 import { randomBytes } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
-import { createOwnedJourneyRuntime, expectJson, startProduct, stopProduct } from './helpers/chat-project-expertise-model-journey.js';
+import { createOwnedJourneyRuntime, expectJson, requestJson, startProduct, stopProduct } from './helpers/chat-project-expertise-model-journey.js';
 import { ConversationStore, TurnRole } from '../src/chat/conversation-store.js';
 import { maybeCompact, awaitPendingCompaction } from '../src/chat/context-compact.js';
 import { buildInterpretationContext, memoryReferenceBlock } from '../src/chat/conversation-context.js';
@@ -27,6 +27,97 @@ import { getLanguageContext } from '../src/chat/handlers/utils/language.js';
 import { assertCreativeQuality } from '../src/chat/handlers/utils/quality.js';
 import { registerConversationWebWriter } from '../src/network/conversation-web-repository.js';
 import { validateUnavailableAction, quoteActionDraft } from '../src/chat/unavailable-action.js';
+
+test('M1 classifier outage is a typed error with no assistant persistence or effects', async t => {
+  const input = 'Napiš podrobný odborný rozbor dvoufázového commitu v distribuovaném systému.';
+  for (const failure of ['http-503', 'connection-refused']) {
+    await t.test(failure, async () => {
+      const owned = createOwnedJourneyRuntime(isolatedTestRuntime);
+      const model = 'fixture:1b';
+      const digest = 'a'.repeat(64);
+      const calls = [];
+      const provider = http.createServer(async (request, response) => {
+        let body = '';
+        for await (const chunk of request) body += chunk;
+        response.setHeader('Content-Type', 'application/json');
+        if (request.url === '/api/tags') {
+          response.end(JSON.stringify({ models: [{ name: model, digest }] }));
+        } else if (request.url === '/api/show') {
+          response.end(JSON.stringify({ model_info: { 'fixture.context_length': 4096 } }));
+        } else if (request.url === '/api/chat') {
+          calls.push(JSON.parse(body));
+          response.writeHead(503).end(JSON.stringify({ error: 'PRIVATE_PROVIDER_OUTAGE_DETAIL' }));
+        } else {
+          response.writeHead(404).end('{}');
+        }
+      });
+      await new Promise(resolve => provider.listen(0, '127.0.0.1', resolve));
+      const providerUrl = `http://127.0.0.1:${provider.address().port}`;
+      let product;
+      let database;
+      try {
+        product = await startProduct(owned, providerUrl, model);
+        if (failure === 'connection-refused') {
+          provider.closeAllConnections();
+          await new Promise(resolve => provider.close(resolve));
+        }
+        const createConversation = async title => (await expectJson(product, 'POST',
+          '/api/conversations', { title, mode: 'chat' }, 201)).conversation.id;
+        const send = (conversationId, message) => requestJson(product, 'POST', '/api/chat', {
+          contract: 'ConversationCommand', version: 1, action: 'send',
+          requestId: randomBytes(16).toString('hex'), turnId: randomBytes(16).toString('hex'),
+          conversationId, input: message,
+        });
+
+        // A request that needs no model must still work while the provider is down.
+        const localConversation = await createConversation(`local-${failure}`);
+        const local = await send(localConversation, 'Kolik je 17 * 23?');
+        assert.equal(local.status, 200);
+        assert.equal(local.data.status, 'ok');
+        assert(local.data.response.content.includes('391'));
+        assert.equal(calls.length, 0, 'deterministic answer requested model inference');
+
+        const conversationId = await createConversation(`outage-${failure}`);
+        database = new Database(owned.database, { readonly: true });
+        const effectCount = () => database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n;
+        const beforeEffects = effectCount();
+        const result = await send(conversationId, input);
+        const roles = () => database.prepare('SELECT role FROM messages WHERE conversation_id = ? ORDER BY id')
+          .all(conversationId).map(row => row.role);
+        const observation = { failure, input, httpStatus: result.status, result: result.data,
+          roles: roles(), inferenceAttempts: calls.length, beforeEffects, afterEffects: effectCount() };
+        const evidencePath = path.join(owned.artifacts, 'm1-classifier-outage.json');
+        writeFileSync(evidencePath, JSON.stringify(observation, null, 2) + '\n', { mode: 0o600 });
+        t.diagnostic(`outage evidence: ${evidencePath}`);
+        assert.equal(result.status, 503, JSON.stringify(observation));
+        assert.equal(result.data.status, 'error');
+        assert.equal(result.data.error.code, 'LLM_PROVIDER_UNAVAILABLE');
+        assert.equal(Object.hasOwn(result.data, 'response'), false);
+        assert(!JSON.stringify(result.data).includes('PRIVATE_PROVIDER_OUTAGE_DETAIL'));
+        assert.deepEqual(roles(), ['user']);
+        assert.equal(effectCount(), beforeEffects);
+        if (failure === 'http-503') {
+          assert.equal(calls.length, 1, 'classification must not retry or generate a fallback answer');
+          assert(calls[0].messages[0].content.includes('Klasifikuj'));
+          assert.equal(JSON.parse(calls[0].messages.at(-1).content).request, input);
+        }
+
+        await stopProduct(product);
+        product = await startProduct(owned, providerUrl, model);
+        assert.deepEqual(roles(), ['user'], 'restart fabricated an assistant turn');
+        assert.equal(effectCount(), beforeEffects);
+        writeFileSync(path.join(owned.artifacts, 'm1-classifier-outage-restart.json'),
+          JSON.stringify({ failure, roles: roles(), effects: effectCount(), restartVerified: true }) + '\n',
+          { mode: 0o600 });
+      } finally {
+        database?.close();
+        await stopProduct(product);
+        provider.closeAllConnections();
+        if (provider.listening) await new Promise(resolve => provider.close(resolve));
+      }
+    });
+  }
+});
 
 test('unavailable effects have application status; independent text is generated without the effect clause', async () => {
   const original = llmGateway.call;

@@ -1,8 +1,102 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 7. 10. 2026, 09:39 CEST /07:39 UTC.
-**Vlastník:** ROOT; CHAT/Gemma a zbývající Hunt mají jiné workery.
+**Aktualizováno:** 7. 10. 2026; převzetí úzké CHAT/M1 opravy a opravený autonomní postup.
+**Vlastník integrace:** dosavadní ROOT (`work/real-chat-journeys-20260930`).
+**Vlastník CHAT/M1 C1:** tento navazující CHAT worker (`work/chat-quality-20261001`);
+operátor potvrdil, že předchozí CHAT již nezapisuje a úzkou opravu lze převzít.
+HTTP, Fan, fresh5 a M6 zůstávají ROOT; Hunt a druhý posudek jeho matice se nepřebírají.
 **Release NOT_ACCEPTED. HTTP API FAIL. Fan FAIL. Mobil čeká na stabilní IDE/BE.**
+
+## Autonomní postup přijatý po revizi 7. 10. 2026
+
+Autorita: operátor opravil návrh v bodech 1–10 a výslovně povolil po jejich
+zapracování začít; následně potvrdil převzetí M1 opravy od neaktivního CHAT writera.
+Tento soubor je jediný aktuální deník. `COMPLETION-TRACKER` je historický od
+`2a479852`; chatový PROGRESS uchovává předchozí měření, není druhý společný plán.
+
+**Etapa 0 — převzetí, nikoli nová konsolidace.** Ověřený ROOT základ je
+`a61fe70d5ddabd63e066e9cbf4c8111b88f9fa56`, 546 commitů nad ověřeným GitHub
+main `838b8cee`. Obsahuje CHAT `e066956b` (merge `56138e4f`) a projektovou D1
+změnu `8fe6fb53`. Čistý vlastní CHAT checkout byl na tento základ fast-forwardnut;
+ROOT checkout, produkce a zmrazený Gemma kandidát `9591ea1b` se nemění.
+Full109 a kopírovaná cache/upgrade jsou přijaté v rozsahu níže; neopakují se bez
+nové změny nebo konkrétní pochybnosti. Celý profil 410 PASS patří pouze `86dbca40`.
+
+**Vlastnictví a předání.** CHAT C1 vlastní jen klasifikační propagaci chyby,
+související regresní důkazy a vlastní dokumentaci v CHAT checkoutu. ROOT dále
+vlastní HTTP/Fan/M6 a společné integrační dokumenty; změny tohoto deníku z CHAT
+větve přebírá při integračním checkpointu, žádný souběžný zápis do jeho checkoutu.
+`cre-decision.js` má pro C1 jediného writera CHAT; již integrovaný projektový
+dispatch D1 se zachová a ověří. Reviewer produktový zdroj neopravuje. Nový
+souběh nad stejným souborem nebo connectorem vyžaduje předání vlastnictví.
+
+**Cyklus.** Jedna pojmenovaná uživatelská změna nebo nezbytná diagnóza má vstupní
+SHA, vlastněné cesty, reprodukci, pozitivní a negativní důkaz, stop podmínku a
+přesné příkazy. Po implementaci následuje nezávislé review druhým workerem,
+opravy a nové review změněné části; potom relevantní integrační kontroly.
+Autor se nepřijímá sám. Jednotlivé úkoly/commity z agentního protokolu jsou
+vnitřní kroky tohoto revizního cyklu. Uzavřený cyklus a nejpozději tři hodiny
+aktivní práce dostanou checkpoint zde, včetně otevřených vad a dalšího kroku.
+Po přijatém cyklu se pokračuje bez nového běžného potvrzení. Gate 0 patří až
+release WP; FAIL/BLOCKED/NOT_RUN se nepřeznačují. Publikace podle CONTRACT §11
+ověřuje vzdálené SHA a sama neznamená integraci, nasazení ani release přijetí.
+
+**Pořadí.** C1 opraví spolknutý `LLM_PROVIDER_UNAVAILABLE` před ROOT fresh5.
+Potom společný freeze/CI a původní fresh5 vlastní ROOT. Před dalším laděním
+kvality následuje rozbor všech 36 neužitečných odpovědí a 22 zastavení z Gemma
+regrese podle rodiny a příčiny (aplikace/model/hodnocení, překryvy se nesčítají).
+Stagnace se uplatňuje ihned; nové prompty ani regex opravy bez doložené příčiny.
+Po dvou cyklech bez posunu se strategie přehodnotí a problém oznámí, nezávislá
+práce může pokračovat. Historické různě hodnocené série nejsou samy kontrolované
+srovnání modelů. Pokud evidence ukáže limit lokálního modelu, předloží se měřené
+varianty bez tichého snížení kvality nebo změny produkčních bindingů.
+Přirozený vstup D1 je implementovaný a integrovaný; zbývá skutečné Studio → D1
+ověření, nikoli nové povolení k napsání téže opravy. Další cykly pokryjí
+file/web/export/skills, projektové A→B→A a změna→test→rollback/restart,
+specialistu/agenta, scoped learning, další restore a provozní/release matice
+podle již přijatých závislostí. Mobil zůstává samostatný release.
+
+**Kvalita a holdout.** ≥95 % užitečných / ≤5 % zbytečných zastavení / 0 kritických
+chyb / 3 nezměněné série jsou nutná regrese na známých 53 případech, ne finální
+přejímka. Rozpad rodin a celé odpovědi lze použít pro tuto exponovanou regresi.
+H1 je podle operátorovy kontroly odpečetěný, SHA odpovídá pečeti, ale sběr
+neproběhl: `UNSEALED / NOT_RUN`. Obsah ani odpovědi tohoto holdoutu implementátor
+nečte, nevyhledává ani nezahrnuje do běžné inventury či balíku review. Neprohlašuje
+se technická izolace: plaintext dostupný témuž OS účtu není izolovaný pomocí 0600.
+Před sběrem musí vlastník holdoutu zajistit oddělený přístup runneru/hodnotitelů;
+mezitím zůstává mimo pracovní vstupy. Žádné široké hledání v evidence rootu,
+`restricted/`, dešifrovaných sadách ani jejich odpovědích. C1 používá výhradně
+veřejnou původní outage reprodukci, nové vlastní logy a známou regresi.
+H1 slouží jedné přejímce zmrazeného kandidáta (tři předepsané neměnné série);
+implementátor dostane jen celkový verdikt a identitu kandidáta/protokolu,
+žádné rodiny, příklady ani průběžné známky. Po uzavření se H1 považuje za
+spotřebovaný regresní korpus. Finální etapa 5 vyžaduje nový nezávislý H2,
+zapečetěný s rubrikou/prahy před sběrem, bez ladění podle výsledků. Významovou
+přejímku provádějí dva nezávislí kvalifikovaní hodnotitelé, ne autor kódu.
+
+**Paket pro každou revizi.** Base SHA a candidate SHA; přesný diff; příkazy
+s očekávanými exity; cesty k raw důkazům a jejich SHA-256; známá omezení;
+seznam zakázaných vstupů (`restricted/`, H1/H2 a jejich odpovědi). GPU okno
+má vlastníka, dohodnutý začátek/konec a předání lease s čistým procesním/GPU
+inventářem. C1 CPU/řízený loopback GPU nevyžaduje; živý fresh5 rezervuje ROOT
+společně s reviewerem před spuštěním. Bez potvrzeného okna se inference nespustí.
+Dokumentace dotčeného chování a aktuální mapy se mění ve stejném cyklu;
+historická evidence se zachovává. Technické volby se řeší autonomně; změny
+produktového cíle, authority, kritérií, nevratné zásahy a nové výdaje se předkládají
+s daty, variantami, doporučením a konkrétním blokovaným krokem včas.
+
+### C1 — M1 provider outage (IN_PROGRESS; vstup a61fe70d)
+
+Výsledek: PROVIDER_UNAVAILABLE skutečně vyžádané modelové klasifikace skončí existujícím
+typovaným M1 error, bez odpovědi assistant/úspěšného terminálu a bez effectu.
+Deterministická odpověď, která model nepotřebuje, zůstane funkční offline.
+Přijatý D1 dispatch ani pravidla pro neplatný modelový JSON se neoslabují.
+Rozsah: `src/chat/cre-decision.js`, příslušná stávající M1/kontextová sada,
+vlastní evidence a dokumentace; gateway, M2 authority, HTTP/Fan budgety,
+produkční DB/bindingy, holdout a ROOT checkout jsou mimo zapisovaný rozsah.
+Předání: BASE/CANDIDATE, red→green API/persistence reprodukce, regresní/registry
+kontroly, nezávislé review; ROOT potom svůj freeze/CI/fresh5. Stav při převzetí:
+produktová chyba doložená historickým fresh5, nový regresní běh ještě NOT_RUN.
 
 ## Přijaté dílčí výsledky
 

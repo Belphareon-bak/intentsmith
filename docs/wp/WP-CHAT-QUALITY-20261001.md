@@ -1,8 +1,18 @@
 # WP — přirozený chat a pokračování v upřesněném zadání
 
-Aktuální milníky, výsledky, otevřená selhání a publikační stav:
-[průběžný dokument](WP-CHAT-QUALITY-20261001-PROGRESS.md), aktualizovaný po
-každém milníku nebo nejpozději po třech hodinách aktivní práce.
+**Navazující zadání 7. 10. 2026:** operátor přijal opravený autonomní postup
+a potvrdil, že původní CHAT již nezapisuje. Tento worker přebírá úzkou opravu
+M1 provider-outage nad společným ROOT `a61fe70d` ve stávajícím CHAT checkoutu.
+Aktuální stav, vlastnictví, C1 scope a jednorázový holdout protokol jsou pouze
+v [WORK-PROGRESS](../WORK-PROGRESS.md). Přirozený D1 vstup `8fe6fb53` už ROOT
+implementoval a merge `56138e4f` spojil s CHAT `e066956b`; zbývá Studio evidence.
+Níže uvedené čekání na odpečetění/dokončení sběru je historické: H1 je podle
+operátora odpečetěný, sběr NOT_RUN, obsah zůstává implementátorovi zakázaný.
+C1 opravuje veřejně reprodukovaný outage a nemění zmrazený H1 kandidát.
+
+Historická chatová měření a publikační checkpointy do 4. 10.:
+[původní průběžný dokument](WP-CHAT-QUALITY-20261001-PROGRESS.md).
+Aktuální cykly a revize se zapisují do WORK-PROGRESS odkazovaného výše.
 
 Autorita: explicitní zadání operátora z 1. 10. 2026 ověřit dodaný posudek,
 doplnit důležité mezery a implementovat a testovat kvalitu chatu;
