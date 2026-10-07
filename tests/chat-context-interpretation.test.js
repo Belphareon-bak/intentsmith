@@ -30,18 +30,27 @@ import { validateUnavailableAction, quoteActionDraft } from '../src/chat/unavail
 
 test('M1 classifier outage is a typed error with no assistant persistence or effects', async t => {
   const input = 'Napiš podrobný odborný rozbor dvoufázového commitu v distribuovaném systému.';
-  for (const failure of ['http-503', 'connection-refused', 'http-502', 'socket-close-before-headers', 'partial-response-close']) {
+  for (const failure of ['http-503', 'http-500', 'http-502', 'malformed-provider-envelope', 'http-404',
+    'tags-model-absent', 'tags-http-500', 'connection-refused', 'socket-close-before-headers',
+    'partial-response-close', 'tags-digest-drift', 'served-model-drift', 'served-digest-drift']) {
     await t.test(failure, async () => {
       const owned = createOwnedJourneyRuntime(isolatedTestRuntime);
       const model = 'fixture:1b';
       const digest = 'a'.repeat(64);
       const calls = [];
+      let active = false;
       const provider = http.createServer(async (request, response) => {
         let body = '';
         for await (const chunk of request) body += chunk;
         response.setHeader('Content-Type', 'application/json');
         if (request.url === '/api/tags') {
-          response.end(JSON.stringify({ models: [{ name: model, digest }] }));
+          if (active && failure === 'tags-http-500') {
+            response.writeHead(500).end(JSON.stringify({ error: 'PRIVATE_PROVIDER_OUTAGE_DETAIL' }));
+          } else {
+            response.end(JSON.stringify({ models: active && failure === 'tags-model-absent' ? [] : [{
+              name: model, digest: active && failure === 'tags-digest-drift' ? 'b'.repeat(64) : digest,
+            }] }));
+          }
         } else if (request.url === '/api/show') {
           response.end(JSON.stringify({ model_info: { 'fixture.context_length': 4096 } }));
         } else if (request.url === '/api/chat') {
@@ -52,9 +61,19 @@ test('M1 classifier outage is a typed error with no assistant persistence or eff
             response.writeHead(200);
             response.write('{"model":"fixture:1b","message":{"content":"');
             setTimeout(() => response.destroy(), 25);
+          } else if (failure === 'malformed-provider-envelope') {
+            response.end(JSON.stringify({ model, digest, message: { content: 17 }, done: true }));
+          } else if (failure === 'served-model-drift' || failure === 'served-digest-drift') {
+            response.end(JSON.stringify({
+              model: failure === 'served-model-drift' ? 'different:1b' : model,
+              digest: failure === 'served-digest-drift' ? 'b'.repeat(64) : digest,
+              message: { content: JSON.stringify({ intent: 'AMBIGUOUS', confidence: 0.5,
+                question: 'Co přesně chceš?', continuesPending: false }) }, done: true, done_reason: 'stop',
+            }));
           } else {
-            response.writeHead(failure === 'http-502' ? 502 : 503)
-              .end(JSON.stringify({ error: 'PRIVATE_PROVIDER_OUTAGE_DETAIL' }));
+            response.writeHead(Number(failure.slice(5)) || 503)
+              .end(JSON.stringify({ error: failure === 'http-500'
+                ? 'PRIVATE_PROVIDER_OUTAGE_DETAIL model not loaded' : 'PRIVATE_PROVIDER_OUTAGE_DETAIL' }));
           }
         } else {
           response.writeHead(404).end('{}');
@@ -66,6 +85,7 @@ test('M1 classifier outage is a typed error with no assistant persistence or eff
       let database;
       try {
         product = await startProduct(owned, providerUrl, model);
+        active = true; // Change provider only after healthy durable binding startup.
         if (failure === 'connection-refused') {
           provider.closeAllConnections();
           await new Promise(resolve => provider.close(resolve));
@@ -88,7 +108,9 @@ test('M1 classifier outage is a typed error with no assistant persistence or eff
 
         const conversationId = await createConversation(`outage-${failure}`);
         database = new Database(owned.database, { readonly: true });
-        const effectCount = () => database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n;
+        const effectCount = () => Object.fromEntries(['tool_v1_requests', 'm2_effect_requests',
+          'm2_approval_grants', 'm2_effect_results'].map(table => [table,
+          database.prepare(`SELECT count(*) AS n FROM ${table}`).get().n]));
         const beforeEffects = effectCount();
         const result = await send(conversationId, input);
         const roles = () => database.prepare('SELECT role FROM messages WHERE conversation_id = ? ORDER BY id')
@@ -98,24 +120,27 @@ test('M1 classifier outage is a typed error with no assistant persistence or eff
         const evidencePath = path.join(owned.artifacts, 'm1-classifier-outage.json');
         writeFileSync(evidencePath, JSON.stringify(observation, null, 2) + '\n', { mode: 0o600 });
         t.diagnostic(`outage evidence: ${evidencePath}`);
-        const unavailable = ['http-503', 'connection-refused', 'socket-close-before-headers'].includes(failure);
+        const unavailable = !['malformed-provider-envelope', 'partial-response-close'].includes(failure);
         assert.equal(result.status, unavailable ? 503 : 500, JSON.stringify(observation));
         assert.equal(result.data.error.code, unavailable ? 'LLM_PROVIDER_UNAVAILABLE' : 'CHAT_PROCESSING_FAILED');
         assert.equal(result.data.status, 'error');
         assert.equal(Object.hasOwn(result.data, 'response'), false);
         assert(!JSON.stringify(result.data).includes('PRIVATE_PROVIDER_OUTAGE_DETAIL'));
         assert.deepEqual(roles(), ['user']);
-        assert.equal(effectCount(), beforeEffects);
-        if (failure !== 'connection-refused') {
+        assert.deepEqual(effectCount(), beforeEffects);
+        const expectedCalls = failure === 'connection-refused' || failure.startsWith('tags-') ? 0 : 1;
+        assert.equal(calls.length, expectedCalls, 'binding rejection must precede generation; no retry/fallback');
+        if (expectedCalls === 1) {
           assert.equal(calls.length, 1, 'classification must not retry or generate a fallback answer');
           assert(calls[0].messages[0].content.includes('Klasifikuj'));
           assert.equal(JSON.parse(calls[0].messages.at(-1).content).request, input);
         }
 
         await stopProduct(product);
+        active = false;
         product = await startProduct(owned, providerUrl, model);
         assert.deepEqual(roles(), ['user'], 'restart fabricated an assistant turn');
-        assert.equal(effectCount(), beforeEffects);
+        assert.deepEqual(effectCount(), beforeEffects);
         writeFileSync(path.join(owned.artifacts, 'm1-classifier-outage-restart.json'),
           JSON.stringify({ failure, roles: roles(), effects: effectCount(), restartVerified: true }) + '\n',
           { mode: 0o600 });
@@ -129,7 +154,7 @@ test('M1 classifier outage is a typed error with no assistant persistence or eff
   }
 });
 
-test('classifier error handling preserves cancellation and invalid-output fallback', async () => {
+test('classifier error handling preserves cancellation and invalid-output fallback', async t => {
   const original = llmGateway.call;
   try {
     for (const content of ['not JSON', '{"intent":"UNKNOWN","confidence":0.9}',
@@ -137,9 +162,41 @@ test('classifier error handling preserves cancellation and invalid-output fallba
       llmGateway.call = async () => ({ content, finishReason: 'stop' });
       assert.equal(await creDecisionEngine._llmClassifyIntent('Pomoz mi s výběrem.', {}), null);
     }
-    // Text mentioning an outage is not a transport error or permission to change routing.
-    llmGateway.call = async () => { throw new Error('LLM_PROVIDER_UNAVAILABLE'); };
-    assert.equal(await creDecisionEngine._llmClassifyIntent('Pomoz mi s výběrem.', {}), null);
+    // A rejected gateway call is terminal regardless of message text or a new error code.
+    // These are internal ChatTurnError fields; ConversationResult does not serialize recoverable.
+    for (const gatewayError of [new Error('LLM_PROVIDER_UNAVAILABLE'),
+      Object.assign(new Error('future gateway failure'), { code: 'LLM_NEW_OPERATIONAL_FAILURE' }),
+      Object.assign(new Error('empty provider reply'), { code: 'LLM_PROVIDER_EMPTY_RESPONSE' })]) {
+      await t.test(gatewayError.code || 'untyped-gateway-error', async () => {
+        llmGateway.call = async () => { throw gatewayError; };
+        await assert.rejects(creDecisionEngine._llmClassifyIntent('Pomoz mi s výběrem.', {}),
+          error => error.code === 'LLM_PROVIDER_UNAVAILABLE' && error.statusCode === 503
+            && error.recoverable === true);
+      });
+    }
+    await t.test('nested timeout preserves cancellation without an aborted signal', async () => {
+      const { AbortSource, createAbortError } = await import('../src/core/abort-error.js');
+      const timeout = createAbortError(AbortSource.TIMEOUT);
+      llmGateway.call = async () => { throw new Error('gateway wrapper', { cause: timeout }); };
+      await assert.rejects(creDecisionEngine._llmClassifyIntent('Pomoz mi s výběrem.', {}),
+        error => error === timeout && error.abortSource === AbortSource.TIMEOUT);
+    });
+    await t.test('cyclic unknown gateway causes fail closed', { timeout: 1000 }, async () => {
+      const cyclic = Object.assign(new Error('unknown gateway failure'), { code: 'LLM_FUTURE_FAILURE' });
+      cyclic.cause = cyclic;
+      llmGateway.call = async () => { throw cyclic; };
+      await assert.rejects(creDecisionEngine._llmClassifyIntent('Pomoz mi s výběrem.', {}),
+        error => error.code === 'LLM_PROVIDER_UNAVAILABLE' && error.statusCode === 503
+          && error.recoverable === true);
+    });
+    await t.test('existing typed capacity failure survives a gateway wrapper', async () => {
+      const { ChatContextCapacityError } = await import('../src/core/chat-turn-error.js');
+      const capacity = new ChatContextCapacityError('CLASSIFIER_CONTEXT_TOO_LARGE');
+      llmGateway.call = async () => { throw new Error('gateway wrapper', { cause: capacity }); };
+      await assert.rejects(creDecisionEngine._llmClassifyIntent('Pomoz mi s výběrem.', {}),
+        error => error === capacity && error.code === 'CHAT_CONTEXT_CAPACITY_EXCEEDED'
+          && error.statusCode === 413 && error.recoverable === false);
+    });
     const controller = new AbortController();
     llmGateway.call = async () => {
       controller.abort();

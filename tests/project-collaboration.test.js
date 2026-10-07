@@ -935,3 +935,189 @@ test('natural project request crosses the actual semantic classifier and default
     Object.assign(creDecisionEngine, engineState);
   }
 });
+
+
+// C9: actual M1 terminal boundary, controlled local provider; no live inference.
+test('M1 project planner terminal failures preserve HTTP status, user-only history and zero effects across restart', { timeout: 180_000 }, async t => {
+  const http = await import('node:http');
+  const { randomUUID } = await import('node:crypto');
+  const { default: Database } = await import('better-sqlite3');
+  const { createOwnedJourneyRuntime, startProduct, stopProduct, requestJson, expectJson } =
+    await import('./helpers/chat-project-expertise-model-journey.js');
+  const { PROJECT_DISCUSSION_SCHEMA } = await import('../src/chat/handlers/project-collaboration.js');
+  const input = 'Vytvoř další přírůstek monitoru ve zdrojích a testech. Existující závislost uveď pouze jako contextFiles.';
+  const cases = [
+    { id: 'http-503', status: 503, code: 'LLM_PROVIDER_UNAVAILABLE' },
+    { id: 'http-502', status: 503, code: 'LLM_PROVIDER_UNAVAILABLE' },
+    { id: 'http-404', status: 503, code: 'LLM_PROVIDER_UNAVAILABLE' },
+    { id: 'tags-unverified', status: 503, code: 'LLM_PROVIDER_UNAVAILABLE', plannerCalls: 0 },
+    { id: 'malformed-envelope', status: 500, code: 'CHAT_PROCESSING_FAILED' },
+    { id: 'empty-response', status: 503, code: 'LLM_PROVIDER_UNAVAILABLE' },
+    { id: 'socket-close-before-headers', status: 503, code: 'LLM_PROVIDER_UNAVAILABLE' },
+    { id: 'invalid-planner-json', status: 500, code: 'CHAT_PROCESSING_FAILED' },
+    { id: 'incomplete-planner', status: 500, code: 'CHAT_PROCESSING_FAILED' },
+    { id: 'exhausted-structural-repair', status: 500, code: 'CHAT_PROCESSING_FAILED', plannerCalls: 2 },
+    { id: 'valid-plan-null', status: 200, code: null },
+    { id: 'cancel-planner', status: 409, code: 'CHAT_CANCELLED' },
+  ];
+  for (const scenario of cases) await t.test(scenario.id, async () => {
+    const owned = createOwnedJourneyRuntime(isolatedTestRuntime);
+    const model = 'fixture:1b', digest = 'a'.repeat(64);
+    const safeReply = 'Nejprve upřesni interval vzorkování; návrh zatím nic nemění.';
+    const calls = [], wire = [], violations = [];
+    let phase = 'startup', classifierCompleted = false, tagsFaults = 0;
+    let reachedPlanner; const plannerReached = new Promise(resolve => { reachedPlanner = resolve; });
+    const write = (name, value) => fs.writeFile(path.join(owned.artifacts, name), JSON.stringify(value, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
+    const wirePath = path.join(owned.artifacts, 'provider-wire.jsonl');
+    await fs.writeFile(wirePath, '', { flag: 'wx', mode: 0o600 });
+    const event = async value => { wire.push(value); await fs.appendFile(wirePath, JSON.stringify(value) + '\n'); };
+    const provider = http.createServer(async (req, res) => {
+      let raw = '';
+      try {
+        for await (const chunk of req) { raw += chunk; if (Buffer.byteLength(raw) > 1024 * 1024) throw Error('fixture request exceeded bound'); }
+        const row = { at: new Date().toISOString(), phase, method: req.method, url: req.url,
+          requestBase64: Buffer.from(raw).toString('base64') };
+        const respond = async (status, value) => {
+          const body = typeof value === 'string' ? value : JSON.stringify(value);
+          await event({ ...row, status, responseBase64: Buffer.from(body).toString('base64') });
+          res.writeHead(status, { 'Content-Type': 'application/json' }).end(body);
+        };
+        if (req.url === '/api/tags') {
+          if (phase === 'target' && classifierCompleted && scenario.id === 'tags-unverified') {
+            tagsFaults++; return await respond(200, { models: [] });
+          }
+          return await respond(200, { models: [{ name: model, digest }] });
+        }
+        if (req.url === '/api/show') return await respond(200, { model_info: { 'fixture.context_length': 4096 } });
+        if (req.url !== '/api/chat') throw Error(`unexpected provider route ${req.url}`);
+        const body = JSON.parse(raw); calls.push(body);
+        assert.equal(phase, 'target', 'startup/restart must not request inference');
+        assert.equal(body.model, model);
+        const classifier = body.format === 'json';
+        if (classifier) {
+          assert.equal(calls.length, 1, 'classification cannot retry');
+          assert.match(body.messages[0].content, /Klasifikuj/);
+          assert.equal(JSON.parse(body.messages.at(-1).content).request, input);
+          const value = { intent: 'CREATIVE', confidence: 0.95, fileTarget: null, question: null,
+            continuesPending: false, responseScope: 'project', briefResponse: false,
+            responseWordCount: null, requestedOperation: 'none', unavailableAction: null };
+          await respond(200, { model, digest, message: { content: JSON.stringify(value) }, done: true,
+            done_reason: 'stop', prompt_eval_count: 100, eval_count: 40 });
+          classifierCompleted = true; return;
+        }
+        assert.deepEqual(body.format, PROJECT_DISCUSSION_SCHEMA, 'second role must be actual D1 planner');
+        assert.equal(JSON.parse(body.messages.at(-1).content).request, input);
+        assert.ok(calls.length <= 1 + (scenario.plannerCalls ?? 1), 'no extra inference or unbounded repair');
+        reachedPlanner();
+        if (scenario.id === 'cancel-planner') { await event({ ...row, heldForCancellation: true }); return; }
+        if (scenario.id === 'socket-close-before-headers') { await event({ ...row, socketClosedBeforeHeaders: true }); req.socket.destroy(); return; }
+        if (scenario.id.startsWith('http-')) return await respond(Number(scenario.id.slice(5)), { error: 'PRIVATE_PROJECT_PROVIDER_DETAIL' });
+        if (scenario.id === 'malformed-envelope') return await respond(200, { model, digest, message: { content: 42 }, done: true, done_reason: 'stop' });
+        let content = JSON.stringify({ reply: safeReply, plan: null });
+        if (scenario.id === 'empty-response') content = '';
+        if (scenario.id === 'invalid-planner-json') content = 'PRIVATE_INVALID_PLAN_NOT_JSON';
+        if (scenario.id === 'exhausted-structural-repair') content = JSON.stringify({ reply: 'Proposed', plan: { instruction: 'Retain monitor history.', files: [] } });
+        return await respond(200, { model, digest, message: { content }, done: true,
+          done_reason: scenario.id === 'incomplete-planner' ? 'length' : 'stop', prompt_eval_count: 100, eval_count: 40 });
+      } catch (error) {
+        violations.push({ message: error.message, stack: error.stack });
+        if (!res.headersSent && !res.destroyed) res.writeHead(500, { 'Content-Type': 'application/json' }).end('{}');
+      }
+    });
+    await new Promise(resolve => provider.listen(0, '127.0.0.1', resolve));
+    const providerUrl = `http://127.0.0.1:${provider.address().port}`;
+    let product, database, project, conversationId, observation;
+    const stops = [];
+    const stop = async () => {
+      if (!product) return;
+      const state = product;
+      await stopProduct(state);
+      stops.push({ pid: state.child.pid, exitCode: state.code, signal: state.signal, outputTail: state.output });
+      product = null;
+    };
+    try {
+      product = await startProduct(owned, providerUrl, model);
+      project = (await expectJson(product, 'POST', '/api/projects', { name: `Planner ${scenario.id}`, type: 'general', description: 'Controlled monitor planner failure fixture.' }, 201)).project;
+      conversationId = (await expectJson(product, 'POST', '/api/conversations', { title: scenario.id, project_id: project.id, mode: 'chat' }, 201)).conversation.id;
+      database = new Database(owned.database, { readonly: true });
+      const tables = ['tool_v1_requests', 'm2_lifecycle_operations', 'm2_execution_requests', 'm2_effect_requests', 'm2_effect_results'];
+      const snapshot = () => ({ messages: database.prepare('SELECT id, role, content, metadata FROM messages WHERE conversation_id=? ORDER BY id').all(conversationId),
+        counts: Object.fromEntries(tables.map(name => [name, database.prepare(`SELECT count(*) AS n FROM ${name}`).get().n])) });
+      const projectSnapshot = async () => {
+        const git = args => execFileSync('git', args, { cwd: project.path, encoding: 'utf8' });
+        return { head: git(['rev-parse', 'HEAD']).trim(), status: git(['status', '--porcelain', '--untracked-files=all']),
+          files: Object.fromEntries(await Promise.all(git(['ls-files', '-z']).split('\0').filter(Boolean)
+            .map(async file => [file, (await fs.readFile(path.join(project.path, file))).toString('base64')]))) };
+      };
+      const before = snapshot(), beforeProject = await projectSnapshot();
+      const command = { contract: 'ConversationCommand', version: 1, action: 'send',
+        requestId: randomUUID(), turnId: randomUUID(), conversationId, input };
+      phase = 'target';
+      let result, cancellation = null;
+      const pending = requestJson(product, 'POST', '/api/chat', command);
+      if (scenario.id === 'cancel-planner') {
+        let timer;
+        try { await Promise.race([plannerReached, new Promise((_, reject) => { timer = setTimeout(() => reject(Error('planner not reached before cancel')), 15_000); })]); }
+        finally { clearTimeout(timer); }
+        cancellation = await requestJson(product, 'POST', '/api/chat', { contract: 'ConversationCommand', version: 1,
+          action: 'cancel', requestId: randomUUID(), turnId: randomUUID(), conversationId });
+      }
+      result = await pending;
+      const after = snapshot(), afterProject = await projectSnapshot();
+      observation = { scenario, ownedRoot: owned.root, database: owned.database, projectId: project.id,
+        projectPath: project.path, command, result, cancellation, before, after, beforeProject, afterProject,
+        calls, tagsFaults, violations };
+      await write('target-before-assertions.json', observation);
+      // A RED must retain restart evidence too: make no expected-status assertion before restart.
+      phase = 'restart';
+      await stop();
+      product = await startProduct(owned, providerUrl, model);
+      const restarted = snapshot(), restartedProject = await projectSnapshot();
+      await write('restart-before-assertions.json', { scenario: scenario.id, restarted, restartedProject, stops: [...stops] });
+      observation.restarted = restarted; observation.restartedProject = restartedProject;
+      await stop();
+      database.close(); database = null;
+      await write('observation.json', { ...observation, stops });
+      t.diagnostic(`C9 evidence: ${owned.artifacts}`);
+      // Fixture, isolation and durable no-effect assertions are independent of the expected RED status.
+      assert.deepEqual(violations, []);
+      assert.equal(calls.length, 1 + (scenario.plannerCalls ?? 1));
+      if (scenario.id === 'tags-unverified') assert.ok(tagsFaults > 0, 'D1 binding verification was not exercised');
+      assert.deepEqual(after.counts, before.counts);
+      assert.deepEqual(restarted.counts, before.counts);
+      assert.deepEqual(afterProject, beforeProject);
+      assert.deepEqual(restartedProject, beforeProject);
+      assert.deepEqual(restarted.messages, after.messages);
+      assert.equal(result.data.requestId, command.requestId);
+      assert.equal(result.data.turnId, command.turnId);
+      assert.equal(result.data.conversationId, conversationId);
+      assert.equal(result.status, scenario.status, JSON.stringify({ scenario: scenario.id, result }));
+      if (scenario.id === 'valid-plan-null') {
+        assert.equal(result.data.status, 'ok');
+        assert.equal(result.data.response.content, safeReply);
+        assert.equal(result.data.response.metadata.handler, 'project.collaboration');
+        assert.equal(result.data.response.metadata.projectWorkProposal, null);
+        assert.deepEqual(after.messages.map(row => row.role), ['user', 'assistant']);
+        assert.equal(after.messages[1].content, safeReply);
+      } else {
+        assert.equal(result.data.status, scenario.id === 'cancel-planner' ? 'cancelled' : 'error');
+        assert.equal(result.data.error.code, scenario.code);
+        assert.equal(Object.hasOwn(result.data, 'response'), false);
+        assert.doesNotMatch(JSON.stringify(result.data), /PRIVATE_PROJECT_PROVIDER_DETAIL|PRIVATE_INVALID_PLAN/);
+        assert.deepEqual(after.messages.map(row => row.role), ['user']);
+        if (scenario.id === 'cancel-planner') {
+          assert.equal(cancellation.status, 200);
+          assert.equal(cancellation.data.status, 'cancelled');
+          assert.equal(cancellation.data.error.code, 'CHAT_CANCELLED');
+        }
+      }
+    } finally {
+      database?.close();
+      await stop();
+      provider.closeAllConnections();
+      if (provider.listening) await new Promise(resolve => provider.close(resolve));
+      await write('cleanup.json', { scenario: scenario.id, stops, providerClosed: !provider.listening,
+        generatedByRealModel: false, fixtureViolations: violations });
+    }
+  });
+});

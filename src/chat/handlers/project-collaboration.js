@@ -1,3 +1,5 @@
+import { isAbortError, throwIfAborted } from '../../core/abort-error.js';
+import { ChatProcessingError, isChatTurnError, LLMProviderUnavailableError, throwChatModelCallFailure } from '../../core/chat-turn-error.js';
 // Read-only project reasoning. This proposes work for the existing M2 editor;
 // it cannot approve a plan, write a file, start an agent or run project code.
 import { randomUUID, createHash } from 'node:crypto';
@@ -201,7 +203,10 @@ export async function generateProjectDiscussion({ prompt, signal, sessionId }) {
     import('../../config.js'), import('../../llm/gateway.js'), import('../../llm/auth-types.js'), import('../../llm/model-ctx.js'),
   ]);
   const model = config.models?.D1;
-  if (!model) throw Object.assign(new Error('Role D1 nemá nakonfigurovaný model.'), { code: 'PROJECT_MODEL_UNAVAILABLE' });
+  if (!model) {
+    throwIfAborted(signal);
+    throw new LLMProviderUnavailableError('PROJECT_MODEL_UNAVAILABLE');
+  }
   const budget = fitProjectDiscussionPrompt(prompt, resolveNumCtx(model));
   const requestId = `project-work-${randomUUID()}`;
   const token = auth.createAuthToken({ role: auth.LLMCallerRole.WORKFLOW_PLANNER,
@@ -211,7 +216,8 @@ export async function generateProjectDiscussion({ prompt, signal, sessionId }) {
     timeout: 120_000, maxTokens: budget.maxTokens, num_ctx: budget.numCtx, format: PROJECT_DISCUSSION_SCHEMA, temperature: 0.1,
     capability: auth.LLMCapability.REASONING, requestType: 'm1:answer',
     correlation: { requestId, conversationId: sessionId, turnId: requestId,
-      callerRole: auth.LLMCallerRole.WORKFLOW_PLANNER, modelRole: 'D1', purpose: 'answer' } });
+      callerRole: auth.LLMCallerRole.WORKFLOW_PLANNER, modelRole: 'D1', purpose: 'answer' } })
+    .catch(error => throwChatModelCallFailure(error, signal, 'PROJECT_PLANNING_PROVIDER_FAILED'));
   return { ...result, projectContextSelection: { excerptCount: budget.excerptCount,
     numCtx: budget.numCtx, maxOutputTokens: budget.maxTokens,
     promptBytes: Buffer.byteLength(budget.systemPrompt + budget.prompt) } };
@@ -401,10 +407,9 @@ export async function handleProjectCollaboration(input, context) {
     return row?.commit_mode ?? 'ask';
   } }); }
   catch (error) {
-    if (context.signal?.aborted) throw error;
-    response = { content: `Příprava dalšího kroku se nepodařila: ${error.message} Soubory projektu zůstaly beze změny.`,
-      metadata: { handler: 'project.collaboration', mode: 'PROJECT', projectWorkProposal: null,
-        planningError: error.code || 'PROJECT_PLANNING_UNAVAILABLE' } };
+    throwIfAborted(context.signal);
+    if (isAbortError(error) || isChatTurnError(error)) throw error;
+    throw new ChatProcessingError('PROJECT_PLANNING_FAILED', error);
   }
   return new TaggedResponse({ content: response.content, tag: new ResponseTag({
     speaker: ResponseSpeaker.SYSTEM, mode: ChatMode.PROJECT, confidence: 0.8,

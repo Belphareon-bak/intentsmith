@@ -34,8 +34,8 @@ import { classifyIntent as llmClassify } from '../llm/cre-bridge.js';
 import { extractJSON } from '../llm/client.js';
 import { config } from '../config.js';
 import { featureManager } from '../core/feature-manager.js';
-import { throwIfAborted } from '../core/abort-error.js';
-import { ChatTurnErrorCode, ChatProcessingError, LLMProviderUnavailableError } from '../core/chat-turn-error.js';
+import { isAbortError, throwIfAborted } from '../core/abort-error.js';
+import { ChatProcessingError, isChatTurnError, throwChatModelCallFailure } from '../core/chat-turn-error.js';
 import { buildProjectHint } from './handlers/utils/project-context-prompt.js';
 import { buildInterpretationContext, pendingConversationQuestion } from './conversation-context.js';
 import { getNumCtx } from '../llm/model-ctx.js';
@@ -2463,7 +2463,7 @@ export class CREDecisionEngine {
   //   1. Deterministic fast-path (LOCAL, gratitude) — no LLM needed
   //   2. LLM structured classification — primary classifier
   //   3. Deterministic guard layer — validates/downgrades LLM decision
-  //   4. Regex classifyIntent() — fallback if LLM fails/unavailable
+  //   4. Regex classifyIntent() — fallback for invalid classification content
   //
   // SECURITY INVARIANTS (v71.1):
   //   - LLM NEVER generates shell commands (shellCommand removed from schema)
@@ -2483,7 +2483,7 @@ export class CREDecisionEngine {
    * @param {string} input - User message
    * @param {Object} context - Conversation context (history, project, session)
    * @returns {Promise<{intent: string, confidence: number, fileTarget?: string} | null>}
-   *          Parsed classification or null on failure
+   *          Parsed classification or null on invalid content; failed calls throw
    */
   async _llmClassifyIntent(input, context = {}) {
     const VALID_INTENTS = Object.values(IntentType);
@@ -2569,7 +2569,8 @@ PRAVIDLA:
         // A shared CHAT artifact retains the same runner shape.
         ...(classificationNumCtx === null ? {} : { num_ctx: classificationNumCtx }),
         signal: context.signal,
-      });
+      }).catch(error => throwChatModelCallFailure(error, context.signal,
+        'INTENT_CLASSIFICATION_PROVIDER_FAILED'));
 
       if (!result?.content) {
         logger.warn('CRE:LLM', 'LLM classifier returned empty response');
@@ -2719,32 +2720,11 @@ PRAVIDLA:
 
       return parsed;
     } catch (err) {
-      if (context.signal?.aborted) {
-        throwIfAborted(context.signal);
-      }
-      // A provider outage is a failed turn, not uncertainty about the user's
-      // intent. Preserve the existing M1 error boundary before regex fallback
-      // can fabricate and persist a successful clarification response.
-      // The legacy classification bridge wraps the gateway error in cause;
-      // fetch connection failures may be nested one level further. Match typed
-      // provider/transport failures, never provider message text.
-      const visited = new Set();
-      for (let cause = err; cause && typeof cause === 'object' && !visited.has(cause); cause = cause.cause) {
-        visited.add(cause);
-        if ([ChatTurnErrorCode.LLM_PROVIDER_UNAVAILABLE,
-          'ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'EHOSTUNREACH', 'UND_ERR_SOCKET'].includes(cause.code)) {
-          throw new LLMProviderUnavailableError('INTENT_CLASSIFICATION_PROVIDER_UNAVAILABLE');
-        }
-        // A failed provider exchange is not a usable classification. Keep
-        // malformed classifier content in the existing fallback below.
-        if (['LLM_PROVIDER_HTTP_ERROR', 'LLM_PROVIDER_MALFORMED_RESPONSE'].includes(cause.code)) {
-          throw new ChatProcessingError('INTENT_CLASSIFICATION_PROVIDER_FAILED', err);
-        }
-      }
-      logger.warn('CRE:LLM', `LLM intent classification failed: ${err.message}`, {
-        input: input.substring(0, 60),
-      });
-      return null;
+      throwIfAborted(context.signal);
+      if (isAbortError(err) || isChatTurnError(err)) throw err;
+      // Unexpected local processing failures are terminal too. Only the
+      // explicit successful-output checks above may request regex fallback.
+      throw new ChatProcessingError('INTENT_CLASSIFICATION_PROCESSING_FAILED', err);
     }
   }
 

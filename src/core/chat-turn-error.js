@@ -1,5 +1,5 @@
 // Terminal chat failures that must not be represented as assistant responses.
-import { AbortSource, createAbortError } from './abort-error.js';
+import { AbortSource, createAbortError, isAbortError, throwIfAborted } from './abort-error.js';
 
 export const ChatTurnErrorCode = Object.freeze({
   LLM_PROVIDER_UNAVAILABLE: 'LLM_PROVIDER_UNAVAILABLE',
@@ -133,6 +133,31 @@ export class EffectAuthorityRequiredError extends ChatTurnError {
 
 export function isChatTurnError(error) {
   return error instanceof ChatTurnError;
+}
+
+// Call only at a model-call boundary: a rejected call is never a usable
+// classification or project reply. Successful but invalid model content is
+// handled by the caller's output validation, separately from availability.
+export function throwChatModelCallFailure(error, signal, sourceErrorType = 'LLM_CALL_FAILED') {
+  throwIfAborted(signal);
+  const chain = [];
+  const visited = new Set();
+  for (let cause = error; cause && typeof cause === 'object' && !visited.has(cause); cause = cause.cause) {
+    visited.add(cause);
+    chain.push(cause);
+  }
+  // Cancellation has priority, including a timeout wrapped by the bridge.
+  const aborted = chain.find(isAbortError);
+  if (aborted) throw aborted;
+  for (const cause of chain) {
+    if (isChatTurnError(cause)) throw cause;
+    if (cause.code === 'LLM_PROVIDER_MALFORMED_RESPONSE') {
+      throw new ChatProcessingError(sourceErrorType, error);
+    }
+  }
+  // Missing/unverified artifacts and future gateway failure codes must fail
+  // closed too. Do not infer availability from provider message text.
+  throw new LLMProviderUnavailableError(sourceErrorType);
 }
 
 export function chatTurnErrorPayload(error) {
