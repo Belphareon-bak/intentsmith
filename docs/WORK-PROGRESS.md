@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 7. 10. 2026; C1 integrován, C2/C3 přezkoumány, C3 integrace19PASS; fresh5 freeze se připravuje, H1 sběr NOT_RUN.
+**Aktualizováno:** 7. 10. 2026; C1 integrován, C2/C3 přezkoumány, C3 integrace19PASS; C4 fresh5 5PASS/review PASS, C5 Studio→D1 se připravuje, H1 sběr NOT_RUN.
 **Vlastník integrace a CHAT:** tento koordinátor přebírá ROOT
 (`work/real-chat-journeys-20260930`) podle následného pokynu operátora.
 Jediný writer `cre-decision.js` i společných map je nyní ROOT; HTTP, Fan, fresh5
@@ -50,8 +50,8 @@ Po přijatém cyklu se pokračuje bez nového běžného potvrzení. Gate 0 pat�
 release WP; FAIL/BLOCKED/NOT_RUN se nepřeznačují. Publikace podle CONTRACT §11
 ověřuje vzdálené SHA a sama neznamená integraci, nasazení ani release přijetí.
 
-**Pořadí.** C1 je integrován, původní fresh5 stále NOT_RUN; jeho další běh
-vlastní tento ROOT. C2 již rozebral všech 36 neužitečných odpovědí a 22 zastavení
+**Pořadí.** C1 je integrován, C4 opakování původního fresh5 na b959a468 má5PASS
+a nezávislé evidence review PASS. Nyní ROOT připravuje C5 Studio→D1. C2 již rozebral všech 36 neužitečných odpovědí a 22 zastavení
 z Gemma regrese podle rodiny a příčiny (aplikace/model/hodnocení, překryvy se nesčítají).
 H1 má vyhrazené jedno společné GPU okno pro oba pevné kandidáty; příprava a
 CPU vývoj pokračují nezávisle. D1 nemá pořadovou závislost na sběru ani hodnocení H1.
@@ -142,7 +142,8 @@ závěrečný commit doplňuje pouze dokumentaci a důkazy. Nezávislý reviewer
 1250 logových hashů +27 dalších artefaktů a vydal FINAL_EVIDENCE_REVIEW_PASS.
 Manifest `de2302b3…d90c89a7`, exact CI job112870464823. Závěrečný docs/evidence
 commit `e15264f1` má také CI37648451862, 18 SUCCESS, a je nyní fast-forwardem
-v ROOT. Identita testovaného zdroje se zachovala; fresh5 zůstává NOT_RUN.
+v ROOT. Identita testovaného zdroje se zachovala; při převzetí byl fresh5 NOT_RUN.
+Následný C4 jej ověřil na b959a468,5PASS/review PASS.
 
 ### C2 — okamžité uplatnění stagnace (diagnóza i CPU experiment REVIEW_PASS)
 
@@ -183,33 +184,46 @@ se nemění. Opakování19 původních CI integračních sad na checkpointu3c4d7
 má19PASS/0FAIL/BLOCKED/TIMEOUT/SKIPPED, exit0; doc/artifact160PASS.
 [Revizní paket s příkazy/exity/diffem/sha256](review/2026-10-07-CHAT-CONCRETE-CLARIFICATION.md).
 
-### C4 — opakování původního fresh5 po C1/C3 (PREPARING / NOT_RUN)
+### C4 — původní fresh5 po C1/C3 (FRESH5_ACTUAL_EVIDENCE_REVIEW_PASS)
 
 Autorita: přijatý M6/project WP a převzetí ROOT operátorem; ne nový release Gate0.
-Jeden výsledek: pět původních fresh-clone programů na společném C1/cache/C3
-kandidátu, bez záměny historického90c17489 výsledku3PASS/2FAIL.
-Vstup produkt3bfebf98, integrační checkpoint3c4d750f; skutečný freeze připne
-následující čistý publikovaný dokumentační checkpoint s exact CI success.
-ROOT vlastní actual a jen nové privátní artefakty; workflow reviewer připraví
-freeze, druhý reviewer jej nezávisle zkontroluje, workflow reviewer přezkoumá actual.
-Žádný reviewer nepřijímá vlastní freeze/actual. Tracked source se během běhu nemění.
+Čistý publikovaný `b959a468554a6377319248e3e3752b4643f85c81`, CI37656397580/18SUCCESS.
+Jeden actual7.10.17:25:47–17:33:05UTC: **5PASS/0FAIL**, exit0, žádný retry.
+Původní M1 journey, previous-version upgrade, Electron boundary, Studio M1
+Electron a Studio M2 composer DOM proběhly po čerstvé offline instalaci/buildu.
+Původní90c17489/3PASS2FAIL se nemění. C1/cache/C3 jsou ověřené společně.
 
-Původní V3 ADAPTER SHA256 `426200be8349350d1d478ead751360187dc51c498a4ee2e6d9bb95db988590d4`,
-wrapper `9dc329148b09ac5533c0ee4ed156259cbc589ec1aef57a6e5424606db7168674`,
-kopírovaná cache receipt `82265b3aab1b9d76891e386bc8c07a30b1eaddaab3eefaf9de8e11e679aabda6`
-zůstávají obsahově nezměněné. Nový freeze zaznamená aktuální source/deps/links,
-provider PID/boot, binárky/service, filesystem identity a CI; byte drift znamená STOP.
-Nové GPU okno je sériové pod kanonickou lease; Qwen3.5:27b exact7653528b…ec06e,
-4K/fullGPU/minheadroom1024MiB/fallback forbidden. Původní limity2h,4 primární tahy,
-358 provider requestů,4MiB request/16MiB response se nezvyšují.
+Původní V3 ADAPTER426200be…590d4, wrapper9dc32914…8674, cache receipt82265b3a…da6,
+5 programů, oracle a limity beze změny. Nový freeze6b1dd8df…8905c připíná aktuální
+source/deps/CI/PID/boot; byte drift znamenáSTOP. Nezávislý freeze review uzavřel
+P2 nepřipnutého Yarn launcher linku pomocí externího before/after verifieru.
+Obě úplné closure a obě launcher kontroly `python3 -I -B` PASS, exit0.
 
-Běží jen M1 journey, previous-version upgrade, Electron boundary, Studio M1
-Electron a Studio M2 composer DOM; nikoli celý M6/soak. Očekává se exit0,
-5PASS, čistý stop, zachované source/cache/deps/provider bytes a žádný cizí proces.
-Raw příkazy, SHA256 a before/after audit budou v novém immutable freeze/paketu;
-H1/H2/restricted a cizí projekty jsou zakázané vstupy. Žádný automatický nový
-observer/retry po selhání. I5PASS čeká na nezávislé evidence review a nedokládá
-release přijetí, modelové skóre, HTTP/Fan aplikace ani nový přirozený Studio→D1.
+10/10 skutečných modelových odpovědí (4class/4answer/2summary), exactQwen3.5/4K,
+395GPU vzorků/316loaded/min5875MiB. 224 vlastněných procesních identit po běhu
+neexistuje, bez ROOT cleanup signálů, model/relay/lease uvolněné. Nezávislé review
+ověřilo manifest1760,30request-kind a395GPU predikátů, logy/5programů/source/build.
+M1 DB z vlastní kopie potvrdila jen USER při outage. Upgrade nested DB test po
+úspěchu uklidil;56→80→56→109 dokládá raw receipt a nezměněný oracle, ne nový
+post-hoc audit odstraněné DB. n=1; celý M6/soak/release a nové modelové skóre otevřené.
+Review65b4b843…12a06. [Přesný paket a omezení](review/2026-10-07-FRESH5-C1-C3.md).
+ROOT provedlactual, druhý worker přijal; autor si nepřijímal vlastní výsledek.
+
+### C5 — přirozený Studio→classifier→D1 (PREPARING / NOT_RUN)
+
+Autorita: přijatý natural-entry dispatch v projektovém WP a operátorovo zrušení
+pořadové závislosti na H1. Jeden původní core vstup přes skutečný Studio composer
+má vést k ProjectWorkProposal a skončit před CODE/přípravou/schválením/exekucí.
+Původní exponovaný firstRequest se nemění. CHAT Gemma4:26b08ae…12a68 a D1
+Qwen3.5:27b7653…ec06e, oba privátní4K; produkční bindingy beze změny.
+Max1classifier +2D1 (druhý pouze existující structural repair),0CODE/ostatních
+generací,0nových M2efektů. Úzký privátní runner a CPUguardy připravuje m1 worker,
+workflow worker musí nezávisle přijmout glue/freeze, ROOT teprve provedeactual.
+Tracked source je jediného ROOT writera; žádný nový klasifikátor ani prompt.
+Soukromá DB/projekt/HOME, UDS/net namespace, exactdigest/fullGPU/kanonickálease,
+source/build/inputs freeze, pre-forward budget a úplná raw evidence jsou povinné.
+Stop při jiném modelu/roli/budgetu/scope, chybné inference či effectu; žádný nový
+retry po neúspěchu. H1/restricted mimo rozsah. Jde o proposal smoke, ne přijetí Fan.
 
 ## Přijaté dílčí výsledky
 
@@ -221,7 +235,8 @@ release přijetí, modelové skóre, HTTP/Fan aplikace ani nový přirozený Stu
 | M3 / Worker | Izolace, původ dat, skutečný 5min worker/restart/čistý stop | Kvalita expertise, souběh a delší stabilita |
 | AST / GPU panel / Cleanup | Omezené AST review, panel V7 a 3 vlastní refs přijaté | Hunt/model acceptance a cizí/evidence checkouty zachované |
 | M6 data | Full109 backup → CLI restore → restart, review PASS | n=1, DB; project/config/skills restore otevřený |
-| Kopírovaná cache / upgrade | Původní 56→forcedFAIL80→restore56→109, review PASS | n=1, bez modelu; celý fresh5 ani release nepřijaté |
+| Kopírovaná cache / upgrade | Původní 56→forcedFAIL80→restore56→109, review PASS | n=1; samostatný C4 fresh5 přezkoumán, release otevřený |
+| C4 původní fresh5 | b959a468, všech5 programů PASS, nezávislé evidence review PASS | n=1/4K/Qwen; celý M6, modelová kvalita a Studio→D1 otevřené |
 
 [SQLite export](../examples/generated-apps/sqlite-catalog/README.md), [24 přijatých modulů](../examples/generated-apps/README.md).
 BE restart SQLite dokládá durable M2/zdroje; nedokládá DB v dalším novém sandboxu.
@@ -259,7 +274,7 @@ Actual používá zdroj cache 0700; původní zdroj 0775 pokrývá CPU regrese, 
 | HTTP strategie | Přesné M2 schválení/pending restart/rollback prošly; aplikace FAIL. Doporučený další krok: jeden skutečný repair routeru nad FAILED návrhem, rozpočet 13 vyžaduje rozhodnutí podle WP |
 | Fan | Frozen5f6: 8/11 volání, oracle 8 PASS /6 FAIL; repair4+CLI3 / cumulative15 čeká na samostatnou odpověď |
 | Přirozené plánování | Classifier→D1 CPU 44 +parser 24 /review PASS; skutečný vstup přes Studio ještě nepřijatý |
-| M1 outage | C1 `1f098912` source review a řízené HTTP/restart PASS; testovaný `b9cfc7c5` full410/CHAT7/CODE12/CI PASS; ROOT převzal e15264f1; fresh5 čeká |
+| M1 outage | C1 `1f098912` source review a řízené HTTP/restart PASS; testovaný `b9cfc7c5` full410/CHAT7/CODE12/CI PASS; ROOT převzal e15264f1; C4 fresh5 b959a468 5PASS/review PASS |
 | Mobil | Chybí conversation.create; implementace a device přejímka až po stabilním IDE/BE |
 | Hunt | Potřebujeme nový grading report/cestu a vlastníka pokračování; ROOT cizí hodnocení nepřebírá |
 
@@ -281,8 +296,8 @@ To nedokládá zaplněné 32k okno. Output4096 platí jen pro vydaný exact CODE
 
 ## Zbývající testy a pořadí dokončení
 
-1. C1 převzat na ROOT; další je společný freeze/CI a původní fresh5: poslední actual na90 zůstal **3 PASS /2 FAIL**.
-   Electron boundary/Studio M1/Studio M2 prošly; historický M1 a cache FAIL se nepřepisují. Nový whole fresh5 NOT_RUN.
+1. C4 původní fresh5 na b959a468: **5PASS/review PASS**. Historický90/3PASS2FAIL zachovaný.
+   Nyní C5 skutečný Studio→classifier→D1 proposal; širší M6/soak/release zůstává otevřený.
 2. HTTP: rozhodnout jeden genuine repair routeru nad skutečným FAILED M2 (12→13); poté frozen oracle +supplement17, commit/restart/persistence a review. Fan má samostatné rozhodnutí.
 3. Živý přirozený classifier→D1, fyzická ovladatelnost IDE/M2, file/web/export/skills a projektové A→B→A.
 4. Kvalita expertise/specialistů, worker souběh a delší stabilita; project/config/skills restore; společný profil a finální M5/M6.

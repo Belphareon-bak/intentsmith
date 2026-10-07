@@ -9,7 +9,10 @@ Cache oprava `0d86b68e`: CPU 23/23 a source review; [CI37460776179](https://gith
 **Copied-cache upgrade 6. 10., 12:26 UTC: 1223d2a8…9d95e79 PASS**, n=1 /8,804 s /bez modelu.
 Původní oracle 56→forcedFAIL80→restore56→109, přesné DB/canary/metadata, stejná DB a čistý stop.
 Dvě produktové kopie 0700, původní cache a source/deps/14 links zachované; fyzický zdroj700, CPU pokrývá775.
-Nejde o nový whole fresh5: historický fresh5 na90 má 3 PASS/2 FAIL, M1 oprava má řízené HTTP/restart důkazy, společný fresh5 ještě NOT_RUN.
+C4 nový původní fresh5 na b959a468: **5PASS/review PASS**, actual17:25:47–17:33:05UTC, exit0.
+Historický90/3PASS2FAIL zachovaný. ExactQwen4K,10/10odpovědí,min5875MiB,source/cache/cleanup PASS.
+[Paket a limity n=1](docs/review/2026-10-07-FRESH5-C1-C3.md); celý M6/release a Studio→D1 tím nepřijaté.
+C5 proposal-only Studio→classifier→D1 se připravuje,0CODE/approval/execution; H1 časově neblokuje.
 Historický ROOT offline/database profil `86dbca40`: 410 PASS /0 FAIL /BLOCKED /TIMEOUT; netestoval následnou cache opravu.
 Registry 596/35; CHAT kandidát: module graph má 1 512 hran, 3 cykly /28 členů.
 Jediná nová hrana CRE → chat-turn-error nezávisle schválená, baseline připnutý na `1f098912`.
@@ -44,7 +47,7 @@ Fan 8/11, oracle 8 PASS/6 FAIL; repair4+CLI3/cumulative15 čeká na samostatnou 
 Classifier→D1 CPU 44 +parser 24/review PASS; živý přirozený vstup a fyzická ovladatelnost IDE/M2 otevřené.
 
 Nynější úkol: převzetí ROOT a připravený H1 sběr obou pevných kandidátů;
-CPU vývoj podle C2 pokračuje nezávisle. Další: původní fresh5/Studio D1,
+C3 a C4 jsou přezkoumané. Další: skutečný Studio→D1,
 HTTP/Fan v přijatých budgetech → IDE/BE/expertise/workers → M5/M6.
 M5 je 8/9/privacy changes required; retain_and_rotate zvolené, signed 8 categories+history chybí.
 CustodyA/B doložená; druhá operator offline kopie/reviewer recovery/13 signed/24h/throughput/Gate0/demo otevřené.

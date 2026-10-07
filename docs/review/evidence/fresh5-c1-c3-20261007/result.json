@@ -1,0 +1,272 @@
+{
+  "sourceSha": "b959a468554a6377319248e3e3752b4643f85c81",
+  "historicalSourceSha": "90c174893c5a61ae14cf1d6897f1eaf828063391",
+  "historicalResult": {
+    "PASS": 3,
+    "FAIL": 2
+  },
+  "freezeSha256": "6b1dd8df696dfbaa7152edff76d709b8b122875240b6ddef3e68e6ebf2b8905c",
+  "actualStatus": "PHYSICAL_PHASE_CLOSED_REQUIRES_REVIEW",
+  "reviewStatus": "FRESH5_ACTUAL_EVIDENCE_REVIEW_PASS",
+  "startedAt": "2026-10-07T17:25:47.291Z",
+  "completedAt": "2026-10-07T17:33:05.852Z",
+  "exitCode": 0,
+  "expectedExitCode": 0,
+  "statusCounts": {
+    "PASS": 5,
+    "FAIL": 0,
+    "TIMEOUT": 0,
+    "BLOCKED": 0
+  },
+  "programs": [
+    {
+      "id": "IS-T5-TESTS-M1-JOURNEY-TEST",
+      "path": "tests/m1-journey.test.js",
+      "command": [
+        "node",
+        "tests/m1-journey.test.js"
+      ],
+      "status": "PASS",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 142979,
+      "retryCount": 0,
+      "logSha256": "ee1c2d11db71329d072fd44c149f962170bf036623cfb2081894c26a098c1374",
+      "cleanup": {
+        "checked": true,
+        "leakDetected": false,
+        "terminated": true
+      },
+      "sourceTree": {
+        "checked": true,
+        "clean": true,
+        "porcelain": null,
+        "head": "b959a468554a6377319248e3e3752b4643f85c81"
+      }
+    },
+    {
+      "id": "IS-T5-TESTS-M6-PREVIOUS-VERSION-UPGRADE-E2E",
+      "path": "tests/m6-previous-version-upgrade.e2e.js",
+      "command": [
+        "node",
+        "tests/m6-previous-version-upgrade.e2e.js"
+      ],
+      "status": "PASS",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 4847,
+      "retryCount": 0,
+      "logSha256": "ae03435bcc5ab281ff3a167e7cd1a5837c453854786ca199e16ea959693fb71b",
+      "cleanup": {
+        "checked": true,
+        "leakDetected": false,
+        "terminated": true
+      },
+      "sourceTree": {
+        "checked": true,
+        "clean": true,
+        "porcelain": null,
+        "head": "b959a468554a6377319248e3e3752b4643f85c81"
+      }
+    },
+    {
+      "id": "IS-T5-TESTS-STUDIO-ELECTRON-BOUNDARY-E2E",
+      "path": "tests/studio-electron-boundary.e2e.js",
+      "command": [
+        "node",
+        "tests/studio-electron-boundary.e2e.js"
+      ],
+      "status": "PASS",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 84567,
+      "retryCount": 0,
+      "logSha256": "193b8c3cb625101ec2c4d59c02a9db994a0497b20815b47eaa0fe9c24c39049c",
+      "cleanup": {
+        "checked": true,
+        "leakDetected": false,
+        "terminated": true
+      },
+      "sourceTree": {
+        "checked": true,
+        "clean": true,
+        "porcelain": null,
+        "head": "b959a468554a6377319248e3e3752b4643f85c81"
+      }
+    },
+    {
+      "id": "IS-T5-TESTS-STUDIO-M1-ELECTRON-JOURNEY-E2E",
+      "path": "tests/studio-m1-electron-journey.e2e.js",
+      "command": [
+        "node",
+        "tests/studio-m1-electron-journey.e2e.js"
+      ],
+      "status": "PASS",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 85213,
+      "retryCount": 0,
+      "logSha256": "7eb117a2140f119e7d0580148d12852a5940b0d6a0fccdcae1da6597363fc8d9",
+      "cleanup": {
+        "checked": true,
+        "leakDetected": false,
+        "terminated": true
+      },
+      "sourceTree": {
+        "checked": true,
+        "clean": true,
+        "porcelain": null,
+        "head": "b959a468554a6377319248e3e3752b4643f85c81"
+      }
+    },
+    {
+      "id": "IS-T5-TESTS-STUDIO-M2-COMPOSER-DOM-E2E",
+      "path": "tests/studio-m2-composer-dom.e2e.js",
+      "command": [
+        "node",
+        "tests/studio-m2-composer-dom.e2e.js"
+      ],
+      "status": "PASS",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "durationMs": 84705,
+      "retryCount": 0,
+      "logSha256": "3f7aab054e7348b144162b76eac9f0839e9bd78f60a6eb97552994ee3daa6881",
+      "cleanup": {
+        "checked": true,
+        "leakDetected": false,
+        "terminated": true
+      },
+      "sourceTree": {
+        "checked": true,
+        "clean": true,
+        "porcelain": null,
+        "head": "b959a468554a6377319248e3e3752b4643f85c81"
+      }
+    }
+  ],
+  "provider": {
+    "providerForwardAttempts": 10,
+    "completedModelResponses": 10,
+    "minimumObservedLoadedFreeMiB": 5875,
+    "ownedModelUnloaded": true,
+    "leaseReleased": true,
+    "sourceUnchanged": true
+  },
+  "command": {
+    "sourceSha": "b959a468554a6377319248e3e3752b4643f85c81",
+    "command": [
+      "/home/belphareon/.nvm/versions/node/v24.21.0/bin/node",
+      "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/m6-fresh-ffmpeg-cache-correction-preparation-20261005/fresh5-isolated-provider-v3/ADAPTER.mjs",
+      "--run",
+      "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/m6-fresh5-c3-preparation-20261007/frozen-b959a468-c3-20261007/FROZEN.json",
+      "6b1dd8df696dfbaa7152edff76d709b8b122875240b6ddef3e68e6ebf2b8905c"
+    ],
+    "expectedExitCode": 0,
+    "review": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/m6-fresh5-c3-independent-review-20261007/REVIEW.json",
+    "reviewSha256": "d77103607a127ba9467c80409f0f38089ddc002f114dd52cdc866b8cba136dea",
+    "startedAt": "2026-10-07T17:25:46.495817+00:00"
+  },
+  "limitations": [
+    "n=1, original five registered programs only; not whole M6/release acceptance",
+    "Historical FAIL unchanged; not a new CHAT quality score or Studio natural-entry D1 proof",
+    "Upgrade success deletes nested DB and failed-start log; preserved raw receipt plus unchanged original source assertions, not a new post-hoc nested DB audit"
+  ],
+  "artifacts": [
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/m6-fresh5-c3-preparation-20261007/frozen-b959a468-c3-20261007/FROZEN.json",
+      "bytes": 1238440,
+      "sha256": "6b1dd8df696dfbaa7152edff76d709b8b122875240b6ddef3e68e6ebf2b8905c"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/m6-fresh5-c3-preparation-20261007/frozen-b959a468-c3-20261007/MANIFEST.json",
+      "bytes": 3759,
+      "sha256": "bc4f5b4c92ad1705b1651e8a5e0d8aaaffbbdfa2a4c5b6c46b35e0b610ffd2e9"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/m6-fresh5-c3-independent-review-20261007/REVIEW.json",
+      "bytes": 6793,
+      "sha256": "d77103607a127ba9467c80409f0f38089ddc002f114dd52cdc866b8cba136dea"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/m6-fresh5-c3-preparation-20261007/ACTUAL-MANIFEST.json",
+      "bytes": 793349,
+      "sha256": "c812d74ee2bb1dbd07e661165305b54e67b4cf6bbbfb575515d0164e6c99ecd9"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/m6-fresh5-c3-preparation-20261007/ACTUAL-COMMAND.json",
+      "bytes": 905,
+      "sha256": "9e8e2f490c246b1f87fe61893a604f20a0bba1079fa01347d4d286041f48e6c4"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/m6-fresh5-c3-preparation-20261007/ACTUAL-EXIT.json",
+      "bytes": 132,
+      "sha256": "b942d63cb3d59959019d67d3e08b66a15520d4e3d9329aaf72579d7736d96671"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/m6-fresh5-c3-preparation-20261007/ACTUAL.log",
+      "bytes": 25149,
+      "sha256": "001dbe7a73a0eb93fb1b4ef038e486209180c165ee177f6a14500573258481da"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/m6-fresh5-provider-live-b959a468-c3-20261007/result.json",
+      "bytes": 42181,
+      "sha256": "e453f41bda43fe3fd15bba5d4ee8f94cceef49d08133bfed49b46af21426ecf9"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/m6-fresh-phase-live-b959a468-c3-20261007/fresh-phase-return.json",
+      "bytes": 564,
+      "sha256": "388edac12b8efc6732b48ad8539ab7e79d93bcc48aa03e89dfb2fe89af8f9005"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/m6-fresh-phase-live-b959a468-c3-20261007/fresh-clone/report.json",
+      "bytes": 7762,
+      "sha256": "c62c9fc299b7e65a84b78bbaef837dc859acea5d1447e325a67c8aeb43b487bd"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/m6-fresh5-c3-preparation-20261007/VERIFY-before-20261007T192440127426.json",
+      "bytes": 7886,
+      "sha256": "80f9ddbb25496a9505c6aa0d6f401320be5cd983b0758b093cb360961eb07727"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/m6-fresh5-c3-preparation-20261007/VERIFY-after-20261007T193521420841.json",
+      "bytes": 7885,
+      "sha256": "d5ad1b94b7089646712f25ba9b9de32992a9b7ac167355089bf7aa921b36d624"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/m6-fresh5-c3-preparation-20261007/LAUNCHER-before-20261007T172504981043Z.json",
+      "bytes": 2347,
+      "sha256": "31e3c9774b6288434d4454470130994cdb130508f3c6350f72d8628050662d4a"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/m6-fresh5-c3-preparation-20261007/LAUNCHER-after-20261007T173542555637Z.json",
+      "bytes": 2346,
+      "sha256": "29ed74d9778c042945d3d9dc9ef3891617b37e2bc1b70d77cfd728800c517c4b"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/m6-fresh5-c3-preparation-20261007/ROOT-POSTFLIGHT-v2.json",
+      "bytes": 853,
+      "sha256": "95367e0f42be07429ebb767e0f4ee65f3724bb03473a347423fe2e247250a613"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/m6-fresh5-c3-actual-independent-review-20261007/REVIEW.json",
+      "bytes": 9646,
+      "sha256": "65b4b8436d58a40f8d5e677c1f3608d2624be5f7196a8189a224bc61c5d12a06"
+    }
+  ],
+  "independentReview": {
+    "reviewer": "/root/workflow_review",
+    "verdict": "FRESH5_ACTUAL_EVIDENCE_REVIEW_PASS",
+    "sourceSha": "b959a468554a6377319248e3e3752b4643f85c81",
+    "receipt": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/m6-fresh5-c3-actual-independent-review-20261007/REVIEW.json",
+      "bytes": 9646,
+      "sha256": "65b4b8436d58a40f8d5e677c1f3608d2624be5f7196a8189a224bc61c5d12a06"
+    }
+  }
+}

@@ -14,7 +14,8 @@ zrušení má přednost. Chybný JSON nebo neurčitá klasifikace zachovávají 
 Skutečný HTTP 503 i odmítnuté spojení nyní vracejí HTTP 503 / status:error,
 bez asistentské zprávy a nového tool requestu, ověřeno také po restartu DB.
 Lokální matematika funguje bez providerového volání. Source review a nezávislé
-context 27/27, M1 74/74 a project 44/44; fresh5 a živá kvalita zůstávají otevřené.
+context 27/27, M1 74/74 a project 44/44. C4 fresh5 na b959a468 má5PASS/review PASS;
+M1 outage DB obsahuje pouze USER, raw terminal503/error. Živá kvalita zůstává otevřená.
 [Revizní paket](../review/2026-10-07-CHAT-M1-OUTAGE.md).
 
 C3 v2 source `3bfebf98` má SOURCE_AND_EVIDENCE_REVIEW_PASS: validní AMBIGUOUS
