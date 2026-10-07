@@ -440,3 +440,30 @@ bez fakeFAILED/revisionOf/reusePrevious. Vyžaduje omezený product connector, C
 nový explicitní freeze/budget před inference a zachování full source/preview/digest/approval/oracle.
 Alternativy: jiný CODE model po exact role-specific kvalifikaci, nebo odložit HTTP pro další brány.
 CPU feasibility pouze připravuje konkrétní otázku; nedává autoritu novému živému běhu.
+
+### Navazující úkol operátora, 7. 10. 2026, 06:39 UTC
+
+Operátor nově výslovně zadal dokončit HTTP/SQLite aplikaci přes přesné M2 schválení,
+funkční test, commit a restart s ověřením persistence. ROOT volí doporučenou omezenou
+normal existing-file anchored strategii: nejvýše dvě nová CODE volání, historie10/cumulative12,
+bez D1/CLI/repair/retry a bez dalších automatických modelových strategií při neúspěchu.
+Před inference se přesně zmrazí skutečná reprezentace vstupu, instrukce a parametry.
+Vlastnictví ROOT: `src/lifecycle/m2-code-draft.js`, nezbytné přímé zapojení v
+`src/lifecycle/m2-lifecycle-application-service.js` a `src/server.js`, jejich existující regrese,
+`scripts/manual/run-http-items-journey.mjs` a runtime ENV whitelist v `scripts/run-project-build-journey.js`,
+plus tento WP a existující progress/maps. ROOT je jediný tracked writer.
+Explicitní trusted startup policy je omezena na projekt a dvě pozorované file/digest identity;
+model/HTTP DTO neurčují její autoritu. Default full-file, CREATE, skutečný repair a Ledger/TaskFlow
+zachované. Úplný before source a existující compiler určují celý after/preview/digest/zápis.
+API e9efa9 a primární oracle0ba mají nezměněné bajty; historická network policy06d395 zůstává nezměněná.
+Po rebootu vyžaduje nový freeze explicitní old→fresh vazbu zachovaných canonicalpath/bytes/hash/inode
+a device30→43; čerstvá startup config/policy má nový digest metadat, security semantika se nemění.
+Supplement17/max20 již připravený a přijatý source review. Na disku zůstává retained@3, včetně dosud vadného
+dynamic importu A2; PASS z neaplikovaného @4 se nepřenáší. @5 musí uzavřít A1/A2/A3.
+Všech257 stávajících m2 řádků tvoří novou immutable baseline; native snapshot provede ROOT.
+Historické FAIL a expired@4 plán se zachovají. CHAT/Fan/mobil/model aktivace/deploy mimo tento úkol.
+Aktuální stav: produktový connector CPU lifecycle119/model45/doc160 PASS; actual NOT_RUN.
+Bounded source/CPU review c33856f2…5fa8fe1 PASS včetně actual startup ENV vazby; helper reboot delta ještě review pending.
+CPU context6 PASS: router1675+29440=31115B, server29105B, větší peer fixture29354B, guard32000 zachovaný.
+Úplné zdroje jednou, normální output4096/context32768/model qwen3.8:latest/22130167… unchanged; source16384 limit zachovaný.
+Před inference bude publikovaný společný candidate, přesný CI a čerstvé FS/provider/DB/GPU/display freeze.

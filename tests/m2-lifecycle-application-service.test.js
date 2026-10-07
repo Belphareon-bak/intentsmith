@@ -22,7 +22,7 @@ import {
   createDefaultM2LifecycleApplicationService,
 } from '../src/lifecycle/m2-lifecycle-application-service.js';
 import { suite, testAsync, summary } from './harness.js';
-import { compileCodeDraftInput, compileCodeDraftResult, buildCodeDraftPrompt, assertCodeDraftModelBudget } from '../src/lifecycle/m2-code-draft.js';
+import { compileCodeDraftInput, compileCodeDraftResult, buildCodeDraftPrompt, assertCodeDraftModelBudget, compileCodeDraftEditPolicy, parseCodeDraftEditPolicy, captureCodeDraftEditBase, CODE_DRAFT_NORMAL_EDIT_OUTPUT } from '../src/lifecycle/m2-code-draft.js';
 import { initializeNewProject } from '../src/planner/project-onboarding.js';
 import { processSandboxProvider } from '../src/execution/process-sandbox-provider.js';
 import { computeM2ProjectChangeRequestDigest } from '../contracts/m2/execution-v1.js';
@@ -1397,6 +1397,154 @@ await testAsync('indexed context rejects absent, duplicate, foreign and stale de
   assert.deepEqual(JSON.parse(legacy.prompt), { path: 'src/app.js', beforeContent: content, instruction: small.intent });
   assert.equal(legacy.systemPrompt.includes('indexed-full'), false);
 });
+
+await testAsync('trusted normal edit policy freezes exact project/path/digest and rejects malformed opt-ins', async () => {
+  const target = { path: 'src/app.js', beforeDigest: sha('export const value = 1;\n') };
+  const input = { kind: CODE_DRAFT_NORMAL_EDIT_OUTPUT, projectId: PROJECT_ID, targets: [target] };
+  const policy = compileCodeDraftEditPolicy(input);
+  assert.equal(parseCodeDraftEditPolicy(undefined), null);
+  assert.equal(parseCodeDraftEditPolicy(''), null);
+  assert.deepEqual(parseCodeDraftEditPolicy(JSON.stringify(input)), policy);
+  target.beforeDigest = sha('changed caller metadata');
+  assert.notEqual(policy.targets[0].beforeDigest, target.beforeDigest);
+  assert.ok(Object.isFrozen(policy) && Object.isFrozen(policy.targets) && Object.isFrozen(policy.targets[0]));
+  for (const invalid of [{}, { ...input, kind: 'fuzzy' }, { ...input, projectId: 0 },
+    { ...input, targets: [] }, { ...input, targets: [target, target] },
+    { ...input, targets: [{ ...target, path: '../outside.js' }] },
+    { ...input, targets: [{ ...target, beforeDigest: null }] }, { ...input, authority: 'approve' }]) {
+    assert.throws(() => compileCodeDraftEditPolicy(invalid), { code: 'M2_CODE_DRAFT_EDIT_POLICY_INVALID' });
+  }
+  assert.throws(() => parseCodeDraftEditPolicy('{'), { code: 'M2_CODE_DRAFT_EDIT_POLICY_INVALID' });
+});
+
+await testAsync('normal anchored edits bind complete UTF-8 disk bytes and preserve all untouched spans', async () => {
+  const source = '// Česko 雪 🙂 " \\\r\nexport const first = 1;\r\nexport const second = 2;\r\n';
+  const compiled = compileCodeDraftInput({ instruction: 'Modify the observed source.',
+    files: [{ path: 'src/app.js', instruction: 'Change both values.', dependsOn: [] }],
+    focusedTest: proposal().focusedTest });
+  const base = captureCodeDraftEditBase('src/app.js', source, sha(source));
+  const prompt = buildCodeDraftPrompt(compiled, source, 0, [], null, base);
+  const input = codeInput(prompt.prompt);
+  assert.equal(input.beforeContent, source);
+  assert.equal(input.beforeContentDigest, sha(source));
+  assert.equal(prompt.outputContract, CODE_DRAFT_NORMAL_EDIT_OUTPUT);
+  assert.equal(prompt.repairBuild, false);
+  assert.equal(Object.hasOwn(input, 'previousDraft'), false);
+  assert.equal(Object.hasOwn(input, 'editBase'), false, 'complete before source is serialized only once');
+  const response = { finishReason: 'stop', content: JSON.stringify({ replacements: [
+    { before: 'second = 2', after: 'second = 3' }, { before: 'first = 1', after: 'first = 2' },
+  ] }) };
+  const after = compileCodeDraftResult(compiled, response, 0, null, base).changes[0].afterContent;
+  assert.equal(after, source.replace('first = 1', 'first = 2').replace('second = 2', 'second = 3'));
+  for (const [bad, code] of [[{ ...base, path: 'src/foreign.js' }, 'EDIT_BASE_UNAVAILABLE'],
+    [{ ...base, kind: 'fuzzy' }, 'EDIT_BASE_UNAVAILABLE'],
+    [{ ...base, contentDigest: sha('old bytes') }, 'EDIT_BASE_STALE'],
+    [{ ...base, content: null }, 'EDIT_BASE_UNAVAILABLE']]) {
+    assert.throws(() => buildCodeDraftPrompt(compiled, source, 0, [], null, bad), { code: `M2_CODE_DRAFT_${code}` });
+    assert.throws(() => compileCodeDraftResult(compiled, response, 0, null, bad), { code: `M2_CODE_DRAFT_${code}` });
+  }
+  assert.throws(() => buildCodeDraftPrompt(compiled, source + ' ', 0, [], null, base), { code: 'M2_CODE_DRAFT_EDIT_BASE_STALE' });
+  assert.throws(() => captureCodeDraftEditBase('src/app.js', '\ud800', sha('\ud800')), { code: 'M2_CODE_DRAFT_EDIT_BASE_UNAVAILABLE' });
+  assert.throws(() => compileCodeDraftResult(compiled, { finishReason: 'stop', content: JSON.stringify({ afterContent: after }) },
+    0, null, base), { code: 'M2_CODE_DRAFT_OUTPUT_INVALID' });
+  assert.throws(() => compileCodeDraftResult(compiled, response, 0, source, base), { code: 'M2_CODE_DRAFT_EDIT_BASE_UNAVAILABLE' });
+  const legacy = compileCodeDraftInput({ path: 'src/app.js', instruction: 'Change value.' });
+  assert.throws(() => buildCodeDraftPrompt(legacy, source, 0, [], null, base), { code: 'M2_CODE_DRAFT_EDIT_BASE_UNAVAILABLE' });
+});
+
+await testAsync('normal full-source and serialized escaping guards accept the boundary and reject growth', async () => {
+  const source = '/*' + 'a'.repeat(16_384 - Buffer.byteLength('/**/\nexport const value=1;\n')) + '*/\nexport const value=1;\n';
+  const compiled = compileCodeDraftInput({ instruction: 'Modify the observed source.',
+    files: [{ path: 'src/app.js', instruction: 'Change value.', dependsOn: [], contextFiles: ['src/helper.js'] }],
+    focusedTest: proposal().focusedTest });
+  const base = captureCodeDraftEditBase('src/app.js', source, sha(source));
+  const response = after => ({ finishReason: 'stop', content: JSON.stringify({ replacements: [{ before: 'value=1', after }] }) });
+  assert.equal(Buffer.byteLength(compileCodeDraftResult(compiled, response('value=2'), 0, null, base).changes[0].afterContent), 16_384);
+  assert.throws(() => compileCodeDraftResult(compiled, response('value=22'), 0, null, base), { code: 'M2_CODE_DRAFT_OUTPUT_INVALID' });
+  const small = 'export const value=1;\n'; const edit = captureCodeDraftEditBase(base.path, small, sha(small));
+  const peers = n => [{ path: 'src/helper.js', content: '\\'.repeat(n), state: 'read_only', contentDigest: sha('\\'.repeat(n)) }];
+  const empty = buildCodeDraftPrompt(compiled, small, 0, peers(0), null, edit);
+  const n = Math.floor((32_000 - Buffer.byteLength(empty.prompt + empty.systemPrompt)) / 2);
+  const exact = buildCodeDraftPrompt(compiled, small, 0, peers(n), null, edit);
+  assert.ok(Buffer.byteLength(exact.prompt + exact.systemPrompt) >= 31_999);
+  assert.throws(() => buildCodeDraftPrompt(compiled, small, 0, peers(n + 1), null, edit), { code: 'M2_CODE_DRAFT_CONTEXT_LIMIT_EXCEEDED' });
+});
+
+for (const defect of [null, 'focused-fail', 'cancel', 'late-stale', 'incomplete', 'full-output', 'no-op', 'missing', 'stale-digest']) {
+  await testAsync(`trusted normal two-file anchored service: ${defect ?? 'exact approval, commit and durable full bytes'}`, async () => {
+    const root = makeProject(); const db = openDatabase(); const controller = new AbortController(); let calls = 0;
+    const before = 'export const value = 1;\n'; const helperBefore = 'export const helper = 1;\n';
+    if (defect !== 'missing') {
+      fs.writeFileSync(path.join(root, 'src/helper.js'), helperBefore);
+      git(root, ['add', '--', 'src/helper.js']);
+      git(root, ['-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-m', 'existing dependency']);
+    }
+    const beforeHead = git(root, ['rev-parse', 'HEAD']);
+    const codeDraftEditPolicy = { kind: CODE_DRAFT_NORMAL_EDIT_OUTPUT, projectId: PROJECT_ID,
+      targets: [{ path: 'src/helper.js', beforeDigest: sha(helperBefore) },
+        { path: 'src/app.js', beforeDigest: defect === 'stale-digest' ? sha('old bytes') : sha(before) }] };
+    try {
+      const service = createService(db, root, makeClock(), { codeDraftEditPolicy,
+        generateCodeDraft: async ({ prompt, repairBuild, outputContract, signal }) => {
+          calls++; const input = codeInput(prompt);
+          assert.equal(repairBuild, false); assert.equal(outputContract, CODE_DRAFT_NORMAL_EDIT_OUTPUT);
+          assert.equal(signal.aborted, false); assert.equal(Object.hasOwn(input, 'previousDraft'), false);
+          assert.equal(input.beforeContent, input.path === 'src/helper.js' ? helperBefore : before);
+          assert.equal(input.beforeContentDigest, sha(input.beforeContent));
+          if (calls === 2) assert.deepEqual(input.peerFiles, [{ path: 'src/helper.js', content: 'export const helper = 2;\n', state: 'proposed' }]);
+          assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), before);
+          assert.equal(git(root, ['rev-parse', 'HEAD']), beforeHead);
+          if (calls === 2 && defect === 'cancel') controller.abort();
+          if (calls === 2 && defect === 'late-stale') fs.writeFileSync(path.join(root, 'src/foreign.js'), '// new foreign bytes\n');
+          if (calls === 2 && defect === 'full-output') return { finishReason: 'stop', content: JSON.stringify({ afterContent: 'export const value = 2;\n' }) };
+          return { finishReason: calls === 2 && defect === 'incomplete' ? 'length' : 'stop',
+            content: JSON.stringify({ replacements: [{ before: ' = 1;', after: defect === 'no-op' ? ' = 1;' : ' = 2;' }] }) };
+        } });
+      await service.recoverIncompleteSmallProjectChanges();
+      const draft = { instruction: 'Modify only the existing two modules.', files: [
+        { path: 'src/helper.js', instruction: 'Set helper to 2.', dependsOn: [] },
+        { path: 'src/app.js', instruction: 'Set value to 2 and preserve interface.', dependsOn: ['src/helper.js'] },
+      ], focusedTest: { ...proposal().focusedTest, argv: ['--input-type=module', '-e',
+        `import {value} from './src/app.js';import {helper} from './src/helper.js';if(value!==${defect === 'focused-fail' ? 3 : 2}||helper!==2)throw Error('semantic oracle failed');`] },
+      gitCommit: proposal().gitCommit };
+      const planning = service.draftSmallProjectChange({ authenticatedSubject: SUBJECT, projectId: PROJECT_ID,
+        origin: ORIGIN, draft, signal: controller.signal });
+      if (defect && defect !== 'focused-fail') {
+        const codes = { cancel: 'M2_CODE_DRAFT_CANCELLED', 'late-stale': 'M2_LIFECYCLE_CONTEXT_STALE',
+          incomplete: 'M2_CODE_DRAFT_OUTPUT_INCOMPLETE', 'full-output': 'M2_CODE_DRAFT_OUTPUT_INVALID',
+          'no-op': 'M2_CODE_DRAFT_OUTPUT_UNCHANGED', missing: 'M2_CODE_DRAFT_EDIT_BASE_UNAVAILABLE',
+          'stale-digest': 'M2_CODE_DRAFT_EDIT_BASE_STALE' };
+        await assert.rejects(planning, { code: codes[defect] });
+        assert.equal(db.prepare('SELECT count(*) AS n FROM m2_lifecycle_operations').get().n, 0);
+      } else {
+        const planned = await planning;
+        assert.deepEqual(planned.diff.map(file => [file.path, file.after.content]), [
+          ['src/app.js', 'export const value = 2;\n'], ['src/helper.js', 'export const helper = 2;\n']]);
+        assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), before);
+        assert.equal(git(root, ['rev-parse', 'HEAD']), beforeHead);
+        await assert.rejects(service.approveSmallProjectChange({ authenticatedSubject: SUBJECT, origin: ORIGIN,
+          lifecycleId: planned.lifecycleId, planDigest: sha('wrong approval') }), { code: M2LifecycleServiceErrorCode.PLAN_DIGEST_MISMATCH });
+        const result = await service.approveSmallProjectChange({ authenticatedSubject: SUBJECT, origin: ORIGIN,
+          lifecycleId: planned.lifecycleId, planDigest: planned.planDigest });
+        assert.equal(result.state, defect ? 'failed' : 'succeeded');
+        if (defect) {
+          assert.equal(result.result.rollback.status, 'succeeded');
+          assert.equal(git(root, ['rev-parse', 'HEAD']), beforeHead);
+          assert.equal(fs.readFileSync(path.join(root, 'src/helper.js'), 'utf8'), helperBefore);
+        } else {
+          assert.equal(result.result.git.status, 'committed');
+          assert.notEqual(git(root, ['rev-parse', 'HEAD']), beforeHead);
+        }
+        const restarted = createService(db, root, makeClock(), { generateCodeDraft: async () => { throw Error('no replay'); } });
+        await restarted.recoverIncompleteSmallProjectChanges();
+        assert.equal(restarted.getSmallProjectChangeStatus({ authenticatedSubject: SUBJECT, origin: ORIGIN,
+          lifecycleId: planned.lifecycleId }).terminal.resultDigest, result.terminal.resultDigest);
+      }
+      assert.equal(fs.readFileSync(path.join(root, 'src/app.js'), 'utf8'), defect ? before : 'export const value = 2;\n');
+      assert.equal(calls, ['missing', 'stale-digest'].includes(defect) ? 0 : defect === 'no-op' ? 1 : 2);
+    } finally { db.close(); fs.rmSync(root, { recursive: true, force: true }); }
+  });
+}
 
 await testAsync('a compact proposal remains repairable when the original disk file is large', async () => {
   const original = `/* ${'original scaffold '.repeat(550)} */\nexport const value = 1;\n`;

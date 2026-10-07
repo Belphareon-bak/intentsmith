@@ -113,6 +113,7 @@ function serverEnvironment(runtime, nonce, providerUrl, models = {}) {
     INTENTSMITH_MODEL_D1: models.D1 || EXPECTED_MODEL,
     OLLAMA_URL: providerUrl,
     ...(runtime.m2PrivateHttpConfig ? { INTENTSMITH_M2_PRIVATE_HTTP_CONFIG: runtime.m2PrivateHttpConfig } : {}),
+    ...(runtime.m2CodeEditPolicy === undefined ? {} : { INTENTSMITH_M2_CODE_EDIT_POLICY: JSON.stringify(runtime.m2CodeEditPolicy) }),
   };
 }
 
@@ -729,7 +730,7 @@ async function parent(out) {
 }
 
 export const OWNED_RUNTIME_SPAWN_HOOK_VERSION = 'fan-owned-spawn-v1';
-export { makeRuntime, startServer, stopServer, requestJson, startLiteralStudio, stopLiteralStudio,
+export { makeRuntime, serverEnvironment, startServer, stopServer, requestJson, startLiteralStudio, stopLiteralStudio,
   evaluateRenderer, waitUntil, clickAction, capture, trackNetwork };
 
 if (process.argv[1] && path.resolve(process.argv[1]) === self) {

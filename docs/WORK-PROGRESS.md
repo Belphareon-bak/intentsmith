@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 6. 10. 2026, 14:39 CEST /12:39 UTC.
+**Aktualizováno:** 7. 10. 2026, 08:46 CEST /06:46 UTC.
 **Vlastník:** ROOT; CHAT/Gemma a zbývající Hunt mají jiné workery.
 **Release NOT_ACCEPTED. HTTP API FAIL. Fan FAIL. Mobil čeká na stabilní IDE/BE.**
 
@@ -48,8 +48,8 @@ Actual používá zdroj cache 0700; původní zdroj 0775 pokrývá CPU regrese, 
 
 | Oblast | Co chybí / nejbližší krok |
 | --- | --- |
-| HTTP CODE | Normal MODIFY@4 vyčerpal cumulative10; A2 opravené, A1/slash aliases a A3/charset OWS FAIL |
-| HTTP strategie | Čeká konkrétní krok7: anchored normal edit s úplným before source/digest, max2 nové / cumulative12; alternativy kvalifikovaný jiný model nebo odklad |
+| HTTP CODE | Normal@4 vyčerpal cumulative10; retained disk má dosud A1/A2/A3 vady, @4 návrh nebyl schválen |
+| HTTP strategie | Nový úkol operátora 7. 10.: omezený normal anchored edit s úplným before source/digest, max2 nové / cumulative12; produktový connector CPU lifecycle119/model45 PASS, source review c33856f2 PASS; helper reboot delta pending, actual NOT_RUN |
 | Fan | Frozen5f6: 8/11 volání, oracle 8 PASS /6 FAIL; repair4+CLI3 / cumulative15 čeká na samostatnou odpověď |
 | Přirozené plánování | Classifier→D1 CPU 44 +parser 24 /review PASS; skutečný vstup přes Studio ještě nepřijatý |
 | M1 outage | Typed PROVIDER_UNAVAILABLE spolknutý classifierem → fallback/status ok; produktová oprava patří CHAT workerovi |
@@ -60,7 +60,8 @@ Actual používá zdroj cache 0700; původní zdroj 0775 pokrývá CPU regrese, 
 Retained@3 M2/oracle/Git1856920f/BE restart prošel; API SOURCE FAIL, [export](../examples/generated-apps/http-items-candidate/README.md) NOT_ACCEPTED.
 70 HTTP +14 refused SQL /14 positive, AUTOINCREMENT a dva servery se stejnou DB doložené; rollback4 PASS.
 Normal@4 měl úplné zdroje/výstupy a vstupy 30 647/28 843 B pod byte guard 32 000 B; nynější blokér je kvalita opravy.
-Žádné další approval/zápis/commit/restart ani CODE inference; původní Git/233 PK/hash/24 pending zachované.
+Nový úkol opravuje A1/A2/A3 dvěma normal CODE voláními; před freeze inference NOT_RUN.
+Po rebootu zachované bytes/hash/inode, device30→43; nový freeze/metadatová vazba zachová všech257 původních řádků.
 Fan 32k byl nejdřív změřen: krátká alokace fullGPU/min free 2 512 MiB; actual dvě loaded samples 2 476 MiB.
 To nedokládá zaplněné 32k okno. Output4096 platí jen pro vydaný exact CODE32k profil; ostatní parametry zachované.
 [CODE WP](wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md), [projektový WP](wp/WP-PROJECT-FLOW-20260918.md).
@@ -69,7 +70,7 @@ To nedokládá zaplněné 32k okno. Output4096 platí jen pro vydaný exact CODE
 
 1. Po opravě M1 od CHAT workera společný freeze/CI a původní fresh5: poslední actual na90 zůstal **3 PASS /2 FAIL**.
    Electron boundary/Studio M1/Studio M2 prošly; historický M1 a cache FAIL se nepřepisují. Nový whole fresh5 NOT_RUN.
-2. Po rozhodnutí krok7 dokončit HTTP/Fan: přesný náhled/schválení, frozen oracle, rollback, commit, restart/persistence; pak větší repo.
+2. Dokončit nynější HTTP úkol: přesný náhled/schválení, frozen oracle +supplement17, rollback, commit, restart/persistence; Fan má vlastní otevřené rozhodnutí.
 3. Živý přirozený classifier→D1, fyzická ovladatelnost IDE/M2, file/web/export/skills a projektové A→B→A.
 4. Kvalita expertise/specialistů, worker souběh a delší stabilita; project/config/skills restore; společný profil a finální M5/M6.
 5. Mobil: historical CPU47, fyzická matice 13+7 NOT_RUN; device/APK/VPN/pair-revoke/M2/TalkBack.

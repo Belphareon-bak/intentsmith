@@ -231,6 +231,7 @@ import { skillM2EffectAuthority } from './skills/m2-effect-authority.js';
 import { creDecisionEngine } from './chat/cre-decision.js';
 import { toolRegistry } from './tools/registry.js';
 import { processProviderFromTrustedPrivateHttpConfig } from './execution/private-http-config.js';
+import { parseCodeDraftEditPolicy } from './lifecycle/m2-code-draft.js';
 import {
   createDefaultM2LifecycleApplicationService,
   createM2LifecycleApprovalPort,
@@ -1047,6 +1048,7 @@ const routeDeps = {
 const m2ProcessProvider = await processProviderFromTrustedPrivateHttpConfig(process.env.INTENTSMITH_M2_PRIVATE_HTTP_CONFIG);
 const m2LifecycleService = createDefaultM2LifecycleApplicationService({
   processProvider: m2ProcessProvider,
+  codeDraftEditPolicy: parseCodeDraftEditPolicy(process.env.INTENTSMITH_M2_CODE_EDIT_POLICY),
   database: db.db,
   projects: db.projects,
   scmCommitMode: projectId => scmService.policy(projectId).commit,

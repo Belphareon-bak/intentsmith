@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { createHash } from 'node:crypto';
+
 import { callLLM } from '../src/planner/workflow.js';
 
 import {
@@ -46,7 +48,7 @@ import {
   analyzeProjectCode,
 } from '../src/llm/cre-bridge.js';
 import { setNumCtx, getNumCtx, clearNumCtxCache } from '../src/llm/model-ctx.js';
-import { captureCodeDraftModelBudgets, generateCodeDraft, codeDraftModelBudget, assertCodeDraftModelBudget, compileCodeDraftInput, buildCodeDraftPrompt, compileCodeDraftResult } from '../src/lifecycle/m2-code-draft.js';
+import { captureCodeDraftModelBudgets, generateCodeDraft, codeDraftModelBudget, assertCodeDraftModelBudget, compileCodeDraftInput, buildCodeDraftPrompt, compileCodeDraftResult, captureCodeDraftEditBase } from '../src/lifecycle/m2-code-draft.js';
 import { clockContext } from '../src/llm/clock-context.js';
 import { config } from '../src/config.js';
 import { validateModelResult } from '../contracts/m1/index.js';
@@ -1712,6 +1714,33 @@ try {
     assertEqual(uncapturedRepair.numCtx, 8192);
     assertEqual(uncapturedRepair.maxTokens, 2048, 'an unissued runtime cannot raise the repair ceiling');
     assertSemaphoreReleased();
+  });
+
+  await testAsync('normal anchored CODE uses replacements schema with unchanged normal runtime budget', async () => {
+    resetCodeFixture(); const runtime = await captureCodeDraftModelBudgets(true);
+    const compiled = compileCodeDraftInput({ instruction: 'Modify the existing file.', files: [
+      { path: 'src/app.mjs', instruction: 'Set value to 2.', dependsOn: [] },
+    ], focusedTest: { binary: process.execPath, argv: ['--check', 'src/app.mjs'], environment: {}, timeoutMs: 30000 } });
+    const before = 'export const value = 1;\n';
+    const base = captureCodeDraftEditBase('src/app.mjs', before, `sha256:${createHash('sha256').update(before).digest('hex')}`);
+    const prompt = buildCodeDraftPrompt(compiled, before, 0, [], null, base);
+    codeHook = () => providerResponse({ json: { model: CODE_RUNTIME_PROFILE.model, digest: codeServedDigest,
+      provider_version: codeResponseVersion, message: { content: JSON.stringify({ replacements: [{ before: ' = 1;', after: ' = 2;' }] }) }, done_reason: 'stop' } });
+    const result = await generateCodeDraft({ ...prompt, sessionId: 'normal-anchored-unit',
+      runtimeCapture: runtime.runtimeCapture, modelBudget: runtime.generationBudgets[0] });
+    assertEqual(codeRequests.length, 1); assertEqual(codeRequests[0].options.num_ctx, 32768);
+    assertEqual(codeRequests[0].options.num_predict, runtime.generationBudgets[0].maxTokens);
+    assertEqual(codeRequests[0].options.temperature, 0.1);
+    assertEqual(JSON.stringify(codeRequests[0].format.required), '["replacements"]');
+    assertEqual(codeRequests[0].format.additionalProperties, false);
+    assertEqual(compileCodeDraftResult(compiled, result, 0, null, base).changes[0].afterContent, 'export const value = 2;\n');
+    for (const bad of [{ projectBuild: false, repairBuild: false }, { projectBuild: true, repairBuild: true },
+      { projectBuild: true, outputContract: 'fuzzy' }]) {
+      const error = await capturedFailure(generateCodeDraft({ ...prompt, ...bad, sessionId: 'bad-anchored-unit',
+        runtimeCapture: runtime.runtimeCapture, modelBudget: runtime.generationBudgets[0] }));
+      assertEqual(error.code, 'M2_CODE_DRAFT_EDIT_OUTPUT_INVALID');
+    }
+    assertEqual(codeRequests.length, 1); assertSemaphoreReleased();
   });
 
   await testAsync('rejects forged captures and public option injection before any provider request', async () => {

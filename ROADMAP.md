@@ -1,6 +1,6 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktuální checkpoint 6. 10. 2026:** [stav, implementační mezery a zbývající testy](docs/WORK-PROGRESS.md).
+**Aktuální checkpoint 7. 10. 2026:** [stav, implementační mezery a zbývající testy](docs/WORK-PROGRESS.md).
 Release `NOT_ACCEPTED`; BE `c84b88cd` / Studio `7bf62455…bfe24` nezměněné.
 Přijaté Ledger/TaskFlow/SQLite, omezený AST/GPU panel/cleanup, full109 DB roundtrip a M3 worker;
 opakovat pouze při nové změně nebo konkrétní pochybnosti. CHAT `e066956b` zachovaný, ladí jiný worker.
@@ -16,13 +16,13 @@ CHAT7/CODE12 zachované, CI/CPU nejsou release acceptance.
 
 HTTP private-loopback profil zapojený; retained execution/M2/oracle/commit/restart prošel, API SOURCE FAIL.
 Normal MODIFY@4 cumulative10: úplný kontext/výstupy; A1/slash aliases a A3/charset OWS neopravena.
-Krok7 čeká na rozhodnutí: anchored normal edit s full before source/digest, max2 nové/cumulative12;
-alternativy kvalifikovaný jiný model nebo odklad. Žádné automatické navýšení/inference.
+Nový úkol 7. 10.: dokončit HTTP/SQLite; normal anchored edit s full before source/digest, max2 nové/cumulative12.
+CPU lifecycle119/model45 PASS, source review c33856f2 PASS; nový exact M2/oracle/commit/restart/supplement17 NOT_RUN.
 Fan 8/11, oracle 8 PASS/6 FAIL; repair4+CLI3/cumulative15 čeká na samostatnou odpověď.
 32k krátce změřené fullGPU/min free 2 512 MiB; celé okno ani kvalita aplikace tím nepřijaté.
 Classifier→D1 CPU 44 +parser 24/review PASS; živý přirozený vstup a fyzická ovladatelnost IDE/M2 otevřené.
 
-Další pořadí: CHAT M1 fix/společný fresh5 → CODE rozhodnutí/HTTP/Fan/větší repo → IDE/BE/expertise/workers → M5/M6.
+Nynější úkol: HTTP/SQLite přes exact M2/oracle/commit/restart. Další: společný fresh5/Fan/větší repo → IDE/BE/expertise/workers → M5/M6.
 M5 je 8/9/privacy changes required; retain_and_rotate zvolené, signed 8 categories+history chybí.
 CustodyA/B doložená; druhá operator offline kopie/reviewer recovery/13 signed/24h/throughput/Gate0/demo otevřené.
 Mobil 13+7/device/pair-revoke/M2/TalkBack po stabilním IDE/BE; conversation.create chybí.

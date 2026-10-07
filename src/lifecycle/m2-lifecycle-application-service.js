@@ -70,7 +70,7 @@ import { M2LifecycleAuthorityRepository } from './m2-lifecycle-authority-reposit
 import { compileM2ProjectChangeProposal } from './m2-proposal-compiler.js';
 import {
   buildCodeDraftPrompt, codeDraftError, compileCodeDraftInput, captureCodeDraftModelBudgets, assertCodeDraftModelBudget, assertCodeDraftSyntax,
-  compileCodeDraftResult, generateCodeDraft as defaultGenerateCodeDraft,
+  compileCodeDraftResult, compileCodeDraftEditPolicy, captureCodeDraftEditBase, generateCodeDraft as defaultGenerateCodeDraft,
 } from './m2-code-draft.js';
 
 const POLICY_PATH = '.intentsmith/m2-governance-policy.json';
@@ -570,8 +570,10 @@ export function createM2LifecycleApplicationService(dependencyValues) {
     gitProvider,
     requireRecoveryCensus = false,
     generateCodeDraft = defaultGenerateCodeDraft,
+    codeDraftEditPolicy = null,
     scmCommitMode = () => 'ask',
   } = dependencies;
+  const trustedEditPolicy = compileCodeDraftEditPolicy(codeDraftEditPolicy);
   if (typeof scmCommitMode !== 'function') throw new TypeError('m2-lifecycle-service:scm-commit-policy-required');
   const activeRuns = new Map();
   let recoveryCensusComplete = requireRecoveryCensus !== true;
@@ -734,8 +736,11 @@ export function createM2LifecycleApplicationService(dependencyValues) {
         || (entry && `sha256:${createHash('sha256').update(before.bytes).digest('hex')}` !== entry.contentDigest)) {
         fail(M2LifecycleServiceErrorCode.CONTEXT_STALE, 'Target changed before generation');
       }
-      return { path: target,
-        content: before.exists ? new TextDecoder('utf-8', { fatal: true }).decode(before.bytes) : null };
+      const content = before.exists ? new TextDecoder('utf-8', { fatal: true }).decode(before.bytes) : null;
+      const selected = compiled.buildSteps && !compiled.revisionOf && trustedEditPolicy?.projectId === projectId
+        ? trustedEditPolicy.targets.find(item => item.path === target) : null;
+      const editBase = selected ? captureCodeDraftEditBase(target, content, selected.beforeDigest) : null;
+      return { path: target, content, editBase };
     });
     const contextFiles = new Map();
     for (const target of new Set(compiled.buildSteps?.flatMap(step => step.contextFiles) || [])) {
@@ -769,7 +774,7 @@ export function createM2LifecycleApplicationService(dependencyValues) {
         return { path: file.path, content: generated ? generated.afterContent : retained ? retained.content : file.content,
           state: generated || retained ? 'proposed' : 'original' };
       }).concat(steps.find(step => step.index === index).contextFiles?.map(target => contextFiles.get(target)) || []),
-      previousFiles.get(files[index].path) ?? null);
+      previousFiles.get(files[index].path) ?? null, files[index].editBase);
     // Preflight every initial prompt, then check again with preceding generated
     // after-images. No truncation or partial plan if any peer exceeds the budget.
     files.forEach((_, index) => {
@@ -800,7 +805,7 @@ export function createM2LifecycleApplicationService(dependencyValues) {
       }
       check();
       const change = compileCodeDraftResult(compiled, result, index,
-        previousFiles.get(files[index].path)?.content ?? null).changes[0];
+        previousFiles.get(files[index].path)?.content ?? null, files[index].editBase).changes[0];
       if (change.afterContent === files[index].content) {
         throw codeDraftError('OUTPUT_UNCHANGED', 'Model nenavrhl změnu vybraného souboru.');
       }
@@ -1453,6 +1458,7 @@ export function createDefaultM2LifecycleApplicationService({
   clock = Date.now,
   processProvider = processSandboxProvider,
   generateCodeDraft = defaultGenerateCodeDraft,
+  codeDraftEditPolicy = null,
   evaluateGovernance = evaluateM2GovernanceWithAst,
   scmCommitMode,
 } = {}) {
@@ -1491,6 +1497,7 @@ export function createDefaultM2LifecycleApplicationService({
     gitProvider: exactGitProvider,
     requireRecoveryCensus: true,
     generateCodeDraft,
+    codeDraftEditPolicy,
     scmCommitMode,
   });
 }
