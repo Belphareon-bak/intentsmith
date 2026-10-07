@@ -27,6 +27,17 @@ Source20 nových řádků, bez importní hrany. Context28PASS, řízený replay1
 všech5 pending write zachováno; integrační opakování19 sad na3c4d750f PASS.
 [Paket C3](../review/2026-10-07-CHAT-CONCRETE-CLARIFICATION.md).
 
+C6 skutečný známý Gemma53 korpus na clean7ef8efba dokončil3×53/421volání/4K.
+Technické review ověřilo33schválených efektů a0předčasných změn; oba úplné
+významové posudky mají konsenzus118/159(74,21%) užitečných,24/159(15,09%)
+zastavení a0kritických. Kvalita NO_GO,3neshody vyřešeny oběma hodnotiteli.
+C3 tím nemá prokázaný příčinný pokles/zlepšení proti jinak hodnocené historii.
+Final3cleanup FAIL/UNKNOWN PID zachován. [Paket C6](../review/2026-10-07-CHAT-REGRESSION-C3.md).
+C5 skutečný Studio vstup zatím zastavil ovladač se dvěma sloupci před emisí;
+modelový classifier ani D1 tím nebyly otestovány. Úzká slot0 oprava má CPU/DOM review PASS; celkový CPU pokus FAIL kvůli
+doplňkovému WS guardu, jeho oprava a nový actual jsou otevřené.
+[Paket C5](../review/2026-10-07-STUDIO-D1-ENTRY.md).
+
 Následující inventura popisuje historický stav 2. 8.; její popis fallbacku při
 výpadku ani počty řádků nejsou aktuálním chováním výše uvedeného kandidáta.
 

@@ -130,7 +130,8 @@ export async function bindActualConversation(studio, { projectId, conversationId
     const one = document.querySelector('button[aria-label="Jedna relace"]');
     if (!one || one.disabled) throw Error('FAN_ONE_COLUMN_CONTROL_UNAVAILABLE');
     one.click();
-    const ok = await model.widget.openCatalogItem('Konverzace', { id: String(args.conversationId), name: args.title });
+    // Open into the selected single column; the default slot appends a column.
+    const ok = await model.widget.openCatalogItem('Konverzace', { id: String(args.conversationId), name: args.title }, 0);
     if (ok !== true) throw Error('FAN_CONVERSATION_OPEN_FAILED:' + model.widget.catalogActionError);
     const session = model.widget.store.state.sessions.find(row => String(row._convId) === String(args.conversationId));
     if (!session || String(session._projectId) !== String(args.projectId)) throw Error('FAN_PROJECT_BINDING_DRIFT');

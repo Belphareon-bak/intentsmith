@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 7. 10. 2026; C1 integrován, C2/C3 přezkoumány, C3 integrace19PASS; C4 fresh5 5PASS/review PASS, C5 Studio→D1 se připravuje, H1 sběr NOT_RUN.
+**Aktualizováno:** 7. 10. 2026; C1 integrován, C2/C3 přezkoumány, C3 integrace19PASS; C4 fresh5 5PASS/review PASS; C5 dva DOM FAIL před emisí, slot0 oprava ovladače přijatá, nový runner v přípravě; C6 tři série dokončené, kvalita NO_GO; H1 sběr NOT_RUN.
 **Vlastník integrace a CHAT:** tento koordinátor přebírá ROOT
 (`work/real-chat-journeys-20260930`) podle následného pokynu operátora.
 Jediný writer `cre-decision.js` i společných map je nyní ROOT; HTTP, Fan, fresh5
@@ -51,7 +51,9 @@ release WP; FAIL/BLOCKED/NOT_RUN se nepřeznačují. Publikace podle CONTRACT §
 ověřuje vzdálené SHA a sama neznamená integraci, nasazení ani release přijetí.
 
 **Pořadí.** C1 je integrován, C4 opakování původního fresh5 na b959a468 má5PASS
-a nezávislé evidence review PASS. Nyní ROOT připravuje C5 Studio→D1. C2 již rozebral všech 36 neužitečných odpovědí a 22 zastavení
+a nezávislé evidence review PASS. C5 doložil chybu výběru sloupce v ovladači;
+slot0 oprava má CPU/DOM review PASS, supplemental WS guard vyžaduje opravu. C6 dokončil3×53 beze změn a dva nezávislé
+posudky potvrzují NO_GO; další chatový krok musí porovnat konkrétní příčiny/role. C2 již rozebral všech 36 neužitečných odpovědí a 22 zastavení
 z Gemma regrese podle rodiny a příčiny (aplikace/model/hodnocení, překryvy se nesčítají).
 H1 má vyhrazené jedno společné GPU okno pro oba pevné kandidáty; příprava a
 CPU vývoj pokračují nezávisle. D1 nemá pořadovou závislost na sběru ani hodnocení H1.
@@ -209,21 +211,58 @@ post-hoc audit odstraněné DB. n=1; celý M6/soak/release a nové modelové sk�
 Review65b4b843…12a06. [Přesný paket a omezení](review/2026-10-07-FRESH5-C1-C3.md).
 ROOT provedlactual, druhý worker přijal; autor si nepřijímal vlastní výsledek.
 
-### C5 — přirozený Studio→classifier→D1 (PREPARING / NOT_RUN)
+### C5 — přirozený Studio→classifier→D1 (LIVE_ENTRY_NOT_REACHED)
 
-Autorita: přijatý natural-entry dispatch v projektovém WP a operátorovo zrušení
-pořadové závislosti na H1. Jeden původní core vstup přes skutečný Studio composer
-má vést k ProjectWorkProposal a skončit před CODE/přípravou/schválením/exekucí.
-Původní exponovaný firstRequest se nemění. CHAT Gemma4:26b08ae…12a68 a D1
-Qwen3.5:27b7653…ec06e, oba privátní4K; produkční bindingy beze změny.
-Max1classifier +2D1 (druhý pouze existující structural repair),0CODE/ostatních
-generací,0nových M2efektů. Úzký privátní runner a CPUguardy připravuje m1 worker,
-workflow worker musí nezávisle přijmout glue/freeze, ROOT teprve provedeactual.
-Tracked source je jediného ROOT writera; žádný nový klasifikátor ani prompt.
-Soukromá DB/projekt/HOME, UDS/net namespace, exactdigest/fullGPU/kanonickálease,
-source/build/inputs freeze, pre-forward budget a úplná raw evidence jsou povinné.
-Stop při jiném modelu/roli/budgetu/scope, chybné inference či effectu; žádný nový
-retry po neúspěchu. H1/restricted mimo rozsah. Jde o proposal smoke, ne přijetí Fan.
+Autorita: přijatý natural-entry dispatch a operátorovo zrušení pořadí vůči H1.
+Původní1012B vstup, Gemma classifier1 +Qwen D1max2/4K,0CODE/prepare/approval/execution.
+Druhý D1 pouze stávající structural repair, bez změny modelu/promptu/schema/oracle.
+Clean7ef8efba/CI37661980083 všech18 SUCCESS. CPUguardy48PASS a řízený HTTP
+classifier→D1 PASS, ale skutečné Studio pokusy v2 i v4 skončily FAIL před emisí,
+0modelových volání/efektů. v3 review CHANGES_REQUIRED, actual NOT_RUN.
+v2 vyžadoval jeden chat, v4 deset sekund pozoroval dva viditelné vstupy/tlačítka.
+Příčina v ovladači: openCatalogItem bez slotu po kliknutí Jedna relace přidá
+nový sloupec. ROOT opravil běžný argument slot0; produktový store se nemění.
+Nezávislé review20da6ebf…b5b25 přijalo literal CPU DOM2→1/pět vzorků/správný
+binding. Celkový CPU pokus zůstává FAIL kvůli chybnému doplňkovému očekávání
+WS canExecute/projectId; v5 guard se opravuje podle skutečného serializeru
+a durable tahů, původní plan oracle beze změny. Nový v5 fixture WS autorský
+CPU PASS/c99d95d7…a2760b +26raw/tamper kontrol čeká na nezávislé review.
+Nový actual zatím nepovolen.
+
+Before/after closure obou actual PASS. Projekt/Git/M2/ToolV1 stav zachován;
+v2 17/v4 19 vlastních procesních identit zaniklo,0cleanup signálů/relay/lease.
+Soukromý HOME/DB/projekt/net namespace; RW bind filesystemu, původní PGID a
+kernel EXE EACCES omezení přiznané. Váhy nejsou znovu celé hashované.
+Původní CPU repair FAIL kvůli4K kontextu zachován; limit2 není záruka fitu.
+Žádný spotřebovaný freeze se neopakuje. Nový kandidát po prokázané opravě
+ovladače má nové review/freeze/claim; historické FAILy zůstanou. Tím se nemění
+vyčerpaný HTTP/Fan modelový budget ani chráněný oracle. H1/restricted mimo rozsah.
+[Paket C5](review/2026-10-07-STUDIO-D1-ENTRY.md).
+
+### C6 — známý Gemma53 korpus po C1/C3 (COLLECTION_COMPLETE; QUALITY_NO_GO)
+
+Clean7ef8efba, původní runner/korpus/rubrika, exactGemma4:26b08ae…12a68/4K.
+3×53 dne7.10.,18:13:42–18:29:45UTC, každá série exit0, bez retry/ladění/čtení
+odpovědí mezi sériemi.421 úplných generování (159A+262B),0D1; stejné config
+fingerprint1612badd…14f5. Technické review4a21b2f3…eb46 PASS_WITH_LIMITS:
+423hash refs,698HTTP requests,33schválených efektů(12read/21write),0předčasných
+změn/efektů,3integrityPASS na vlastních kopiích DB. Původní DB se při review neotevírají.
+Dva nezávislí hodnotitelé přečetli všech159B v kontextu a vykonali12Pythonbloků;
+156značek se shodovalo,3neshody oba hodnotitelé vyřešili bez ROOT sebe-přejímky.
+**118/159 (74,21%) užitečných,24/159 (15,09%) zastavení,0kritických.**
+Série39/40/39 užitečných a8/7/9 zastavení; konsenzusece4195e…93395.
+41neužitečných:21vzniká ve výstupu save interpretu,20v odpovědi; tento původ
+neodděluje schopnost modelu od aplikačního promptu. Rozpad rodin a159značek v paketu.
+
+B warm n156 medián2218ms/p953798ms, cold n3 medián15096ms. Pozorovaná latence
+hostu, ne izolovaný benchmark. Původní runner nemá continuous GPU/lifetime
+monitor. Final3 cleanup **FAIL**, zmizelý PID1359590 **UNKNOWN**; samostatný
+pozdější leased postflight3empty PASS tento FAIL nepřepisuje.
+Historických123/159 není kontrolovaný příčinný baseline C3 (jiný zdroj i posudek).
+Stagnace pokračuje: další krok je kontrolované porovnání rolí/příčin se stejným
+promptem/schema/4K a negativními kontrolami, nikoli další nedoložený regex/prompt.
+Známých53 není H1/H2; finální přejímka zůstává na novém holdoutu.
+[Paket C6](review/2026-10-07-CHAT-REGRESSION-C3.md).
 
 ## Přijaté dílčí výsledky
 
@@ -273,8 +312,9 @@ Actual používá zdroj cache 0700; původní zdroj 0775 pokrývá CPU regrese, 
 | HTTP CODE | Anchored@5 skutečně vyčerpal 12/12; nový router vrací GET /items/1=400, A3 neopravena; rollback obnovil retained zdroje |
 | HTTP strategie | Přesné M2 schválení/pending restart/rollback prošly; aplikace FAIL. Doporučený další krok: jeden skutečný repair routeru nad FAILED návrhem, rozpočet 13 vyžaduje rozhodnutí podle WP |
 | Fan | Frozen5f6: 8/11 volání, oracle 8 PASS /6 FAIL; repair4+CLI3 / cumulative15 čeká na samostatnou odpověď |
-| Přirozené plánování | Classifier→D1 CPU 44 +parser 24 /review PASS; skutečný vstup přes Studio ještě nepřijatý |
+| Přirozené plánování | C5 v2/v4 DOM FAIL před modely; ovladač přidává druhý sloupec, slot0 CPU/DOM oprava přijatá; supplemental WS guard se opravuje, Studio→D1 nepřijaté |
 | M1 outage | C1 `1f098912` source review a řízené HTTP/restart PASS; testovaný `b9cfc7c5` full410/CHAT7/CODE12/CI PASS; ROOT převzal e15264f1; C4 fresh5 b959a468 5PASS/review PASS |
+| Chatová kvalita | C6 úplné3×53/dva posudky NO_GO; technické efekty PASS_WITH_LIMITS, cleanup final3FAIL zachován; následuje porovnání rolí/příčin |
 | Mobil | Chybí conversation.create; implementace a device přejímka až po stabilním IDE/BE |
 | Hunt | Potřebujeme nový grading report/cestu a vlastníka pokračování; ROOT cizí hodnocení nepřebírá |
 
@@ -297,7 +337,9 @@ To nedokládá zaplněné 32k okno. Output4096 platí jen pro vydaný exact CODE
 ## Zbývající testy a pořadí dokončení
 
 1. C4 původní fresh5 na b959a468: **5PASS/review PASS**. Historický90/3PASS2FAIL zachovaný.
-   Nyní C5 skutečný Studio→classifier→D1 proposal; širší M6/soak/release zůstává otevřený.
+   Nyní C5 kauzální slot0 oprava ovladače, CPU/DOM review a nový zmrazený Studio→D1 pokus.
+   C6 známá regrese74,21%/15,09% NO_GO; další chatový cyklus porovná roli save interpretu
+   při stejném promptu/schema/4K. Širší M6/soak/release zůstává otevřený.
 2. HTTP: rozhodnout jeden genuine repair routeru nad skutečným FAILED M2 (12→13); poté frozen oracle +supplement17, commit/restart/persistence a review. Fan má samostatné rozhodnutí.
 3. Živý přirozený classifier→D1, fyzická ovladatelnost IDE/M2, file/web/export/skills a projektové A→B→A.
 4. Kvalita expertise/specialistů, worker souběh a delší stabilita; project/config/skills restore; společný profil a finální M5/M6.

@@ -1,0 +1,279 @@
+{
+  "kind": "StudioNaturalD1C5Result@1",
+  "baseSha": "7ef8efbad9cb4ac78e60c0b29fc2f6f5e565e94c",
+  "status": "LIVE_ENTRY_NOT_REACHED",
+  "attempts": [
+    {
+      "version": "v2",
+      "status": "FAIL",
+      "sourceSha": "7ef8efbad9cb4ac78e60c0b29fc2f6f5e565e94c",
+      "freezeSha256": "f45aa2b06b4e77fc6eaabd0ff47c689f12bb4d4fb45b7c297b5a6335e0273196",
+      "startedAt": "2026-10-07T18:40:34.518Z",
+      "completedAt": "2026-10-07T18:40:47.325Z",
+      "failure": "literal Studio renderer evaluation failed: {\"exceptionId\":1,\"text\":\"Uncaught (in promise) Error: FAN_REQUIRES_ONE_VISIBLE_CHAT_COLUMN\",\"lineNumber\":27,\"columnNumber\":39,\"scriptId\":\"159\",\"stackTrace\":{\"callFrames\":[{\"functionName\":\"\",\"scriptId\":\"159\",\"url\":\"\",\"lineNumber\":26,\"columnNumber\":38},{\"functionName\":\"\",\"scriptId\":\"159\",\"url\":\"\",\"lineNumber\":34,\"columnNumber\":4},{\"functionName\":\"\",\"scriptId\":\"159\",\"url\":\"\",\"lineNumber\":34,\"columnNumber\":1134}]},\"exception\":{\"type\":\"object\",\"subtype\":\"error\",\"className\":\"Error\",\"description\":\"Error: FAN_REQUIRES_ONE_VISIBLE_CHAT_COLUMN\\n    at <anonymous>:27:39\\n    at <anonymous>:35:5\\n    at <anonymous>:35:1135\",\"objectId\":\"-2872537388185776972.1.1\"}}",
+      "generationCalls": 0,
+      "bounds": {
+        "classifier": 1,
+        "D1": 2,
+        "CODE": 0,
+        "otherGeneration": 0,
+        "numCtx": 4096,
+        "maximumMs": 600000,
+        "requestBytes": 1000000,
+        "responseBytes": 16000000
+      },
+      "cleanup": {
+        "observedOwnedProcesses": 17,
+        "residual": [],
+        "signals": [],
+        "relayActive": 0,
+        "leaseReleased": true
+      },
+      "command": {
+        "at": "2026-10-07T18:40:30.849114+00:00",
+        "command": [
+          "/home/belphareon/.nvm/versions/node/v24.21.0/bin/node",
+          "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/run-v2.mjs",
+          "--live",
+          "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/frozen-7ef8efba-c5-v2/FROZEN.json",
+          "f45aa2b06b4e77fc6eaabd0ff47c689f12bb4d4fb45b7c297b5a6335e0273196",
+          "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-independent-review-20261007/REVIEW.json",
+          "726d5b12bbedfb60070b44816fa2da447bfd125affd4633082a7e230f0a8a524",
+          "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/actual-7ef8efba-c5-v2"
+        ],
+        "cwd": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930",
+        "environment": {
+          "PATH": "/home/belphareon/.nvm/versions/node/v24.21.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+          "LANG": "C.UTF-8",
+          "LC_ALL": "C.UTF-8",
+          "TZ": "Europe/Prague",
+          "INTENTSMITH_STUDIO_DISPLAY": ":0",
+          "INTENTSMITH_STUDIO_XAUTHORITY": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/studio.xauth"
+        },
+        "expectedExitCode": 0,
+        "scope": "Studio classifier to D1 capture only; no CODE/app acceptance"
+      },
+      "expectedExit": 0,
+      "actualExit": {
+        "at": "2026-10-07T18:40:47.344598+00:00",
+        "pid": 1377795,
+        "exitCode": 1
+      }
+    },
+    {
+      "version": "v4",
+      "status": "FAIL",
+      "sourceSha": "7ef8efbad9cb4ac78e60c0b29fc2f6f5e565e94c",
+      "freezeSha256": "8a9a0bbf8157a03cec2c05c8da85fb4352cd11035c8a4f5b4ecb4fc10ce8b33b",
+      "startedAt": "2026-10-07T18:54:25.356Z",
+      "completedAt": "2026-10-07T18:54:47.830Z",
+      "failure": "C5 single-column DOM readiness timeout",
+      "generationCalls": 0,
+      "bounds": {
+        "classifier": 1,
+        "D1": 2,
+        "CODE": 0,
+        "otherGeneration": 0,
+        "numCtx": 4096,
+        "maximumMs": 600000,
+        "requestBytes": 1000000,
+        "responseBytes": 16000000
+      },
+      "cleanup": {
+        "observedOwnedProcesses": 19,
+        "residual": [],
+        "signals": [],
+        "relayActive": 0,
+        "leaseReleased": true
+      },
+      "command": {
+        "at": "2026-10-07T18:54:21.717784+00:00",
+        "command": [
+          "/home/belphareon/.nvm/versions/node/v24.21.0/bin/node",
+          "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/run-v4.mjs",
+          "--live",
+          "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/frozen-7ef8efba-c5-v4/FROZEN.json",
+          "8a9a0bbf8157a03cec2c05c8da85fb4352cd11035c8a4f5b4ecb4fc10ce8b33b",
+          "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-independent-review-v3-20261007/REVIEW-v4.json",
+          "ce5c9fbc567fec6b3d55345694be6ef18b8ca73dfeb1ef7eda4e970a0e1beaf9",
+          "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/actual-7ef8efba-c5-v4"
+        ],
+        "cwd": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930",
+        "environment": {
+          "PATH": "/home/belphareon/.nvm/versions/node/v24.21.0/bin:/usr/bin:/bin:/usr/sbin:/sbin",
+          "LANG": "C.UTF-8",
+          "LC_ALL": "C.UTF-8",
+          "TZ": "Europe/Prague",
+          "INTENTSMITH_STUDIO_DISPLAY": ":0",
+          "INTENTSMITH_STUDIO_XAUTHORITY": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/studio.xauth"
+        },
+        "expectedExitCode": 0,
+        "scope": "Studio classifier to D1 capture only; no CODE/app acceptance"
+      },
+      "expectedExit": 0,
+      "actualExit": {
+        "at": "2026-10-07T18:54:47.846299+00:00",
+        "pid": 1402139,
+        "exitCode": 1
+      }
+    }
+  ],
+  "observedDom": {
+    "samples": 98,
+    "shapes": [
+      [
+        1,
+        2,
+        2,
+        2
+      ]
+    ],
+    "stableSamples": 0,
+    "mutations": 0
+  },
+  "diagnosis": "Opening a new catalog conversation with no slot invokes SessionStore.nextSlot(undefined), appending a second column after selecting one column. Waiting does not change this state. Narrow controller fix passes ordinary slot 0; product UI behavior and inference prompts stay unchanged.",
+  "nextCandidate": "New v5 supplemental capture guard must match existing WS whitelist and durable binding; independent review/freeze required before actual. Original plan oracle and budgets unchanged.",
+  "references": [
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/ACTUAL-v2-MANIFEST.json",
+      "bytes": 123872,
+      "sha256": "6a08e4cde06f59e4a167c44c377c4aa164be0f87f8f4f92a21e041dee2e7c886"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/frozen-7ef8efba-c5-v2/FROZEN.json",
+      "bytes": 19924358,
+      "sha256": "f45aa2b06b4e77fc6eaabd0ff47c689f12bb4d4fb45b7c297b5a6335e0273196"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/actual-7ef8efba-c5-v2/result.json",
+      "bytes": 4590,
+      "sha256": "d221fb63b9fbe6bc93535a046739a43db2122ee82e1994ae7077f946ebfcfe4f"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/actual-7ef8efba-c5-v2/inside-result.json",
+      "bytes": 6881,
+      "sha256": "9c5c2eff8407e254708d995b34f1803dad331922159f54928be2e85d4e66cc17"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/actual-7ef8efba-c5-v2/before.json",
+      "bytes": 6708,
+      "sha256": "889590c952738a113a0aa29366437fbf042b8fd7f12d9bd81c1bdf3fbd640454"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/actual-7ef8efba-c5-v2/after-stop.json",
+      "bytes": 6708,
+      "sha256": "889590c952738a113a0aa29366437fbf042b8fd7f12d9bd81c1bdf3fbd640454"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/VERIFY-v2-after-20261007T204103678752.json",
+      "bytes": 349,
+      "sha256": "85bcf4dca06527f9c725821bcd84036edb4e25157ce8ad02adac502264b0f485"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/VERIFY-v2-before-20261007T204030839411.json",
+      "bytes": 350,
+      "sha256": "74a1e7a319ccedc985edc99e4a83f4f411d354dc90730284bce962f9d39fd531"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/ROOT-ACTUAL-COMMAND.json",
+      "bytes": 1492,
+      "sha256": "03084d537c314f3753375f5f3e740efdb68fb70becb64a762f89f9c2b2807a6d"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/ROOT-ACTUAL-EXIT.json",
+      "bytes": 82,
+      "sha256": "961cdd3f916a869f5ae7969038f6bfd213d2d7f8db580420b79eebc3e0e53a46"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/ACTUAL-v4-MANIFEST.json",
+      "bytes": 124714,
+      "sha256": "cbe9e037923e56b564b9d50fe49208a21ba587dab475bf57c5c5da1f559ae085"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/frozen-7ef8efba-c5-v4/FROZEN.json",
+      "bytes": 19927304,
+      "sha256": "8a9a0bbf8157a03cec2c05c8da85fb4352cd11035c8a4f5b4ecb4fc10ce8b33b"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/actual-7ef8efba-c5-v4/result.json",
+      "bytes": 4936,
+      "sha256": "8e3b7ccd372a41cbf289f99e178d0a80ab9886cc57e708afef2a67ecde094ea7"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/actual-7ef8efba-c5-v4/inside-result.json",
+      "bytes": 4924,
+      "sha256": "957b16252716eccc74b9c5298af0c9b81998d88d3e36b907b6db61e3e75ddf43"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/actual-7ef8efba-c5-v4/before.json",
+      "bytes": 6708,
+      "sha256": "3aa01fa44ef25f6467ebdd8280394be02ffad3b6a8c5e0f822b5a8839b342a3c"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/actual-7ef8efba-c5-v4/after-stop.json",
+      "bytes": 6708,
+      "sha256": "3aa01fa44ef25f6467ebdd8280394be02ffad3b6a8c5e0f822b5a8839b342a3c"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/VERIFY-v4-after-20261007T205504221604.json",
+      "bytes": 349,
+      "sha256": "2847d86980e18c7590ca4530c0c4b6a9d145e9b4a76c00a52c7741c4062ca2f0"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/VERIFY-v4-before-20261007T205421708815.json",
+      "bytes": 350,
+      "sha256": "96842fd7126ef1168c8e007bddac3f840f2654bff51ed46009018df0814abe46"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/ROOT-ACTUAL-v4-COMMAND.json",
+      "bytes": 1498,
+      "sha256": "938b8d5ae594ed77b5affbba45b71de5fe475bfbcd621a8573bcd2d0f11dd446"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/ROOT-ACTUAL-v4-EXIT.json",
+      "bytes": 82,
+      "sha256": "bc3d8df0871b7e0254e0dd0aad84175d1c34d2bf1866fb4e9e6bd3b8e89fcd32"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/actual-7ef8efba-c5-v4/dom-readiness.json",
+      "bytes": 21823,
+      "sha256": "ba4575417f23c4cbf989446a418b9619db9b4b3d3e825d182bc16e3060b166ef"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/actual-review-v4/REVIEW.json",
+      "bytes": 10163,
+      "sha256": "20da6ebfe276ada8588454702256d3a78685d049c4fbadfe9dd5b334a9db5b25"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/actual-review-v4/CHECKS.json",
+      "bytes": 9854,
+      "sha256": "0bd4747005733beb11627e704b9cb1c047b04a13007a3ed39362f36208a16c1e"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/cpu-v5/run-Nziqwz/receipt.json",
+      "bytes": 8334,
+      "sha256": "f78d298d7b47cc3c3e771e7e46a3acdb2bdbd23d2b66e5b71fc4e41402c5f845"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/cpu-v5/run-mXiZda/receipt.json",
+      "bytes": 9003,
+      "sha256": "c99d95d73af397fdb37cfa354066d6b3dcf6b3867812f5fac4850b48a4a2760b"
+    }
+  ],
+  "forbiddenInputs": [
+    "H1",
+    "H2",
+    "restricted/",
+    "their raw answers"
+  ],
+  "acceptance": "No D1 proposal, model quality, Fan, HTTP or release acceptance from these failed pre-emission attempts.",
+  "controllerFix": {
+    "status": "ACCEPTED_SINGLE_COLUMN_BEHAVIOR_ONLY",
+    "sourceDiff": "openCatalogItem(..., 0) instead of omitted slot",
+    "cpuLiteralDom": "Historical2 / fixed1 columns, five stable samples each, distinct empty Studio profiles, same project/conversation binding",
+    "overallCpuStatus": "FAIL supplemental assertCapture expected canExecute/projectId absent from actual WS whitelist; preserved; guard correction in preparation",
+    "v5LiveReadiness": "NOT_ACCEPTED",
+    "independentReviewSha256": "20da6ebfe276ada8588454702256d3a78685d049c4fbadfe9dd5b334a9db5b25",
+    "newV5Fixture": "CPU PASS reported by author, 2 fixture generations, no effects; independent v5 review pending"
+  }
+}

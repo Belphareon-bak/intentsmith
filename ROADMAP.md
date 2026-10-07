@@ -12,7 +12,9 @@ Dvě produktové kopie 0700, původní cache a source/deps/14 links zachované; 
 C4 nový původní fresh5 na b959a468: **5PASS/review PASS**, actual17:25:47–17:33:05UTC, exit0.
 Historický90/3PASS2FAIL zachovaný. ExactQwen4K,10/10odpovědí,min5875MiB,source/cache/cleanup PASS.
 [Paket a limity n=1](docs/review/2026-10-07-FRESH5-C1-C3.md); celý M6/release a Studio→D1 tím nepřijaté.
-C5 proposal-only Studio→classifier→D1 se připravuje,0CODE/approval/execution; H1 časově neblokuje.
+C5 v2/v4 skutečný DOM FAIL před emisí,0modelcalls/efektů; příčina druhý sloupec
+v ovladači. Slot0 CPU/DOM review PASS, celkový CPU pokus FAIL kvůli supplemental WS
+guardu; jeho oprava v přípravě, Studio→D1 dosud nepřijaté. [Paket C5](docs/review/2026-10-07-STUDIO-D1-ENTRY.md).
 Historický ROOT offline/database profil `86dbca40`: 410 PASS /0 FAIL /BLOCKED /TIMEOUT; netestoval následnou cache opravu.
 Registry 596/35; CHAT kandidát: module graph má 1 512 hran, 3 cykly /28 členů.
 Jediná nová hrana CRE → chat-turn-error nezávisle schválená, baseline připnutý na `1f098912`.
@@ -29,7 +31,13 @@ C2 diagnóza36/22 a CPU experiment mají samostatná review; modelová kvalita s
 C3 v2 source3bfebf98: konkrétní AMBIGUOUS otázka i kanonická pending operace zachované.
 První verzi vrátilo DB review přes19 zelených sad; nový RED1FAIL→context28PASS,
 řízený replay15/15 bez efektů,5/5 pending write zachováno. Nezávislé source/evidence
-review v2 PASS, nové integrační opakování19 sad na3c4d750f PASS. Žádné nové modelové skóre.
+review v2 PASS, nové integrační opakování19 sad na3c4d750f PASS.
+C6 clean7ef8efba: známý Gemma53 korpus3×,421volání/4K,33schválených efektů,
+0předčasných změn; technické review PASS_WITH_LIMITS. Dva úplné nezávislé
+posudky a společný konsenzus:118/159(74,21%) užitečných,24/159(15,09%)
+zastavení,0kritických; kvalita NO_GO,3neshody vyřešené. Final3cleanup FAIL
+(PID1359590 UNKNOWN) zachován, následný3empty postflight PASS.
+[Paket C6](docs/review/2026-10-07-CHAT-REGRESSION-C3.md); nejde o H1/H2 ani příčinný C3 delta.
 [Revizní paket](docs/review/2026-10-07-CHAT-M1-OUTAGE.md); CI/CPU nejsou release acceptance.
 
 HTTP private-loopback profil zapojený; retained execution/M2/oracle/commit/restart prošel, API SOURCE FAIL.
@@ -46,8 +54,9 @@ Fan 8/11, oracle 8 PASS/6 FAIL; repair4+CLI3/cumulative15 čeká na samostatnou 
 32k krátce změřené fullGPU/min free 2 512 MiB; celé okno ani kvalita aplikace tím nepřijaté.
 Classifier→D1 CPU 44 +parser 24/review PASS; živý přirozený vstup a fyzická ovladatelnost IDE/M2 otevřené.
 
-Nynější úkol: převzetí ROOT a připravený H1 sběr obou pevných kandidátů;
-C3 a C4 jsou přezkoumané. Další: skutečný Studio→D1,
+Nynější úkol: C5 oprava doloženého testovacího ovladače a skutečný Studio→D1;
+C6 NO_GO vede ke kontrolovanému porovnání rolí. C3/C4 přezkoumány,
+H1 čeká na custody/dešifrovací krok operátora. Další:
 HTTP/Fan v přijatých budgetech → IDE/BE/expertise/workers → M5/M6.
 M5 je 8/9/privacy changes required; retain_and_rotate zvolené, signed 8 categories+history chybí.
 CustodyA/B doložená; druhá operator offline kopie/reviewer recovery/13 signed/24h/throughput/Gate0/demo otevřené.
