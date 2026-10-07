@@ -33,7 +33,9 @@ Neúspěšný modelový call propaguje503, vadná provider obálka či plánová
 zrušení zůstává409. Platné doptání plan:null zůstává200. Původní jediný
 strukturální repair se nerozšiřuje. Řízená skutečná M1/restart sada57PASS,
 bez změny project/Git a bez nových efektů; nezávislé source/test/evidence
-review PASS; integrace19/CI PASS na dd8a. Celý profil vrácen kvůli C11 testu. Nejde o živou Studio/D1 přejímku.
+review PASS; integrace19/CI PASS na dd8a. Jeho celý profil zůstal nepřijatý kvůli
+C11 testu. Po C11/C12 opravách má678eead7 celý profil410 a CI18 přezkoumané PASS.
+Produktový zdroj24f beze změny; nejde o živou Studio/D1 přejímku.
 [Paket C9](../review/2026-10-07-CHAT-TERMINAL-FAILURES.md).
 
 ## Dobré, použije se

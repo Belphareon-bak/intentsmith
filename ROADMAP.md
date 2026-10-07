@@ -4,19 +4,25 @@
 Release `NOT_ACCEPTED`; BE `c84b88cd` / Studio `7bf62455…bfe24` nezměněné.
 Přijaté Ledger/TaskFlow/SQLite, omezený AST/GPU panel/cleanup, full109 DB roundtrip a M3 worker;
 opakovat pouze při nové změně nebo konkrétní pochybnosti. ROOT vlastní integraci i CHAT.
-Aktuální produktový zdroj C9 `24f329c6`, testovaný/publikovaný checkpoint `dd8a451b`:
-classifier13HTTP/restart, finální context55, project57 a integrace19 PASS;
-nezávislé source/test/evidence/integration review PASS. CI37691183506:1job/18kroků SUCCESS.
-Celý profil dd8a **NEPŘIJATÝ**: runner hlásí410PASS, ale scenario-engine má22PASS/20FAIL
-s chybným exit0. Stejná vada potvrzená v historickém f475 profilu; jeho přijetí celého
-profilu je stažené, původní raw a posudky zachované. C11 opravuje pouze testovací setup
-skutečným package fixture a hlášení přes node:test;42původních kontrol zachováno,
-GREEN42/0, tři negativní kontroly správně exit1. C11 na čistém a54eaa60:
-410 PASS / 0 FAIL, všechny logy nezávisle přezkoumané (69e5a0ec…0a771c),
-scenario 42/42. CI37694174356 má 1 job / 18 kroků SUCCESS, review PASS.
-C12 testový commit6699e962 převádí dalších šest vadných harnessů na node:test,
-všech 239 původních kontrol zachováno. Source i nezávislé peer review sond PASS;
-nový celý profil NOT_RUN. [C12 evidence](docs/review/2026-10-08-TEST-HARNESS-INTEGRITY.md).
+Aktuální produktový zdroj C9 `24f329c6`; přijatý a publikovaný checkpoint
+`678eead707a59df568c7353a8b2dd7ad6c175b23` obsahuje také C11/C12 opravy testů.
+C9: classifier13 HTTP/restart, context55, project57 a integrace19 PASS;
+nezávislé source/test/evidence/integration review. Modelové výpadky již
+nevytvářejí úspěšné assistant zprávy v klasifikátoru ani projektovém plánování.
+C12: šest harnessů na node:test, všech 239 původních kontrol zachováno,
+24 izolovaných sond nezávisle přijatých. Nový celý profil na678eead7:
+410 PASS / 0 FAIL / BLOCKED / TIMEOUT / SKIPPED, 22:26:12–22:36:25 UTC 7. 10.,
+exit 0 a čistý strom. Review dc23d603…d631a ověřilo všech 410 logů, přesný výběr,
+239 C12 testů, scenario42 a context55. CI37696180485 má 1 job / 18 kroků SUCCESS,
+review PASS. Registry596 ověřeno samostatně; source24f ani registry se neměnily.
+[C12 přejímka, příkazy a SHA-256](docs/review/2026-10-08-TEST-HARNESS-INTEGRITY.md).
+
+Původní dd8a full zůstává NEPŘIJATÝ: scenario-engine22 PASS /20 FAIL s exit0.
+Stejný false-green byl ověřen ve f475; jeho celé přijetí je stažené, původní raw
+reporty a posudky zachované. C11 odstranil příčinu s nezměněnými42 kontrolami;
+jeho samostatný a54eaa60 profil410 i CI18 mají review PASS. Další C12 odstranil
+šest reprodukovaných vad testových harnessů. Počet programů se nevydává za počet
+úplných uživatelských cest; import-only helper a crash smoke mají omezený rozsah.
 C10 replay doložil ztrátu původního save požadavku po chybném modelovém
 continuesPending:false; nejde o opravu ani nové modelové skóre.
 [Paket C9/C11](docs/review/2026-10-07-CHAT-TERMINAL-FAILURES.md),
@@ -83,7 +89,8 @@ Fan 8/11, oracle 8 PASS/6 FAIL; repair4+CLI3/cumulative15 čeká na samostatnou 
 32k krátce změřené fullGPU/min free 2 512 MiB; celé okno ani kvalita aplikace tím nepřijaté.
 Classifier→D1 CPU 44 +parser 24/review PASS; živý přirozený vstup a fyzická ovladatelnost IDE/M2 otevřené.
 
-Nynější úkol: dokončit nezávislé ověření C12 a celý profil šesti opravených harnessů.
+Nynější úkol: návaznost souborového požadavku podle C10 s negativními kontrolami
+pro cancel, nové zadání a jiný projekt. C9/C11/C12 CPU přejímka je uzavřená.
 C10 izoloval chybu modelové návaznosti a následnou ztrátu pending; další oprava
 nesmí ignorovat změnu zadání či cancel; C6 NO_GO a C7 živý FAIL zůstávají. C5 retry zastaven,
 před návratem jiná omezená strategie; C3/C4 přezkoumány,

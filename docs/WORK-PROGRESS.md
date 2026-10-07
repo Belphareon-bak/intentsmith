@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 8. 10. 2026. Produkt `24f329c6`: C9 source/test/evidence/integrace19 a CI přijaté. C11 na `a54eaa60`: celý profil 410 PASS a CI přezkoumané. Původní dd8a a f475 full zůstávají nepřijaté. C12 testový commit `6699e962`: šest dalších harness oprav, source review PASS; peer review sond PASS, nový full NOT_RUN. C10 diagnóza přijatá; C5/C7 LIVE_FAIL, C6 NO_GO, H1 NOT_RUN.
+**Aktualizováno:** 8. 10. 2026. Přijatý checkpoint `678eead7`: C9 oprava výpadků + C11/C12 pravdivé testování; celý deterministický profil 410 PASS, CI 18 kroků SUCCESS a registry 596 ověřené druhým workerem. Produktový zdroj `24f329c6`; původní dd8a/f475 full zůstávají nepřijaté. C10 diagnóza přijatá; C5/C7 LIVE_FAIL, C6 NO_GO, H1 NOT_RUN. Release NOT_ACCEPTED.
 **Vlastník integrace a CHAT:** tento koordinátor přebírá ROOT
 (`work/real-chat-journeys-20260930`) podle následného pokynu operátora.
 Jediný writer `cre-decision.js` i společných map je nyní ROOT; HTTP, Fan, fresh5
@@ -376,7 +376,7 @@ nespolehlivost při vynucené chybě tento konkrétní zelený běh neuzavírá.
 Samotné načtení helperu tests/output-gate.js v profilu je pouze import smoke;
 nevydává se za provedené funkční assertions. Žádný required program se nevyřazuje.
 
-### C12 — všechny kontroly musí doběhnout a chyba musí vrátit nenulový exit (SOURCE_AND_PROBE_REVIEW_PASS; FULL_NOT_RUN)
+### C12 — všechny kontroly musí doběhnout a chyba musí vrátit nenulový exit (SOURCE_AND_PROBE_AND_FULL_REVIEW_PASS)
 
 Autorita: operátorův důraz na kvalitu testů a pravdivé výsledky; konkrétní
 nálezy omezeného auditu 410 vybraných programů plus společného harnessu.
@@ -393,7 +393,14 @@ poloviny změny. Celkem 24 izolovaných overlay běhů: šest RED, šest kandid�
 baseline (239 PASS), devět negativních kontrol s exit 1 a tři dokončené
 zpožděné pozitivní kontroly s exit 0. Vynucené async chyby nekončí cancellation.
 Nezávislý peer audit 5039c9ef…618ab přijal všech 24 běhů, přesné mutanty,
-manifesty a 239 nezměněných oracle bodies. Nový celý profil NOT_RUN.
+manifesty a 239 nezměněných oracle bodies. Závěrečný čistý checkpoint678eead7:
+7. 10. 22:26:12–22:36:25 UTC, 410 PASS / 0 FAIL / BLOCKED / TIMEOUT / SKIPPED,
+exit 0, clean after. Review dc23d603…d631a ověřilo všech 410 logů, přesný výběr
+323 offline + 87 database, 239 C12 testů, scenario42 a context55, bez retry
+a úniku vlastněné process group. CI37696180485 má 1 job / 18 SUCCESS kroků,
+review 0c495c0d…96db7; registry596 ověřeno samostatně se stejným fingerprintem.
+Output-gate import smoke a pět offline crash probes nepředstírají úplné
+uživatelské cesty. Živá kvalita, H1/H2 a release nejsou přijaté.
 [Přesný diff, příkazy, exity, SHA-256 a limity](review/2026-10-08-TEST-HARNESS-INTEGRITY.md).
 
 ## Přijaté dílčí výsledky
@@ -468,7 +475,7 @@ Actual používá zdroj cache 0700; původní zdroj 0775 pokrývá CPU regrese, 
 | Přirozené plánování | C5 v5 po opraveném ovladači odeslal vstup; GPU monitor FAIL před úplnou odpovědí, D1 NOT_REACHED. Stagnace: žádný další retry v tomto cyklu |
 | M1 outage | C1 `1f098912` source review a řízené HTTP/restart PASS; testovaný `b9cfc7c5` full410/CHAT7/CODE12/CI PASS; ROOT převzal e15264f1; C4 fresh5 b959a468 5PASS/review PASS |
 | Chatová kvalita | C6 úplné3×53/dva posudky NO_GO; C7 oprava context/restart CPU přijatá, živý save i cleanup první série FAIL; další2 NOT_RUN. Oddělit návaznost a save interpretaci |
-| Providerové chyby | C9 zdroj24f329c6: zbývající classifier404/binding/drift +projektové chyby terminal; řízené13HTTP/57project GREEN, source/test/evidence/integrace19/CI PASS. C11 celý profil přijat na a54eaa60; navazující C12 opravuje další testové harnessy; interní M7 status se nemění |
+| Providerové chyby | C9 zdroj24f329c6: zbývající classifier404/binding/drift +projektové chyby terminal; řízené13HTTP/57project GREEN, source/test/evidence/integrace19/CI PASS. C12 celý profil410/CI18 přijat na678eead7; interní M7 status se nemění |
 | Mobil | Chybí conversation.create; implementace a device přejímka až po stabilním IDE/BE |
 | Hunt | Potřebujeme nový grading report/cestu a vlastníka pokračování; ROOT cizí hodnocení nepřebírá |
 | H1 custody | Čeká volba veřejného GPG fingerprintu pro zašifrované výstupy nebo privátní raw custody u operátora, poté dešifrování těsně před společným oknem; sběr NOT_RUN |
@@ -491,7 +498,9 @@ To nedokládá zaplněné 32k okno. Output4096 platí jen pro vydaný exact CODE
 
 ## Zbývající testy a pořadí dokončení
 
-1. Dokončit C12 peer review sond a nový celý profil; C11 full, C9 integrace19 a CI již přezkoumány.
+1. Navázat na C10: opravit rozhodování o návaznosti souborového požadavku až po
+   kontrolách cancel, změny zadání a projektu. C9/C11/C12 jsou uzavřené v uvedeném
+   CPU rozsahu; poslední přijatý celý profil je678eead7,410PASS a CI18.
    C4 původní fresh5 na b959a468: **5PASS/review PASS**. Historický90/3PASS2FAIL zachovaný.
    C5 uzavřít jako přezkoumaný FAIL; další strategie nesmí pokračovat řadou retry aparátu.
    C6 známá regrese74,21%/15,09% NO_GO; C7/C8 produktové opravy přijaté v uvedeném rozsahu,
