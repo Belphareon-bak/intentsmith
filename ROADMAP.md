@@ -17,7 +17,9 @@ CHAT7/CODE12 zachované, CI/CPU nejsou release acceptance.
 HTTP private-loopback profil zapojený; retained execution/M2/oracle/commit/restart prošel, API SOURCE FAIL.
 Normal MODIFY@4 cumulative10: úplný kontext/výstupy; A1/slash aliases a A3/charset OWS neopravena.
 Nový úkol 7. 10.: dokončit HTTP/SQLite; normal anchored edit s full before source/digest, max2 nové/cumulative12.
-CPU lifecycle119/model45 PASS, source review c33856f2 PASS; nový exact M2/oracle/commit/restart/supplement17 NOT_RUN.
+CPU lifecycle119/model45, lokální CODE12 a CIae633 všech18 PASS; core/rebind review PASS.
+Actual entry7.10.FAIL/model0 kvůli oldpendingpointer; nová API konverzace stejného projektu zachová all257.
+Exact M2/oracle/commit/restart/supplement17 stále NOT_RUN; model10+2/12 unchanged.
 Fan 8/11, oracle 8 PASS/6 FAIL; repair4+CLI3/cumulative15 čeká na samostatnou odpověď.
 32k krátce změřené fullGPU/min free 2 512 MiB; celé okno ani kvalita aplikace tím nepřijaté.
 Classifier→D1 CPU 44 +parser 24/review PASS; živý přirozený vstup a fyzická ovladatelnost IDE/M2 otevřené.

@@ -467,3 +467,19 @@ Bounded source/CPU review c33856f2…5fa8fe1 PASS včetně actual startup ENV va
 CPU context6 PASS: router1675+29440=31115B, server29105B, větší peer fixture29354B, guard32000 zachovaný.
 Úplné zdroje jednou, normální output4096/context32768/model qwen3.8:latest/22130167… unchanged; source16384 limit zachovaný.
 Před inference bude publikovaný společný candidate, přesný CI a čerstvé FS/provider/DB/GPU/display freeze.
+
+### Orchestrace vstupu, 7. 10. 2026, 07:18 UTC
+
+Published candidate ae633fc9 /CI37584733305 všech18 SUCCESS a lokální CODE12 PASS;
+core119/model45/doccensus160 a source/rebind c33856f2/d2839008 PASS.
+Actual freeze0d69a84d /policybb1bb1a:07:08:44–07:08:58 FAIL před phase0 /CODE0 nových.
+Výjimka rendereru line38 je přesný pending-pointer guard, busy/activeM1 guard je line24.
+Source/history a všech257 PK/digest ve33 tables zachované, původní4 sources/Git1856920 unchanged,
+Studio/BE cleanstop/proxy0/lease released/observer closed; žádný nový model/GPUload.
+Closed35files771823c1 /independent FAILreview092b5c2c…d4216c4, žádné app přijetí.
+ROOT řeší kvalifikační orchestrace novou konverzací přes stávající POST /api/conversations
+ve stejném projektu a pod stejným ownerem; starý pending/konverzace/M2 authority zůstanou zachované.
+Explicitní @5 entryConversationPolicy fresh-same-project/v1 binduje vytvořené ID/původ/nový exactorigin;
+staré modelové admission se nepřepisují. Controller busy guards ani CHAT kód se nemění.
+CPU entry6 PASS; stejné fullsources/router506B task/server441B task/model/output/context/cumulative12.
+Před dalším actual nová source review/publikace/CI/freeze; žádný model retry či navyšování rozpočtu.

@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 7. 10. 2026, 08:46 CEST /06:46 UTC.
+**Aktualizováno:** 7. 10. 2026, 09:18 CEST /07:18 UTC.
 **Vlastník:** ROOT; CHAT/Gemma a zbývající Hunt mají jiné workery.
 **Release NOT_ACCEPTED. HTTP API FAIL. Fan FAIL. Mobil čeká na stabilní IDE/BE.**
 
@@ -31,7 +31,7 @@ Doc/artifact gate160 PASS; nynější census src688/237191, tests604/270426; sou
 Studio bundle 7bf62455…bfe24 / instalovaný BE c84b88cd nezměněné; žádný deploy ani aktivace.
 Externí c5309a0/bundle místně chybí; jeho výsledky nejsou přijaté místní důkazy.
 
-## Poslední milník: cache oprava a skutečný upgrade
+## Poslední přijatý milník: cache oprava a skutečný upgrade
 
 Nový cache helper kontroluje vlastní nový cíl a nastaví pouze jeho kořen 0700;
 zdroj, payload a executable modes zachované. CPU 23/23; source review 69836bd2…350de0.
@@ -49,7 +49,7 @@ Actual používá zdroj cache 0700; původní zdroj 0775 pokrývá CPU regrese, 
 | Oblast | Co chybí / nejbližší krok |
 | --- | --- |
 | HTTP CODE | Normal@4 vyčerpal cumulative10; retained disk má dosud A1/A2/A3 vady, @4 návrh nebyl schválen |
-| HTTP strategie | Nový úkol operátora 7. 10.: omezený normal anchored edit s úplným before source/digest, max2 nové / cumulative12; produktový connector CPU lifecycle119/model45 PASS, source review c33856f2 PASS; helper reboot delta pending, actual NOT_RUN |
+| HTTP strategie | Nový úkol operátora 7. 10.: omezený normal anchored edit s úplným before source/digest, max2 nové / cumulative12; produktový connector119/model45, lokální CODE12 a CIae633 všech18 PASS; source/rebind review PASS; actual entry FAIL/model0 |
 | Fan | Frozen5f6: 8/11 volání, oracle 8 PASS /6 FAIL; repair4+CLI3 / cumulative15 čeká na samostatnou odpověď |
 | Přirozené plánování | Classifier→D1 CPU 44 +parser 24 /review PASS; skutečný vstup přes Studio ještě nepřijatý |
 | M1 outage | Typed PROVIDER_UNAVAILABLE spolknutý classifierem → fallback/status ok; produktová oprava patří CHAT workerovi |
@@ -60,8 +60,10 @@ Actual používá zdroj cache 0700; původní zdroj 0775 pokrývá CPU regrese, 
 Retained@3 M2/oracle/Git1856920f/BE restart prošel; API SOURCE FAIL, [export](../examples/generated-apps/http-items-candidate/README.md) NOT_ACCEPTED.
 70 HTTP +14 refused SQL /14 positive, AUTOINCREMENT a dva servery se stejnou DB doložené; rollback4 PASS.
 Normal@4 měl úplné zdroje/výstupy a vstupy 30 647/28 843 B pod byte guard 32 000 B; nynější blokér je kvalita opravy.
-Nový úkol opravuje A1/A2/A3 dvěma normal CODE voláními; před freeze inference NOT_RUN.
-Po rebootu zachované bytes/hash/inode, device30→43; nový freeze/metadatová vazba zachová všech257 původních řádků.
+Actual7.10.,07:08:44–07:08:58: old pending pointer odmítl bind; žádný nový CODE/preview/schválení/zápis.
+FAILreview092b5c2c PASS potvrzuje source/history/all257 unchanged; nový explicitní entry ve stejné project/owner, CPU6 PASS.
+Po rebootu48 explicitních vazeb zachovalo bytes/hash/inode, device30→43; freshpolicybb1 má stejnou security/oracle.
+Další freeze použije novou API konverzaci bez cancel/clear starého pending; model10+2/12 a instrukce nezměněné.
 Fan 32k byl nejdřív změřen: krátká alokace fullGPU/min free 2 512 MiB; actual dvě loaded samples 2 476 MiB.
 To nedokládá zaplněné 32k okno. Output4096 platí jen pro vydaný exact CODE32k profil; ostatní parametry zachované.
 [CODE WP](wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md), [projektový WP](wp/WP-PROJECT-FLOW-20260918.md).
