@@ -23,7 +23,7 @@ Whitelist nepřenáší modelový fileTarget, requestedOperation ani planner met
 kanonickou operaci však při návaznosti uchová z již uloženého pending stavu.
 První verze bdf ztrácela implicitní FILE_WRITE; zachovaný RED1FAIL tuto vadu dokládá.
 Source20 nových řádků, bez importní hrany. Context28PASS, řízený replay15/15,
-všech5 pending write zachováno; integrační opakování19 sad v2 PENDING.
+všech5 pending write zachováno; integrační opakování19 sad na3c4d750f PASS.
 [Paket C3](../review/2026-10-07-CHAT-CONCRETE-CLARIFICATION.md).
 
 Následující inventura popisuje historický stav 2. 8.; její popis fallbacku při

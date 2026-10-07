@@ -26,7 +26,7 @@ C2 diagnóza36/22 a CPU experiment mají samostatná review; modelová kvalita s
 C3 v2 source3bfebf98: konkrétní AMBIGUOUS otázka i kanonická pending operace zachované.
 První verzi vrátilo DB review přes19 zelených sad; nový RED1FAIL→context28PASS,
 řízený replay15/15 bez efektů,5/5 pending write zachováno. Nezávislé source/evidence
-review v2 PASS, nové integrační opakování19 sad PENDING. Žádné nové modelové skóre.
+review v2 PASS, nové integrační opakování19 sad na3c4d750f PASS. Žádné nové modelové skóre.
 [Revizní paket](docs/review/2026-10-07-CHAT-M1-OUTAGE.md); CI/CPU nejsou release acceptance.
 
 HTTP private-loopback profil zapojený; retained execution/M2/oracle/commit/restart prošel, API SOURCE FAIL.

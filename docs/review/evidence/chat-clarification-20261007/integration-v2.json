@@ -1,0 +1,60 @@
+{
+  "sourceRevision": "3c4d750f2b5b687558efd0f496340dd5fae8113e",
+  "runId": "chat-c3-integration-v2-20261007",
+  "startedAt": "2026-10-07T16:59:23.879Z",
+  "endedAt": "2026-10-07T17:01:43.764Z",
+  "statusCounts": {
+    "PASS": 19,
+    "FAIL": 0,
+    "TIMEOUT": 0,
+    "BLOCKED": 0,
+    "SKIPPED": 0
+  },
+  "verdict": "PASS",
+  "exitCode": 0,
+  "command": {
+    "head": "3c4d750f2b5b687558efd0f496340dd5fae8113e",
+    "command": [
+      "/home/belphareon/.nvm/versions/node/v24.21.0/bin/node",
+      "scripts/nightly-audit.js",
+      "--run-id=chat-c3-integration-v2-20261007",
+      "--suite=IS-T1-TESTS-CHAT-CONTEXT-INTERPRETATION-TEST,IS-T3-TESTS-CHAT-LITERAL-WRITE-HTTP-TEST,IS-T3-TESTS-CHAT-REPEAT-SAVE-HTTP-TEST,IS-T1-TESTS-CHAT-RESILIENCE-RUNNER-CONTRACT-TEST,IS-T3-TESTS-CRE-BUILD-ARBITRATION-TEST,IS-T2-TESTS-M1-CHAT-CONTRACT-TEST,IS-T1-TESTS-MODULE-BOUNDARY-RATCHET-TEST,IS-T1-TESTS-PROJECT-APP-ACCEPTANCE-TEST,IS-T1-TESTS-PROJECT-APP-M2-FUNCTIONAL-TEST,IS-T1-TESTS-M2-GOVERNANCE-EVALUATOR-TEST,IS-T1-TESTS-M2-LIFECYCLE-APPLICATION-SERVICE-TEST,IS-T1-TESTS-M1-MODEL-CONTRACT-TEST,IS-T1-TESTS-MODEL-CTX-TEST,IS-T1-TESTS-PROJECT-COLLABORATION-TEST,IS-T1-TESTS-M2-PRIVATE-HTTP-CONTRACT-TEST,IS-T1-TESTS-M2-PRIVATE-HTTP-STARTUP-TEST,IS-T1-TESTS-M2-LIFECYCLE-STUDIO-SURFACE-TEST,IS-T1-TESTS-M2-EXECUTION-PROCESS-SUPERVISION-TEST,IS-T1-TESTS-PROJECT-WELCOME-TEST",
+      "--concurrency=1",
+      "--allow-blocker=toolchain:bubblewrap,toolchain:bwrap,toolchain:git,toolchain:prlimit,toolchain:iproute2,toolchain:nftables"
+    ],
+    "expectedExitCode": 0
+  },
+  "expectedExitCode": 0,
+  "artifacts": [
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/test-runs/chat-c3-integration-v2-20261007/report.json",
+      "bytes": 79163,
+      "sha256": "b9935d637e38ee4ecc4930ad5f2d7602b4f77600fc46dd2d68f401505c18a4f7"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/chat-clarification-20261007/integration-v2-command.json",
+      "bytes": 1184,
+      "sha256": "75968568903394a040b17d970ba9a2f060d838713b51b71006241d1a4bd09cae"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/chat-clarification-20261007/integration-v2-exit.json",
+      "bytes": 131,
+      "sha256": "fbbd67758874c39207537d27cd78a1922db052b1a0d409d50de507b44eee4301"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/chat-clarification-20261007/integration-v2.log",
+      "bytes": 1499,
+      "sha256": "82f134a7019d10ecb6d7ed2308b8484852a879b372a0bf5a8a95e7bd67d140cf"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/chat-clarification-20261007/artifact-v2.log",
+      "bytes": 13593,
+      "sha256": "5b6a57326a0f439f4bdb509eada604dfa28144580361819a5a3d7bb92231b59e"
+    }
+  ],
+  "docArtifactAssertions": {
+    "pass": 160,
+    "fail": 0,
+    "exitCode": 0
+  }
+}

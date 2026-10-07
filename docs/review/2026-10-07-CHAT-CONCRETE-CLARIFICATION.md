@@ -1,6 +1,6 @@
 # C3 — konkrétní otázka při nejisté klasifikaci
 
-**Stav: SOURCE_AND_EVIDENCE_REVIEW_PASS / INTEGRATION_V2_PENDING.**
+**Stav: SOURCE_AND_EVIDENCE_REVIEW_PASS / INTEGRATION_V2_PASS.**
 Autorita: přijatý WP-CHAT-QUALITY-20261001 (cílené doptání, původní zadání,
 obnovení rozhovoru) a pokračující explicitní zadání operátora.
 Aktuální deník: [WORK-PROGRESS](../WORK-PROGRESS.md).
@@ -52,7 +52,9 @@ Toto je důkaz aplikace s fixture providerem, nikoli nové skóre Gemmy/Qwenu.
 Nezávislý reviewer `/root/m1_outage_review` přijal source i důkaz v2;
 jeho cílené opakování1/1 PASS exit0. Předchozí širší nezávislé opakování
 context28/M1 74/project44 prošlo na první verzi a zůstává odlišeno.
-Opakování původních integračních CI CHAT7 +CODE12 na v2 ještě probíhá.
+Opakování původních CI CHAT7 +CODE12 na checkpointu3c4d750f:19PASS,
+0FAIL/BLOCKED/TIMEOUT/SKIPPED, exit0. Doc/artifact160PASS; diff check exit0.
+[Přesný příkaz a hashované integrační důkazy](evidence/chat-clarification-20261007/integration-v2.json).
 Všechny pozitivní příkazy čekají exit0, RED výše exit1. Node24.21.0 je povinný.
 
 H1 kandidáty c7f03d56/9591ea1b, produkční bindingy a instalace se nemění.

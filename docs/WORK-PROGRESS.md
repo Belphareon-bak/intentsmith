@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 7. 10. 2026; C1 převzat do ROOT, C2 přezkoumán, H1 sběr NOT_RUN.
+**Aktualizováno:** 7. 10. 2026; C1 integrován, C2/C3 přezkoumány, C3 integrace19PASS; fresh5 freeze se připravuje, H1 sběr NOT_RUN.
 **Vlastník integrace a CHAT:** tento koordinátor přebírá ROOT
 (`work/real-chat-journeys-20260930`) podle následného pokynu operátora.
 Jediný writer `cre-decision.js` i společných map je nyní ROOT; HTTP, Fan, fresh5
@@ -160,7 +160,7 @@ nové efekty a čistý stop, 2600 hashů ověřeno. Produkt ani modelové skóre
 neměnily. Další C3 má opravit zachování validního read-only doptání bez nových
 pravomocí, s vlastní reprodukcí/revizí; C1 freeze pro ROOT se tím nepřesouvá.
 
-### C3 — zachování konkrétního doptání (SOURCE_AND_EVIDENCE_REVIEW_PASS; INTEGRATION_V2_PENDING)
+### C3 — zachování konkrétního doptání (SOURCE_AND_EVIDENCE_REVIEW_PASS; INTEGRATION_V2_PASS)
 
 Autorita: přijatý chat WP (přirozené doptání a obnovení původního zadání),
 operátorův pokyn pokračovat autonomně a 7. 10. „udělej toho co nejvíc“.
@@ -179,8 +179,37 @@ Context v2 28/28 PASS. Řízený replay3×5:15/15 konkrétních otázek, právě
 klasifikace,0 efektů,0 INCONCLUSIVE, všech5 pending write i původní zadání zachováno.
 Nezávislé source/evidence review v2 PASS; DB snapshoty,49 hashovaných artefaktů
 ověřené, starých45 raw souborů zachováno. Jde o fixture provider, skóre modelů
-se nemění. Opakování19 původních CI integračních sad na v2 probíhá.
+se nemění. Opakování19 původních CI integračních sad na checkpointu3c4d750f
+má19PASS/0FAIL/BLOCKED/TIMEOUT/SKIPPED, exit0; doc/artifact160PASS.
 [Revizní paket s příkazy/exity/diffem/sha256](review/2026-10-07-CHAT-CONCRETE-CLARIFICATION.md).
+
+### C4 — opakování původního fresh5 po C1/C3 (PREPARING / NOT_RUN)
+
+Autorita: přijatý M6/project WP a převzetí ROOT operátorem; ne nový release Gate0.
+Jeden výsledek: pět původních fresh-clone programů na společném C1/cache/C3
+kandidátu, bez záměny historického90c17489 výsledku3PASS/2FAIL.
+Vstup produkt3bfebf98, integrační checkpoint3c4d750f; skutečný freeze připne
+následující čistý publikovaný dokumentační checkpoint s exact CI success.
+ROOT vlastní actual a jen nové privátní artefakty; workflow reviewer připraví
+freeze, druhý reviewer jej nezávisle zkontroluje, workflow reviewer přezkoumá actual.
+Žádný reviewer nepřijímá vlastní freeze/actual. Tracked source se během běhu nemění.
+
+Původní V3 ADAPTER SHA256 `426200be8349350d1d478ead751360187dc51c498a4ee2e6d9bb95db988590d4`,
+wrapper `9dc329148b09ac5533c0ee4ed156259cbc589ec1aef57a6e5424606db7168674`,
+kopírovaná cache receipt `82265b3aab1b9d76891e386bc8c07a30b1eaddaab3eefaf9de8e11e679aabda6`
+zůstávají obsahově nezměněné. Nový freeze zaznamená aktuální source/deps/links,
+provider PID/boot, binárky/service, filesystem identity a CI; byte drift znamená STOP.
+Nové GPU okno je sériové pod kanonickou lease; Qwen3.5:27b exact7653528b…ec06e,
+4K/fullGPU/minheadroom1024MiB/fallback forbidden. Původní limity2h,4 primární tahy,
+358 provider requestů,4MiB request/16MiB response se nezvyšují.
+
+Běží jen M1 journey, previous-version upgrade, Electron boundary, Studio M1
+Electron a Studio M2 composer DOM; nikoli celý M6/soak. Očekává se exit0,
+5PASS, čistý stop, zachované source/cache/deps/provider bytes a žádný cizí proces.
+Raw příkazy, SHA256 a before/after audit budou v novém immutable freeze/paketu;
+H1/H2/restricted a cizí projekty jsou zakázané vstupy. Žádný automatický nový
+observer/retry po selhání. I5PASS čeká na nezávislé evidence review a nedokládá
+release přijetí, modelové skóre, HTTP/Fan aplikace ani nový přirozený Studio→D1.
 
 ## Přijaté dílčí výsledky
 
@@ -278,7 +307,7 @@ a předání hodnotitelům provede operátor. Obsah ROOT nečetl.
 BASE `e15264f1` (předchozí ROOT `a61fe70d`). C1 je převzat fast-forwardem;
 C2 diagnóza i experiment mají oddělené review. D1 časová podmínka výslovně
 zrušena; jeho existující implementace `8fe6fb53` potřebuje Studio důkaz.
-C3 zatím nemění produkt. H1 kampaň a příkazy jsou v aktualizovaném
+Při tomto historickém předání C3 ještě neměnil produkt; následný výsledek je výše. H1 kampaň a příkazy jsou v aktualizovaném
 [handoffu](review/2026-10-02-CHAT-HOLDOUT-HANDOFF.md); sběr NOT_RUN.
 Šifrovaný H1 zůstal beze změny, plaintext odstraněn ověřeným přesným unlinkem;
 nejde o zaručené fyzické vymazání ani důkaz, že dříve nemohl být čten.
@@ -295,6 +324,6 @@ ROOT vývojový checkout tím není přepínán. Po sběru návrat na CHAT věte
 obnovení jejího novějšího lockfilu, nikoli předpoklad shodných závislostí.
 GPU okno není otevřené a žádná inference neproběhla. Raw evidence také obsahuje
 kopie H1; výběr jejího předání (šifrovaný balík / soukromě operátorovi) byl
-vyžádán před dešifrováním a zůstává PENDING. Následný fresh5/Studio reviewer dostane vlastní okno po H1,
-nikoli souběžně. HTTP 13. CODE volání a Fan rozšíření zůstávají mimo současné
+vyžádán před dešifrováním a zůstává PENDING. Fresh5/Studio má vlastní sériové GPU okno; na dosud neotevřené H1 okno
+časově nečeká a inference se nepřekrývají. HTTP 13. CODE volání a Fan rozšíření zůstávají mimo současné
 rozpočty; vyžadují konkrétní operátorské rozhodnutí před jejich spuštěním.
