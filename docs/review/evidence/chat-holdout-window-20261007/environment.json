@@ -1,0 +1,28 @@
+{
+  "timestamp": "2026-10-07T16:18:25.992694+00:00",
+  "plaintext_present": false,
+  "node": "v24.21.0",
+  "sqlite_abi_exit": 0,
+  "tools": {
+    "bwrap": "/usr/bin/bwrap",
+    "nvidia-smi": "/usr/bin/nvidia-smi",
+    "gpg": "/usr/bin/gpg",
+    "git": "/usr/bin/git"
+  },
+  "bwrap_network_namespace_exit": 0,
+  "gpu": "24576 MiB, 1199 MiB, 24 %",
+  "compute_process_count": 0,
+  "resident_model_count": 0,
+  "installed_candidates": [
+    {
+      "name": "gemma4:26b",
+      "digest": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68"
+    },
+    {
+      "name": "qwen3.5:27b",
+      "digest": "7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e"
+    }
+  ],
+  "provider_version": "0.34.0-intentsmith.1",
+  "gpu_lease_exists": false
+}

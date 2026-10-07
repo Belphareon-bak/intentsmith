@@ -1,6 +1,12 @@
 # Přirozené plánování projektu: doložená závada a připravený postup
 
-Stav 4. 10. 2026: **REPRODUCED / IMPLEMENTATION_NOT_RUN /
+**Aktualizace 7. 10. 2026:** operátor výslovně zrušil závislost D1 na
+sběru holdoutu. Oprava `8fe6fb53` je integrovaná v ROOT (přes `56138e4f`);
+classifier 44 a parser 24 mají review PASS, skutečný Studio → D1 důkaz chybí.
+Následující text je historická reprodukce a plán ze 4. 10., nikoli aktuální
+blokace. Stav a vlastnictví: [WORK-PROGRESS](../WORK-PROGRESS.md).
+
+Historický stav 4. 10. 2026: **REPRODUCED / IMPLEMENTATION_NOT_RUN /
 WAITING_HOLDOUT_COMPLETION_EVIDENCE**. Autorita je výslovné zadání operátora
 ze 4. 10.: opravit chatový vstup do D1 **po dokončení sběru holdoutu**, na
 jeho hodnocení nečekat. Zapečetěný holdout se nesmí číst ani používat k ladění.
@@ -65,7 +71,7 @@ publikovaný důkaz vycházejí pouze z tohoto opakování.
    projektových návrhů a předat celý nezměněný požadavek klasifikátoru.
    Jednoznačné tvůrčí odpovědi a běžný chat mají zachovat své chování.
 
-Implementační rozsah po splnění časové podmínky: slovní/identifikátorové
+Historicky navržený implementační rozsah (časová podmínka zrušena 7. 10.): slovní/identifikátorové
 hranice ve tvůrčím rozpoznávání a výběr kontextové interpretace v
 `src/chat/cre-decision.js`; pouze podle prokázané potřeby odpovídající
 projektový dispatch. Použije se existující D1 a M2 návrh, nikoli nový writer
@@ -81,9 +87,9 @@ požadovanou přejímku přirozeného záměru. Tyto varianty nejsou zvolený po
 
 ## Ověření a předání
 
-1. Z metadat potvrdit dokončení `holdout-1..3`, kandidáta, SHA corpus,
-   neměnnost konfigurace a úplnost kroků. Výsledné odpovědi nečíst ani
-   nehodnotit. Sběr může skončit i neúspěchem; nic se nepřeznačí na PASS.
+1. Původní závislost na dokončení H1 je **zrušená**. Ověřit přítomnost
+   implementace `8fe6fb53` a zachovat oba zmrazené kandidáty beze změny.
+   H1 se sbírá samostatně; jeho obsah a odpovědi se nepoužijí k ladění D1.
 2. Na následujícím kandidátu doplnit reprodukční testy skutečného
    ProjectHandler → classifier → D1 → úspěšný validovaný návrh. Obě původní
    věty musí dojít do D1 bez prefixu; test zkontroluje celý vstup, role,
@@ -100,5 +106,6 @@ požadovanou přejímku přirozeného záměru. Tyto varianty nejsou zvolený po
    soubory zde neměníme. Dokončení jeho průchodu musí doložit on; tento
    diagnostický milník není hotová aplikace ani uzavřená přejímka.
 
-**Následující krok:** získat metadatový důkaz dokončení skutečného sběru;
-pak ihned implementovat reprodukované opravy, bez čekání na známky holdoutu.
+**Následující krok (7. 10.):** ověřit původní vstupy přes skutečné Studio
+na společném ROOT kandidátu s GPU lease, přesnými rolemi/digesty a vlastní DB.
+H1 není předpoklad. Samotná CPU evidence neprokazuje živou kvalitu plánování.

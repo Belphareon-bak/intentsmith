@@ -1,0 +1,57 @@
+{
+  "at": "2026-10-07T16:24:36.363411+00:00",
+  "rootIntegratedRevision": "e15264f14b3db3e47837da1adac11509bcc37bc4",
+  "candidateChecks": [
+    {
+      "candidate": "qwen",
+      "revision": "c7f03d5687f65b1a2b50665f27b037e57b8516cd",
+      "srcTree": "8dede3e2e2a20bcfacc77de67d6fed2265cf563d",
+      "packageLockSha256": "bd8087a52d35dbeaa25f024ed79d5bb1a0d279172f33708ee19804aa524f847e",
+      "runnerSha256": "fb815313f310647ea3dda618020ed2f4f75522d85864636274f05c76dbb466b2",
+      "holdoutContractSha256": "6ae21cffab19f6a469312225ceeaa05c866c143c55f8780bf7df2cfb238a5dcc",
+      "command": "PATH=/home/belphareon/.nvm/versions/node/v24.21.0/bin:/usr/bin:/bin node tests/chat-resilience-runner-contract.test.js",
+      "expectedExitCode": 0,
+      "actualExitCode": 0,
+      "log": "/home/belphareon/Projects/intentsmith-chat-quality-20261001/.intentsmith-artifacts/chat-holdout-window-20261007/qwen-runner-contract.log",
+      "logSha256": "120c432001e79c1e66f17f85a7e46d948b7876c51b5f308ae82661041d3fc0af",
+      "result": "chat resilience runner contract: 23 transport checks, complete 53-case rubric and 6 list-oracle calibration cases PASS (offline, 0 model calls)",
+      "realHoldoutRead": false,
+      "modelCalls": 0
+    },
+    {
+      "candidate": "gemma",
+      "revision": "9591ea1b07bc4b639a102bcc421f9d46b8f9906b",
+      "srcTree": "8dede3e2e2a20bcfacc77de67d6fed2265cf563d",
+      "packageLockSha256": "bd8087a52d35dbeaa25f024ed79d5bb1a0d279172f33708ee19804aa524f847e",
+      "runnerSha256": "63bd34f29bc0219470937a28630c808bd68899f5bf1ea2ebb3f5ccc18a3bb578",
+      "holdoutContractSha256": "ed00f91571df1bfd4072c03ab18b6a5767450d44006b8ba8946a6674caf9b740",
+      "command": "PATH=/home/belphareon/.nvm/versions/node/v24.21.0/bin:/usr/bin:/bin node tests/chat-resilience-runner-contract.test.js",
+      "expectedExitCode": 0,
+      "actualExitCode": 0,
+      "log": "/home/belphareon/Projects/intentsmith-chat-quality-20261001/.intentsmith-artifacts/chat-holdout-window-20261007/gemma-runner-contract.log",
+      "logSha256": "5177921332dc430e97804b37d3b90403466412d79e88de2bd2b42bcca39b168b",
+      "result": "chat resilience runner contract: transport, role allowlist, immutable artifacts, complete 53-case rubric and 6 list-oracle calibration cases PASS (offline, 0 model calls)",
+      "realHoldoutRead": false,
+      "modelCalls": 0
+    }
+  ],
+  "chatCheckout": {
+    "revision": "c7f03d5687f65b1a2b50665f27b037e57b8516cd",
+    "detached": true,
+    "trackedAndUntrackedClean": true
+  },
+  "frozenInstall": {
+    "command": "PATH=/home/belphareon/.nvm/versions/node/v24.21.0/bin:/usr/bin:/bin PUPPETEER_SKIP_DOWNLOAD=true npm ci",
+    "exitCode": 0,
+    "log": "/home/belphareon/Projects/intentsmith-chat-quality-20261001/.intentsmith-artifacts/chat-holdout-window-20261007/npm-ci-frozen.log",
+    "logSha256": "cd0b7df56856266b92e8b7f5dbd424d8c094aafa19c1a8bd0759dfd5d9edc63a",
+    "nativeSqliteAfterInstallExit": 0,
+    "node": "v24.21.0",
+    "browserDownloadSkipped": true,
+    "browserNotRequiredByHoldoutRunner": true
+  },
+  "collectionStatus": "NOT_RUN",
+  "gpuWindow": "NOT_OPEN",
+  "operatorCustodySelection": "PENDING",
+  "plaintextAbsent": true
+}

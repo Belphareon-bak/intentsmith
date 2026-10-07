@@ -15,7 +15,12 @@ Registry 596/35; CHAT kandidát: module graph má 1 512 hran, 3 cykly /28 člen�
 Jediná nová hrana CRE → chat-turn-error nezávisle schválená, baseline připnutý na `1f098912`.
 C1 context27/M1 74/project44 nezávisle opakované. Nový CHAT checkpoint `b9cfc7c5`:
 full offline/database410 PASS/0 FAIL/BLOCKED/TIMEOUT, CHAT7/CODE12 PASS;
-CI37644166375 všech18 SUCCESS; FINAL_EVIDENCE_REVIEW_PASS, připraveno pro ROOT.
+CI37644166375 všech18 SUCCESS; FINAL_EVIDENCE_REVIEW_PASS.
+ROOT převzal C1/C2 fast-forwardem a61fe70d→e15264f1; poslední commit má CI37648451862
+všech18 SUCCESS. Koordinaci nyní vlastní navazující agent v ROOT checkoutu.
+D1 pořadová podmínka zrušena operátorem; H1 je samostatný sběr 3× Qwen c7f03d56
+a 3× Gemma9591ea1b v jednom okně. Plaintext odstraněn, sběr NOT_RUN;
+zaslepený hodnoticí balík po bězích sestaví operátor.
 Dva původní environment FAIL reporty zachované.
 C2 diagnóza36/22 a CPU experiment mají samostatná review; modelová kvalita stále NO_GO.
 [Revizní paket](docs/review/2026-10-07-CHAT-M1-OUTAGE.md); CI/CPU nejsou release acceptance.
@@ -34,7 +39,9 @@ Fan 8/11, oracle 8 PASS/6 FAIL; repair4+CLI3/cumulative15 čeká na samostatnou 
 32k krátce změřené fullGPU/min free 2 512 MiB; celé okno ani kvalita aplikace tím nepřijaté.
 Classifier→D1 CPU 44 +parser 24/review PASS; živý přirozený vstup a fyzická ovladatelnost IDE/M2 otevřené.
 
-Nynější úkol: HTTP/SQLite přes exact M2/oracle/commit/restart. Další: společný fresh5/Fan/větší repo → IDE/BE/expertise/workers → M5/M6.
+Nynější úkol: převzetí ROOT a připravený H1 sběr obou pevných kandidátů;
+CPU vývoj podle C2 pokračuje nezávisle. Další: původní fresh5/Studio D1,
+HTTP/Fan v přijatých budgetech → IDE/BE/expertise/workers → M5/M6.
 M5 je 8/9/privacy changes required; retain_and_rotate zvolené, signed 8 categories+history chybí.
 CustodyA/B doložená; druhá operator offline kopie/reviewer recovery/13 signed/24h/throughput/Gate0/demo otevřené.
 Mobil 13+7/device/pair-revoke/M2/TalkBack po stabilním IDE/BE; conversation.create chybí.

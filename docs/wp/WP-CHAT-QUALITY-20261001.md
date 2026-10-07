@@ -1,14 +1,16 @@
 # WP — přirozený chat a pokračování v upřesněném zadání
 
-**Navazující zadání 7. 10. 2026:** operátor přijal opravený autonomní postup
-a potvrdil, že původní CHAT již nezapisuje. Tento worker přebírá úzkou opravu
-M1 provider-outage nad společným ROOT `a61fe70d` ve stávajícím CHAT checkoutu.
-Aktuální stav, vlastnictví, C1 scope a jednorázový holdout protokol jsou pouze
-v [WORK-PROGRESS](../WORK-PROGRESS.md). Přirozený D1 vstup `8fe6fb53` už ROOT
+**Navazující zadání 7. 10. 2026:** operátor přijal autonomní cykly s druhým
+reviewerem, potvrdil ukončení zápisů původního CHAT a následně převzetí koordinace
+na ROOT linii. C1 je přezkoumán a převzat fast-forwardem `a61fe70d` → `e15264f1`.
+Aktuální vlastnictví, výsledky a další cykly jsou pouze v
+[WORK-PROGRESS](../WORK-PROGRESS.md). Přirozený D1 vstup `8fe6fb53` už ROOT
 implementoval a merge `56138e4f` spojil s CHAT `e066956b`; zbývá Studio evidence.
-Níže uvedené čekání na odpečetění/dokončení sběru je historické: H1 je podle
-operátora odpečetěný, sběr NOT_RUN, obsah zůstává implementátorovi zakázaný.
-C1 opravuje veřejně reprodukovaný outage a nemění zmrazený H1 kandidát.
+Operátor výslovně zrušil dřívější podmínku „D1 až po sběru holdoutu“.
+H1 bude jediná kampaň: 3 série Qwen `c7f03d56` a 3 série Gemma `9591ea1b`
+v jednom GPU okně, bez ladění/odkrývání mezi běhy. Plaintext byl před přípravou
+odstraněn, znovu se dešifruje až k běhu a po sběru odstraní. Zaslepený balík
+sestaví operátor; implementátor smí dostat jen aggregate verdict.
 
 Historická chatová měření a publikační checkpointy do 4. 10.:
 [původní průběžný dokument](WP-CHAT-QUALITY-20261001-PROGRESS.md).
@@ -63,7 +65,7 @@ vedlejší dopad je uveden v S16 průběžného reportu. Izolovaný runner použ
 tag/digest Gemmy; D1 zachová Qwen a přímá/aplikační větev stejný 4K rozpočet.
 Původní kandidát z 2. 10. zůstane zmrazený, Gemma má nového kandidáta.
 Čísla dodaná operátorem jsou vstup pro volbu, nikoli náhrada nové přejímky.
-Obsah zapečetěného holdoutu zůstává nepřístupný; čeká se na privátní cestu.
+Historický stav odpečetění je překonaný aktuální hlavičkou; obsah H1 zůstává implementátorovi zakázaný.
 
 Explicitní zadání operátora z 2. 10. po S10: s existující reprodukcí opravit
 vymyšlené odeslání `recipient-bob` a neúplné složené zadání `gpu-composite`.
@@ -84,9 +86,10 @@ aplikační helper `src/chat/unavailable-action.js` pouze kontroluje citované
 
 Další explicitní zadání operátora 4. 10.: opravit přirozený vstup projektové
 práce z chatu do D1, včetně falešného rozpoznání `text` uvnitř `contextFiles`.
-Tato oprava je autorizovaná **až po dokončení sběru skutečného holdoutu**;
-na jeho nezávislé hodnocení se pak nečeká. Předtím probíhá pouze read-only
-diagnostika a příprava. Nový kandidát zachová starý pevný SHA a existující M2
+Původní časová podmínka **až po dokončení sběru skutečného holdoutu** byla
+operátorem **7. 10. výslovně zrušena**. D1 se implementuje a ověřuje nezávisle
+na H1; existující oprava `8fe6fb53` se neopakuje. Nový vývoj zachová oba pevné
+H1 kandidáty a existující M2
 schvalování. Přejímka vyžaduje oba původní fan-monitor vstupy do D1,
 znovu provedené chatové regrese a následný průchod projektového workera.
 [Přesná reprodukce a postup](../review/2026-10-04-CHAT-NATURAL-D1-ENTRY.md).

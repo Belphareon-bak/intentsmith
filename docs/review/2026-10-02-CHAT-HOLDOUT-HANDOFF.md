@@ -1,110 +1,205 @@
-# Zapečetěný holdout — předání zmrazeného chatového kandidáta
+# H1 — předání a sběr dvou zmrazených kandidátů
 
-Stav k 4. 10.: **SEALED / WAITING_OPERATOR_UNSEAL / NOT_RUN / NO_GO**.
-Zmrazený kandidát **`9591ea1b07bc4b639a102bcc421f9d46b8f9906b`**,
-vzdáleně ověřená pevná větev `review/chat-quality-gemma-candidate-20261004-v2`.
-CHAT `gemma4:26b`, digest
-`08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68`.
-D1 zůstává `qwen3.5:27b`, digest
-`7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e`.
-Runner ověřuje oba deklarované artefakty před/po běhu i u každé inference,
-oba na měřicím 4K rozpočtu. Staré pevné kandidáty `c7f03d56` a `d096aa49`
-zůstávají neměnné; dokumentační HEAD pracovní větve jej nenahrazuje.
+**Aktualizace 7. 10. 2026: COLLECTION_NOT_RUN / PLAINTEXT_REMOVED.**
+Operátor v této relaci určil jeden společný sběr: tři série na Qwen `c7f03d56`
+a tři na Gemma `9591ea1b`, potom odstranit plaintext. Pokud sběr nezačne hned,
+plaintext odstranit již nyní; rozhodnutí o mazání delegoval koordinátorovi.
+Po sběru operátor sestaví zaslepený balík pro hodnotitele. D1 vývoj a ověření
+již nemají pořadovou závislost na H1. Aktuální deník a vlastnictví jsou pouze
+v [WORK-PROGRESS](../WORK-PROGRESS.md).
 
-Registry 592 PASS, cílené 4 PASS, úplný profil přímo na tomto SHA:
-**399 PASS / 4 FAIL / 3 BLOCKED**, exit 1. [Skutečná CI](https://github.com/Belphareon-bak/intentsmith/actions/runs/37222976678)
-SUCCESS na témže SHA, všechny vývojové kroky provedené, pouze vývojový subset.
-Syntetický dummy 3×3 PASS, tři schválená čtení a tři zápisy, přesné bajty,
-0 provedení před schválením. Původní 53×3 regrese je úplná, vlastní významové
-hodnocení **123/159 = 77,36 %**, 13,84 % zbytečných zastavení, 0 nalezených
-kritických chyb. Je to **NO_GO**, nikoli kvalitativní přejímka.
-[Průběžný report S19–S20](../wp/WP-CHAT-QUALITY-20261001-PROGRESS.md)
-obsahuje konkrétní modelové i aplikační nálezy. Před odpečetěním doporučuji
-samostatný cílený milník zachování read-only otázek a interpretace souborových
-akcí s Gemmou. Tento kandidát se dál neladí; nové opravy patří do nového
-kandidáta s novým ověřením. Privátní dešifrovaná cesta stále není předaná.
+Tento aktualizovaný postup nahrazuje staré pokyny k jediné Gemmě a zveřejňování
+rodin implementátorovi. Historická verze handoffu i veřejné pečeti zůstávají
+v Git historii; kandidátní refs ani jejich soubory se nemění.
 
-Autorita: explicitní zadání operátora z 2. 10. známých reprodukcí,
-SHA-ověřeného runneru a tří slepých sérií; ze 4. 10. výběr Gemmy pro CHAT.
-Produkční CHAT je APPLIED / DIRECT_CONFIRMED / VERIFIED; aplikace zůstává
-release `c84b88cd`, chatové opravy jsou v kandidátní větvi. Vedlejší dopady
-obnovy uložených rolí a neúspěšná notifikace jsou v S16. Žádný PR/merge ani
-nasazení chatové aplikace neproběhl. Dřívější návrh 60 dialogů a AUTHOR_UNKNOWN
-jsou překonané skutečnou pečetí od koordinátora.
+## Identita kampaně
 
-Pečeť: větev `review/chat-holdout-seal-20261002`, vzdáleně ověřený commit
-`6a9d1dbe54adef4bb7cf2114afe10c58799a3a05`.
-[Autorův protokol](https://github.com/Belphareon-bak/intentsmith/blob/6a9d1dbe54adef4bb7cf2114afe10c58799a3a05/docs/review/2026-10-02-CHAT-HOLDOUT-SEAL.md).
-Worker četl pouze tento Git dokument. Zapečetěný adresář neotevřel ani
-neprohledával, nic nedešifroval. Izolace autora je podle koordinátora
-organizační, technicky nevynucená; worker ji sám neověřoval.
+| Kandidát | Přesný source SHA | CHAT tag a digest | D1 |
+| --- | --- | --- | --- |
+| Qwen | `c7f03d5687f65b1a2b50665f27b037e57b8516cd` | `qwen3.5:27b`, `7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e` | tentýž Qwen |
+| Gemma | `9591ea1b07bc4b639a102bcc421f9d46b8f9906b` | `gemma4:26b`, `08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68` | pevný Qwen výše |
 
-Deklarovaná struktura: 96 kroků, 60 česky / 36 anglicky, 9 oblastí,
-17 vícekrokových dialogů a 14 schvalovaných akcí (6 čtení, 8 zápisů).
-Obsah neznáme. SHA-256 budoucího dešifrovaného souboru podle Git pečeti:
-`2431296e7a1583329fb4185a1dbbe6610749985385cd1afa2c6952428b63e9ff`.
+Refs: `review/chat-quality-holdout-candidate-20261002` a
+`review/chat-quality-gemma-candidate-20261004-v2`. Pečeť je na
+`review/chat-holdout-seal-20261002`, commit
+`6a9d1dbe54adef4bb7cf2114afe10c58799a3a05`, veřejný soubor
+`docs/review/2026-10-02-CHAT-HOLDOUT-SEAL.md`.
 
-Předání probíhá v tomto pořadí:
+- Ciphertext: `/mnt/vi7000/intentsmith/evidence/chat-holdout-20261002/holdout.json.gpg`.
+- Ciphertext SHA-256: `44c872c206abd2d618c35e24ee0bc2449e6f3f401fe59e6b6dc809b24dd26961`.
+- Plaintext SHA-256: `2431296e7a1583329fb4185a1dbbe6610749985385cd1afa2c6952428b63e9ff`.
+- GPG AES256 je symetrické; heslo má podle pečeti pouze operátor a nedává jej agentovi.
+- Veřejná struktura: 96 kroků, 60 CS /36 EN, 17 vícekrokových dialogů,
+  14 schvalovaných akcí. Obsah není součástí tohoto předání.
 
-1. Chat worker zmrazí čistý commit včetně runneru, pushne pevnou kandidátní
-   větev `review/chat-quality-gemma-candidate-20261004-v2` a ověří vzdálený SHA.
-   Průběžný report se publikuje na `work/chat-quality-20261001`; následný
-   dokumentační commit nesmí změnit zmrazeného kandidáta ani jeho runner.
-2. Operátor potom dešifruje do privátního umístění mimo repozitář, mode 600,
-   ověří celý SHA a vyprázdní cache GPG agenta. Worker dostane cestu k tomuto
-   souboru; původní zapečetěný adresář zůstává zakázaný.
-3. Worker před inferencí ověří HEAD proti předanému SHA a čistý strom.
-   Případný pozdější dokumentační HEAD přepne pouze ve vlastním čistém
-   checkoutu zpět na pevného kandidáta. Cizí checkouty se nemění.
-4. V privátní evidenci spustí `holdout-1`, `holdout-2`, `holdout-3` za sebou,
-   pod existující GPU lease, beze změny modelu, runneru, corpus a konfigurace.
-   Mezi sériemi nečte ani nehodnotí odpovědi; sleduje jen stav, počty,
-   transport a identitu. Fsynced úplné odpovědi a efekty zůstávají pro hodnotitele.
-   Případné GPU čekání není souhlas s vyložením cizího modelu.
-5. Koordinátor vytvoří zaslepený X/Y balík a zajistí nezávislé hodnocení.
-   Worker nevytváří vlastní známky holdoutu ani podle něj průběžně neladí.
-   Po použití je corpus exponovaný a další přejímka vyžaduje novou pečeť.
+Oba SHA jsou již zmrazené. Jde o srovnání dvou historických **kandidátů**,
+ne o experiment, v němž se mění pouze model: runner a konfigurace se liší.
+Produktový `src` strom je u obou shodný (`8dede3e2e2a20bcfacc77de67d6fed2265cf563d`),
+stejně jako lockfile blob (`7fcc680ab0b7fa4e06c5f9423d67443653fe16d7`).
+Qwen runner má slabší evidenci skutečného B kontextu; Gemma runner explicitně
+připíná 4K a ověřuje kontext v transportu. Rozdíl se nesmí zakrýt změnou c7
+runneru ani dodatečným přeznačením důkazů. Přímá A větev používá 4K u obou;
+A je diagnostický protějšek s příchozí historií B, nikoli nezávislý dialog.
 
-Příklad jedné série (privátní cestu poskytne operátor, nepoužívat původní
-zapečetěný adresář):
+## Custody a hranice přístupu
+
+7. 10. v 16:12:33 UTC byly oba soubory strojově hashovány proti pečeti,
+bez parsování/zobrazení obsahu. Neběžel žádný `measure-m1-l3.js` proces.
+Přesný původní `holdout.json` byl odstraněn; ciphertext zůstal zachovaný.
+[Metadata receipt](evidence/chat-holdout-window-20261007/plaintext-removal.json).
+Je to unlink, nikoli záruka fyzického vymazání. Neanuluje minulou expozici.
+
+Implementátor i source reviewer nesmějí číst H1, `restricted/`, raw logy,
+`initial-corpus.json`, `initial-results.json`, celé `runs.json`, provider trace,
+DB nebo soubory soukromých H1 projektů. Žádné široké prohledávání těchto cest.
+Runner smí corpus a odpovědi zpracovat strojově; do agentního kontextu smějí
+jen níže uvedené agregáty. Veškerý stdout/stderr včetně výjimek je privátní:
+ani `CHAT_PROBE` není veřejný, protože obsahuje case ID.
+
+Runner zapisuje plaintext také do `initial-corpus.json`, `runs.json`, výsledků,
+trace a soukromé DB. Odstranění vstupního souboru tedy **neodstraní obsah z raw
+evidence**. Před dešifrováním se uzavře předání raw balíku operátorovi:
+šifrování celého balíku pro jím určený veřejný klíč, nebo jeho výslovná volba
+ponechat raw privátně pro sestavení zaslepeného balíku. Předání je nyní PENDING.
+Evidence se nerediguje ani nemaže pod záminkou odstranění vstupu. Mode 0600
+není technické oddělení od procesů se stejným UID; jde o řízený přístup.
+
+## Readiness 7. 10.
+
+[Metadata a přesné příkazy/hashované logy](evidence/chat-holdout-window-20261007/readiness.json):
+oba frozen runner kontrakty PASS na syntetickém vstupu, 0 model calls.
+`npm ci` proběhlo na frozen lockfilu s vynecháním nepotřebného browser downloadu;
+Node v24.21.0/native SQLite po instalaci PASS. CHAT je nyní čistý detached c7f03d56.
+[Inventura prostředí](evidence/chat-holdout-window-20261007/environment.json):
+oba správné modelové digesty, bwrap network namespace PASS, GPU compute 0,
+Ollama models 0, lease chybí. Je to časový snímek, ne rezervace; před živým
+startem se zopakuje. H1 nebyl použit ani inferován. Zbývá uzavření custody,
+nové dešifrování operátorem a skutečné otevření okna.
+
+## Jedno okno, šest sérií
+
+Pořadí před sběrem: Qwen 1→2→3, poté Gemma 1→2→3. Žádné hodnocení ani ladění
+mezi sériemi/kandidáty. Každý má nový vlastní record; dummy a známá regrese
+se do nich nekopírují. Před každým startem se ověří přesný čistý HEAD,
+runner/helper hash, Node 24.21.0 a modelové digesty. Mezi sériemi kandidáta
+musí být stejný configuration fingerprint, provider verze, corpus a zdroj.
+
+Sběr používá existující CHAT checkout, pouze sériové detached přepnutí na
+pevné SHA; ROOT zůstává vývojovou integrací. Nezakládá se nový worktree.
+Před přepnutím: žádný dirty strom ani jiný aktivní uživatel checkoutu. Instalované
+závislosti musejí odpovídat kandidátnímu lockfilu; oba kandidáti mají shodný
+lockfile. Soukromý output root vznikne nový, 0700, `umask 077`; před redirecty
+vytvořit také jeho `qwen/` a `gemma/` podadresáře. Po sběru lze obnovit
+původní CHAT větev jen bez přepsání dirtu a s obnovou jejího novějšího lockfilu.
+
+Okno vlastní ROOT koordinátor; začátek/konec se zapíší podle skutečného běhu.
+Po celou dobu žádný Hunt, fresh5, Studio inference ani reviewerův GPU retest.
+Přesnou délku předem neprohlašujeme za změřenou. Recenzent dostane po čistém
+ukončení oddělené okno na rozhodující veřejné kontroly; H1 se pro něj znovu
+nespouští. Nyní okno **není otevřené**.
+
+Runner si v každé sérii sám pořizuje `/tmp/intentsmith-gpu-evaluation.lock`;
+vnější stejný lease by jej zablokoval. Rezervace okna přesahuje jednotlivé
+lease, není nepřerušený mutex. Před každou sérií vyžadovat prázdné `/api/ps`,
+prázdné NVIDIA compute, dostupnou VRAM a žádný cizí lease. Po skončení runner
+model nevyklízí. Na doloženou přirozenou expiraci čekat nejvýše 10 minut (bez čtení raw);
+po vypršení limitu STOP, nikoli předpoklad, že je volno. Případný explicitní
+unload musí pod novým shared lease prokazatelně patřit právě ukončenému běhu.
+Cizí/UNKNOWN model, claimant nebo proces = STOP, nikdy automatická evikce.
+
+### Přesné příkazy (až po uzavření readiness)
+
+Neprovádět tento blok jako slepou smyčku: každá další série je podmíněna
+uzavřením předchozí a čistým GPU. `CHAT_HOLDOUT_FILE` je přesná operátorem
+znovu dešifrovaná cesta; nevypisuje se její obsah. `CHAT_WINDOW_ROOT` je nový
+absolutní adresář pod `.intentsmith-artifacts/chat-holdout-window-20261007/`.
+Zděděné `CHAT_PROBE_*`, `NODE_OPTIONS`, modelové bindingy a dotenv se do outer
+runneru nepřenášejí; child si vytváří vlastní HOME/DB/config/project.
 
 ```bash
+# CWD: /home/belphareon/Projects/intentsmith-chat-quality-20261001
+umask 077
+set -o noclobber  # existující privátní log = STOP ještě před spuštěním runneru
+git switch --detach c7f03d5687f65b1a2b50665f27b037e57b8516cd
+# Každý z --phase holdout-1, holdout-2, holdout-3 samostatně:
+env -i PATH=/home/belphareon/.nvm/versions/node/v24.21.0/bin:/usr/bin:/bin \
+  LANG=C.UTF-8 TZ=Europe/Prague CHAT_PROBE_NO_DIRECT=false \
+  node scripts/measure-m1-l3.js --live --phase holdout-1 \
+  --holdout "$CHAT_HOLDOUT_FILE" \
+  --holdout-sha256 2431296e7a1583329fb4185a1dbbe6610749985385cd1afa2c6952428b63e9ff \
+  --model qwen3.5:27b \
+  --model-digest 7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e \
+  --record "$CHAT_WINDOW_ROOT/qwen/runs.json" \
+  >"$CHAT_WINDOW_ROOT/qwen/holdout-1.private.log" 2>&1
+
+# Až po všech třech uzavřených Qwen sériích a čistém GPU:
 git switch --detach 9591ea1b07bc4b639a102bcc421f9d46b8f9906b
-PATH=/home/belphareon/.nvm/versions/node/v24.21.0/bin:$PATH \
-CHAT_PROBE_NO_DIRECT=false node scripts/measure-m1-l3.js --live \
-  --phase holdout-1 --holdout "$CHAT_HOLDOUT_FILE" \
+# Znovu každá --phase holdout-1, holdout-2, holdout-3 samostatně:
+env -i PATH=/home/belphareon/.nvm/versions/node/v24.21.0/bin:/usr/bin:/bin \
+  LANG=C.UTF-8 TZ=Europe/Prague CHAT_PROBE_NO_DIRECT=false \
+  node scripts/measure-m1-l3.js --live --phase holdout-1 \
+  --holdout "$CHAT_HOLDOUT_FILE" \
   --holdout-sha256 2431296e7a1583329fb4185a1dbbe6610749985385cd1afa2c6952428b63e9ff \
   --model gemma4:26b \
   --model-digest 08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68 \
-  --record .intentsmith-artifacts/chat-quality-20261004/holdout/holdout-runs.json
+  --record "$CHAT_WINDOW_ROOT/gemma/runs.json" \
+  >"$CHAT_WINDOW_ROOT/gemma/holdout-1.private.log" 2>&1
 ```
 
-Runner kontroluje SHA před parsováním/preflightem/inferencí a znovu v child
-procesu. Odmítá filtr případů, vypnutí A/B, nesprávnou fázi, nečistý zdroj,
-změnu manifestu/konfigurace a opakování již celé fáze. Přijímá libovolný kladný
-počet kroků a fixture, `usedForTuning: false`, `variant: "holdout"`.
-Výpis neobsahuje odpovědi, souborové bajty ani modelové chybové texty.
-Provedení a efekty se hodnotí z původní M1/M2 evidence; text modelu není
-provedení. A je stále zjednodušená diagnostická cesta se stejnou příchozí
-historií B, nikoli nezávislý dialog nebo cesta s nástroji.
+Každá série očekává **exit 0** a `LIVE_COMPLETE_UNASSESSED`. Privátní log
+má vždy číslo dané fáze; `noclobber` brání zkrácení existujícího souboru
+při opětovném spuštění. Nepoužívat `>|`, neobcházet chybu redirectu. Každý
+případný samostatně schválený technický pokus má nový log/adresář; při
+opakování se nic nepřepisuje. Procesy se sledují
+pouze pomocí vlastního PID/stavu a agregovaných metadat; nikdy přes tail raw logu.
+Při nenulovém exitu, driftu, neúplném transportu nebo přerušení se šestiběhová
+kampaň zastaví, zachová všechny pokusy a označí `INCOMPLETE`. Žádný automatický
+retry ani změna SHA/modelu/korpusu. Technické pokračování vyžaduje nezávislou
+revizi metadat; dokončené fáze se neopakují a výsledky se k volbě nepoužijí.
 
-Kritéria zůstávají ≥95 % užitečných reakcí, ≤5 % zbytečných zastavení,
-0 kritických chyb, tři celé nezměněné série. Reportovat odděleně jazyk,
-rodiny, latenci/načtení modelu a skutečné efekty. Samotných 36 anglických
-kroků neprokazuje jazykovou paritu v mezích pěti procentních bodů.
+Povolená projekce metadat: pořadí/fáze, pevný SHA/model/digest, počet běhů,
+runner/helper/corpus SHA-256, konfigurace fingerprint, node/provider verze,
+číselný exit, boolean transportComplete, exactWire, invalidInferenceCallCount (0),
+expectedCases/recordedCases (96/96),
+počet A/B transportů, čas, GPU/lease identita. Žádná chybová zpráva nebo jiný
+volný řetězec z odpovědi; žádné case ID, case objekt, názvy rodin, souborů ani
+obsah wire. Hodnoty identity se porovnají s tímto pinem před jejich zveřejněním.
+Dokončení vyžaduje oba exity 0, transportComplete/exactWire true, 96/96,
+invalidInferenceCallCount 0 a shodnou identitu/fingerprint uvnitř trojice.
+Gemma navíc contextBudgetValid/artifactSetValid true a stejné postflightArtifacts.
+Záznam `LIVE_COMPLETE_UNASSESSED` dokládá sběr, nikoli modelovou kvalitu.
+Při SIGINT/SIGTERM nelze spoléhat na runner finally: vlastní PID/child/provider
+musejí být samostatně uzavřeny a cizí procesy ponechány. Runner neumí navázat
+uprostřed H1 fáze; přerušená fáze se nesmí tiše restartovat.
 
-Historické Qwen aplikační reprodukce byly opravené a změřené 20krát před i po:
-e-mail i GPU mají 20/20 splněných aplikačních podmínek, vlastní významové
-hodnocení 39/40 kvůli jedné zbývající modelové faktické chybě. Není to
-nezávislý holdout výsledek. Původních 53 případů včetně F14–F20 jsou regrese.
+Povinný cleanup platí při **každém uzavření okna**, nejen po úspěchu:
+preflight FAIL, STOP, SIGINT/SIGTERM, neúplný běh i odložení po dešifrování.
+Koordinátor nejdříve ověří uzavření vlastních procesů/drain (cizích se nedotýká),
+poté odstraní přesný vstupní plaintext ověřený při dešifrování a ověří absenci.
+Před unlinkem znovu kontroluje regular-file/nesymlink, SHA a device/inode;
+při změně identity nemaže neznámý soubor a eskaluje konkrétní rozpor správci.
+Potvrzení cleanupu obsahuje jen metadata; raw evidence zůstane zachována dle
+uzavřené custody volby. Nové okno znovu vyžaduje dešifrování těsně před startem.
+Po pádu koordinátora je tento cleanup první recovery krok; nelze jej připsat
+runneru, který nemá garantovaný signal handler.
 
-Kvalitativní přejímka stále **NO_GO**. S Gemmou obě známé reprodukce mají
-20/20 + 20/20 aplikačních podmínek, vlastní užitečnost 40/40 a 0 efektů;
-nejde o doklad obecného zlepšení proti historickému 39/40. Samostatně
-zůstávají čtyři technická FAIL a tři BLOCKED. CI_NOT_RUN je pro aktuální
-kandidát překonán skutečným Actions výsledkem výše; společný integrační
-vlastník a ROOT routing zůstávají otevřené. [CI předání](2026-10-02-CHAT-CI-HANDOFF.md)
-a [přesná routing reprodukce](2026-10-02-CHAT-ROUTING-ROOT-HANDOFF.md).
-Použít nový skutečný holdout record výše, nikdy dummy nebo regresní record.
-Worker jeho odpovědi nebude číst ani známkovat; nezávislé hodnocení zajistí
-koordinátor. Předané pevné SHA se nepřepisují následným dokumentačním commitem.
+## Předání, přejímka a další vývoj
+
+Po šesti dokončených sériích: ověřit neměnnost zdroje/digestů, ukončení vlastních
+procesů, čisté GPU a uvolněné lease; hashovat raw balík bez čtení do kontextu.
+Odstranit přesný znovu dešifrovaný vstup; ciphertext a raw důkazy předat dle
+uzavřené custody volby. Odpovědi i celý manifest zůstanou soukromé; veřejná
+část má jen ověřené agregáty, cesty a SHA-256. Operátor vytvoří zaslepené X/Y,
+klíč odděleně; dva nezávislí hodnotitelé nevycházejí z vlastních známek autora.
+
+Implementátor dostane až uzavřený **celkový verdikt pro každý kandidát**,
+nikoli průběžné skóre, rodiny nebo příklady. Prahy ≥95 % užitečných,
+≤5 % zbytečných zastavení, 0 kritických chyb a tři nezměněné série jsou
+zachované; známých 53 případů je nutná regrese, H1 samostatná přejímka.
+H1 se po této jediné kampani považuje za spotřebovaný a může být regresním
+korpusem. Finální přejímka nově opraveného produktu vyžaduje nový nezávislý H2,
+předem zapečetěný s rubrikou; opakovaný H1 nesmí být vydáván za novou přejímku.
+
+Příprava H1 nemění produkční CHAT/D1 bindingy, nenasazuje release a neuděluje
+přejímku HTTP, Fan, fresh5 ani Studio D1. Další vývoj na ROOT nemusí čekat na
+hodnocení a nemění pevné zdroje této kampaně.

@@ -1,0 +1,26 @@
+{
+  "action": "UNLINK_VERIFIED_PLAINTEXT",
+  "authorization": "Operator 2026-10-07: delete now if collection cannot start immediately; decrypt only at run window",
+  "scope": "exact plaintext pathname only; no claim of secure erasure",
+  "runner_pids": [],
+  "files": [
+    {
+      "path": "/mnt/vi7000/intentsmith/evidence/chat-holdout-20261002/holdout.json.gpg",
+      "bytes": 37196,
+      "sha256": "44c872c206abd2d618c35e24ee0bc2449e6f3f401fe59e6b6dc809b24dd26961",
+      "inode": 2508295,
+      "device": 48
+    },
+    {
+      "path": "/mnt/vi7000/intentsmith/evidence/chat-holdout-20261002/holdout.json",
+      "bytes": 123789,
+      "sha256": "2431296e7a1583329fb4185a1dbbe6610749985385cd1afa2c6952428b63e9ff",
+      "inode": 2508332,
+      "device": 48
+    }
+  ],
+  "timestamp": "2026-10-07T16:12:33.085229+00:00",
+  "plaintext_absent": true,
+  "ciphertext_preserved": true,
+  "content_exposed_to_agent": false
+}

@@ -1,16 +1,21 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 7. 10. 2026; C1 oprava/retest dokončeny, C2 diagnóza a CPU experiment přezkoumány.
-**Vlastník integrace:** dosavadní ROOT (`work/real-chat-journeys-20260930`).
-**Vlastník CHAT/M1 C1:** tento navazující CHAT worker (`work/chat-quality-20261001`);
-operátor potvrdil, že předchozí CHAT již nezapisuje a úzkou opravu lze převzít.
-HTTP, Fan, fresh5 a M6 zůstávají ROOT; Hunt a druhý posudek jeho matice se nepřebírají.
+**Aktualizováno:** 7. 10. 2026; C1 převzat do ROOT, C2 přezkoumán, H1 sběr NOT_RUN.
+**Vlastník integrace a CHAT:** tento koordinátor přebírá ROOT
+(`work/real-chat-journeys-20260930`) podle následného pokynu operátora.
+Jediný writer `cre-decision.js` i společných map je nyní ROOT; HTTP, Fan, fresh5
+a M6 patří témuž koordinátorovi. Hunt a druhý posudek jeho matice zůstávají oddělené.
+CHAT checkout slouží následně jen jako vlastní sériový běhový checkout zmrazených kandidátů.
 **Release NOT_ACCEPTED. HTTP API FAIL. Fan FAIL. Mobil čeká na stabilní IDE/BE.**
 
 ## Autonomní postup přijatý po revizi 7. 10. 2026
 
 Autorita: operátor opravil návrh v bodech 1–10 a výslovně povolil po jejich
 zapracování začít; následně potvrdil převzetí M1 opravy od neaktivního CHAT writera.
+Další pokyn v téže relaci přebírá celou ROOT koordinaci, ruší pořadovou
+podmínku D1 a určuje jeden H1 sběr: Qwen i Gemma, každý 3 série, poté odstranit
+plaintext. Pokud sběr nezačne hned, plaintext odstranit už před přípravou.
+Zaslepený balík pro hodnotitele po sběru sestaví operátor.
 Tento soubor je jediný aktuální deník. `COMPLETION-TRACKER` je historický od
 `2a479852`; chatový PROGRESS uchovává předchozí měření, není druhý společný plán.
 
@@ -18,19 +23,21 @@ Tento soubor je jediný aktuální deník. `COMPLETION-TRACKER` je historický o
 `a61fe70d5ddabd63e066e9cbf4c8111b88f9fa56`, 546 commitů nad ověřeným GitHub
 main `838b8cee`. Obsahuje CHAT `e066956b` (merge `56138e4f`) a projektovou D1
 změnu `8fe6fb53`. Čistý vlastní CHAT checkout byl na tento základ fast-forwardnut;
-ROOT checkout, produkce a zmrazený Gemma kandidát `9591ea1b` se nemění.
+To byl stav vstupu C1. Nyní čistý ROOT checkout převzal přesný publikovaný
+CHAT `e15264f14b3db3e47837da1adac11509bcc37bc4` pomocí fast-forwardu
+z `a61fe70d`, bez slučovacího diffu. Produkce ani oba zmrazené H1 kandidáty
+`c7f03d56` / `9591ea1b` se nemění.
 Full109 a kopírovaná cache/upgrade jsou přijaté v rozsahu níže; neopakují se bez
 nové změny nebo konkrétní pochybnosti. Při převzetí patřil poslední celý profil 410 PASS pouze `86dbca40`; nový C1 výsledek je uveden níže.
 Po integraci se kontroluje shoda instalovaných závislostí s lockfilem i dostupnost
 předepsaného browser/PDF/OCR runtime před dalším celým během.
 
-**Vlastnictví a předání.** CHAT C1 vlastní jen klasifikační propagaci chyby,
-související regresní důkazy a vlastní dokumentaci v CHAT checkoutu. ROOT dále
-vlastní HTTP/Fan/M6 a společné integrační dokumenty; změny tohoto deníku z CHAT
-větve přebírá při integračním checkpointu, žádný souběžný zápis do jeho checkoutu.
-`cre-decision.js` má pro C1 jediného writera CHAT; již integrovaný projektový
-dispatch D1 se zachová a ověří. Reviewer produktový zdroj neopravuje. Nový
-souběh nad stejným souborem nebo connectorem vyžaduje předání vlastnictví.
+**Vlastnictví a předání.** Historický C1 měl úzký CHAT rozsah a byl nezávisle
+přezkoumán před převzetím. Nyní se další zápisy i integrace provádějí pouze
+v ROOT checkoutu; starý ROOT/CHAT souběh se neobnovuje. Převzetí nesnižuje
+HTTP/Fan budgety ani akceptační podmínky a nepřebírá Hunt grading. Přijatý
+projektový dispatch D1 se zachová a ověří. Reviewer produktový zdroj neopravuje;
+každý nový souběh nad týmž souborem/connectorem vyžaduje výslovné předání.
 
 **Cyklus.** Jedna pojmenovaná uživatelská změna nebo nezbytná diagnóza má vstupní
 SHA, vlastněné cesty, reprodukci, pozitivní a negativní důkaz, stop podmínku a
@@ -43,10 +50,11 @@ Po přijatém cyklu se pokračuje bez nového běžného potvrzení. Gate 0 pat�
 release WP; FAIL/BLOCKED/NOT_RUN se nepřeznačují. Publikace podle CONTRACT §11
 ověřuje vzdálené SHA a sama neznamená integraci, nasazení ani release přijetí.
 
-**Pořadí.** C1 opraví spolknutý `LLM_PROVIDER_UNAVAILABLE` před ROOT fresh5.
-Potom společný freeze/CI a původní fresh5 vlastní ROOT. Před dalším laděním
-kvality následuje rozbor všech 36 neužitečných odpovědí a 22 zastavení z Gemma
-regrese podle rodiny a příčiny (aplikace/model/hodnocení, překryvy se nesčítají).
+**Pořadí.** C1 je integrován, původní fresh5 stále NOT_RUN; jeho další běh
+vlastní tento ROOT. C2 již rozebral všech 36 neužitečných odpovědí a 22 zastavení
+z Gemma regrese podle rodiny a příčiny (aplikace/model/hodnocení, překryvy se nesčítají).
+H1 má vyhrazené jedno společné GPU okno pro oba pevné kandidáty; příprava a
+CPU vývoj pokračují nezávisle. D1 nemá pořadovou závislost na sběru ani hodnocení H1.
 Stagnace se uplatňuje ihned; nové prompty ani regex opravy bez doložené příčiny.
 Po dvou cyklech bez posunu se strategie přehodnotí a problém oznámí, nezávislá
 práce může pokračovat. Historické různě hodnocené série nejsou samy kontrolované
@@ -61,15 +69,22 @@ podle již přijatých závislostí. Mobil zůstává samostatný release.
 **Kvalita a holdout.** ≥95 % užitečných / ≤5 % zbytečných zastavení / 0 kritických
 chyb / 3 nezměněné série jsou nutná regrese na známých 53 případech, ne finální
 přejímka. Rozpad rodin a celé odpovědi lze použít pro tuto exponovanou regresi.
-H1 je podle operátorovy kontroly odpečetěný, SHA odpovídá pečeti, ale sběr
-neproběhl: `UNSEALED / NOT_RUN`. Obsah ani odpovědi tohoto holdoutu implementátor
-nečte, nevyhledává ani nezahrnuje do běžné inventury či balíku review. Neprohlašuje
-se technická izolace: plaintext dostupný témuž OS účtu není izolovaný pomocí 0600.
-Před sběrem musí vlastník holdoutu zajistit oddělený přístup runneru/hodnotitelů;
-mezitím zůstává mimo pracovní vstupy. Žádné široké hledání v evidence rootu,
-`restricted/`, dešifrovaných sadách ani jejich odpovědích. C1 používá výhradně
-veřejnou původní outage reprodukci, nové vlastní logy a známou regresi.
-H1 slouží jedné přejímce zmrazeného kandidáta (tři předepsané neměnné série);
+H1 byl odpečetěný, ale podle operátorovy kontroly nespuštěný. Dne 7. 10.
+v 16:12:33 UTC koordinátor ověřil oba SHA proti veřejné pečeti a odstranil
+přesně `holdout.json`; šifrovaný originál zachován. Aktuálně
+`PLAINTEXT_REMOVED / COLLECTION_NOT_RUN`; neznamená to anulování minulé expozice.
+[Receipt](review/evidence/chat-holdout-window-20261007/plaintext-removal.json).
+Obsah ani odpovědi implementátor nečte, nevyhledává ani nezahrnuje do běžného
+review. Zákaz zahrnuje `restricted/`, celé evidence adresáře a raw běhové logy.
+Mode 0600 ani proces pod stejným OS účtem se nevydávají za technické oddělení.
+Dešifrování provede operátor těsně před připraveným oknem; runner přečte corpus
+strojově a ověří pečeť, veškeré logy se přesměrují do privátní evidence.
+Koordinátor smí kontrolovat pouze předem vybraná metadata/počty, nikdy case ID,
+texty, rodiny ani známky. Operátor po bězích sestaví zaslepený hodnoticí balík.
+Jedna H1 kampaň obsahuje Qwen `c7f03d56` 3× a Gemmu `9591ea1b` 3× bez změn,
+mezilehlého hodnocení či ladění; každý kandidát má samostatný nový record.
+Po sběru se přesný plaintext znovu odstraní, šifrovaný originál a raw důkazy
+zůstanou pro správce/hodnotitele. Neúplný sběr se nepřeznačí na přejímku;
 implementátor dostane jen celkový verdikt a identitu kandidáta/protokolu,
 žádné rodiny, příklady ani průběžné známky. Po uzavření se H1 považuje za
 spotřebovaný regresní korpus. Finální etapa 5 vyžaduje nový nezávislý H2,
@@ -91,15 +106,15 @@ s daty, variantami, doporučením a konkrétním blokovaným krokem včas.
 
 | Krok | Kdo rozhoduje / podmínka |
 | --- | --- |
-| Úzký CHAT fix, vlastní izolovaná DB a CPU regrese, lockfile instalace, dokumentace | CHAT autonomně v přidělených cestách; beze změny produktových kritérií |
+| Produktové opravy v aktivních WP, vlastní DB a CPU regrese, lockfile instalace, dokumentace | ROOT autonomně v přidělených cestách; beze změny produktových kritérií |
 | Přijetí cyklu a nové importní hrany | Nezávislý reviewer; autor opravuje nálezy a znovu předává změněný rozsah |
-| Commit/push vlastní kandidátní větve | CHAT autonomně podle CONTRACT §11; povinné ověření remote SHA, publikace není přejímka |
-| Společná integrace, HTTP/Fan/fresh5/M6, sdílené mapy | Dosavadní ROOT přebírá přesný CHAT commit ve svém checkoutu |
+| Commit/push vlastní kandidátní větve | ROOT autonomně podle CONTRACT §11; povinné ověření remote SHA, publikace není přejímka |
+| Společná integrace, HTTP/Fan/fresh5/M6, sdílené mapy | Tento ROOT koordinátor; dřívější budgety a chráněné oracle zůstávají |
 | Živá inference a reviewerovo opakování | Předem dohodnuté GPU okno/lease s ROOT, přesný model/digest/profil a vlastní DB |
 | H1/H2 obsah a hodnocení | Oddělený správce/hodnotitelé; implementátor pouze aggregate verdict a identita |
 | Nové výdaje, produkční binding/deploy, snížení prahů, rozšíření efektů nebo vyčerpaného schváleného budgetu | Konkrétní návrh a operátorské rozhodnutí před dotčeným krokem; nezávislá práce pokračuje |
 
-### C1 — M1 provider outage (FINAL_EVIDENCE_REVIEW_PASS; READY_FOR_ROOT)
+### C1 — M1 provider outage (FINAL_EVIDENCE_REVIEW_PASS; INTEGRATED_ROOT)
 
 Výsledek: PROVIDER_UNAVAILABLE skutečně vyžádané modelové klasifikace skončí existujícím
 typovaným M1 error, bez odpovědi assistant/úspěšného terminálu a bez effectu.
@@ -107,7 +122,7 @@ Deterministická odpověď, která model nepotřebuje, zůstane funkční offlin
 Přijatý D1 dispatch ani pravidla pro neplatný modelový JSON se neoslabují.
 Rozsah: `src/chat/cre-decision.js`, příslušná stávající M1/kontextová sada,
 vlastní evidence a dokumentace; gateway, M2 authority, HTTP/Fan budgety,
-produkční DB/bindingy, holdout a ROOT checkout jsou mimo zapisovaný rozsah.
+produkční DB/bindingy, holdout a tehdejší ROOT checkout byly mimo zapisovaný rozsah C1.
 BASE `a61fe70d`, RED `68a51405`, produktový kandidát `1f098912`.
 Nová regrese nejprve doložila HTTP 200/status:ok a uložené doptání při obou
 výpadcích. Po opravě HTTP 503/status:error, jen uživatelský tah a stejný počet
@@ -125,7 +140,9 @@ Strom src, chat-context test a lockfile shodné s `1f098912`; module baseline
 byl samostatně schválen, ostatní tests soubory se neměnily. `b9cfc7c5` publikován a remote SHA ověřeno;
 závěrečný commit doplňuje pouze dokumentaci a důkazy. Nezávislý reviewer ověřil
 1250 logových hashů +27 dalších artefaktů a vydal FINAL_EVIDENCE_REVIEW_PASS.
-Manifest `de2302b3…d90c89a7`, exact CI job112870464823. ROOT integrace a fresh5 NOT_RUN.
+Manifest `de2302b3…d90c89a7`, exact CI job112870464823. Závěrečný docs/evidence
+commit `e15264f1` má také CI37648451862, 18 SUCCESS, a je nyní fast-forwardem
+v ROOT. Identita testovaného zdroje se zachovala; fresh5 zůstává NOT_RUN.
 
 ### C2 — okamžité uplatnění stagnace (diagnóza i CPU experiment REVIEW_PASS)
 
@@ -191,7 +208,7 @@ Actual používá zdroj cache 0700; původní zdroj 0775 pokrývá CPU regrese, 
 | HTTP strategie | Přesné M2 schválení/pending restart/rollback prošly; aplikace FAIL. Doporučený další krok: jeden skutečný repair routeru nad FAILED návrhem, rozpočet 13 vyžaduje rozhodnutí podle WP |
 | Fan | Frozen5f6: 8/11 volání, oracle 8 PASS /6 FAIL; repair4+CLI3 / cumulative15 čeká na samostatnou odpověď |
 | Přirozené plánování | Classifier→D1 CPU 44 +parser 24 /review PASS; skutečný vstup přes Studio ještě nepřijatý |
-| M1 outage | C1 `1f098912` source review a řízené HTTP/restart PASS; testovaný `b9cfc7c5` full410/CHAT7/CODE12/CI PASS; ROOT převzetí/fresh5 čeká |
+| M1 outage | C1 `1f098912` source review a řízené HTTP/restart PASS; testovaný `b9cfc7c5` full410/CHAT7/CODE12/CI PASS; ROOT převzal e15264f1; fresh5 čeká |
 | Mobil | Chybí conversation.create; implementace a device přejímka až po stabilním IDE/BE |
 | Hunt | Potřebujeme nový grading report/cestu a vlastníka pokračování; ROOT cizí hodnocení nepřebírá |
 
@@ -213,7 +230,7 @@ To nedokládá zaplněné 32k okno. Output4096 platí jen pro vydaný exact CODE
 
 ## Zbývající testy a pořadí dokončení
 
-1. Převzít přezkoumanou M1 opravu CHAT; ROOT společný freeze/CI a původní fresh5: poslední actual na90 zůstal **3 PASS /2 FAIL**.
+1. C1 převzat na ROOT; další je společný freeze/CI a původní fresh5: poslední actual na90 zůstal **3 PASS /2 FAIL**.
    Electron boundary/Studio M1/Studio M2 prošly; historický M1 a cache FAIL se nepřepisují. Nový whole fresh5 NOT_RUN.
 2. HTTP: rozhodnout jeden genuine repair routeru nad skutečným FAILED M2 (12→13); poté frozen oracle +supplement17, commit/restart/persistence a review. Fan má samostatné rozhodnutí.
 3. Živý přirozený classifier→D1, fyzická ovladatelnost IDE/M2, file/web/export/skills a projektové A→B→A.
@@ -230,14 +247,32 @@ Online zdroje se zachovají. Signed receipts 13, aktuální 24h soak/5min throug
 Hunt RO 6. 10., 12:18 UTC: canonical 107 JSON (106 batches +revision) +3 MD; poslední zápis 30. 9.,19:43 UTC.
 Poslední validované pokrytí 596/1173 responses,2324/3689 criteria; historický stop byl weekly API limit, dnešní quota tím nedoložená.
 Oddělený ROOT development draft 16/64 se nepřičítá. Nový worker progresspath vyžádaný; Gemma9591 poslední NO_GO, žádná aktivace.
-Holdout odpečetěn operátorem; jeho obsah ROOT nečetl, přejímku Gemma kandidáta vlastní CHAT worker.
+H1 plaintext odstraněn; sběr obou kandidátů připravuje tento ROOT, zaslepení
+a předání hodnotitelům provede operátor. Obsah ROOT nečetl.
 [Datovaný archiv](https://github.com/Belphareon-bak/intentsmith/blob/0d86b68ef94bfd260dfb6f06d2231d14865dc9f1/docs/WORK-PROGRESS.md).
 
-### Předání 7. 10. — zbývající vnější návaznosti
+### Předání 7. 10. — převzetí ROOT a příprava H1
 
-C1 přezkoumán a vývojově ověřen; ROOT přebírá přesný publikovaný CHAT commit,
-bez zásahu tohoto workera do ROOT checkoutu. Živý fresh5 a Studio → D1 nejsou
-součástí CPU přijetí. C2 diagnóza i diskriminační experiment mají oddělené review;
-navazující C3 zatím nemění produkt. Správce odděleného H1 sběru byl vyžádán
-asynchronně v této relaci, odpověď dosud není zapsaná. CPU práce na H1 nečekala.
-Živé reviewerovo GPU okno dosud není rezervované; jeho předání vlastní ROOT.
+BASE `e15264f1` (předchozí ROOT `a61fe70d`). C1 je převzat fast-forwardem;
+C2 diagnóza i experiment mají oddělené review. D1 časová podmínka výslovně
+zrušena; jeho existující implementace `8fe6fb53` potřebuje Studio důkaz.
+C3 zatím nemění produkt. H1 kampaň a příkazy jsou v aktualizovaném
+[handoffu](review/2026-10-02-CHAT-HOLDOUT-HANDOFF.md); sběr NOT_RUN.
+Šifrovaný H1 zůstal beze změny, plaintext odstraněn ověřeným přesným unlinkem;
+nejde o zaručené fyzické vymazání ani důkaz, že dříve nemohl být čten.
+Heslo vlastní pouze operátor, nový plaintext se připraví až k běhu.
+Read-only audit obou frozen runnerů dokončen druhým workerem; finální review
+tohoto dokumentačního cyklu **READINESS_DOCS_REVIEW_PASS**
+([receipt](review/evidence/chat-holdout-window-20261007/review.json)).
+Dva původní P2 (přepis logu a cleanup při přerušení) opraveny a znovu přezkoumány;
+finální doc/artifact kontrola 160 PASS, diff check exit 0. CPU runner kontrakt prošel na obou přesných
+SHA (syntetický corpus, 0 model calls); instalace frozen lockfilu, SQLite ABI
+a bwrap PASS. [Readiness včetně příkazů/hashů](review/evidence/chat-holdout-window-20261007/readiness.json).
+CHAT checkout je čistý detached c7f03d56, závislosti patří frozen lockfilu;
+ROOT vývojový checkout tím není přepínán. Po sběru návrat na CHAT větev vyžaduje
+obnovení jejího novějšího lockfilu, nikoli předpoklad shodných závislostí.
+GPU okno není otevřené a žádná inference neproběhla. Raw evidence také obsahuje
+kopie H1; výběr jejího předání (šifrovaný balík / soukromě operátorovi) byl
+vyžádán před dešifrováním a zůstává PENDING. Následný fresh5/Studio reviewer dostane vlastní okno po H1,
+nikoli souběžně. HTTP 13. CODE volání a Fan rozšíření zůstávají mimo současné
+rozpočty; vyžadují konkrétní operátorské rozhodnutí před jejich spuštěním.
