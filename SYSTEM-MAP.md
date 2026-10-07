@@ -3,16 +3,18 @@
 **Aktuální checkpoint 7. 10. 2026:** [stav, implementační mezery a zbývající testy](docs/WORK-PROGRESS.md).
 Release `NOT_ACCEPTED`; BE `c84b88cd` / Studio `7bf62455…bfe24` nezměněné.
 Přijaté Ledger/TaskFlow/SQLite, omezený AST/GPU panel/cleanup, full109 DB roundtrip a M3 worker;
-opakovat pouze při nové změně nebo konkrétní pochybnosti. CHAT `e066956b` zachovaný, ladí jiný worker.
+opakovat pouze při nové změně nebo konkrétní pochybnosti. CHAT převzal nový worker; úzký C1 kandidát `1f098912` má nezávislé SOURCE_REVIEW_PASS.
 
 Cache oprava `0d86b68e`: CPU 23/23 a source review; [CI37460776179](https://github.com/Belphareon-bak/intentsmith/actions/runs/37460776179) všech 18 kroků SUCCESS.
 **Copied-cache upgrade 6. 10., 12:26 UTC: 1223d2a8…9d95e79 PASS**, n=1 /8,804 s /bez modelu.
 Původní oracle 56→forcedFAIL80→restore56→109, přesné DB/canary/metadata, stejná DB a čistý stop.
 Dvě produktové kopie 0700, původní cache a source/deps/14 links zachované; fyzický zdroj700, CPU pokrývá775.
-Nejde o nový whole fresh5: historický fresh5 na90 má 3 PASS/2 FAIL, cizí M1 provider-outage vada otevřená.
+Nejde o nový whole fresh5: historický fresh5 na90 má 3 PASS/2 FAIL, M1 oprava má řízené HTTP/restart důkazy, společný fresh5 ještě NOT_RUN.
 Poslední celý offline/database profil `86dbca40`: 410 PASS /0 FAIL /BLOCKED /TIMEOUT; netestoval následnou cache opravu.
-Registry 596/35; integrovaný module graph má 1 511 hran, 3 cykly /28 členů.
-CHAT7/CODE12 zachované, CI/CPU nejsou release acceptance.
+Registry 596/35; CHAT kandidát: module graph má 1 512 hran, 3 cykly /28 členů.
+Jediná nová hrana CRE → chat-turn-error nezávisle schválená, baseline připnutý na `1f098912`.
+C1 context 27/27, M1 74/74, project 44/44 nezávisle opakované; širší profil čeká.
+[Revizní paket](docs/review/2026-10-07-CHAT-M1-OUTAGE.md); CI/CPU nejsou release acceptance.
 
 HTTP private-loopback profil zapojený; retained execution/M2/oracle/commit/restart prošel, API SOURCE FAIL.
 Normal MODIFY@4 cumulative10: úplný kontext/výstupy; A1/slash aliases a A3/charset OWS neopravena.
@@ -751,8 +753,8 @@ Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
-| `src/**/*.js` | **237 191 ř.**, 688 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **270 426 ř.**, 604 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **237 206 ř.**, 688 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **270 539 ř.**, 604 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **596** (`498 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 109** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |

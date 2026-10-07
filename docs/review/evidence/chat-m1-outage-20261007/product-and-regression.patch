@@ -1,0 +1,170 @@
+diff --git a/src/chat/cre-decision.js b/src/chat/cre-decision.js
+index 86d41687f0e03820d780aa0c32e512c7136014be..72daee657ac515520d7be716877f0f73bb746f37 100644
+--- a/src/chat/cre-decision.js
++++ b/src/chat/cre-decision.js
+@@ -35,6 +35,7 @@ import { extractJSON } from '../llm/client.js';
+ import { config } from '../config.js';
+ import { featureManager } from '../core/feature-manager.js';
+ import { throwIfAborted } from '../core/abort-error.js';
++import { ChatTurnErrorCode, LLMProviderUnavailableError } from '../core/chat-turn-error.js';
+ import { buildProjectHint } from './handlers/utils/project-context-prompt.js';
+ import { buildInterpretationContext, pendingConversationQuestion } from './conversation-context.js';
+ import { getNumCtx } from '../llm/model-ctx.js';
+@@ -2721,6 +2722,20 @@ PRAVIDLA:
+       if (context.signal?.aborted) {
+         throwIfAborted(context.signal);
+       }
++      // A provider outage is a failed turn, not uncertainty about the user's
++      // intent. Preserve the existing M1 error boundary before regex fallback
++      // can fabricate and persist a successful clarification response.
++      // The legacy classification bridge wraps the gateway error in cause;
++      // fetch connection failures may be nested one level further. Match only
++      // the unavailable codes used by the gateway, never provider message text.
++      const visited = new Set();
++      for (let cause = err; cause && typeof cause === 'object' && !visited.has(cause); cause = cause.cause) {
++        visited.add(cause);
++        if ([ChatTurnErrorCode.LLM_PROVIDER_UNAVAILABLE,
++          'ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'EHOSTUNREACH'].includes(cause.code)) {
++          throw new LLMProviderUnavailableError('INTENT_CLASSIFICATION_PROVIDER_UNAVAILABLE');
++        }
++      }
+       logger.warn('CRE:LLM', `LLM intent classification failed: ${err.message}`, {
+         input: input.substring(0, 60),
+       });
+diff --git a/tests/chat-context-interpretation.test.js b/tests/chat-context-interpretation.test.js
+index d400536264dcfc984ac138d6f7fb3add85c5ae55..e0fc7c0afc588e872f086bd521e04cf1cf44d2a9 100644
+--- a/tests/chat-context-interpretation.test.js
++++ b/tests/chat-context-interpretation.test.js
+@@ -11,10 +11,10 @@ import { buildAnswerContext } from '../src/chat/handlers/decisions.js';
+ import { llmGateway } from '../src/llm/gateway.js';
+ import http from 'node:http';
+ import { randomBytes } from 'node:crypto';
+-import { existsSync, readFileSync } from 'node:fs';
++import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+ import path from 'node:path';
+ import Database from 'better-sqlite3';
+-import { createOwnedJourneyRuntime, expectJson, startProduct, stopProduct } from './helpers/chat-project-expertise-model-journey.js';
++import { createOwnedJourneyRuntime, expectJson, requestJson, startProduct, stopProduct } from './helpers/chat-project-expertise-model-journey.js';
+ import { ConversationStore, TurnRole } from '../src/chat/conversation-store.js';
+ import { maybeCompact, awaitPendingCompaction } from '../src/chat/context-compact.js';
+ import { buildInterpretationContext, memoryReferenceBlock } from '../src/chat/conversation-context.js';
+@@ -28,6 +28,119 @@ import { assertCreativeQuality } from '../src/chat/handlers/utils/quality.js';
+ import { registerConversationWebWriter } from '../src/network/conversation-web-repository.js';
+ import { validateUnavailableAction, quoteActionDraft } from '../src/chat/unavailable-action.js';
+ 
++test('M1 classifier outage is a typed error with no assistant persistence or effects', async t => {
++  const input = 'Napiš podrobný odborný rozbor dvoufázového commitu v distribuovaném systému.';
++  for (const failure of ['http-503', 'connection-refused']) {
++    await t.test(failure, async () => {
++      const owned = createOwnedJourneyRuntime(isolatedTestRuntime);
++      const model = 'fixture:1b';
++      const digest = 'a'.repeat(64);
++      const calls = [];
++      const provider = http.createServer(async (request, response) => {
++        let body = '';
++        for await (const chunk of request) body += chunk;
++        response.setHeader('Content-Type', 'application/json');
++        if (request.url === '/api/tags') {
++          response.end(JSON.stringify({ models: [{ name: model, digest }] }));
++        } else if (request.url === '/api/show') {
++          response.end(JSON.stringify({ model_info: { 'fixture.context_length': 4096 } }));
++        } else if (request.url === '/api/chat') {
++          calls.push(JSON.parse(body));
++          response.writeHead(503).end(JSON.stringify({ error: 'PRIVATE_PROVIDER_OUTAGE_DETAIL' }));
++        } else {
++          response.writeHead(404).end('{}');
++        }
++      });
++      await new Promise(resolve => provider.listen(0, '127.0.0.1', resolve));
++      const providerUrl = `http://127.0.0.1:${provider.address().port}`;
++      let product;
++      let database;
++      try {
++        product = await startProduct(owned, providerUrl, model);
++        if (failure === 'connection-refused') {
++          provider.closeAllConnections();
++          await new Promise(resolve => provider.close(resolve));
++        }
++        const createConversation = async title => (await expectJson(product, 'POST',
++          '/api/conversations', { title, mode: 'chat' }, 201)).conversation.id;
++        const send = (conversationId, message) => requestJson(product, 'POST', '/api/chat', {
++          contract: 'ConversationCommand', version: 1, action: 'send',
++          requestId: randomBytes(16).toString('hex'), turnId: randomBytes(16).toString('hex'),
++          conversationId, input: message,
++        });
++
++        // A request that needs no model must still work while the provider is down.
++        const localConversation = await createConversation(`local-${failure}`);
++        const local = await send(localConversation, 'Kolik je 17 * 23?');
++        assert.equal(local.status, 200);
++        assert.equal(local.data.status, 'ok');
++        assert(local.data.response.content.includes('391'));
++        assert.equal(calls.length, 0, 'deterministic answer requested model inference');
++
++        const conversationId = await createConversation(`outage-${failure}`);
++        database = new Database(owned.database, { readonly: true });
++        const effectCount = () => database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n;
++        const beforeEffects = effectCount();
++        const result = await send(conversationId, input);
++        const roles = () => database.prepare('SELECT role FROM messages WHERE conversation_id = ? ORDER BY id')
++          .all(conversationId).map(row => row.role);
++        const observation = { failure, input, httpStatus: result.status, result: result.data,
++          roles: roles(), inferenceAttempts: calls.length, beforeEffects, afterEffects: effectCount() };
++        const evidencePath = path.join(owned.artifacts, 'm1-classifier-outage.json');
++        writeFileSync(evidencePath, JSON.stringify(observation, null, 2) + '\n', { mode: 0o600 });
++        t.diagnostic(`outage evidence: ${evidencePath}`);
++        assert.equal(result.status, 503, JSON.stringify(observation));
++        assert.equal(result.data.status, 'error');
++        assert.equal(result.data.error.code, 'LLM_PROVIDER_UNAVAILABLE');
++        assert.equal(Object.hasOwn(result.data, 'response'), false);
++        assert(!JSON.stringify(result.data).includes('PRIVATE_PROVIDER_OUTAGE_DETAIL'));
++        assert.deepEqual(roles(), ['user']);
++        assert.equal(effectCount(), beforeEffects);
++        if (failure === 'http-503') {
++          assert.equal(calls.length, 1, 'classification must not retry or generate a fallback answer');
++          assert(calls[0].messages[0].content.includes('Klasifikuj'));
++          assert.equal(JSON.parse(calls[0].messages.at(-1).content).request, input);
++        }
++
++        await stopProduct(product);
++        product = await startProduct(owned, providerUrl, model);
++        assert.deepEqual(roles(), ['user'], 'restart fabricated an assistant turn');
++        assert.equal(effectCount(), beforeEffects);
++        writeFileSync(path.join(owned.artifacts, 'm1-classifier-outage-restart.json'),
++          JSON.stringify({ failure, roles: roles(), effects: effectCount(), restartVerified: true }) + '\n',
++          { mode: 0o600 });
++      } finally {
++        database?.close();
++        await stopProduct(product);
++        provider.closeAllConnections();
++        if (provider.listening) await new Promise(resolve => provider.close(resolve));
++      }
++    });
++  }
++});
++
++test('classifier error handling preserves cancellation and invalid-output fallback', async () => {
++  const original = llmGateway.call;
++  try {
++    for (const content of ['not JSON', '{"intent":"UNKNOWN","confidence":0.9}',
++      '{"intent":"CONVERSATIONAL","confidence":2}']) {
++      llmGateway.call = async () => ({ content, finishReason: 'stop' });
++      assert.equal(await creDecisionEngine._llmClassifyIntent('Pomoz mi s výběrem.', {}), null);
++    }
++    // Text mentioning an outage is not a transport error or permission to change routing.
++    llmGateway.call = async () => { throw new Error('LLM_PROVIDER_UNAVAILABLE'); };
++    assert.equal(await creDecisionEngine._llmClassifyIntent('Pomoz mi s výběrem.', {}), null);
++    const controller = new AbortController();
++    llmGateway.call = async () => {
++      controller.abort();
++      throw Object.assign(new Error('provider became unavailable while cancelling'),
++        { code: 'LLM_PROVIDER_UNAVAILABLE' });
++    };
++    await assert.rejects(creDecisionEngine._llmClassifyIntent('Pomoz mi s výběrem.',
++      { signal: controller.signal }), error => error.name === 'AbortError' && error.code === 'ABORT_ERR');
++  } finally { llmGateway.call = original; }
++});
++
+ test('unavailable effects have application status; independent text is generated without the effect clause', async () => {
+   const original = llmGateway.call;
+   const request = 'Vysvětli ve dvou větách rozdíl mezi RAM a diskem. A sniž napětí GPU na polovinu.';

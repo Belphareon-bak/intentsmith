@@ -5,6 +5,21 @@
 
 > `CONTRACT.md` §3 krok 1. Popisuje stav, nerozhoduje.
 
+## Aktuální omezený checkpoint 7. 10. 2026
+
+Zdroj `1f098912`, nezávislé SOURCE_REVIEW_PASS: `_llmClassifyIntent` předává
+skutečný výpadek poskytovatele existující typovanou chybou do M1. Rozpoznává
+kód `LLM_PROVIDER_UNAVAILABLE` a čtyři síťové kódy také v řetězci `cause`;
+zrušení má přednost. Chybný JSON nebo neurčitá klasifikace zachovávají fallback.
+Skutečný HTTP 503 i odmítnuté spojení nyní vracejí HTTP 503 / status:error,
+bez asistentské zprávy a nového tool requestu, ověřeno také po restartu DB.
+Lokální matematika funguje bez providerového volání. Source review a nezávislé
+context 27/27, M1 74/74 a project 44/44; fresh5 a živá kvalita zůstávají otevřené.
+[Revizní paket](../review/2026-10-07-CHAT-M1-OUTAGE.md).
+
+Následující inventura popisuje historický stav 2. 8.; její popis fallbacku při
+výpadku ani počty řádků nejsou aktuálním chováním výše uvedeného kandidáta.
+
 ---
 
 ## 1. Rozsah

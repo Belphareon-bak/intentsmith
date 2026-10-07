@@ -1,0 +1,16 @@
+{
+  "command": [
+    "node",
+    "--test",
+    "tests/chat-context-interpretation.test.js"
+  ],
+  "envOverrides": {
+    "PATH": "/home/belphareon/.nvm/versions/node/v24.21.0/bin:/usr/bin:/bin",
+    "KEEP_TEST_RUNTIME": "1"
+  },
+  "sourceCandidate": "1f0989124630887edd5ab146e6acf662a5b2307d",
+  "startedAt": "2026-10-07T15:10:00.786889+00:00",
+  "finishedAt": "2026-10-07T15:10:11.254988+00:00",
+  "exitCode": 0,
+  "logSha256": "ddfccc556c6a9473783ff2990a2c2c82bd1eb1f732583203cd9c280c65b41759"
+}

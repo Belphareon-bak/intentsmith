@@ -1,0 +1,23 @@
+{
+  "failure": "connection-refused",
+  "input": "Napiš podrobný odborný rozbor dvoufázového commitu v distribuovaném systému.",
+  "httpStatus": 503,
+  "result": {
+    "contract": "ConversationResult",
+    "version": 1,
+    "requestId": "5bad3e94a265699deb7e5a2d1ab632ea",
+    "conversationId": "conv-1791385803878-3qjxfra3w",
+    "turnId": "ee920953ca5e9b03837d8c0f5cb431f0",
+    "status": "error",
+    "error": {
+      "code": "LLM_PROVIDER_UNAVAILABLE",
+      "message": "Model provider is temporarily unavailable."
+    }
+  },
+  "roles": [
+    "user"
+  ],
+  "inferenceAttempts": 0,
+  "beforeEffects": 1,
+  "afterEffects": 1
+}

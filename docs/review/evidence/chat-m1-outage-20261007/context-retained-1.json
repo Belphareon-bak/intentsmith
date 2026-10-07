@@ -1,0 +1,23 @@
+{
+  "failure": "http-503",
+  "input": "Napiš podrobný odborný rozbor dvoufázového commitu v distribuovaném systému.",
+  "httpStatus": 503,
+  "result": {
+    "contract": "ConversationResult",
+    "version": 1,
+    "requestId": "8d4f1e956b04506538cb509afbf2c638",
+    "conversationId": "conv-1791385802124-5qie39uk2",
+    "turnId": "cc43e883077e3b2ac78007e016aff851",
+    "status": "error",
+    "error": {
+      "code": "LLM_PROVIDER_UNAVAILABLE",
+      "message": "Model provider is temporarily unavailable."
+    }
+  },
+  "roles": [
+    "user"
+  ],
+  "inferenceAttempts": 1,
+  "beforeEffects": 1,
+  "afterEffects": 1
+}

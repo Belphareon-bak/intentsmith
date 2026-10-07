@@ -85,7 +85,7 @@ historická evidence se zachovává. Technické volby se řeší autonomně; zm�
 produktového cíle, authority, kritérií, nevratné zásahy a nové výdaje se předkládají
 s daty, variantami, doporučením a konkrétním blokovaným krokem včas.
 
-### C1 — M1 provider outage (IN_PROGRESS; vstup a61fe70d)
+### C1 — M1 provider outage (SOURCE_REVIEW_PASS; širší kontroly probíhají)
 
 Výsledek: PROVIDER_UNAVAILABLE skutečně vyžádané modelové klasifikace skončí existujícím
 typovaným M1 error, bez odpovědi assistant/úspěšného terminálu a bez effectu.
@@ -94,9 +94,25 @@ Přijatý D1 dispatch ani pravidla pro neplatný modelový JSON se neoslabují.
 Rozsah: `src/chat/cre-decision.js`, příslušná stávající M1/kontextová sada,
 vlastní evidence a dokumentace; gateway, M2 authority, HTTP/Fan budgety,
 produkční DB/bindingy, holdout a ROOT checkout jsou mimo zapisovaný rozsah.
-Předání: BASE/CANDIDATE, red→green API/persistence reprodukce, regresní/registry
-kontroly, nezávislé review; ROOT potom svůj freeze/CI/fresh5. Stav při převzetí:
-produktová chyba doložená historickým fresh5, nový regresní běh ještě NOT_RUN.
+BASE `a61fe70d`, RED `68a51405`, produktový kandidát `1f098912`.
+Nová regrese nejprve doložila HTTP 200/status:ok a uložené doptání při obou
+výpadcích. Po opravě HTTP 503/status:error, jen uživatelský tah a stejný počet
+tool requestů také po restartu. Nezávislý reviewer zopakoval context 27/27,
+M1 74/74 a project 44/44 (vše exit 0) a výslovně přijal jedinou novou importní
+hranu; přesný baseline byl následně vygenerován z čistého `1f098912`.
+[Revizní paket s SHA-256 a příkazy](review/2026-10-07-CHAT-M1-OUTAGE.md).
+Širší profil/CI a publikace zatím PENDING; společný ROOT fresh5 NOT_RUN.
+
+### C2 — okamžité uplatnění stagnace (diagnóza; REVIEW_PENDING)
+
+Read-only rozbor exponované Gemma regrese `9591ea1b` připravil druhý worker;
+[úplný rozpad 36 vad a 22 zastavení](review/2026-10-07-CHAT-STAGNATION-DIAGNOSIS.md).
+22 zastavení je podmnožinou 36 vad, nikoli dalších 22 případů. Přímé providerové
+stopy pokrývají jen 19/36 vad; pro 17 chybí. Sedm vad dokládá ztrátu konkrétního
+doptání v aplikaci, šest souborových má modelový nebo smíšený kontextový podklad,
+16 souborových zůstává UNKNOWN, čtyři se týkají faktů/hodnocení a tři kalendáře.
+První další experiment má bez GPU odlišit ztrátu cíleného dotazu na hranici
+confidence; žádná další změna promptu ani modelu před jeho výsledkem.
 
 ## Přijaté dílčí výsledky
 
@@ -121,7 +137,7 @@ CHAT checkout 6. 10. ověřený clean e066956b; produktovou logiku CHATu ROOT ne
 Poslední celý offline/database profil **86dbca40: 410 PASS / 0 FAIL / BLOCKED / TIMEOUT**,
 5. 10., 04:44:14–04:54:05 UTC; report a5a2f4a3…326d11c, všechny řádky/logy nezávisle ověřené.
 Data 24/24, M1 kontrakt 74/74; tento starší profil necertifikuje cache opravu ani release.
-Doc/artifact gate160 PASS; nynější census src688/237191, tests604/270426; source review přijímá přesný graph+1/1511/3cykly28.
+Historický doc/artifact gate160 PASS patří ROOT. Aktuální CHAT census src688/237206, tests604/270539; revidovaný graph1512/3cykly28.
 Studio bundle 7bf62455…bfe24 / instalovaný BE c84b88cd nezměněné; žádný deploy ani aktivace.
 Externí c5309a0/bundle místně chybí; jeho výsledky nejsou přijaté místní důkazy.
 
@@ -146,7 +162,7 @@ Actual používá zdroj cache 0700; původní zdroj 0775 pokrývá CPU regrese, 
 | HTTP strategie | Přesné M2 schválení/pending restart/rollback prošly; aplikace FAIL. Doporučený další krok: jeden skutečný repair routeru nad FAILED návrhem, rozpočet 13 vyžaduje rozhodnutí podle WP |
 | Fan | Frozen5f6: 8/11 volání, oracle 8 PASS /6 FAIL; repair4+CLI3 / cumulative15 čeká na samostatnou odpověď |
 | Přirozené plánování | Classifier→D1 CPU 44 +parser 24 /review PASS; skutečný vstup přes Studio ještě nepřijatý |
-| M1 outage | Typed PROVIDER_UNAVAILABLE spolknutý classifierem → fallback/status ok; produktová oprava patří CHAT workerovi |
+| M1 outage | C1 `1f098912` SOURCE_REVIEW_PASS, řízené HTTP/restart testy PASS; širší profil/CI a ROOT fresh5 čekají |
 | Mobil | Chybí conversation.create; implementace a device přejímka až po stabilním IDE/BE |
 | Hunt | Potřebujeme nový grading report/cestu a vlastníka pokračování; ROOT cizí hodnocení nepřebírá |
 

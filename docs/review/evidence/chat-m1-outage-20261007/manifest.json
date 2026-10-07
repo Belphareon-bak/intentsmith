@@ -1,0 +1,120 @@
+{
+  "schema": 1,
+  "base": "a61fe70d5ddabd63e066e9cbf4c8111b88f9fa56",
+  "redRevision": "68a51405213f825acb14213a7e97a0bce1f1128a",
+  "sourceCandidate": "1f0989124630887edd5ab146e6acf662a5b2307d",
+  "scope": "C1 controlled M1 outage only; no model-quality acceptance",
+  "records": [
+    {
+      "path": ".intentsmith-artifacts/chat-m1-outage-20261007/red.log",
+      "sha256": "6a20dc0135f14fc255f68003ca00ed696a252c724cf7ef50361917b4646c59b7",
+      "bytes": 37345,
+      "exitCode": 1,
+      "sourceRevision": "68a51405213f825acb14213a7e97a0bce1f1128a"
+    },
+    {
+      "path": ".intentsmith-artifacts/chat-m1-outage-20261007/green.log",
+      "sha256": "e5bc610fadfe5cd0483b5f5ecc65d9a530d0857274cf438cf38715107ebbad6c",
+      "bytes": 35015,
+      "exitCode": 1,
+      "sourceRevision": null
+    },
+    {
+      "path": ".intentsmith-artifacts/chat-m1-outage-20261007/green-v2.log",
+      "sha256": "312a98703dd6fb5daebeaeba4c5d445f90a5a318f011124d4e888411683f14ac",
+      "bytes": 32642,
+      "exitCode": 0,
+      "sourceRevision": null
+    },
+    {
+      "path": ".intentsmith-artifacts/chat-m1-outage-20261007/context-full.log",
+      "sha256": "4c4f1fc8c1c8cea8adbd3496fb83082d489d910419ac619481c83830cb37a98e",
+      "bytes": 54974,
+      "exitCode": 0,
+      "sourceRevision": "1f0989124630887edd5ab146e6acf662a5b2307d"
+    },
+    {
+      "path": ".intentsmith-artifacts/chat-m1-outage-20261007/m1-contract.log",
+      "sha256": "935a2031c1d8127ab2bcf1f731e1cc89c159506a4c94cebf1c8978f5463e4d25",
+      "bytes": 54665,
+      "exitCode": 0,
+      "sourceRevision": "1f0989124630887edd5ab146e6acf662a5b2307d"
+    },
+    {
+      "path": ".intentsmith-artifacts/chat-m1-outage-20261007/project-collaboration.log",
+      "sha256": "f8dc2e434fb76aa94016eed869f7e5b739c795e5f5a0a3bab17736b18138215d",
+      "bytes": 44438,
+      "exitCode": 0,
+      "sourceRevision": "1f0989124630887edd5ab146e6acf662a5b2307d"
+    },
+    {
+      "path": ".intentsmith-artifacts/chat-m1-outage-20261007/boundary-before-acceptance.log",
+      "sha256": "f384b6afbc7ee50d0b755a212a29d2f80974dbbd8f135c0ca793c7c479cac0d1",
+      "bytes": 802,
+      "exitCode": 1,
+      "sourceRevision": "1f0989124630887edd5ab146e6acf662a5b2307d"
+    },
+    {
+      "path": ".intentsmith-artifacts/chat-m1-outage-20261007/reviewer-context.log",
+      "sha256": "7aa8f60870a2a2f85863345aadbde828d778aac073aa002cfa15fa773d331384",
+      "bytes": 54974,
+      "exitCode": 0,
+      "sourceRevision": "1f0989124630887edd5ab146e6acf662a5b2307d"
+    },
+    {
+      "path": ".intentsmith-artifacts/chat-m1-outage-20261007/reviewer-m1-contract.log",
+      "sha256": "35ee9f71bf5b9a6fb0c3946433c2385c5f25445958ea13ae14b91899bdd98764",
+      "bytes": 54665,
+      "exitCode": 0,
+      "sourceRevision": "1f0989124630887edd5ab146e6acf662a5b2307d"
+    },
+    {
+      "path": ".intentsmith-artifacts/chat-m1-outage-20261007/reviewer-project-collaboration.log",
+      "sha256": "490f6eb288b24383d9e01b5a0a675a947a668e62289289213b42b48dd8d7e314",
+      "bytes": 44443,
+      "exitCode": 0,
+      "sourceRevision": "1f0989124630887edd5ab146e6acf662a5b2307d"
+    },
+    {
+      "path": ".intentsmith-artifacts/chat-m1-outage-20261007/context-retained.log",
+      "sha256": "ddfccc556c6a9473783ff2990a2c2c82bd1eb1f732583203cd9c280c65b41759",
+      "bytes": 55145,
+      "exitCode": 0,
+      "sourceRevision": "1f0989124630887edd5ab146e6acf662a5b2307d"
+    },
+    {
+      "path": ".intentsmith-artifacts/direct-tests/chat-context-interpretation.test-IMjViS/artifacts/m1-journey-BXCNy8/artifacts/m1-classifier-outage.json",
+      "sha256": "7f5afb8ad46eb9f8ac4fa5a19e6f4f97f372f27c5b42880e02da2d5fae526642",
+      "publicCopy": "docs/review/evidence/chat-m1-outage-20261007/context-retained-1.json"
+    },
+    {
+      "path": ".intentsmith-artifacts/direct-tests/chat-context-interpretation.test-IMjViS/artifacts/m1-journey-BXCNy8/artifacts/m1-classifier-outage-restart.json",
+      "sha256": "172c2f6949964898141b971c2c93b0828ccc7611df8ef2740a466bb34cb04904",
+      "publicCopy": "docs/review/evidence/chat-m1-outage-20261007/context-retained-1-restart.json"
+    },
+    {
+      "path": ".intentsmith-artifacts/direct-tests/chat-context-interpretation.test-IMjViS/artifacts/m1-journey-HxJhq2/artifacts/m1-classifier-outage.json",
+      "sha256": "51ea1166686040a936913d46395e8d4da52028a195c0ca2deba8973fa5a828f4",
+      "publicCopy": "docs/review/evidence/chat-m1-outage-20261007/context-retained-2.json"
+    },
+    {
+      "path": ".intentsmith-artifacts/direct-tests/chat-context-interpretation.test-IMjViS/artifacts/m1-journey-HxJhq2/artifacts/m1-classifier-outage-restart.json",
+      "sha256": "c37604340abd2b69b9924fca58dd725414dc4c79e3be541c412ed2d88a839d98",
+      "publicCopy": "docs/review/evidence/chat-m1-outage-20261007/context-retained-2-restart.json"
+    }
+  ],
+  "patch": {
+    "path": "docs/review/evidence/chat-m1-outage-20261007/product-and-regression.patch",
+    "sha256": "0cd62d108889c4fbfc285e7b210dac137da5bdd340bc1fabcce8f138a857c7d7"
+  },
+  "forbidden": [
+    "restricted/",
+    "H1/H2 plaintext",
+    "H1/H2 responses and family grades"
+  ],
+  "notes": [
+    "green.log is a failed intermediate top-level-code-only attempt; green-v2 is successful cause-chain implementation before final negative test additions. Exact final tests are context-full and independent reviewer runs.",
+    "Original direct-test child runtimes were auto-cleaned by the existing helper; diagnostic filenames in those logs are not retained evidence. RED HTTP and DB observation is preserved inside the assertion failure in red.log. Final raw JSON and restart observations are retained by explicit KEEP_TEST_RUNTIME=1 rerun and copied here byte-for-byte.",
+    "Exit codes recorded by executor; candidate for exact final-source/test runs identifies file bytes unchanged despite subsequent documentation and graph-baseline edits."
+  ]
+}
