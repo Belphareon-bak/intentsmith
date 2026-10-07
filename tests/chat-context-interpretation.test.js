@@ -30,7 +30,7 @@ import { validateUnavailableAction, quoteActionDraft } from '../src/chat/unavail
 
 test('M1 classifier outage is a typed error with no assistant persistence or effects', async t => {
   const input = 'Napiš podrobný odborný rozbor dvoufázového commitu v distribuovaném systému.';
-  for (const failure of ['http-503', 'connection-refused']) {
+  for (const failure of ['http-503', 'connection-refused', 'http-502', 'socket-close-before-headers', 'partial-response-close']) {
     await t.test(failure, async () => {
       const owned = createOwnedJourneyRuntime(isolatedTestRuntime);
       const model = 'fixture:1b';
@@ -46,7 +46,16 @@ test('M1 classifier outage is a typed error with no assistant persistence or eff
           response.end(JSON.stringify({ model_info: { 'fixture.context_length': 4096 } }));
         } else if (request.url === '/api/chat') {
           calls.push(JSON.parse(body));
-          response.writeHead(503).end(JSON.stringify({ error: 'PRIVATE_PROVIDER_OUTAGE_DETAIL' }));
+          if (failure === 'socket-close-before-headers') {
+            request.socket.destroy();
+          } else if (failure === 'partial-response-close') {
+            response.writeHead(200);
+            response.write('{"model":"fixture:1b","message":{"content":"');
+            setTimeout(() => response.destroy(), 25);
+          } else {
+            response.writeHead(failure === 'http-502' ? 502 : 503)
+              .end(JSON.stringify({ error: 'PRIVATE_PROVIDER_OUTAGE_DETAIL' }));
+          }
         } else {
           response.writeHead(404).end('{}');
         }
@@ -89,14 +98,15 @@ test('M1 classifier outage is a typed error with no assistant persistence or eff
         const evidencePath = path.join(owned.artifacts, 'm1-classifier-outage.json');
         writeFileSync(evidencePath, JSON.stringify(observation, null, 2) + '\n', { mode: 0o600 });
         t.diagnostic(`outage evidence: ${evidencePath}`);
-        assert.equal(result.status, 503, JSON.stringify(observation));
+        const unavailable = ['http-503', 'connection-refused', 'socket-close-before-headers'].includes(failure);
+        assert.equal(result.status, unavailable ? 503 : 500, JSON.stringify(observation));
+        assert.equal(result.data.error.code, unavailable ? 'LLM_PROVIDER_UNAVAILABLE' : 'CHAT_PROCESSING_FAILED');
         assert.equal(result.data.status, 'error');
-        assert.equal(result.data.error.code, 'LLM_PROVIDER_UNAVAILABLE');
         assert.equal(Object.hasOwn(result.data, 'response'), false);
         assert(!JSON.stringify(result.data).includes('PRIVATE_PROVIDER_OUTAGE_DETAIL'));
         assert.deepEqual(roles(), ['user']);
         assert.equal(effectCount(), beforeEffects);
-        if (failure === 'http-503') {
+        if (failure !== 'connection-refused') {
           assert.equal(calls.length, 1, 'classification must not retry or generate a fallback answer');
           assert(calls[0].messages[0].content.includes('Klasifikuj'));
           assert.equal(JSON.parse(calls[0].messages.at(-1).content).request, input);
