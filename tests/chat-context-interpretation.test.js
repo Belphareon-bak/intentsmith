@@ -321,9 +321,9 @@ test('uncertain AMBIGUOUS classification preserves its concrete question without
     for (const confidence of [0.1, 0.5, 0.69]) {
       for (const input of ['Pomoz mi s výběrem.', 'asdf qwer', 'Navrhni změnu projektu.']) {
         const state = new SessionState(`uncertain-${confidence}-${input}`);
-        state.setPendingDecision({ type: 'ASK_USER', intent: 'AMBIGUOUS', metadata: {
+        state.setPendingDecision({ type: 'ASK_USER', intent: 'FILE_WRITE', metadata: {
           originalRequest: 'Ulož původní odpověď, nic nepřepisuj.',
-          originalRequestedOperation: 'write', clarificationQuestion: 'Do kterého souboru?',
+          clarificationQuestion: 'Do kterého souboru?',
         } }, ['intent_clarification']);
         let calls = 0;
         llmGateway.call = async () => {
@@ -344,7 +344,8 @@ test('uncertain AMBIGUOUS classification preserves its concrete question without
         assert.equal(decision.metadata.classifiedBy, 'llm');
         assert.equal(decision.metadata.llmConfidence, confidence);
         assert.equal(decision.metadata.clarificationRequest, 'Ulož původní odpověď, nic nepřepisuj.');
-        for (const key of ['fileTarget', 'requestedOperation', 'unavailableAction', 'shellCommand',
+        assert.equal(decision.metadata.requestedOperation, 'write', 'derive operation from existing FILE_WRITE pending, never the proposed delete');
+        for (const key of ['fileTarget', 'unavailableAction', 'shellCommand',
           'briefResponse', 'responseWordCount']) assert.equal(decision.metadata[key], undefined, key);
         assert.deepEqual(decision.tools, []);
         const reply = await handleAskUserDecision(input, decision, context);
@@ -352,6 +353,14 @@ test('uncertain AMBIGUOUS classification preserves its concrete question without
         assert.equal(state.pendingDecision.metadata.originalRequest, 'Ulož původní odpověď, nic nepřepisuj.');
         assert.equal(state.pendingDecision.metadata.originalRequestedOperation, 'write');
         assert.equal(calls, 1, 'clarification must not dispatch a planner or generate another answer');
+        llmGateway.call = async () => ({ content: JSON.stringify({ intent: 'FILE_READ',
+          confidence: 0.95, fileTarget: 'notes.md', requestedOperation: 'read',
+          continuesPending: true, responseScope: 'conversation' }), finishReason: 'stop' });
+        const incompatible = await creDecisionEngine.decide('notes.md', context);
+        assert.equal(incompatible.type, 'ASK_USER');
+        assert.match(incompatible.metadata.clarificationQuestion, /Jakou operaci/u);
+        assert.deepEqual(incompatible.tools, []);
+
       }
     }
     const input = 'Pomoz mi s výběrem.';

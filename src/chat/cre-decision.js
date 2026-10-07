@@ -3440,12 +3440,16 @@ PRAVIDLA:
       // question and let regex/sticky routing invent project work. Only the
       // validated read-only AMBIGUOUS result can take this terminal path.
       // Do not carry low-confidence file/operation/planner metadata forward;
-      // the ASK_USER handler retains the existing pending request/operation.
+      // retain the canonical existing pending operation before its intent becomes
+      // AMBIGUOUS, including file questions without explicit operation metadata.
       if (llmResult?.intent === IntentType.AMBIGUOUS && llmResult.confidence < 0.7
         && llmResult.contextualInterpretation === true && llmResult.question) {
         llmMeta = { confidence: llmResult.confidence, question: llmResult.question,
           contextualInterpretation: true, continuesPending: llmResult.continuesPending,
-          responseScope: 'conversation', responseWordCount: null };
+          responseScope: 'conversation', responseWordCount: null,
+          ...(llmResult.continuesPending ? {
+            requestedOperation: pendingConversationQuestion(context)?.requestedOperation,
+          } : {}) };
         _diag.initialIntent = IntentType.AMBIGUOUS;
         return _makeDecision({ type: DecisionType.ASK_USER, intent: IntentType.AMBIGUOUS,
           tools: [], slots: ['intent_clarification'], confidence: llmResult.confidence,
