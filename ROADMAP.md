@@ -16,10 +16,14 @@ CHAT7/CODE12 zachované, CI/CPU nejsou release acceptance.
 
 HTTP private-loopback profil zapojený; retained execution/M2/oracle/commit/restart prošel, API SOURCE FAIL.
 Normal MODIFY@4 cumulative10: úplný kontext/výstupy; A1/slash aliases a A3/charset OWS neopravena.
-Nový úkol 7. 10.: dokončit HTTP/SQLite; normal anchored edit s full before source/digest, max2 nové/cumulative12.
-CPU lifecycle119/model45, lokální CODE12 a CIae633 všech18 PASS; core/rebind review PASS.
-Actual entry7.10.FAIL/model0 kvůli oldpendingpointer; nová API konverzace stejného projektu zachová all257.
-Exact M2/oracle/commit/restart/supplement17 stále NOT_RUN; model10+2/12 unchanged.
+Nový úkol 7. 10.: normal anchored edit s full before source/digest; actual dvě úplná volání, cumulative12/12.
+Zdroj409ed3a1: lifecycle119/model45, lokální CODE12 a CI37586564446 všech18 PASS; source review PASS.
+Fresh same-project konverzace překonala starý pending pointer. Exact M2/wrongdigest409/pending restart prošly.
+Nový oracle FAIL po7 HTTP: GET /items/1=400 místo200; modelová regrese ID segmentu, A3 stále chybná, A2 candidate fixed.
+Rollback2/2 obnovil všechny4 zdroje/Git1856920 clean; původních257 M2 řádků/46 immutable refs zachovaných, owned cleanup PASS.
+Closed FAIL review4279065c…4c6afa9/manifest51; app commit/persistence/supplement17 NOT_REACHED, aplikace NOT_ACCEPTED.
+Post helper CPU6 rozlišuje immutable evidence a inode atomicky nahrazených živých zdrojů. Další inference se nespouští.
+Doporučení: jeden genuine CODE repair routeru nad skutečným FAILED návrhem; budget12→13 vyžaduje nové rozhodnutí podle WP.
 Fan 8/11, oracle 8 PASS/6 FAIL; repair4+CLI3/cumulative15 čeká na samostatnou odpověď.
 32k krátce změřené fullGPU/min free 2 512 MiB; celé okno ani kvalita aplikace tím nepřijaté.
 Classifier→D1 CPU 44 +parser 24/review PASS; živý přirozený vstup a fyzická ovladatelnost IDE/M2 otevřené.

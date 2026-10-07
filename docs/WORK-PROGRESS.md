@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 7. 10. 2026, 09:18 CEST /07:18 UTC.
+**Aktualizováno:** 7. 10. 2026, 09:39 CEST /07:39 UTC.
 **Vlastník:** ROOT; CHAT/Gemma a zbývající Hunt mají jiné workery.
 **Release NOT_ACCEPTED. HTTP API FAIL. Fan FAIL. Mobil čeká na stabilní IDE/BE.**
 
@@ -48,8 +48,8 @@ Actual používá zdroj cache 0700; původní zdroj 0775 pokrývá CPU regrese, 
 
 | Oblast | Co chybí / nejbližší krok |
 | --- | --- |
-| HTTP CODE | Normal@4 vyčerpal cumulative10; retained disk má dosud A1/A2/A3 vady, @4 návrh nebyl schválen |
-| HTTP strategie | Nový úkol operátora 7. 10.: omezený normal anchored edit s úplným before source/digest, max2 nové / cumulative12; produktový connector119/model45, lokální CODE12 a CIae633 všech18 PASS; source/rebind review PASS; actual entry FAIL/model0 |
+| HTTP CODE | Anchored@5 skutečně vyčerpal 12/12; nový router vrací GET /items/1=400, A3 neopravena; rollback obnovil retained zdroje |
+| HTTP strategie | Přesné M2 schválení/pending restart/rollback prošly; aplikace FAIL. Doporučený další krok: jeden skutečný repair routeru nad FAILED návrhem, rozpočet 13 vyžaduje rozhodnutí podle WP |
 | Fan | Frozen5f6: 8/11 volání, oracle 8 PASS /6 FAIL; repair4+CLI3 / cumulative15 čeká na samostatnou odpověď |
 | Přirozené plánování | Classifier→D1 CPU 44 +parser 24 /review PASS; skutečný vstup přes Studio ještě nepřijatý |
 | M1 outage | Typed PROVIDER_UNAVAILABLE spolknutý classifierem → fallback/status ok; produktová oprava patří CHAT workerovi |
@@ -59,11 +59,15 @@ Actual používá zdroj cache 0700; původní zdroj 0775 pokrývá CPU regrese, 
 [HTTP WP](wp/WP-M2-PRIVATE-HTTP-EXECUTION-20261004.md): linux-bwrap-private-loopback-v1 je zapojený, default offline V1 zachovaný.
 Retained@3 M2/oracle/Git1856920f/BE restart prošel; API SOURCE FAIL, [export](../examples/generated-apps/http-items-candidate/README.md) NOT_ACCEPTED.
 70 HTTP +14 refused SQL /14 positive, AUTOINCREMENT a dva servery se stejnou DB doložené; rollback4 PASS.
-Normal@4 měl úplné zdroje/výstupy a vstupy 30 647/28 843 B pod byte guard 32 000 B; nynější blokér je kvalita opravy.
-Actual7.10.,07:08:44–07:08:58: old pending pointer odmítl bind; žádný nový CODE/preview/schválení/zápis.
-FAILreview092b5c2c PASS potvrzuje source/history/all257 unchanged; nový explicitní entry ve stejné project/owner, CPU6 PASS.
-Po rebootu48 explicitních vazeb zachovalo bytes/hash/inode, device30→43; freshpolicybb1 má stejnou security/oracle.
-Další freeze použije novou API konverzaci bez cancel/clear starého pending; model10+2/12 a instrukce nezměněné.
+Normal@4 měl úplný kontext/výstupy; následný entry FAIL/model0 zachovaný. Anchored@5 zdroj409ed3a1:
+[CI37586564446](https://github.com/Belphareon-bak/intentsmith/actions/runs/37586564446) všech18 SUCCESS; core119/model45, lokální CODE12 PASS, source review PASS.
+Actual7.10.,07:27–07:28: dvě úplná CODE volání /cumulative12; vstupy31 115/29 016 B pod guard32 000, stop597/257 tokenů.
+Wrongdigest409, pending restart a skutečné přesné approval prošly; nový oracle FAIL po7 HTTP: GET /items/1=400 místo200.
+A2 static import opravený jen v kandidátu; A1 regrese ID segmentu a A3 charset stále FAIL. Žádný nový app commit/persistence/supplemental.
+Rollback2/2 obnovil všechny4 zdroje/Git1856920 clean; všech257 původních M2 řádků a46 immutable refs zachovaných.
+Independent closed FAIL review4279065c…4c6afa9, manifest51/51; ownprocess/proxy/unload/lease closed. Aplikace NOT_ACCEPTED.
+Post helper CPU6 +ROOT actualref10/negative2, review6bc20522 PASS; opravuje post kontrolu inode, strict preflight zachovaný, actual FAIL nezměněný.
+Genuine repair CPU feasibility9c0c6a3a: router1/server retain, prompt30 614 B, stejný FAILED origin/workspace; žádná inference ani rozšíření budgetu.
 Fan 32k byl nejdřív změřen: krátká alokace fullGPU/min free 2 512 MiB; actual dvě loaded samples 2 476 MiB.
 To nedokládá zaplněné 32k okno. Output4096 platí jen pro vydaný exact CODE32k profil; ostatní parametry zachované.
 [CODE WP](wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md), [projektový WP](wp/WP-PROJECT-FLOW-20260918.md).
@@ -72,7 +76,7 @@ To nedokládá zaplněné 32k okno. Output4096 platí jen pro vydaný exact CODE
 
 1. Po opravě M1 od CHAT workera společný freeze/CI a původní fresh5: poslední actual na90 zůstal **3 PASS /2 FAIL**.
    Electron boundary/Studio M1/Studio M2 prošly; historický M1 a cache FAIL se nepřepisují. Nový whole fresh5 NOT_RUN.
-2. Dokončit nynější HTTP úkol: přesný náhled/schválení, frozen oracle +supplement17, rollback, commit, restart/persistence; Fan má vlastní otevřené rozhodnutí.
+2. HTTP: rozhodnout jeden genuine repair routeru nad skutečným FAILED M2 (12→13); poté frozen oracle +supplement17, commit/restart/persistence a review. Fan má samostatné rozhodnutí.
 3. Živý přirozený classifier→D1, fyzická ovladatelnost IDE/M2, file/web/export/skills a projektové A→B→A.
 4. Kvalita expertise/specialistů, worker souběh a delší stabilita; project/config/skills restore; společný profil a finální M5/M6.
 5. Mobil: historical CPU47, fyzická matice 13+7 NOT_RUN; device/APK/VPN/pair-revoke/M2/TalkBack.

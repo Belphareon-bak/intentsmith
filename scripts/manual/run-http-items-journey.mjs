@@ -93,7 +93,10 @@ export function validateExistingProjectEvidence({freeze:old,result,providerReque
  for(const relative of ['src/validation.mjs','src/store.mjs'])assert.deepEqual(f.existingProject.protectedFiles[relative],f.existingProject.sourceFiles[relative]);assert.equal(f.existingProject.protectedFiles['API.md'].digest,f.api.digest);
  return{rows:[],historicalCodeCalls:8,existing:true,terminal,baseline,originalFreeze:old,originalSourceSha:old.sourceSha,originalFreezeDigest:f.existingProject.freeze.digest};
 }
-export function verifyExistingEvidenceRefs(f){return withHistoricalRebindings(f,()=>{for(const key of ['freeze','result','providerRequests','journey','baseline'])verifyRef(f.existingProject[key]);if(anchoredModify2(f))Object.values(f.priorNormal).forEach(verifyRef);});}
+// Post-operation: these ten current refs name immutable historical evidence.
+// Live output targets can acquire new inodes during atomic write/rollback;
+// their old preflight identities are intentionally not re-read here.
+export function verifyExistingEvidenceRefs(f){for(const key of ['freeze','result','providerRequests','journey','baseline'])verifyRef(f.existingProject[key]);if(anchoredModify2(f))Object.values(f.priorNormal).forEach(verifyRef);}
 export function readExistingProjectEvidence(f){return withHistoricalRebindings(f,()=>readExistingProjectEvidenceScoped(f));}
 function readExistingProjectEvidenceScoped(f){
  const docs=Object.fromEntries(['freeze','result','providerRequests','journey','baseline'].map(key=>[key,JSON.parse(verifyRef(f.existingProject[key]))]));

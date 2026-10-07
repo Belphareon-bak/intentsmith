@@ -483,3 +483,60 @@ Explicitní @5 entryConversationPolicy fresh-same-project/v1 binduje vytvořené
 staré modelové admission se nepřepisují. Controller busy guards ani CHAT kód se nemění.
 CPU entry6 PASS; stejné fullsources/router506B task/server441B task/model/output/context/cumulative12.
 Před dalším actual nová source review/publikace/CI/freeze; žádný model retry či navyšování rozpočtu.
+
+### Uzavřený funkční neúspěch anchored@5, 7. 10. 2026, 07:37 UTC
+
+**HTTP APPLICATION FAIL / NOT_ACCEPTED. Rozpočet 12/12 vyčerpaný; další inference se nespouští.**
+Published source409ed3a1893127438b52b37ca12fbe9fcff8c7d2, CI37586564446 všech18 SUCCESS,
+fresh freeze6fce0d3806e4e8dee741a9002aea3e5518ebc9fe831b154c1420a9819cbbb64f.
+Actual07:27:08.752–07:28:37.936UTC, stejný projekt1, nová normální API konverzace
+conv-1791358039947-riwm4cbsp; původní konverzace/pending/authority se nepřepisují.
+Dvě skutečná CODE volání, history10/new2/cumulative12/max12, žádné D1/CLI/retry/repair.
+Qwen3.8/22130167, output4096/context32768 zachované; vstupy31 115/29 016 B pod guard32 000,
+prompt_eval8676/8117, oba complete/stop/output597/257. GPU size_vram=size/context32768,
+owned unload/proxy0/lease/Studio+BE čistě uzavřené; kontext/provider ani useknutý výstup příčinou nejsou.
+Raw→unique anchors→fullAFTER→preview/terminal/nextpeer ověřeno; nový router10 259 B/e30e0dc7…dc9019a,
+server3 402 B/b1e3da23…e57b14f7, full4 candidate26 043 B. Úplné zdroje určovaly M2 digest/zápis.
+
+Wrong digest409/M2_LIFECYCLE_PLAN_DIGEST_MISMATCH; přesný návrh/původ přežil pending restart.
+Skutečné approval přes renderované Studio ovládání/HTTP200; nová operace
+lifecycle:4b79579b-5695-4df4-bed1-f9253b4576a2 /
+sha256:32487e79c50b8b56d2fd2863f72069ec196df2bd05291dcea23a3f4c55e5a280 skončila FAILED.
+Primární původní oracle0ba beze změny: FAIL po7 HTTP požadavcích, `GET /items/1: 400 !== 200`.
+Konkrétní modelová regrese: router přestal zahazovat prázdné segmenty a změnil route index,
+ale ponechal `idRaw = segments[1]`, tedy parsuje `items` jako ID. A3 regex nadále odmítá
+quoted UTF8 a OWS před středníkem; A2 static node:url import opravený pouze v kandidátu.
+Žádný nový application commit, restart persistence ani supplement17; nelze převzít starý70PASS za tento běh.
+
+Atomický rollback2/2 obnovil přesné4 původní sources, Git1856920fea6c31b8fc0f6618e1499967cdccd362 clean.
+Původní result.json zachovává historicalFilesUnchanged=false: post reader znovu ověřoval celý
+reboot receipt48, včetně legitimně atomicky nahrazených live router/server inode.
+Samostatná ROOT readonly closure e3adf8be…6a981c potvrzuje všech33 tables/257 původních PK/digest
+ve333 nynějších řádcích, žádný přepis main DB při RO snapshotu; WAL/SHM pozorování jsou explicitní.
+Všech48 bytehashů zachovaných,46 immutable refs mají původní celé identity; jen2 live targets nové inode.
+Diagnóza4bc5b049…0dc4c95 /closedmanifest a43245ba…66a547,51 členů, secretcookie mimo manifest.
+**Independent CLOSED FAIL review4279065c5af840c62e3a7ec493f3f096365268437fa8b8eb3fba59a184c6afa9**,
+reviewmanifest0e8414df…f5db1a; review přejímá diagnózu/closure, nikoli aplikaci.
+
+ROOT převzal jedinou post-only helper opravu: verifyExistingEvidenceRefs přímo ověří10 současných
+immutable existing/priorNormal refs; nepotřebuje historical decoding ani live preflight receipt.
+withHistoricalRebindings/readExistingProjectEvidence/all48 strict preflight zůstávají beze změny.
+CPU6: starý post RED/nový GREEN při mutable inode replacement, každá z10 immutable tamper odmítnutá,
+stejné bytes s novým immutable inode odmítnuté; ROOT actualrefs10/strictlive negatives2 PASS bez native/model.
+Patch815ef8c9…2220b7 →helper6be8a3bc…314a53; independent source/CPU review6bc20522…4a311af PASS.
+Tato úprava nepřepisuje skutečný funkční FAIL a nespouští aplikaci znovu.
+
+**Eskalace podle kroku7 původního zadání:** omezená normal/full-file i následná anchored strategie
+neopravily API kontrakt. Nejmenší doporučený další postup je jediný genuine CODE repair routeru
+nad touto skutečnou FAILED operací; server zachovat jako integrity-checked fullAFTER předchozího
+návrhu přes existující reusePrevious. Stejný autentizovaný owner a původní Studio origin jsou povinné,
+žádná nová konverzace, fakeFAILED, ruční app edit, změna oracle nebo změna modelu.
+Nový přesný freeze musí výslovně povolit12→13, vymezit1 volání/0 dalších oprav a předem opravené
+instrukce/celý API kontrakt; poté nový exact M2 →primární70 +supplement17 →commit/restart/review.
+CPU feasibility9c0c6a3a8e6d769665e4a3a2e279738b4fd0487a8007e8899f6b3adc8a3dd8a5 potvrzuje
+genuine v2 FAILED digest, stejné wsr1 po rollbacku, platný compiler/Studio blueprint router1/server retain;
+celý opravný prompt30 614 B pod guard32 000. Neotevřela DB/runtime/model; fresh authoritativní ověření teprve po rozhodnutí.
+Alternativa je jiný CODE kandidát po samostatné exact role-specific kvalifikaci; má větší rozsah a GPU náklad.
+Konkrétní otázka operátorovi: povolit tento jediný genuine repair s cumulative13, nebo zvolit nový modelový postup?
+Před případným supplemental spuštěním opravit jeho inert launcher64MiB ref cap pro skutečný připnutý
+runtime126 595 440 B, s review a bez nahrazení/sfalšování runtime ref; nyní supplemental není eligible a neběžel.
