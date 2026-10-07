@@ -4,7 +4,12 @@
 Release `NOT_ACCEPTED`; BE `c84b88cd` / Studio `7bf62455…bfe24` nezměněné.
 Přijaté Ledger/TaskFlow/SQLite, omezený AST/GPU panel/cleanup, full109 DB roundtrip a M3 worker;
 opakovat pouze při nové změně nebo konkrétní pochybnosti. ROOT vlastní integraci i CHAT. Aktuální produktový zdroj `e6b83884` zahrnuje
-přezkoumané C7/C8; context41/integrace19/[CI18](https://github.com/Belphareon-bak/intentsmith/actions/runs/37680691150) PASS. Živá kvalita nepřijatá.
+přezkoumané C7/C8; context41/integrace19 PASS. Nový čistý checkpoint f4754575:
+**celý offline/database410PASS/0FAIL/BLOCKED/TIMEOUT/SKIPPED**,21:00:05–21:09:49UTC,
+nezávislé execution reviewb132b085…0f8fe a [CI18](https://github.com/Belphareon-bak/intentsmith/actions/runs/37686205441) SUCCESS.
+Předchozí9b409PASS/1doc-censusFAIL zachovaný; opraven pouze naměřený údaj v dokumentaci.
+[Přesný celý profil a historie](docs/review/evidence/chat-transport-failures-20261007/full-profile.json).
+Živá kvalita a release nepřijaté.
 
 Cache oprava `0d86b68e`: CPU 23/23 a source review; [CI37460776179](https://github.com/Belphareon-bak/intentsmith/actions/runs/37460776179) všech 18 kroků SUCCESS.
 **Copied-cache upgrade 6. 10., 12:26 UTC: 1223d2a8…9d95e79 PASS**, n=1 /8,804 s /bez modelu.

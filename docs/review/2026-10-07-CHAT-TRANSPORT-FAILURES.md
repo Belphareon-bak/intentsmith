@@ -57,3 +57,13 @@ jsou mimo rozsah; release stále NOT_ACCEPTED.
 [Přesný paket: base/target, diff, příkazy a očekávané/skutečné exity, raw cesty a SHA-256](evidence/chat-transport-failures-20261007/result.json).
 CPU reprodukce a review GPU nevyžadují. Nové živé opakování musí mít samostatné
 sériové GPU okno s ROOT; dřívější neúplná C7 kampaň se neobnovuje.
+
+Celý původní offline/database profil na f4754575 (produktový zdroj e6 beze změny):
+**7.10.21:00:05–21:09:49UTC,410PASS/0FAIL/BLOCKED/TIMEOUT/SKIPPED, exit0**.
+Nezávislé execution reviewb132b085…0f8fe ověřilo všech410 logů, Git programy,
+source/cleanup metadata a stejné výběrové podmínky. Exact CI37686205441 má18SUCCESS.
+Předchozí profil9b161de5 měl409PASS/1FAIL kvůli zastaralému LOC údaji; jeho původní
+FAIL zůstává. Nezávislá census oprava mění pouze dva dokumenty, focused artifact
+160/160PASS. Registry běžel na9b, na f475 má stejné registry/runner bytes.
+[Paket celých profilů s přesnými příkazy a SHA-256](evidence/chat-transport-failures-20261007/full-profile.json).
+Tato dodatečná vývojová kontrola nemění C5/C7 živé FAILy ani C6/H1/H2 přejímku.

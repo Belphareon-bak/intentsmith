@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 7. 10. 2026; zdroj e6b83884 publikován. C1/C3/C7/C8 source review PASS, aktuální context41 / integrace19 / CI18 PASS. C4 fresh5 5PASS. C5 v5 LIVE_FAIL, D1 nedosažen; C6 kvalita NO_GO. C7 živá série 1/3 funkčně FAIL, cleanup FAIL; další dvě NOT_RUN. H1 sběr NOT_RUN.
+**Aktualizováno:** 7. 10. 2026; zdroj e6b83884 publikován. C1/C3/C7/C8 source review PASS, aktuální context41 / integrace19 / celý offline+database410 / CI18 PASS (testovaný checkpoint f4754575). C4 fresh5 5PASS. C5 v5 LIVE_FAIL, D1 nedosažen; C6 kvalita NO_GO. C7 živá série 1/3 funkčně FAIL, cleanup FAIL; další dvě NOT_RUN. H1 sběr NOT_RUN.
 **Vlastník integrace a CHAT:** tento koordinátor přebírá ROOT
 (`work/real-chat-journeys-20260930`) podle následného pokynu operátora.
 Jediný writer `cre-decision.js` i společných map je nyní ROOT; HTTP, Fan, fresh5
@@ -327,7 +327,16 @@ Nový celý offline/database profil9b161de5,20:47:08–20:57:18UTC:409PASS/1FAIL
 artifact assertions PASS. Nezávislý census0256f015…cf7c1c5 potvrzuje nové hodnoty;
 oprava mění jen dokumentaci, původní neúspěšný report zůstává. Aktuální
 [CI37684623930](https://github.com/Belphareon-bak/intentsmith/actions/runs/37684623930) na9b161de5 má18SUCCESS.
-Po opravě bude profil zopakován; zatím se neclaimuje410PASS. Starší profily patří svým SHA.
+Po přijaté opravě dokumentace f4754575 proběhl celý původní profil znovu,
+**21:00:05–21:09:49UTC:410PASS/0FAIL/BLOCKED/TIMEOUT/SKIPPED, exit0**.
+Výběr410sad a všechny limity zachované, source/tests i tracked package/lock manifesty
+proti e6 beze změny; nejde o nový hash audit instalovaných dependencies/native loaderu.
+Nezávislé execution reviewb132b085…0f8fe ověřilo každý log i konečný stav;
+první409/1 se nepřepisuje. [CI37686205441](https://github.com/Belphareon-bak/intentsmith/actions/runs/37686205441)
+na témž f4754575 má18SUCCESS. Registry596 ověřen na9b; registry/runner bytes na f475 stejné.
+[Příkazy, oba celé profily, oprava a review s SHA-256](review/evidence/chat-transport-failures-20261007/full-profile.json).
+Jde o offline/database kvalitu implementace, nikoli živou95% přejímku nebo release.
+Starší profily patří svým SHA.
 
 Zdroj cache opravy a přijatého upgradu: **0d86b68e**; [CI37460776179](https://github.com/Belphareon-bak/intentsmith/actions/runs/37460776179), všech 18 kroků SUCCESS.
 CHAT 7 / CODE 12 kontroly zachované; merge 56138e4f obsahuje CHAT e066956b / CODE32k / D1.
