@@ -85,6 +85,18 @@ historická evidence se zachovává. Technické volby se řeší autonomně; zm�
 produktového cíle, authority, kritérií, nevratné zásahy a nové výdaje se předkládají
 s daty, variantami, doporučením a konkrétním blokovaným krokem včas.
 
+### Pravomoci během autonomních cyklů
+
+| Krok | Kdo rozhoduje / podmínka |
+| --- | --- |
+| Úzký CHAT fix, vlastní izolovaná DB a CPU regrese, lockfile instalace, dokumentace | CHAT autonomně v přidělených cestách; beze změny produktových kritérií |
+| Přijetí cyklu a nové importní hrany | Nezávislý reviewer; autor opravuje nálezy a znovu předává změněný rozsah |
+| Commit/push vlastní kandidátní větve | CHAT autonomně podle CONTRACT §11; povinné ověření remote SHA, publikace není přejímka |
+| Společná integrace, HTTP/Fan/fresh5/M6, sdílené mapy | Dosavadní ROOT přebírá přesný CHAT commit ve svém checkoutu |
+| Živá inference a reviewerovo opakování | Předem dohodnuté GPU okno/lease s ROOT, přesný model/digest/profil a vlastní DB |
+| H1/H2 obsah a hodnocení | Oddělený správce/hodnotitelé; implementátor pouze aggregate verdict a identita |
+| Nové výdaje, produkční binding/deploy, snížení prahů, rozšíření efektů nebo vyčerpaného schváleného budgetu | Konkrétní návrh a operátorské rozhodnutí před dotčeným krokem; nezávislá práce pokračuje |
+
 ### C1 — M1 provider outage (SOURCE_REVIEW_PASS; širší kontroly probíhají)
 
 Výsledek: PROVIDER_UNAVAILABLE skutečně vyžádané modelové klasifikace skončí existujícím
@@ -101,9 +113,11 @@ tool requestů také po restartu. Nezávislý reviewer zopakoval context 27/27,
 M1 74/74 a project 44/44 (vše exit 0) a výslovně přijal jedinou novou importní
 hranu; přesný baseline byl následně vygenerován z čistého `1f098912`.
 [Revizní paket s SHA-256 a příkazy](review/2026-10-07-CHAT-M1-OUTAGE.md).
-Širší profil/CI a publikace zatím PENDING; společný ROOT fresh5 NOT_RUN.
+První širší profil `10ef40ab`: 409 PASS / 1 FAIL (M2 TypeScript grammar chybí
+v node_modules proti lockfilu). FAIL report zachován; synchronizace vlastních
+závislostí a nové opakování probíhají. CI/publikace PENDING; ROOT fresh5 NOT_RUN.
 
-### C2 — okamžité uplatnění stagnace (diagnóza; REVIEW_PENDING)
+### C2 — okamžité uplatnění stagnace (diagnóza i CPU experiment REVIEW_PASS)
 
 Read-only rozbor exponované Gemma regrese `9591ea1b` připravil druhý worker;
 [úplný rozpad 36 vad a 22 zastavení](review/2026-10-07-CHAT-STAGNATION-DIAGNOSIS.md).
@@ -111,8 +125,13 @@ Read-only rozbor exponované Gemma regrese `9591ea1b` připravil druhý worker;
 stopy pokrývají jen 19/36 vad; pro 17 chybí. Sedm vad dokládá ztrátu konkrétního
 doptání v aplikaci, šest souborových má modelový nebo smíšený kontextový podklad,
 16 souborových zůstává UNKNOWN, čtyři se týkají faktů/hodnocení a tři kalendáře.
-První další experiment má bez GPU odlišit ztrátu cíleného dotazu na hranici
-confidence; žádná další změna promptu ani modelu před jeho výsledkem.
+Samostatný CPU experiment 3×5 podmínek dokončen a nezávisle přezkoumán:
+u ambiguous a missing-target-yes se pod0.7 ztrácí konkrétní otázka, nad prahem
+zůstává při jinak totožných bajtech. Gibberish pod prahem prokazuje project
+dispatch; konečný text je ve třech podmínkách INCONCLUSIVE. Ve všech15 nulové
+nové efekty a čistý stop, 2600 hashů ověřeno. Produkt ani modelové skóre se
+neměnily. Další C3 má opravit zachování validního read-only doptání bez nových
+pravomocí, s vlastní reprodukcí/revizí; C1 freeze pro ROOT se tím nepřesouvá.
 
 ## Přijaté dílčí výsledky
 

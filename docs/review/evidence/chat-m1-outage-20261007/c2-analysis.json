@@ -1,0 +1,581 @@
+{
+  "scope": "C2_EXPERIMENT_OBSERVATION_REQUIRES_INDEPENDENT_REVIEW",
+  "source": "1f0989124630887edd5ab146e6acf662a5b2307d",
+  "head": "10ef40ab39b518f2f0a0d2006f9b6fa4ee4f6199",
+  "srcTree": "e5afc6d25e2bd2b15473efa406ce3ea1dc754093",
+  "runExit": 0,
+  "sourceStable": true,
+  "cases": [
+    {
+      "caseId": "ambiguous",
+      "classifierRequestSha256s": [
+        "5ffeafbc13bc10a2888bff4e6c71fbe307770a5f9dc369f80aac5f9492e77d92"
+      ],
+      "classifierRequestBytesIdentical": true,
+      "allOtherReplyFieldsIdentical": true,
+      "historicalSemanticContextMatched": true,
+      "conditions": [
+        {
+          "confidence": 0.1,
+          "status": "OBSERVED",
+          "httpStatus": 200,
+          "content": "Čeho konkrétně chceš dosáhnout v zadání „Smaž ten druhý.“?",
+          "questionPreserved": false,
+          "classifierRequestCount": 1,
+          "targetInferenceCount": 1,
+          "extraInferenceRejected": false,
+          "handler": null,
+          "decisionType": "ASK_USER",
+          "classifiedBy": "regex",
+          "durablePending": {
+            "awaitingClarification": true,
+            "originalRequest": "Smaž ten druhý.",
+            "clarificationQuestion": "Čeho konkrétně chceš dosáhnout v zadání „Smaž ten druhý.“?",
+            "continuesPending": null,
+            "requestedOperation": null,
+            "originalRequestedOperation": null
+          },
+          "beforeCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "afterCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "productExit": {
+            "code": 0,
+            "signal": null
+          },
+          "runtime": "/home/belphareon/Projects/intentsmith-chat-quality-20261001/.intentsmith-artifacts/chat-m1-outage-20261007/c2-experiment/m1-journey-75rBuJ",
+          "evidence": "ambiguous-0_1.json"
+        },
+        {
+          "confidence": 0.5,
+          "status": "OBSERVED",
+          "httpStatus": 200,
+          "content": "Čeho konkrétně chceš dosáhnout v zadání „Smaž ten druhý.“?",
+          "questionPreserved": false,
+          "classifierRequestCount": 1,
+          "targetInferenceCount": 1,
+          "extraInferenceRejected": false,
+          "handler": null,
+          "decisionType": "ASK_USER",
+          "classifiedBy": "regex",
+          "durablePending": {
+            "awaitingClarification": true,
+            "originalRequest": "Smaž ten druhý.",
+            "clarificationQuestion": "Čeho konkrétně chceš dosáhnout v zadání „Smaž ten druhý.“?",
+            "continuesPending": null,
+            "requestedOperation": null,
+            "originalRequestedOperation": null
+          },
+          "beforeCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "afterCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "productExit": {
+            "code": 0,
+            "signal": null
+          },
+          "runtime": "/home/belphareon/Projects/intentsmith-chat-quality-20261001/.intentsmith-artifacts/chat-m1-outage-20261007/c2-experiment/m1-journey-h09ohx",
+          "evidence": "ambiguous-0_5.json"
+        },
+        {
+          "confidence": 0.69,
+          "status": "OBSERVED",
+          "httpStatus": 200,
+          "content": "Čeho konkrétně chceš dosáhnout v zadání „Smaž ten druhý.“?",
+          "questionPreserved": false,
+          "classifierRequestCount": 1,
+          "targetInferenceCount": 1,
+          "extraInferenceRejected": false,
+          "handler": null,
+          "decisionType": "ASK_USER",
+          "classifiedBy": "regex",
+          "durablePending": {
+            "awaitingClarification": true,
+            "originalRequest": "Smaž ten druhý.",
+            "clarificationQuestion": "Čeho konkrétně chceš dosáhnout v zadání „Smaž ten druhý.“?",
+            "continuesPending": null,
+            "requestedOperation": null,
+            "originalRequestedOperation": null
+          },
+          "beforeCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "afterCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "productExit": {
+            "code": 0,
+            "signal": null
+          },
+          "runtime": "/home/belphareon/Projects/intentsmith-chat-quality-20261001/.intentsmith-artifacts/chat-m1-outage-20261007/c2-experiment/m1-journey-NXtdcx",
+          "evidence": "ambiguous-0_69.json"
+        },
+        {
+          "confidence": 0.7,
+          "status": "OBSERVED",
+          "httpStatus": 200,
+          "content": "Co konkrétně mám smazat? (Soubor, část textu nebo něco jiného?)",
+          "questionPreserved": true,
+          "classifierRequestCount": 1,
+          "targetInferenceCount": 1,
+          "extraInferenceRejected": false,
+          "handler": null,
+          "decisionType": "ASK_USER",
+          "classifiedBy": "llm",
+          "durablePending": {
+            "awaitingClarification": true,
+            "originalRequest": "Smaž ten druhý.",
+            "clarificationQuestion": "Co konkrétně mám smazat? (Soubor, část textu nebo něco jiného?)",
+            "continuesPending": false,
+            "requestedOperation": "none",
+            "originalRequestedOperation": "none"
+          },
+          "beforeCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "afterCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "productExit": {
+            "code": 0,
+            "signal": null
+          },
+          "runtime": "/home/belphareon/Projects/intentsmith-chat-quality-20261001/.intentsmith-artifacts/chat-m1-outage-20261007/c2-experiment/m1-journey-hbtzjZ",
+          "evidence": "ambiguous-0_7.json"
+        },
+        {
+          "confidence": 0.9,
+          "status": "OBSERVED",
+          "httpStatus": 200,
+          "content": "Co konkrétně mám smazat? (Soubor, část textu nebo něco jiného?)",
+          "questionPreserved": true,
+          "classifierRequestCount": 1,
+          "targetInferenceCount": 1,
+          "extraInferenceRejected": false,
+          "handler": null,
+          "decisionType": "ASK_USER",
+          "classifiedBy": "llm",
+          "durablePending": {
+            "awaitingClarification": true,
+            "originalRequest": "Smaž ten druhý.",
+            "clarificationQuestion": "Co konkrétně mám smazat? (Soubor, část textu nebo něco jiného?)",
+            "continuesPending": false,
+            "requestedOperation": "none",
+            "originalRequestedOperation": "none"
+          },
+          "beforeCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "afterCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "productExit": {
+            "code": 0,
+            "signal": null
+          },
+          "runtime": "/home/belphareon/Projects/intentsmith-chat-quality-20261001/.intentsmith-artifacts/chat-m1-outage-20261007/c2-experiment/m1-journey-5FLTES",
+          "evidence": "ambiguous-0_9.json"
+        }
+      ],
+      "finding": "THRESHOLD_DEPENDENT_TARGETED_QUESTION_LOSS_CONFIRMED_IN_CURRENT_CONTROLLED_PATH"
+    },
+    {
+      "caseId": "missing-target-yes",
+      "classifierRequestSha256s": [
+        "9a57fcc1a3a12cd7b584dcbb78f575828f8aa643d3aee1c0b22467f4afd6520e"
+      ],
+      "classifierRequestBytesIdentical": true,
+      "allOtherReplyFieldsIdentical": true,
+      "historicalSemanticContextMatched": true,
+      "conditions": [
+        {
+          "confidence": 0.1,
+          "status": "OBSERVED",
+          "httpStatus": 200,
+          "content": "Čeho konkrétně chceš dosáhnout v zadání „ano“?",
+          "questionPreserved": false,
+          "classifierRequestCount": 1,
+          "targetInferenceCount": 1,
+          "extraInferenceRejected": false,
+          "handler": null,
+          "decisionType": "ASK_USER",
+          "classifiedBy": "regex",
+          "durablePending": {
+            "awaitingClarification": true,
+            "originalRequest": "Ulož tu odpověď.",
+            "clarificationQuestion": "Čeho konkrétně chceš dosáhnout v zadání „ano“?",
+            "continuesPending": null,
+            "requestedOperation": null,
+            "originalRequestedOperation": null
+          },
+          "beforeCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "afterCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "productExit": {
+            "code": 0,
+            "signal": null
+          },
+          "runtime": "/home/belphareon/Projects/intentsmith-chat-quality-20261001/.intentsmith-artifacts/chat-m1-outage-20261007/c2-experiment/m1-journey-EMTSUK",
+          "evidence": "missing-target-yes-0_1.json"
+        },
+        {
+          "confidence": 0.5,
+          "status": "OBSERVED",
+          "httpStatus": 200,
+          "content": "Čeho konkrétně chceš dosáhnout v zadání „ano“?",
+          "questionPreserved": false,
+          "classifierRequestCount": 1,
+          "targetInferenceCount": 1,
+          "extraInferenceRejected": false,
+          "handler": null,
+          "decisionType": "ASK_USER",
+          "classifiedBy": "regex",
+          "durablePending": {
+            "awaitingClarification": true,
+            "originalRequest": "Ulož tu odpověď.",
+            "clarificationQuestion": "Čeho konkrétně chceš dosáhnout v zadání „ano“?",
+            "continuesPending": null,
+            "requestedOperation": null,
+            "originalRequestedOperation": null
+          },
+          "beforeCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "afterCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "productExit": {
+            "code": 0,
+            "signal": null
+          },
+          "runtime": "/home/belphareon/Projects/intentsmith-chat-quality-20261001/.intentsmith-artifacts/chat-m1-outage-20261007/c2-experiment/m1-journey-TTC3Jl",
+          "evidence": "missing-target-yes-0_5.json"
+        },
+        {
+          "confidence": 0.69,
+          "status": "OBSERVED",
+          "httpStatus": 200,
+          "content": "Čeho konkrétně chceš dosáhnout v zadání „ano“?",
+          "questionPreserved": false,
+          "classifierRequestCount": 1,
+          "targetInferenceCount": 1,
+          "extraInferenceRejected": false,
+          "handler": null,
+          "decisionType": "ASK_USER",
+          "classifiedBy": "regex",
+          "durablePending": {
+            "awaitingClarification": true,
+            "originalRequest": "Ulož tu odpověď.",
+            "clarificationQuestion": "Čeho konkrétně chceš dosáhnout v zadání „ano“?",
+            "continuesPending": null,
+            "requestedOperation": null,
+            "originalRequestedOperation": null
+          },
+          "beforeCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "afterCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "productExit": {
+            "code": 0,
+            "signal": null
+          },
+          "runtime": "/home/belphareon/Projects/intentsmith-chat-quality-20261001/.intentsmith-artifacts/chat-m1-outage-20261007/c2-experiment/m1-journey-Io3BVi",
+          "evidence": "missing-target-yes-0_69.json"
+        },
+        {
+          "confidence": 0.7,
+          "status": "OBSERVED",
+          "httpStatus": 200,
+          "content": "Do kterého konkrétního souboru mám tuto větu uložit? (Prosím, uveďte název souboru s příponou, např. fotka.txt)",
+          "questionPreserved": true,
+          "classifierRequestCount": 1,
+          "targetInferenceCount": 1,
+          "extraInferenceRejected": false,
+          "handler": null,
+          "decisionType": "ASK_USER",
+          "classifiedBy": "llm",
+          "durablePending": {
+            "awaitingClarification": true,
+            "originalRequest": "Ulož tu odpověď.",
+            "clarificationQuestion": "Do kterého konkrétního souboru mám tuto větu uložit? (Prosím, uveďte název souboru s příponou, např. fotka.txt)",
+            "continuesPending": true,
+            "requestedOperation": "write",
+            "originalRequestedOperation": "write"
+          },
+          "beforeCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "afterCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "productExit": {
+            "code": 0,
+            "signal": null
+          },
+          "runtime": "/home/belphareon/Projects/intentsmith-chat-quality-20261001/.intentsmith-artifacts/chat-m1-outage-20261007/c2-experiment/m1-journey-45ZwAB",
+          "evidence": "missing-target-yes-0_7.json"
+        },
+        {
+          "confidence": 0.9,
+          "status": "OBSERVED",
+          "httpStatus": 200,
+          "content": "Do kterého konkrétního souboru mám tuto větu uložit? (Prosím, uveďte název souboru s příponou, např. fotka.txt)",
+          "questionPreserved": true,
+          "classifierRequestCount": 1,
+          "targetInferenceCount": 1,
+          "extraInferenceRejected": false,
+          "handler": null,
+          "decisionType": "ASK_USER",
+          "classifiedBy": "llm",
+          "durablePending": {
+            "awaitingClarification": true,
+            "originalRequest": "Ulož tu odpověď.",
+            "clarificationQuestion": "Do kterého konkrétního souboru mám tuto větu uložit? (Prosím, uveďte název souboru s příponou, např. fotka.txt)",
+            "continuesPending": true,
+            "requestedOperation": "write",
+            "originalRequestedOperation": "write"
+          },
+          "beforeCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "afterCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "productExit": {
+            "code": 0,
+            "signal": null
+          },
+          "runtime": "/home/belphareon/Projects/intentsmith-chat-quality-20261001/.intentsmith-artifacts/chat-m1-outage-20261007/c2-experiment/m1-journey-E6brS8",
+          "evidence": "missing-target-yes-0_9.json"
+        }
+      ],
+      "finding": "THRESHOLD_DEPENDENT_TARGETED_QUESTION_LOSS_CONFIRMED_IN_CURRENT_CONTROLLED_PATH"
+    },
+    {
+      "caseId": "gibberish",
+      "classifierRequestSha256s": [
+        "e241391add2d27b6f2f3ad01db5391c51e410047fb7e467343dbd2ac55e8dc27"
+      ],
+      "classifierRequestBytesIdentical": true,
+      "allOtherReplyFieldsIdentical": true,
+      "historicalSemanticContextMatched": true,
+      "conditions": [
+        {
+          "confidence": 0.1,
+          "status": "INCONCLUSIVE",
+          "httpStatus": 200,
+          "content": "Příprava dalšího kroku se nepodařila: The local model provider is unavailable. Soubory projektu zůstaly beze změny.",
+          "questionPreserved": false,
+          "classifierRequestCount": 1,
+          "targetInferenceCount": 2,
+          "extraInferenceRejected": true,
+          "handler": "project.collaboration",
+          "decisionType": null,
+          "classifiedBy": null,
+          "durablePending": {
+            "awaitingClarification": false,
+            "originalRequest": null,
+            "clarificationQuestion": null,
+            "continuesPending": null,
+            "requestedOperation": null,
+            "originalRequestedOperation": null
+          },
+          "beforeCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "afterCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "productExit": {
+            "code": 0,
+            "signal": null
+          },
+          "runtime": "/home/belphareon/Projects/intentsmith-chat-quality-20261001/.intentsmith-artifacts/chat-m1-outage-20261007/c2-experiment/m1-journey-tLPK3e",
+          "evidence": "gibberish-0_1.json"
+        },
+        {
+          "confidence": 0.5,
+          "status": "INCONCLUSIVE",
+          "httpStatus": 200,
+          "content": "Příprava dalšího kroku se nepodařila: The local model provider is unavailable. Soubory projektu zůstaly beze změny.",
+          "questionPreserved": false,
+          "classifierRequestCount": 1,
+          "targetInferenceCount": 2,
+          "extraInferenceRejected": true,
+          "handler": "project.collaboration",
+          "decisionType": null,
+          "classifiedBy": null,
+          "durablePending": {
+            "awaitingClarification": false,
+            "originalRequest": null,
+            "clarificationQuestion": null,
+            "continuesPending": null,
+            "requestedOperation": null,
+            "originalRequestedOperation": null
+          },
+          "beforeCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "afterCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "productExit": {
+            "code": 0,
+            "signal": null
+          },
+          "runtime": "/home/belphareon/Projects/intentsmith-chat-quality-20261001/.intentsmith-artifacts/chat-m1-outage-20261007/c2-experiment/m1-journey-smTka5",
+          "evidence": "gibberish-0_5.json"
+        },
+        {
+          "confidence": 0.69,
+          "status": "INCONCLUSIVE",
+          "httpStatus": 200,
+          "content": "Příprava dalšího kroku se nepodařila: The local model provider is unavailable. Soubory projektu zůstaly beze změny.",
+          "questionPreserved": false,
+          "classifierRequestCount": 1,
+          "targetInferenceCount": 2,
+          "extraInferenceRejected": true,
+          "handler": "project.collaboration",
+          "decisionType": null,
+          "classifiedBy": null,
+          "durablePending": {
+            "awaitingClarification": false,
+            "originalRequest": null,
+            "clarificationQuestion": null,
+            "continuesPending": null,
+            "requestedOperation": null,
+            "originalRequestedOperation": null
+          },
+          "beforeCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "afterCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "productExit": {
+            "code": 0,
+            "signal": null
+          },
+          "runtime": "/home/belphareon/Projects/intentsmith-chat-quality-20261001/.intentsmith-artifacts/chat-m1-outage-20261007/c2-experiment/m1-journey-QPDryP",
+          "evidence": "gibberish-0_69.json"
+        },
+        {
+          "confidence": 0.7,
+          "status": "OBSERVED",
+          "httpStatus": 200,
+          "content": "Můžete mi prosím upřesnit, co přesně máte na mysli 'druhou věcí' a jaký úkol mám v tomto kontextu provést?",
+          "questionPreserved": true,
+          "classifierRequestCount": 1,
+          "targetInferenceCount": 1,
+          "extraInferenceRejected": false,
+          "handler": null,
+          "decisionType": "ASK_USER",
+          "classifiedBy": "llm",
+          "durablePending": {
+            "awaitingClarification": true,
+            "originalRequest": "Udělej tu druhou tu věc, víš jak, ale zase jako minule.",
+            "clarificationQuestion": "Můžete mi prosím upřesnit, co přesně máte na mysli 'druhou věcí' a jaký úkol mám v tomto kontextu provést?",
+            "continuesPending": false,
+            "requestedOperation": "none",
+            "originalRequestedOperation": "none"
+          },
+          "beforeCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "afterCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "productExit": {
+            "code": 0,
+            "signal": null
+          },
+          "runtime": "/home/belphareon/Projects/intentsmith-chat-quality-20261001/.intentsmith-artifacts/chat-m1-outage-20261007/c2-experiment/m1-journey-fuiIgN",
+          "evidence": "gibberish-0_7.json"
+        },
+        {
+          "confidence": 0.9,
+          "status": "OBSERVED",
+          "httpStatus": 200,
+          "content": "Můžete mi prosím upřesnit, co přesně máte na mysli 'druhou věcí' a jaký úkol mám v tomto kontextu provést?",
+          "questionPreserved": true,
+          "classifierRequestCount": 1,
+          "targetInferenceCount": 1,
+          "extraInferenceRejected": false,
+          "handler": null,
+          "decisionType": "ASK_USER",
+          "classifiedBy": "llm",
+          "durablePending": {
+            "awaitingClarification": true,
+            "originalRequest": "Udělej tu druhou tu věc, víš jak, ale zase jako minule.",
+            "clarificationQuestion": "Můžete mi prosím upřesnit, co přesně máte na mysli 'druhou věcí' a jaký úkol mám v tomto kontextu provést?",
+            "continuesPending": false,
+            "requestedOperation": "none",
+            "originalRequestedOperation": "none"
+          },
+          "beforeCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "afterCounts": {
+            "tool": 0,
+            "effect": 0
+          },
+          "productExit": {
+            "code": 0,
+            "signal": null
+          },
+          "runtime": "/home/belphareon/Projects/intentsmith-chat-quality-20261001/.intentsmith-artifacts/chat-m1-outage-20261007/c2-experiment/m1-journey-sAoTtu",
+          "evidence": "gibberish-0_9.json"
+        }
+      ],
+      "finding": "THRESHOLD_DEPENDENT_PROJECT_DISPATCH_OBSERVED_FINAL_REPLY_INCONCLUSIVE_BELOW_THRESHOLD"
+    }
+  ],
+  "limitations": [
+    "CPU controlled-provider causal probe; no live model inference or quality acceptance.",
+    "Minimal owned project uses four exposed fixture files; historical DB identity and full historical project state are not reproduced.",
+    "Three low-confidence gibberish final answers are INCONCLUSIVE because the prescribed provider rejected the extra project-planning call. Dispatch is directly observed.",
+    "Only confidence varies in controlled classifier reply; complete classifier request bytes are identical across five conditions within each case."
+  ],
+  "observedConditions": 12,
+  "inconclusiveConditions": 3,
+  "ownedProductsStoppedCleanly": true,
+  "zeroNewToolOrEffectRequests": true
+}

@@ -1,6 +1,6 @@
 # Chat — diagnóza stagnace známé Gemma regrese
 
-Datum: **7. 10. 2026**. Stav: **DIAGNOSIS_COMPLETE / REVIEW_PENDING**.
+Datum: **7. 10. 2026**. Stav: **DIAGNOSIS_COMPLETE / REVIEW_PASS**.
 Tento report není nová produktová autorita ani kvalitativní přejímka.
 
 ## Autorita a přesný rozsah
@@ -17,14 +17,15 @@ Historický testovaný kandidát je
 `08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68`.
 D1 používá samostatný Qwen3.5 artefakt podle manifestů. Aktuální aplikační
 zdroj čtený pro rozlišení příčiny je **`1f098912`**; historické modelové
-výsledky se na něj nepřenášejí. Doporučený experiment dosud **NOT_RUN**.
+výsledky se na něj nepřenášejí. Navazující CPU experiment je popsán na konci, se samostatným REVIEW_PASS.
 
 Povoleny byly pouze tři níže uvedené veřejné důkazy, historický chatový
 PROGRESS, známá fixture `tests/fixtures/chat-resilience-final.json` a přesně
 vymezené aplikační soubory. Historické příznaky `heldOutFamilies` a
 `usedForTuning:false` ve fixture nečiní z této již odhalené regrese holdout.
 Žádný H1/H2 obsah, jejich odpovědi, `restricted/` ani jiné soukromé stopy
-nebyly otevřeny či prohledány. Neproběhla inference, test ani změna kódu.
+nebyly otevřeny či prohledány. Samotná diagnóza byla read-only; navazující
+řízený experiment níže neměnil produkt ani nevolal živý model.
 
 ## Důkazy a jejich identita
 
@@ -178,7 +179,7 @@ V D mají všechny tři série stejnou strukturu `/runs/R/cases/C`:
 | 5 | `newname-plain` | 90 |
 | 6 | `versions-en` | 179, 181; diagnostické A 182 |
 
-## První diskriminační experiment — návrh, NOT_RUN
+## Předem definovaný diskriminační experiment
 
 Bez GPU a bez ladění produktového chování přehrát přes současné M1 tři
 známé vstupy: `ambiguous`, `missing-target-yes` s původním pending
@@ -191,13 +192,61 @@ zadání a pending otázku, případné směrování do D1 a nulové efekty.
 Pro každý vstup jsou ostatní pole i výchozí historie neměnné. Kontrolovaná
 odpověď není výpadek providera, takže tento pokus nenahrazuje C1 outage.
 
-Rozhodnutí z experimentu: pokud pouze přechod pod 0.7 zahodí správnou
-read-only otázku či její návaznost, půjde o reprodukovanou současnou
-aplikační příčinu. Pokud ne, historický nález se na současný zdroj
-nepřenese a následuje úzké vysvětlení rozdílu před jakoukoli opravou.
+Rozhodnutí z experimentu se rozlišuje před další opravou:
+
+- Ztráta pouze pod 0.7 potvrzuje hypotézu závislosti na prahu pro tuto cestu.
+- Ztráta v obou pásmech reprodukuje současný problém, ale příčina není tímto
+  pokusem izolovaná.
+- Zachování ve všech podmínkách znamená nereprodukci v tomto kontrolovaném
+  scénáři; samo nevyvrací historickou chybu ani jiné kontexty.
+- Nedosažená klasifikace nebo rozdílné podmínky směrování znamenají
+  neinformativní pokus pro daný závěr.
+
 Experiment nesmí přijímat efekty podle nízké confidence, obcházet
 validaci nebo měnit schvalovací pravomoc.
 
-Samostatný druhý reviewer musí ověřit účetnictví 36/22, lokátory,
-podporu závěrů i označení UNKNOWN před uzavřením tohoto reportu.
-Do té doby zůstává **REVIEW_PENDING**.
+Nezávislý `/root/m1_outage_review` ověřil účetnictví 36/22, lokátory,
+podporu závěrů a UNKNOWN. Jeden P2 nález k interpretaci experimentu byl opraven
+čtyřmi výsledky výše; následné **REVIEW_PASS**, revidovaný dokument
+SHA-256 `23f5b73511544bb6a7d29a0141462a060532f6f8db31e2681f347a021c3e91a5`
+před doplněním tohoto uzavíracího záznamu.
+
+## CPU experiment — skutečný výsledek a nezávislá revize
+
+Autor experimentu `/root/m1_outage_review`, nezávislý reviewer
+`/root/workflow_review`: **REVIEW_PASS v omezeném rozsahu experimentu**.
+Běh 7. 10., 15:18:33–15:18:55 UTC, runner exit 0, Node 24.21.0,
+HEAD `10ef40ab39b518f2f0a0d2006f9b6fa4ee4f6199`, src tree
+`e5afc6d25e2bd2b15473efa406ce3ea1dc754093` shodný se source `1f098912`.
+
+| Vstup | Confidence 0.1 / 0.5 / 0.69 | Confidence 0.70 / 0.9 |
+| --- | --- | --- |
+| ambiguous | Obecný dotaz místo konkrétní otázky | Přesná otázka zachována |
+| missing-target-yes | Obecný dotaz, ztráta metadat operace a návaznosti; původní žádost zůstává | Otázka i metadata zachovány |
+| gibberish | project.collaboration + další inference; provider ji odmítl 503, konečný text INCONCLUSIVE | Přesná otázka zachována |
+
+**12 OBSERVED + 3 INCONCLUSIVE**, nikoli 15 kvalitativních PASS. Ve všech
+15 podmínkách vlastní DB/projekt/proces, 0→0 tool/effect requests, čistý
+product exit 0. Původní pending vznikl skutečnými M1 tahy. U každého vstupu
+jsou celé classifier request bytes shodné mezi pěti podmínkami; jedinou změnou
+řízené odpovědi je confidence. Reviewer znovu porovnal SQLite stavy i providerové
+žurnály. Všech 2600 souborů /160532765 B sedělo s manifestem.
+
+Paket je v přesné vlastní cestě
+`.intentsmith-artifacts/chat-m1-outage-20261007/c2-experiment/`:
+`run.mjs`, `manifest-start.json`, `run.log`, `results.json`, `analysis.json`,
+`sha256-manifest.json`; manifest ukazuje pouze na tento experiment.
+[Veřejná přesná kopie výsledků](evidence/chat-m1-outage-20261007/c2-results.json),
+[analýzy](evidence/chat-m1-outage-20261007/c2-analysis.json) a
+[vstupní identity/příkazu](evidence/chat-m1-outage-20261007/c2-manifest-start.json).
+
+- manifest SHA-256: `f98eddc491568bb4521df3a519bfe10f0c6ba93a7d4e1e2fcfc7c2d39243cbb8`;
+- results: `b3c81d48ab5b4f2f473be4e6e5466d748cf71cf56936780d0287053c3be54714`;
+- analysis: `540b937d4ff7fb7eb2acfe57f2577e646f12139cbea1ec00385bee502b222914`;
+- script: `dada5d0f75075f5f863eec0460d01ca2da7647bb3b8a3a586b95c12dcf89d036`.
+
+Tím je pro dvě kontrolované cesty potvrzená současná ztráta otázky závislá
+na prahu. Třetí cesta prokazuje chybný dispatch, ne kvalitu konečné odpovědi.
+Žádné nové modelové skóre, limit lokálního modelu ani přijetí produktu z tohoto
+pokusu neplyne. Další C3 má uchovat validní read-only doptání bez udělení
+oprávnění k efektu, s RED/green negativními kontrolami a novou nezávislou revizí.

@@ -1,6 +1,7 @@
 # C1 — pravdivý M1 výsledek při výpadku klasifikátoru
 
-**Stav:** SOURCE_REVIEW_PASS; širší offline/database a CHAT7 kontroly PENDING.
+**Stav:** SOURCE_REVIEW_PASS; první offline/database profil 409 PASS / 1 FAIL.
+CHAT7 a opakování po synchronizaci závislostí PENDING.
 ROOT integrace, fresh5, živý Studio → D1, GPU opakování a release přejímka NOT_RUN.
 Autorita: explicitní převzetí úzké M1 opravy operátorem 7. 10. 2026,
 stávající M1 kontrakt a WP-CHAT-QUALITY-20261001. Aktuální společný deník je
@@ -67,7 +68,10 @@ Neúspěšný mezikrok `green.log` je v manifestu výslovně označený jako FAI
 
 Pracovní adresář: `/home/belphareon/Projects/intentsmith-chat-quality-20261001`.
 Node 24.21.0 je v `/home/belphareon/.nvm/versions/node/v24.21.0/bin`.
-Příkazy níže mají očekávaný exit 0 na kandidátu; všechny používají vlastní DB:
+Příkazy níže mají očekávaný exit 0 na checkpointu `10ef40ab`, který obsahuje
+přijatý baseline. Na samotném source `1f098912` má module ratchet očekávaný
+exit 1 (dosud nepřijatá hrana); ostatní uvedené kontroly mají exit 0.
+Testy používají vlastní DB:
 
 ```bash
 export PATH=/home/belphareon/.nvm/versions/node/v24.21.0/bin:/usr/bin:/bin
@@ -98,3 +102,20 @@ to blokuje jen živý běh, ne toto CPU předání. Tento worker nespouští inf
 Po publikaci ROOT převezme přesný commit, ověří svůj společný freeze/CI a
 původní fresh5. Historický fresh5 3 PASS / 2 FAIL se nepřepisuje. CHAT kvalita
 zůstává NO_GO a release NOT_ACCEPTED; tato úzká oprava sama nepřijímá ani jedno.
+
+## Širší profil — zachovaný první FAIL
+
+`10ef40ab`, 15:13:11–15:23:03 UTC: 409 PASS / 1 FAIL / 0 BLOCKED / TIMEOUT /
+SKIPPED, exit 1. Jediný program M2 governance evaluator má 31 PASS / 3 FAIL
+pro TypeScript. Přímý import zjistil chybějící `tree-sitter-typescript`;
+porovnání node_modules locku s integrovaným package-lock ukázalo pouze tento
+balík 0.23.2 a jeho vnořený JavaScript grammar 0.23.1. Oba byly v autoritativním
+lockfilu, ale po převzetí checkoutu chyběly v instalaci.
+
+Původní report:
+`.intentsmith-artifacts/test-runs/chat-m1-c1-full-20261007-10ef40ab/report.json`.
+Přesný příkaz, prostředí, exit a hash logu:
+`.intentsmith-artifacts/chat-m1-outage-20261007/full-profile-receipt.json`.
+Synchronizace pouze vlastních závislostí přes `npm ci --no-audit --no-fund`
+není produktová oprava ani důvod přeznačit tento report. Následuje samostatné
+opakování se stejnými kontrolami a znovu doloženou identitou.

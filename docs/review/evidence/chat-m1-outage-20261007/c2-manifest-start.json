@@ -1,0 +1,36 @@
+{
+  "scope": "C2_CPU_CLASSIFIER_CONFIDENCE_DISCRIMINATION_NOT_PRODUCT_ACCEPTANCE",
+  "startedAt": "2026-10-07T15:18:33.639Z",
+  "head": "10ef40ab39b518f2f0a0d2006f9b6fa4ee4f6199",
+  "source": "1f0989124630887edd5ab146e6acf662a5b2307d",
+  "srcTree": "e5afc6d25e2bd2b15473efa406ce3ea1dc754093",
+  "node": "v24.21.0",
+  "execPath": "/home/belphareon/.nvm/versions/node/v24.21.0/bin/node",
+  "command": "env PATH=/home/belphareon/.nvm/versions/node/v24.21.0/bin:/usr/bin:/bin KEEP_TEST_RUNTIME=1 node .intentsmith-artifacts/chat-m1-outage-20261007/c2-experiment/run.mjs",
+  "scriptSha256": "dada5d0f75075f5f863eec0460d01ca2da7647bb3b8a3a586b95c12dcf89d036",
+  "fixtureSha256": "fd67aa5af3ba5b4da58291dc9deba3596dd43129d83bd64c093f1b8f9ea0ce16",
+  "diagnosisSha256": "3e4fb2eb062c7370a2482e88a65acc25dfc679e20e7712f58ead054eebb4cd66",
+  "controlledProvider": {
+    "model": "fixture:1b",
+    "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "host": "127.0.0.1",
+    "freshEphemeralPortPerCondition": true
+  },
+  "conditions": {
+    "ids": [
+      "ambiguous",
+      "missing-target-yes",
+      "gibberish"
+    ],
+    "confidences": [
+      0.1,
+      0.5,
+      0.69,
+      0.7,
+      0.9
+    ]
+  },
+  "setup": "Fresh owned DB/product/project for each condition; four exposed fixture files; real M1 setup turns for missing-target-yes; original answer/question bytes. Message IDs are freshly assigned, not historical IDs. No DB seeding or product patches.",
+  "exclusion": "Every unplanned inference receives synthetic HTTP 503 and invalidates that condition for final-response causal inference. Captured downstream request remains dispatch evidence.",
+  "outcomes": []
+}

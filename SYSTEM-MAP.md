@@ -13,7 +13,8 @@ Nejde o nový whole fresh5: historický fresh5 na90 má 3 PASS/2 FAIL, M1 oprava
 Poslední celý offline/database profil `86dbca40`: 410 PASS /0 FAIL /BLOCKED /TIMEOUT; netestoval následnou cache opravu.
 Registry 596/35; CHAT kandidát: module graph má 1 512 hran, 3 cykly /28 členů.
 Jediná nová hrana CRE → chat-turn-error nezávisle schválená, baseline připnutý na `1f098912`.
-C1 context 27/27, M1 74/74, project 44/44 nezávisle opakované; širší profil čeká.
+C1 context 27/27, M1 74/74, project 44/44 nezávisle opakované. První širší profil
+`10ef40ab`:409 PASS/1 FAIL kvůli chybějící instalaci TS grammar; opakování po npm ci čeká.
 [Revizní paket](docs/review/2026-10-07-CHAT-M1-OUTAGE.md); CI/CPU nejsou release acceptance.
 
 HTTP private-loopback profil zapojený; retained execution/M2/oracle/commit/restart prošel, API SOURCE FAIL.
