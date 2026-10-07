@@ -3436,6 +3436,22 @@ PRAVIDLA:
       if (requiresProjectScopeInterpretation) throwIfAborted(context.signal);
       _classificationTimeMs = Math.round(performance.now() - _classStart);
 
+      // Uncertainty about intent is a reason to ask, not to discard a concrete
+      // question and let regex/sticky routing invent project work. Only the
+      // validated read-only AMBIGUOUS result can take this terminal path.
+      // Do not carry low-confidence file/operation/planner metadata forward;
+      // the ASK_USER handler retains the existing pending request/operation.
+      if (llmResult?.intent === IntentType.AMBIGUOUS && llmResult.confidence < 0.7
+        && llmResult.contextualInterpretation === true && llmResult.question) {
+        llmMeta = { confidence: llmResult.confidence, question: llmResult.question,
+          contextualInterpretation: true, continuesPending: llmResult.continuesPending,
+          responseScope: 'conversation', responseWordCount: null };
+        _diag.initialIntent = IntentType.AMBIGUOUS;
+        return _makeDecision({ type: DecisionType.ASK_USER, intent: IntentType.AMBIGUOUS,
+          tools: [], slots: ['intent_clarification'], confidence: llmResult.confidence,
+          reason: 'Uncertain intent needs the concrete clarification' });
+      }
+
       // v71.1: Confidence AND required fields validation
       // LLM confidence alone is not enough — action intents need valid metadata.
       const llmAccepted = llmResult && llmResult.confidence >= 0.7 &&

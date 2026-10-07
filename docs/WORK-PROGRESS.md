@@ -160,6 +160,23 @@ nové efekty a čistý stop, 2600 hashů ověřeno. Produkt ani modelové skóre
 neměnily. Další C3 má opravit zachování validního read-only doptání bez nových
 pravomocí, s vlastní reprodukcí/revizí; C1 freeze pro ROOT se tím nepřesouvá.
 
+### C3 — zachování konkrétního doptání (IN_PROGRESS)
+
+Autorita: přijatý chat WP (přirozené doptání a obnovení původního zadání),
+operátorův pokyn pokračovat autonomně a 7. 10. „udělej toho co nejvíc“.
+Vstup ROOT `228caaf680002f062dabc47f65dd2b18aca84fc7`; přijímací prahy beze změny.
+Jeden výsledek: validní AMBIGUOUS s konkrétní otázkou se při confidence pod0.7
+neztratí v regex fallbacku ani nepokračuje do D1. Pouze ASK_USER, žádné nástroje,
+fileTarget, návrh ani nové oprávnění z nízké confidence; původní pending zůstane
+podkladem pro navázání. Při chybné/truncated klasifikaci platí dosavadní fallback.
+Vlastněné: `src/chat/cre-decision.js`, stávající context test a jeho důkazy,
+dotčená dokumentace/mapy. ROOT jediný writer; druhý worker provede review.
+RED/green: skutečný parser/CRE, negativní action/invalid kontroly, M1 restart
+se zachovaným původním zadáním a řízený CPU replay tří známých vstupů 3×5.
+Ověření Node24: context, M1 kontrakt, projektový classifier/bridge a relevantní
+CHAT/CODE integrační profil. Stop při nové autoritě efektu, ztrátě původního
+významu nebo regresi; nezávislé review před přijetím. H1/raw/restricted mimo rozsah.
+
 ## Přijaté dílčí výsledky
 
 | Oblast | Doložený výsledek | Omezení |
