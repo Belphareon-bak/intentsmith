@@ -1,7 +1,7 @@
 # C9 — klasifikátor ani projekt nevydají chybu modelu za úspěch
 
 Stav: C9 SOURCE/TEST/EVIDENCE/INTEGRATION_REVIEW_PASS; CI SUCCESS.
-Celý dd8a profil NOT_ACCEPTED; navazující C11 testová oprava přezkoumaná.
+Celý dd8a profil NOT_ACCEPTED; navazující C11 profil a54eaa60 má nezávislé FULL_REVIEW_PASS.
 Classifier13HTTP/restart, contextv2 52, v3delta7 a project57 PASS.
 Autorita: operátorova revize C1/kolo5 nad e6b83884; deník [WORK-PROGRESS](../WORK-PROGRESS.md).
 BASE `22bb44134ba7e0dd1e9f145e2c77f301303cd808`, produktový zdroj
@@ -47,7 +47,12 @@ C11 testový commit d91ea3e7 opravuje příčinu: reálný package scenario fixt
 node:test se42byteidentickými oracle bodies. Positive42PASSexit0; chybějícífixture
 20FAILexit1; sync/async mutanti1FAILexit1. Tři negativní kontroly ověřují pravdivý
 status procesu. Product/src beze změny; pouze test a jeho koncová whitespace.
-Source/test reviewc429a6d4…f5d261 PASS. Nový celý profil C11 zatím NOT_RUN.
-Přesný nový census: src688/237254ř., tests604/270997ř. Registry beze změny.
+Source/test review c429a6d4…f5d261 PASS. C11 na čistém a54eaa60:
+7. 10., 22:07:54–22:18:02 UTC, 410 PASS / 0 FAIL / BLOCKED / TIMEOUT / SKIPPED,
+exit 0, clean after. Nezávislé review 69e5a0ec…0a771c ověřilo všech 410 logů,
+scenario 42/42 a context 55. CI37694174356: 1 job / 18 kroků SUCCESS, review ecfc4383…b4dbc.
+Přijetí konkrétního běhu neuzavírá šest dalších nalezených harness vad;
+navazují jako [C12](2026-10-08-TEST-HARNESS-INTEGRITY.md).
+C11 census: src688/237254ř., tests604/270997ř. Registry beze změny.
 Helper output-gate.js v410programovém profilu pouze provádí import smoke,
 nikoli vlastní funkční assertions; počet programů se nevydává za počet scénářů.

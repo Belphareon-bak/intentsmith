@@ -1,0 +1,94 @@
+{
+  "kind": "C12HarnessIntegrityReviewPacket@1",
+  "at": "2026-10-07T22:21:11.902544+00:00",
+  "base": "a54eaa6082d00b47c2f92085dc9d169abacc454a",
+  "candidate": "6699e962db10181d9954305162c5cd64dc33ce6f",
+  "productSource": "24f329c6a3ffb4e9b0b50a1051adeaee18100fcf",
+  "status": "SOURCE_AND_PROBE_REVIEW_PASS; FULL_NOT_RUN",
+  "diff": {
+    "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/docs/review/evidence/test-harness-integrity-20261008/source.patch",
+    "bytes": 36197,
+    "sha256": "f03b406bb1fa365342bc2b94868ec3f8cd6c739c6c09c46cfa3895e3adf2e498",
+    "command": [
+      "git",
+      "diff",
+      "--unified=0",
+      "a54eaa60",
+      "6699e962",
+      "--",
+      "tests"
+    ]
+  },
+  "refs": [
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c12-harness-exit-integrity-20261008/APPLIED.json",
+      "bytes": 1661,
+      "sha256": "f9a204dcb5e7eb3950b2c692955ae7c7764f1372498a926c1cdb151020d5fd91"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c12-harness-exit-integrity-20261008/root-candidate/CANDIDATE.json",
+      "bytes": 1273,
+      "sha256": "7e495483a842e322eb69728f1afff5398df6caf23a61fbac05f4e1515f3a4c62"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c12-harness-exit-integrity-20261008/root-async-candidate/CANDIDATE.json",
+      "bytes": 1417,
+      "sha256": "d4589c33800766e5f04b4701ba9a8f8073874c380a8f8ee2e134382f668d6d93"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c12-harness-exit-integrity-20261008/m1-probes/RED-RESULT.json",
+      "bytes": 4169,
+      "sha256": "e4ee206738679487ead12ec10264d79ba477375307140aeb69312b30e5e3b696"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c12-harness-exit-integrity-20261008/m1-probes/RED-MANIFEST.json",
+      "bytes": 6896,
+      "sha256": "9d57a56adc6afde87777fc86ac4b004962f429883d6ea56b37446bdb84658caa"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c12-harness-exit-integrity-20261008/m1-probes/GREEN-RESULT.json",
+      "bytes": 11637,
+      "sha256": "987c6642edc306568fbc96b8ce8903afb3b47a9f7f7d491aa5b31a1df9a5a8f1"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c12-harness-exit-integrity-20261008/m1-probes/GREEN-MANIFEST.json",
+      "bytes": 24556,
+      "sha256": "8d6327811e0dff3e60c7f74ff685531c781d11613df122692126e7b7b255802c"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c12-harness-exit-integrity-20261008/m1-probes/REVIEW.json",
+      "bytes": 16317,
+      "sha256": "40e4ff067a5b3ad24208571bd358cbd944434dbca5c499e55e8d05cd8214bbf0"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c11-scenario-test-integrity-20261007/harness-audit/STATIC-AUDIT.json",
+      "bytes": 9194,
+      "sha256": "c76341c0b67ab097215a717e9af11e3b0cad24c248b074c254a56f4d2fad6704"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c11-scenario-test-integrity-20261007/harness-audit/ASYNC-CANDIDATE-REVIEW.json",
+      "bytes": 26273,
+      "sha256": "439fec913a2db8c93eda1009d4b5e1e5d6d5a927b30f3c23a01bf2dbcc02e846"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c11-scenario-test-integrity-20261007/harness-audit/ASYNC-MANIFEST.json",
+      "bytes": 20858,
+      "sha256": "153ad0cffda7e9abbb34251f110259e71a0ca3adf57f25c33a0bb86b1df8ae98"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c12-harness-exit-integrity-20261008/independent-review/REVIEW.json",
+      "bytes": 52981,
+      "sha256": "5039c9ef26bc2507c37a41fea05cba3c6313cfcaa39444419214514f061618ab"
+    }
+  ],
+  "restricted": [
+    "restricted/",
+    "H1/H2 corpus, answers and raw logs"
+  ],
+  "limits": [
+    "Controlled failure and completion probes, not a newly discovered original assertion failure in these six programs.",
+    "No product source/model/prompt/approval change.",
+    "No GPU or live inference.",
+    "Output-gate helper remains import smoke only."
+  ]
+}

@@ -1,0 +1,653 @@
+diff --git a/tests/chat-search-quality.test.js b/tests/chat-search-quality.test.js
+index 2d482209..2d432d2d 100644
+--- a/tests/chat-search-quality.test.js
++++ b/tests/chat-search-quality.test.js
+@@ -23,29 +23 @@ import { strict as assert } from 'assert';
+-
+-// ─── Test Infrastructure ─────────────────────────────────────────────────────
+-
+-let passed = 0;
+-let failed = 0;
+-const failures = [];
+-const pendingTests = [];
+-
+-function describe(name, fn) {
+-  pendingTests.push(async () => {
+-    console.log(`\n${'═'.repeat(70)}`);
+-    console.log(`  ${name}`);
+-    console.log(`${'═'.repeat(70)}`);
+-    await fn();
+-  });
+-}
+-
+-async function it(name, fn) {
+-  try {
+-    await fn();
+-    passed++;
+-    console.log(`  ✅ ${name}`);
+-  } catch (err) {
+-    failed++;
+-    failures.push({ name, error: err.message });
+-    console.log(`  ❌ ${name}`);
+-    console.log(`     ${err.message}`);
+-  }
+-}
++import { describe, it } from 'node:test';
+@@ -408,19 +379,0 @@ describe('T8.3.6: Integration — Language in Synthesis System Prompt', () => {
+-
+-// ══════════════════════════════════════════════════════════════════════════════
+-// RUN ALL TESTS
+-// ══════════════════════════════════════════════════════════════════════════════
+-
+-for (const test of pendingTests) {
+-  await test();
+-}
+-
+-console.log(`\n${'═'.repeat(70)}`);
+-console.log(`  RESULTS: ${passed} passed, ${failed} failed (${passed + failed} total)`);
+-console.log(`${'═'.repeat(70)}`);
+-
+-if (failures.length > 0) {
+-  console.log('\nFailed tests:');
+-  failures.forEach(f => console.log(`  ❌ ${f.name}: ${f.error}`));
+-}
+-
+-process.exit(failed > 0 ? 1 : 0);
+diff --git a/tests/chat-synthesis-hardening.test.js b/tests/chat-synthesis-hardening.test.js
+index cde32dad..0deeff1c 100644
+--- a/tests/chat-synthesis-hardening.test.js
++++ b/tests/chat-synthesis-hardening.test.js
+@@ -16,29 +16 @@ import { strict as assert } from 'assert';
+-
+-// ─── Test Infrastructure ─────────────────────────────────────────────────────
+-
+-let passed = 0;
+-let failed = 0;
+-const failures = [];
+-const pendingTests = [];
+-
+-function describe(name, fn) {
+-  pendingTests.push(async () => {
+-    console.log(`\n${'═'.repeat(70)}`);
+-    console.log(`  ${name}`);
+-    console.log(`${'═'.repeat(70)}`);
+-    await fn();
+-  });
+-}
+-
+-async function it(name, fn) {
+-  try {
+-    await fn();
+-    passed++;
+-    console.log(`  ✅ ${name}`);
+-  } catch (err) {
+-    failed++;
+-    failures.push({ name, error: err.message });
+-    console.log(`  ❌ ${name}`);
+-    console.log(`     ${err.message}`);
+-  }
+-}
++import { describe, it } from 'node:test';
+@@ -300,20 +271,0 @@ describe('T8.4: Confidence-based response styling', () => {
+-
+-
+-// ══════════════════════════════════════════════════════════════════════════════
+-// RUN ALL TESTS
+-// ══════════════════════════════════════════════════════════════════════════════
+-
+-for (const test of pendingTests) {
+-  await test();
+-}
+-
+-console.log(`\n${'═'.repeat(70)}`);
+-console.log(`  RESULTS: ${passed} passed, ${failed} failed (${passed + failed} total)`);
+-console.log(`${'═'.repeat(70)}`);
+-
+-if (failures.length > 0) {
+-  console.log('\nFailed tests:');
+-  failures.forEach(f => console.log(`  ❌ ${f.name}: ${f.error}`));
+-}
+-
+-process.exit(failed > 0 ? 1 : 0);
+diff --git a/tests/expertise-system.test.js b/tests/expertise-system.test.js
+index 14f20b1f..44739334 100644
+--- a/tests/expertise-system.test.js
++++ b/tests/expertise-system.test.js
+@@ -15,29 +15 @@ import { strict as assert } from 'assert';
+-
+-// ─── Test Infrastructure ─────────────────────────────────────────────────────
+-
+-let passed = 0;
+-let failed = 0;
+-const failures = [];
+-const pendingTests = [];
+-
+-function describe(name, fn) {
+-  pendingTests.push(async () => {
+-    console.log(`\n${'═'.repeat(70)}`);
+-    console.log(`  ${name}`);
+-    console.log(`${'═'.repeat(70)}`);
+-    await fn();
+-  });
+-}
+-
+-async function it(name, fn) {
+-  try {
+-    await fn();
+-    passed++;
+-    console.log(`  ✅ ${name}`);
+-  } catch (err) {
+-    failed++;
+-    failures.push({ name, error: err.message });
+-    console.log(`  ❌ ${name}`);
+-    console.log(`     ${err.message}`);
+-  }
+-}
++import { describe, it } from 'node:test';
+@@ -554,34 +525,0 @@ describe('T10.7: Builtin experts', () => {
+-
+-// ══════════════════════════════════════════════════════════════════════════════
+-// RUN TESTS
+-// ══════════════════════════════════════════════════════════════════════════════
+-
+-async function runTests() {
+-  console.log('\n');
+-  console.log('╔══════════════════════════════════════════════════════════════════════╗');
+-  console.log('║           IntentSmith-Agent v57.0 — Expert System Tests                       ║');
+-  console.log('╚══════════════════════════════════════════════════════════════════════╝');
+-
+-  for (const test of pendingTests) {
+-    await test();
+-  }
+-
+-  console.log('\n' + '═'.repeat(70));
+-  console.log(`\n  RESULTS: ${passed} passed, ${failed} failed\n`);
+-
+-  if (failures.length > 0) {
+-    console.log('  FAILURES:');
+-    for (const f of failures) {
+-      console.log(`    ❌ ${f.name}`);
+-      console.log(`       ${f.error}`);
+-    }
+-    console.log();
+-  }
+-
+-  process.exit(failed > 0 ? 1 : 0);
+-}
+-
+-runTests().catch(err => {
+-  console.error('Test runner failed:', err);
+-  process.exit(1);
+-});
+diff --git a/tests/knowledge-base.test.js b/tests/knowledge-base.test.js
+index cf8e6684..47ba56b8 100644
+--- a/tests/knowledge-base.test.js
++++ b/tests/knowledge-base.test.js
+@@ -4,0 +5 @@ import { strict as assert } from 'assert';
++import { test as it } from 'node:test';
+@@ -8,8 +8,0 @@ import { KnowledgeBase, seedTaxRates } from '../src/expertises/knowledge-base.js
+-let passed = 0, failed = 0;
+-const failures = [];
+-
+-function it(name, fn) {
+-  try { fn(); passed++; console.log(`  ✅ ${name}`); }
+-  catch (err) { failed++; failures.push(name); console.log(`  ❌ ${name}: ${err.message}`); }
+-}
+-
+@@ -30 +23 @@ console.log('\n── 1. Schema ──');
+-it('knowledge_facts table exists', () => {
++await it('knowledge_facts table exists', () => {
+@@ -35 +28 @@ it('knowledge_facts table exists', () => {
+-it('knowledge_sources table exists', () => {
++await it('knowledge_sources table exists', () => {
+@@ -40 +33 @@ it('knowledge_sources table exists', () => {
+-it('knowledge_verification_log table exists', () => {
++await it('knowledge_verification_log table exists', () => {
+@@ -45 +38 @@ it('knowledge_verification_log table exists', () => {
+-it('indexes created', () => {
++await it('indexes created', () => {
+@@ -56 +49 @@ console.log('\n── 2. CRUD Operations ──');
+-it('setFact + getFact (number)', () => {
++await it('setFact + getFact (number)', () => {
+@@ -62 +55 @@ it('setFact + getFact (number)', () => {
+-it('setFact + getFact (string)', () => {
++await it('setFact + getFact (string)', () => {
+@@ -68 +61 @@ it('setFact + getFact (string)', () => {
+-it('setFact + getFact (json)', () => {
++await it('setFact + getFact (json)', () => {
+@@ -77 +70 @@ it('setFact + getFact (json)', () => {
+-it('setFact + getFact (boolean)', () => {
++await it('setFact + getFact (boolean)', () => {
+@@ -83 +76 @@ it('setFact + getFact (boolean)', () => {
+-it('getFact returns null for missing', () => {
++await it('getFact returns null for missing', () => {
+@@ -88 +81 @@ it('getFact returns null for missing', () => {
+-it('upsert overwrites existing fact', () => {
++await it('upsert overwrites existing fact', () => {
+@@ -96 +89 @@ it('upsert overwrites existing fact', () => {
+-it('deleteFact removes fact', () => {
++await it('deleteFact removes fact', () => {
+@@ -107 +100 @@ console.log('\n── 3. Category & Domain Queries ──');
+-it('getCategory returns all facts as key→value', () => {
++await it('getCategory returns all facts as key→value', () => {
+@@ -115 +108 @@ it('getCategory returns all facts as key→value', () => {
+-it('getCategory returns empty for missing', () => {
++await it('getCategory returns empty for missing', () => {
+@@ -120 +113 @@ it('getCategory returns empty for missing', () => {
+-it('listDomains includes tax', () => {
++await it('listDomains includes tax', () => {
+@@ -125 +118 @@ it('listDomains includes tax', () => {
+-it('listCategories returns categories for domain', () => {
++await it('listCategories returns categories for domain', () => {
+@@ -131 +124 @@ it('listCategories returns categories for domain', () => {
+-it('listYears returns years for domain', () => {
++await it('listYears returns years for domain', () => {
+@@ -136 +129 @@ it('listYears returns years for domain', () => {
+-it('count returns fact count', () => {
++await it('count returns fact count', () => {
+@@ -153 +146 @@ const { RATES } = await import('../src/expertises/tools/tax-rates.js');
+-it('seedTaxRates imports successfully', () => {
++await it('seedTaxRates imports successfully', () => {
+@@ -159 +152 @@ it('seedTaxRates imports successfully', () => {
+-it('seeded data matches RATES for 2024 income_tax.base_rate', () => {
++await it('seeded data matches RATES for 2024 income_tax.base_rate', () => {
+@@ -164 +157 @@ it('seeded data matches RATES for 2024 income_tax.base_rate', () => {
+-it('seeded data matches RATES for 2024 social.osvc_rate', () => {
++await it('seeded data matches RATES for 2024 social.osvc_rate', () => {
+@@ -169 +162 @@ it('seeded data matches RATES for 2024 social.osvc_rate', () => {
+-it('seeded data matches RATES for 2025 income_tax.base_rate', () => {
++await it('seeded data matches RATES for 2025 income_tax.base_rate', () => {
+@@ -174 +167 @@ it('seeded data matches RATES for 2025 income_tax.base_rate', () => {
+-it('seeded data matches RATES for 2024 vat.standard_rate', () => {
++await it('seeded data matches RATES for 2024 vat.standard_rate', () => {
+@@ -179 +172 @@ it('seeded data matches RATES for 2024 vat.standard_rate', () => {
+-it('seeded data matches RATES for 2025 social.osvc_min_monthly', () => {
++await it('seeded data matches RATES for 2025 social.osvc_min_monthly', () => {
+@@ -184 +177 @@ it('seeded data matches RATES for 2025 social.osvc_min_monthly', () => {
+-it('seeded data has both years', () => {
++await it('seeded data has both years', () => {
+@@ -190 +183 @@ it('seeded data has both years', () => {
+-it('getCategory reconstructs full income_tax for 2024', () => {
++await it('getCategory reconstructs full income_tax for 2024', () => {
+@@ -197 +190 @@ it('getCategory reconstructs full income_tax for 2024', () => {
+-it('seeded JSON values parse correctly (flat_expense)', () => {
++await it('seeded JSON values parse correctly (flat_expense)', () => {
+@@ -204 +197 @@ it('seeded JSON values parse correctly (flat_expense)', () => {
+-it('getRatesForYear reconstructs full year structure', () => {
++await it('getRatesForYear reconstructs full year structure', () => {
+@@ -214 +207 @@ it('getRatesForYear reconstructs full year structure', () => {
+-it('seeded fact count is reasonable (2 years × ~30 facts)', () => {
++await it('seeded fact count is reasonable (2 years × ~30 facts)', () => {
+@@ -224 +217 @@ console.log('\n── 5. Freshness Check ──');
+-it('checkFreshness detects stale data', () => {
++await it('checkFreshness detects stale data', () => {
+@@ -235 +228 @@ it('checkFreshness detects stale data', () => {
+-it('checkFreshness detects provisional data', () => {
++await it('checkFreshness detects provisional data', () => {
+@@ -249 +242 @@ console.log('\n── 6. Verification Sources ──');
+-it('setSource + getSource', () => {
++await it('setSource + getSource', () => {
+@@ -265 +258 @@ it('setSource + getSource', () => {
+-it('listSources returns sources for domain', () => {
++await it('listSources returns sources for domain', () => {
+@@ -275 +268 @@ console.log('\n── 7. Verification Log ──');
+-it('logVerification inserts record', () => {
++await it('logVerification inserts record', () => {
+@@ -290 +283 @@ console.log('\n── 8. Bulk Operations ──');
+-it('bulkSetFacts inserts multiple facts in transaction', () => {
++await it('bulkSetFacts inserts multiple facts in transaction', () => {
+@@ -300 +293 @@ it('bulkSetFacts inserts multiple facts in transaction', () => {
+-it('bulkSetFacts is idempotent (upsert)', () => {
++await it('bulkSetFacts is idempotent (upsert)', () => {
+@@ -310,7 +303 @@ it('bulkSetFacts is idempotent (upsert)', () => {
+-// ─── Summary ─────────────────────────────────────────────────────────────────
+-
+-console.log(`\n══════════════════════════════════════════════════════════`);
+-console.log(`  Knowledge Base: ${passed}/${passed + failed} PASS, ${failed} FAIL`);
+-console.log(`══════════════════════════════════════════════════════════`);
+-if (failed === 0) console.log('✅ ALL KNOWLEDGE BASE TESTS PASS');
+-else console.log(`❌ Failures: ${failures.join(', ')}`);
++// ─── Cleanup ─────────────────────────────────────────────────────────────────
+diff --git a/tests/ledger-annual.test.js b/tests/ledger-annual.test.js
+index 87483593..ab303cb5 100644
+--- a/tests/ledger-annual.test.js
++++ b/tests/ledger-annual.test.js
+@@ -4,0 +5 @@ import { strict as assert } from 'assert';
++import { test as it } from 'node:test';
+@@ -13,8 +13,0 @@ import { RATES } from '../specialists/accountant-cz/tools/tax-rates.js';
+-let passed = 0, failed = 0;
+-const failures = [];
+-
+-function it(name, fn) {
+-  try { fn(); passed++; console.log(`  ✅ ${name}`); }
+-  catch (err) { failed++; failures.push(name); console.log(`  ❌ ${name}: ${err.message}`); }
+-}
+-
+@@ -55 +48 @@ console.log('\n── 1. Schema ──');
+-it('period_locks table exists', () => {
++await it('period_locks table exists', () => {
+@@ -60 +53 @@ it('period_locks table exists', () => {
+-it('tax_losses table exists', () => {
++await it('tax_losses table exists', () => {
+@@ -65 +58 @@ it('tax_losses table exists', () => {
+-it('indexes created', () => {
++await it('indexes created', () => {
+@@ -75 +68 @@ console.log('\n── 2. Period Locking ──');
+-it('isPeriodLocked returns false initially', () => {
++await it('isPeriodLocked returns false initially', () => {
+@@ -79 +72 @@ it('isPeriodLocked returns false initially', () => {
+-it('lockPeriod locks a year', () => {
++await it('lockPeriod locks a year', () => {
+@@ -84 +77 @@ it('lockPeriod locks a year', () => {
+-it('getPeriodLock returns lock details', () => {
++await it('getPeriodLock returns lock details', () => {
+@@ -93 +86 @@ it('getPeriodLock returns lock details', () => {
+-it('lockPeriod throws for already locked', () => {
++await it('lockPeriod throws for already locked', () => {
+@@ -97 +90 @@ it('lockPeriod throws for already locked', () => {
+-it('getLockedYears returns all locked years', () => {
++await it('getLockedYears returns all locked years', () => {
+@@ -107 +100 @@ console.log('\n── 3. Period Lock Guards ──');
+-it('addEntry rejects when period is locked', () => {
++await it('addEntry rejects when period is locked', () => {
+@@ -117 +110 @@ it('addEntry rejects when period is locked', () => {
+-it('updateEntry rejects when period is locked', () => {
++await it('updateEntry rejects when period is locked', () => {
+@@ -127 +120 @@ it('updateEntry rejects when period is locked', () => {
+-it('softDeleteEntry rejects when period is locked', () => {
++await it('softDeleteEntry rejects when period is locked', () => {
+@@ -135 +128 @@ it('softDeleteEntry rejects when period is locked', () => {
+-it('addEntry still works for unlocked periods', () => {
++await it('addEntry still works for unlocked periods', () => {
+@@ -150 +143 @@ console.log('\n── 4. Unlock Period ──');
+-it('unlockPeriod removes lock', () => {
++await it('unlockPeriod removes lock', () => {
+@@ -155 +148 @@ it('unlockPeriod removes lock', () => {
+-it('unlockPeriod throws if not locked', () => {
++await it('unlockPeriod throws if not locked', () => {
+@@ -159 +152 @@ it('unlockPeriod throws if not locked', () => {
+-it('addEntry works after unlock', () => {
++await it('addEntry works after unlock', () => {
+@@ -173 +166 @@ console.log('\n── 5. Tax Loss Detection ──');
+-it('detectTaxLoss: no loss when income > expenses', () => {
++await it('detectTaxLoss: no loss when income > expenses', () => {
+@@ -183 +176 @@ it('detectTaxLoss: no loss when income > expenses', () => {
+-it('detectTaxLoss: detects loss when expenses > income', () => {
++await it('detectTaxLoss: detects loss when expenses > income', () => {
+@@ -193 +186 @@ it('detectTaxLoss: detects loss when expenses > income', () => {
+-it('detectTaxLoss: flat_expense never has loss (expenses ≤ income)', () => {
++await it('detectTaxLoss: flat_expense never has loss (expenses ≤ income)', () => {
+@@ -202 +195 @@ it('detectTaxLoss: flat_expense never has loss (expenses ≤ income)', () => {
+-it('detectTaxLoss: flat_tax returns no loss', () => {
++await it('detectTaxLoss: flat_tax returns no loss', () => {
+@@ -211 +204 @@ console.log('\n── 6. Tax Loss Carryforward ──');
+-it('applyTaxLosses: applies single loss', () => {
++await it('applyTaxLosses: applies single loss', () => {
+@@ -222 +215 @@ it('applyTaxLosses: applies single loss', () => {
+-it('applyTaxLosses: applies multiple losses FIFO', () => {
++await it('applyTaxLosses: applies multiple losses FIFO', () => {
+@@ -239 +232 @@ it('applyTaxLosses: applies multiple losses FIFO', () => {
+-it('applyTaxLosses: skips expired losses', () => {
++await it('applyTaxLosses: skips expired losses', () => {
+@@ -250 +243 @@ it('applyTaxLosses: skips expired losses', () => {
+-it('applyTaxLosses: no losses to apply', () => {
++await it('applyTaxLosses: no losses to apply', () => {
+@@ -257 +250 @@ it('applyTaxLosses: no losses to apply', () => {
+-it('applyTaxLosses: loss > tax base → base = 0', () => {
++await it('applyTaxLosses: loss > tax base → base = 0', () => {
+@@ -271 +264 @@ console.log('\n── 7. Tax Loss Repository ──');
+-it('recordTaxLoss stores loss', () => {
++await it('recordTaxLoss stores loss', () => {
+@@ -280 +273 @@ it('recordTaxLoss stores loss', () => {
+-it('getActiveLosses returns unexpired losses', () => {
++await it('getActiveLosses returns unexpired losses', () => {
+@@ -286 +279 @@ it('getActiveLosses returns unexpired losses', () => {
+-it('updateLossRemaining reduces remaining', () => {
++await it('updateLossRemaining reduces remaining', () => {
+@@ -294 +287 @@ it('updateLossRemaining reduces remaining', () => {
+-it('getActiveLosses excludes fully used losses', () => {
++await it('getActiveLosses excludes fully used losses', () => {
+@@ -314 +307 @@ const entries2024 = repo.getEntriesByYear(entityId, 2024);
+-it('generateTaxReturnData produces valid form', () => {
++await it('generateTaxReturnData produces valid form', () => {
+@@ -334 +327 @@ it('generateTaxReturnData produces valid form', () => {
+-it('generateTaxReturnData: příjmy = 1200000', () => {
++await it('generateTaxReturnData: příjmy = 1200000', () => {
+@@ -341 +334 @@ it('generateTaxReturnData: příjmy = 1200000', () => {
+-it('generateTaxReturnData: výdaje = 350000', () => {
++await it('generateTaxReturnData: výdaje = 350000', () => {
+@@ -348 +341 @@ it('generateTaxReturnData: výdaje = 350000', () => {
+-it('generateTaxReturnData: základ daně = 850000', () => {
++await it('generateTaxReturnData: základ daně = 850000', () => {
+@@ -355 +348 @@ it('generateTaxReturnData: základ daně = 850000', () => {
+-it('generateTaxReturnData includes advance payments', () => {
++await it('generateTaxReturnData includes advance payments', () => {
+@@ -363 +356 @@ it('generateTaxReturnData includes advance payments', () => {
+-it('generateTaxReturnData: doplatek daně calculated', () => {
++await it('generateTaxReturnData: doplatek daně calculated', () => {
+@@ -371 +364 @@ it('generateTaxReturnData: doplatek daně calculated', () => {
+-it('generateTaxReturnData: with loss carryforward', () => {
++await it('generateTaxReturnData: with loss carryforward', () => {
+@@ -388 +381 @@ console.log('\n── 9. Year Close Summary ──');
+-it('computeYearCloseSummary produces complete data', () => {
++await it('computeYearCloseSummary produces complete data', () => {
+@@ -403 +396 @@ it('computeYearCloseSummary produces complete data', () => {
+-it('computeYearCloseSummary: no loss for profitable year', () => {
++await it('computeYearCloseSummary: no loss for profitable year', () => {
+@@ -410 +403 @@ it('computeYearCloseSummary: no loss for profitable year', () => {
+-it('computeYearCloseSummary: detects loss for unprofitable year', () => {
++await it('computeYearCloseSummary: detects loss for unprofitable year', () => {
+@@ -426 +419 @@ console.log('\n── 10. Lock with Calculation Run ──');
+-it('lockPeriod with calculation_run_id', () => {
++await it('lockPeriod with calculation_run_id', () => {
+@@ -447 +440 @@ it('lockPeriod with calculation_run_id', () => {
+-it('locked period has associated calculation run', () => {
++await it('locked period has associated calculation run', () => {
+@@ -458 +451 @@ console.log('\n── 11. Edge Cases ──');
+-it('generateTaxReturnData: zero income year', () => {
++await it('generateTaxReturnData: zero income year', () => {
+@@ -469 +462 @@ it('generateTaxReturnData: zero income year', () => {
+-it('generateTaxReturnData: with children', () => {
++await it('generateTaxReturnData: with children', () => {
+@@ -477 +470 @@ it('generateTaxReturnData: with children', () => {
+-it('generateTaxReturnData: flat_expense entity', () => {
++await it('generateTaxReturnData: flat_expense entity', () => {
+@@ -490 +483 @@ it('generateTaxReturnData: flat_expense entity', () => {
+-it('generateTaxReturnData: 2025 rates', () => {
++await it('generateTaxReturnData: 2025 rates', () => {
+@@ -500 +493 @@ it('generateTaxReturnData: 2025 rates', () => {
+-// ─── Summary ─────────────────────────────────────────────────────────────────
++// ─── Cleanup ─────────────────────────────────────────────────────────────────
+@@ -505,6 +497,0 @@ repo.unlockPeriod(entityId, 2024);
+-console.log(`\n══════════════════════════════════════════════════════════`);
+-console.log(`  Annual Engine: ${passed}/${passed + failed} PASS, ${failed} FAIL`);
+-console.log(`══════════════════════════════════════════════════════════`);
+-if (failed === 0) console.log('✅ ALL ANNUAL ENGINE TESTS PASS');
+-else console.log(`❌ Failures: ${failures.join(', ')}`);
+-
+diff --git a/tests/ledger-core.test.js b/tests/ledger-core.test.js
+index 79616622..57d9d87c 100644
+--- a/tests/ledger-core.test.js
++++ b/tests/ledger-core.test.js
+@@ -4,0 +5 @@ import { strict as assert } from 'assert';
++import { test as it } from 'node:test';
+@@ -13,8 +13,0 @@ import { RATES } from '../specialists/accountant-cz/tools/tax-rates.js';
+-let passed = 0, failed = 0;
+-const failures = [];
+-
+-function it(name, fn) {
+-  try { fn(); passed++; console.log(`  ✅ ${name}`); }
+-  catch (err) { failed++; failures.push(name); console.log(`  ❌ ${name}: ${err.message}`); }
+-}
+-
+@@ -36 +29 @@ console.log('\n── 1. Schema ──');
+-it('entity_profiles table exists', () => {
++await it('entity_profiles table exists', () => {
+@@ -41 +34 @@ it('entity_profiles table exists', () => {
+-it('financial_entries table exists', () => {
++await it('financial_entries table exists', () => {
+@@ -46 +39 @@ it('financial_entries table exists', () => {
+-it('entry_history table exists', () => {
++await it('entry_history table exists', () => {
+@@ -51 +44 @@ it('entry_history table exists', () => {
+-it('calculation_runs table exists', () => {
++await it('calculation_runs table exists', () => {
+@@ -56 +49 @@ it('calculation_runs table exists', () => {
+-it('indexes created', () => {
++await it('indexes created', () => {
+@@ -71 +64 @@ let entityId;
+-it('createEntity returns id', () => {
++await it('createEntity returns id', () => {
+@@ -77 +70 @@ it('createEntity returns id', () => {
+-it('getEntity retrieves entity', () => {
++await it('getEntity retrieves entity', () => {
+@@ -87 +80 @@ it('getEntity retrieves entity', () => {
+-it('updateEntity patches fields', () => {
++await it('updateEntity patches fields', () => {
+@@ -97 +90 @@ it('updateEntity patches fields', () => {
+-it('listEntities includes created entity', () => {
++await it('listEntities includes created entity', () => {
+@@ -102 +95 @@ it('listEntities includes created entity', () => {
+-it('getEntity returns null for missing', () => {
++await it('getEntity returns null for missing', () => {
+@@ -106 +99 @@ it('getEntity returns null for missing', () => {
+-it('updateEntity throws for missing entity', () => {
++await it('updateEntity throws for missing entity', () => {
+@@ -110 +103 @@ it('updateEntity throws for missing entity', () => {
+-it('createEntity with custom id', () => {
++await it('createEntity with custom id', () => {
+@@ -123 +116 @@ let entryId;
+-it('addEntry creates income entry', () => {
++await it('addEntry creates income entry', () => {
+@@ -133 +126 @@ it('addEntry creates income entry', () => {
+-it('getEntry retrieves entry', () => {
++await it('getEntry retrieves entry', () => {
+@@ -144 +137 @@ it('getEntry retrieves entry', () => {
+-it('addEntry creates expense entry', () => {
++await it('addEntry creates expense entry', () => {
+@@ -153 +146 @@ it('addEntry creates expense entry', () => {
+-it('addEntry creates tax_payment entry', () => {
++await it('addEntry creates tax_payment entry', () => {
+@@ -162 +155 @@ it('addEntry creates tax_payment entry', () => {
+-it('addEntry creates insurance_payment entry', () => {
++await it('addEntry creates insurance_payment entry', () => {
+@@ -171 +164 @@ it('addEntry creates insurance_payment entry', () => {
+-it('getEntriesByYear returns all active entries', () => {
++await it('getEntriesByYear returns all active entries', () => {
+@@ -176 +169 @@ it('getEntriesByYear returns all active entries', () => {
+-it('getEntriesByType filters correctly', () => {
++await it('getEntriesByType filters correctly', () => {
+@@ -182 +175 @@ it('getEntriesByType filters correctly', () => {
+-it('countEntries returns correct count', () => {
++await it('countEntries returns correct count', () => {
+@@ -186 +179 @@ it('countEntries returns correct count', () => {
+-it('getEntry returns null for missing', () => {
++await it('getEntry returns null for missing', () => {
+@@ -194 +187 @@ console.log('\n── 4. Update + Audit Trail ──');
+-it('updateEntry increments version and snapshots', () => {
++await it('updateEntry increments version and snapshots', () => {
+@@ -202 +195 @@ it('updateEntry increments version and snapshots', () => {
+-it('getEntryHistory shows old snapshot', () => {
++await it('getEntryHistory shows old snapshot', () => {
+@@ -209 +202 @@ it('getEntryHistory shows old snapshot', () => {
+-it('second update creates second history entry', () => {
++await it('second update creates second history entry', () => {
+@@ -219 +212 @@ it('second update creates second history entry', () => {
+-it('updateEntry throws for missing entry', () => {
++await it('updateEntry throws for missing entry', () => {
+@@ -227 +220 @@ console.log('\n── 5. Soft Delete ──');
+-it('softDeleteEntry marks entry as deleted', () => {
++await it('softDeleteEntry marks entry as deleted', () => {
+@@ -240 +233 @@ it('softDeleteEntry marks entry as deleted', () => {
+-it('softDeleteEntry creates history snapshot', () => {
++await it('softDeleteEntry creates history snapshot', () => {
+@@ -253 +246 @@ it('softDeleteEntry creates history snapshot', () => {
+-it('softDeleteEntry throws for already deleted', () => {
++await it('softDeleteEntry throws for already deleted', () => {
+@@ -266 +259 @@ console.log('\n── 6. Date Range Queries ──');
+-it('getEntriesByDateRange filters correctly', () => {
++await it('getEntriesByDateRange filters correctly', () => {
+@@ -271 +264 @@ it('getEntriesByDateRange filters correctly', () => {
+-it('getEntriesByDateRange returns empty for no matches', () => {
++await it('getEntriesByDateRange returns empty for no matches', () => {
+@@ -280 +273 @@ console.log('\n── 7. Calculation Runs ──');
+-it('saveCalculationRun stores run', () => {
++await it('saveCalculationRun stores run', () => {
+@@ -288 +281 @@ it('saveCalculationRun stores run', () => {
+-it('getCalculationRuns retrieves runs with parsed JSON', () => {
++await it('getCalculationRuns retrieves runs with parsed JSON', () => {
+@@ -295 +288 @@ it('getCalculationRuns retrieves runs with parsed JSON', () => {
+-it('getLatestRun returns most recent', () => {
++await it('getLatestRun returns most recent', () => {
+@@ -305 +298 @@ it('getLatestRun returns most recent', () => {
+-it('getLatestRun returns null for no runs', () => {
++await it('getLatestRun returns null for no runs', () => {
+@@ -313 +306 @@ console.log('\n── 8. Bulk Operations ──');
+-it('addEntries inserts in transaction', () => {
++await it('addEntries inserts in transaction', () => {
+@@ -328 +321 @@ console.log('\n── 9. Entity Cascade Delete ──');
+-it('deleteEntity cascades to entries', () => {
++await it('deleteEntity cascades to entries', () => {
+@@ -347 +340 @@ console.log('\n── 10. Engine: Helpers ──');
+-it('toCents converts correctly', () => {
++await it('toCents converts correctly', () => {
+@@ -353 +346 @@ it('toCents converts correctly', () => {
+-it('toCZK converts correctly', () => {
++await it('toCZK converts correctly', () => {
+@@ -371 +364 @@ const testEntries = [
+-it('aggregateEntries computes totals', () => {
++await it('aggregateEntries computes totals', () => {
+@@ -380 +373 @@ it('aggregateEntries computes totals', () => {
+-it('aggregateEntries builds category breakdown', () => {
++await it('aggregateEntries builds category breakdown', () => {
+@@ -387 +380 @@ it('aggregateEntries builds category breakdown', () => {
+-it('aggregateEntries handles empty entries', () => {
++await it('aggregateEntries handles empty entries', () => {
+@@ -410 +403 @@ const incomeEntries = [
+-it('computeAnnualSummary: standard OSVČ 1M income', () => {
++await it('computeAnnualSummary: standard OSVČ 1M income', () => {
+@@ -445 +438 @@ const flatEntity = {
+-it('computeAnnualSummary: flat expense OSVČ', () => {
++await it('computeAnnualSummary: flat expense OSVČ', () => {
+@@ -464 +457 @@ it('computeAnnualSummary: flat expense OSVČ', () => {
+-it('computeAnnualSummary: zero income → tax=0, minimums for insurance', () => {
++await it('computeAnnualSummary: zero income → tax=0, minimums for insurance', () => {
+@@ -478 +471 @@ it('computeAnnualSummary: zero income → tax=0, minimums for insurance', () =>
+-it('computeAnnualSummary: negative base → clamped to 0', () => {
++await it('computeAnnualSummary: negative base → clamped to 0', () => {
+@@ -494 +487 @@ it('computeAnnualSummary: negative base → clamped to 0', () => {
+-it('computeAnnualSummary: secondary activity below threshold → social=0', () => {
++await it('computeAnnualSummary: secondary activity below threshold → social=0', () => {
+@@ -509 +502 @@ it('computeAnnualSummary: secondary activity below threshold → social=0', () =
+-it('computeAnnualSummary: 3 children with low income → tax bonus', () => {
++await it('computeAnnualSummary: 3 children with low income → tax bonus', () => {
+@@ -528 +521 @@ it('computeAnnualSummary: 3 children with low income → tax bonus', () => {
+-it('computeAnnualSummary: flat tax regime', () => {
++await it('computeAnnualSummary: flat tax regime', () => {
+@@ -545 +538 @@ it('computeAnnualSummary: flat tax regime', () => {
+-it('computeAnnualSummary: high income triggers higher rate', () => {
++await it('computeAnnualSummary: high income triggers higher rate', () => {
+@@ -563 +556 @@ it('computeAnnualSummary: high income triggers higher rate', () => {
+-it('computeAnnualSummary: spouse credit reduces tax', () => {
++await it('computeAnnualSummary: spouse credit reduces tax', () => {
+@@ -581 +574 @@ it('computeAnnualSummary: spouse credit reduces tax', () => {
+-it('computeAnnualSummary: works with 2025 rates', () => {
++await it('computeAnnualSummary: works with 2025 rates', () => {
+@@ -595 +588 @@ it('computeAnnualSummary: works with 2025 rates', () => {
+-it('computeAnnualSummary: flat expense capped at max', () => {
++await it('computeAnnualSummary: flat expense capped at max', () => {
+@@ -619 +612 @@ const { calculateTax } = await import('../src/expertises/tools/tax-calc.js');
+-it('engine matches tax-calc.js for standard OSVČ 1M', () => {
++await it('engine matches tax-calc.js for standard OSVČ 1M', () => {
+@@ -647 +640 @@ it('engine matches tax-calc.js for standard OSVČ 1M', () => {
+-it('engine matches tax-calc.js for flat_60 OSVČ 800K', () => {
++await it('engine matches tax-calc.js for flat_60 OSVČ 800K', () => {
+@@ -663,7 +656 @@ it('engine matches tax-calc.js for flat_60 OSVČ 800K', () => {
+-// ─── Summary ─────────────────────────────────────────────────────────────────
+-
+-console.log(`\n══════════════════════════════════════════════════════════`);
+-console.log(`  Ledger Core: ${passed}/${passed + failed} PASS, ${failed} FAIL`);
+-console.log(`══════════════════════════════════════════════════════════`);
+-if (failed === 0) console.log('✅ ALL LEDGER CORE TESTS PASS');
+-else console.log(`❌ Failures: ${failures.join(', ')}`);
++// ─── Cleanup ─────────────────────────────────────────────────────────────────

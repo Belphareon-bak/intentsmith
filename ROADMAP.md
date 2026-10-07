@@ -1,6 +1,6 @@
 # IntentSmith — víceúrovňová roadmapa k production-ready produktu
 
-**Aktuální checkpoint 7. 10. 2026:** [stav, implementační mezery a zbývající testy](docs/WORK-PROGRESS.md).
+**Aktuální checkpoint 8. 10. 2026:** [stav, implementační mezery a zbývající testy](docs/WORK-PROGRESS.md).
 Release `NOT_ACCEPTED`; BE `c84b88cd` / Studio `7bf62455…bfe24` nezměněné.
 Přijaté Ledger/TaskFlow/SQLite, omezený AST/GPU panel/cleanup, full109 DB roundtrip a M3 worker;
 opakovat pouze při nové změně nebo konkrétní pochybnosti. ROOT vlastní integraci i CHAT.
@@ -11,7 +11,12 @@ Celý profil dd8a **NEPŘIJATÝ**: runner hlásí410PASS, ale scenario-engine m�
 s chybným exit0. Stejná vada potvrzená v historickém f475 profilu; jeho přijetí celého
 profilu je stažené, původní raw a posudky zachované. C11 opravuje pouze testovací setup
 skutečným package fixture a hlášení přes node:test;42původních kontrol zachováno,
-GREEN42/0, tři negativní kontroly správněexit1. Nový celý profil po C11 NOT_RUN.
+GREEN42/0, tři negativní kontroly správně exit1. C11 na čistém a54eaa60:
+410 PASS / 0 FAIL, všechny logy nezávisle přezkoumané (69e5a0ec…0a771c),
+scenario 42/42. CI37694174356 má 1 job / 18 kroků SUCCESS, review PASS.
+C12 testový commit6699e962 převádí dalších šest vadných harnessů na node:test,
+všech 239 původních kontrol zachováno. Source i nezávislé peer review sond PASS;
+nový celý profil NOT_RUN. [C12 evidence](docs/review/2026-10-08-TEST-HARNESS-INTEGRITY.md).
 C10 replay doložil ztrátu původního save požadavku po chybném modelovém
 continuesPending:false; nejde o opravu ani nové modelové skóre.
 [Paket C9/C11](docs/review/2026-10-07-CHAT-TERMINAL-FAILURES.md),
@@ -78,7 +83,7 @@ Fan 8/11, oracle 8 PASS/6 FAIL; repair4+CLI3/cumulative15 čeká na samostatnou 
 32k krátce změřené fullGPU/min free 2 512 MiB; celé okno ani kvalita aplikace tím nepřijaté.
 Classifier→D1 CPU 44 +parser 24/review PASS; živý přirozený vstup a fyzická ovladatelnost IDE/M2 otevřené.
 
-Nynější úkol: přezkoušet celý profil po C11 opravě false-green testu.
+Nynější úkol: dokončit nezávislé ověření C12 a celý profil šesti opravených harnessů.
 C10 izoloval chybu modelové návaznosti a následnou ztrátu pending; další oprava
 nesmí ignorovat změnu zadání či cancel; C6 NO_GO a C7 živý FAIL zůstávají. C5 retry zastaven,
 před návratem jiná omezená strategie; C3/C4 přezkoumány,
