@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "2d14522061f28daa43e2997ddbf1b8c8327073af",
-  "sourceTree": "8affdb8fd9010096a961528781a032a77471286d",
+  "sourceRevision": "e82087b6be0033584020315bcd05cb8d52e79e59",
+  "sourceTree": "91b4ca437055fd37370d79aa31138841ea231b36",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "a111646c052627fd0803fc881838f58d7d5fd8dc",
@@ -1223,6 +1223,7 @@
     "src/server.js -> src/extensions/agent-project-context.js",
     "src/server.js -> src/extensions/expertise-extension-service.js",
     "src/server.js -> src/licensing/license.js",
+    "src/server.js -> src/lifecycle/m2-code-draft.js",
     "src/server.js -> src/lifecycle/m2-lifecycle-application-service.js",
     "src/server.js -> src/llm/auth-types.js",
     "src/server.js -> src/llm/gateway.js",

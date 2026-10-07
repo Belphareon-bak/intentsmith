@@ -27,7 +27,7 @@ CHAT checkout 6. 10. ověřený clean e066956b; produktovou logiku CHATu ROOT ne
 Poslední celý offline/database profil **86dbca40: 410 PASS / 0 FAIL / BLOCKED / TIMEOUT**,
 5. 10., 04:44:14–04:54:05 UTC; report a5a2f4a3…326d11c, všechny řádky/logy nezávisle ověřené.
 Data 24/24, M1 kontrakt 74/74; tento starší profil necertifikuje cache opravu ani release.
-Doc/artifact gate 160/160 po přeměření tests LOC 270 196→270 249 a explicitním graph census; původní 158 PASS/2 doc FAIL zachované.
+Doc/artifact gate160 PASS; nynější census src688/237191, tests604/270426; source review přijímá přesný graph+1/1511/3cykly28.
 Studio bundle 7bf62455…bfe24 / instalovaný BE c84b88cd nezměněné; žádný deploy ani aktivace.
 Externí c5309a0/bundle místně chybí; jeho výsledky nejsou přijaté místní důkazy.
 

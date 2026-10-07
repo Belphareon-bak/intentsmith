@@ -11,7 +11,7 @@ Původní oracle 56→forcedFAIL80→restore56→109, přesné DB/canary/metadat
 Dvě produktové kopie 0700, původní cache a source/deps/14 links zachované; fyzický zdroj700, CPU pokrývá775.
 Nejde o nový whole fresh5: historický fresh5 na90 má 3 PASS/2 FAIL, cizí M1 provider-outage vada otevřená.
 Poslední celý offline/database profil `86dbca40`: 410 PASS /0 FAIL /BLOCKED /TIMEOUT; netestoval následnou cache opravu.
-Registry 596/35; integrovaný module graph má 1 510 hran, 3 cykly /28 členů.
+Registry 596/35; integrovaný module graph má 1 511 hran, 3 cykly /28 členů.
 CHAT7/CODE12 zachované, CI/CPU nejsou release acceptance.
 
 HTTP private-loopback profil zapojený; retained execution/M2/oracle/commit/restart prošel, API SOURCE FAIL.
