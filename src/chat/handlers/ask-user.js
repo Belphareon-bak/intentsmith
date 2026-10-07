@@ -22,6 +22,20 @@ export function handleAskUserDecision(input, decision, context) {
     : sessionState?.pendingDecision?.metadata?.originalRequestedOperation
       || sessionState?.pendingDecision?.metadata?.requestedOperation || decision.metadata?.requestedOperation;
 
+  // A repeated question must retain the core's already bound save source and
+  // original user turn. New tasks and other projects must not inherit it.
+  const pendingSave = sessionState?.awaitingClarification
+    && decision.metadata?.continuesPending === true
+    ? sessionState.pendingDecision?.metadata?.fileSaveClarification : null;
+  const inheritedSave = pendingSave?.projectId === Number(context.project?.id ?? context.projectId)
+    ? { ...pendingSave } : null;
+  const pendingMetadata = { ...decision.metadata, contextualInterpretation: true,
+    originalRequest, clarificationQuestion: content,
+    ...(originalRequestedOperation ? { originalRequestedOperation } : {}) };
+  // Save provenance comes only from the existing canonical pending state.
+  delete pendingMetadata.fileSaveClarification;
+  if (inheritedSave) pendingMetadata.fileSaveClarification = inheritedSave;
+
   // ════════════════════════════════════════════════════════════════════════════
   // v44.2 - SAVE PENDING DECISION FOR RESUMPTION
   // v44.6 FIX 2 - Track attempts (max 1× clarification)
@@ -33,8 +47,7 @@ export function handleAskUserDecision(input, decision, context) {
     const decisionWithAttempts = {
       ...decision,
       attempts: currentAttempts + 1,
-      metadata: { ...decision.metadata, contextualInterpretation: true, originalRequest, clarificationQuestion: content,
-        ...(originalRequestedOperation ? { originalRequestedOperation } : {}) },
+      metadata: pendingMetadata,
     };
 
     sessionState.recordDecision(decisionWithAttempts, input);
