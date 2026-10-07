@@ -17,6 +17,13 @@ Lokální matematika funguje bez providerového volání. Source review a nezáv
 context 27/27, M1 74/74 a project 44/44; fresh5 a živá kvalita zůstávají otevřené.
 [Revizní paket](../review/2026-10-07-CHAT-M1-OUTAGE.md).
 
+C3 source `bdf461d2` má SOURCE_REVIEW_PASS: validní AMBIGUOUS s otázkou
+a confidence pod0.7 skončí ASK_USER před regex/sticky/project fallbackem.
+Whitelist nepřenáší fileTarget, requestedOperation ani planner metadata;
+existující pending request/operation zachová ASK_USER handler. Source16 řádků,
+bez nové importní hrany. Context28PASS, řízený replay15/15; integrační/evidence
+review PENDING. [Paket C3](../review/2026-10-07-CHAT-CONCRETE-CLARIFICATION.md).
+
 Následující inventura popisuje historický stav 2. 8.; její popis fallbacku při
 výpadku ani počty řádků nejsou aktuálním chováním výše uvedeného kandidáta.
 

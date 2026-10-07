@@ -160,7 +160,7 @@ nové efekty a čistý stop, 2600 hashů ověřeno. Produkt ani modelové skóre
 neměnily. Další C3 má opravit zachování validního read-only doptání bez nových
 pravomocí, s vlastní reprodukcí/revizí; C1 freeze pro ROOT se tím nepřesouvá.
 
-### C3 — zachování konkrétního doptání (IN_PROGRESS)
+### C3 — zachování konkrétního doptání (SOURCE_REVIEW_PASS; INTEGRATION_PENDING)
 
 Autorita: přijatý chat WP (přirozené doptání a obnovení původního zadání),
 operátorův pokyn pokračovat autonomně a 7. 10. „udělej toho co nejvíc“.
@@ -176,6 +176,12 @@ se zachovaným původním zadáním a řízený CPU replay tří známých vstup
 Ověření Node24: context, M1 kontrakt, projektový classifier/bridge a relevantní
 CHAT/CODE integrační profil. Stop při nové autoritě efektu, ztrátě původního
 významu nebo regresi; nezávislé review před přijetím. H1/raw/restricted mimo rozsah.
+Produkt/testy `bdf461d262128cc168de6fdc805119fbc0f4e5c4`: RED2/2FAIL doložil
+ztrátu otázky v CRE a M1 HTTP. Po opravě context28/28 PASS včetně skutečného
+restartu; řízený replay3×5 má15/15 zachovaných otázek, každá právě1 klasifikace,
+0 nových efektů a0 INCONCLUSIVE. Samotný provider je fixture, nové skóre modelu
+se netvrdí. Nezávislé source review PASS; opakování/regrese/evidence review běží.
+[Revizní paket](review/2026-10-07-CHAT-CONCRETE-CLARIFICATION.md).
 
 ## Přijaté dílčí výsledky
 
