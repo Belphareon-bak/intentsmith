@@ -2,6 +2,8 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { strict as assert } from 'assert';
+import { test as it } from 'node:test';
+import { taxOptimizationScenario } from '../specialists/accountant-cz/scenarios/tax-optimization.js';
 import {
   scenarioRegistry,
   scenarioRunner,
@@ -10,53 +12,32 @@ import {
   ScenarioPhase,
 } from '../src/expertises/scenario-engine.js';
 
-let passed = 0, failed = 0;
-const failures = [];
-
-function it(name, fn) {
-  try {
-    const result = fn();
-    if (result && typeof result.then === 'function') {
-      return result.then(() => {
-        passed++;
-        console.log(`  ✅ ${name}`);
-      }).catch(err => {
-        failed++;
-        failures.push(name);
-        console.log(`  ❌ ${name}: ${err.message}`);
-      });
-    }
-    passed++;
-    console.log(`  ✅ ${name}`);
-  } catch (err) {
-    failed++;
-    failures.push(name);
-    console.log(`  ❌ ${name}: ${err.message}`);
-  }
-}
+// The core registry is generic. Production loads this definition through the
+// accountant package; this engine unit suite registers the real package fixture.
+scenarioRegistry.register(taxOptimizationScenario);
 
 // ─── 1. Registry ─────────────────────────────────────────────────────────────
 
 console.log('\n── 1. ScenarioRegistry ──');
 
-it('accountant.tax_optimization is registered', () => {
+await it('accountant.tax_optimization is registered', () => {
   const s = scenarioRegistry.getScenario('accountant.tax_optimization');
   assert(s);
   assert.equal(s.specialistId, 'accountant');
 });
 
-it('getScenarios returns scenarios for accountant', () => {
+await it('getScenarios returns scenarios for accountant', () => {
   const scenarios = scenarioRegistry.getScenarios('accountant');
   assert(scenarios.length >= 1);
   assert(scenarios.some(s => s.id === 'accountant.tax_optimization'));
 });
 
-it('getScenarioIds includes accountant.tax_optimization', () => {
+await it('getScenarioIds includes accountant.tax_optimization', () => {
   const ids = scenarioRegistry.getScenarioIds();
   assert(ids.includes('accountant.tax_optimization'));
 });
 
-it('getScenarios returns empty for unknown specialist', () => {
+await it('getScenarios returns empty for unknown specialist', () => {
   assert.deepEqual(scenarioRegistry.getScenarios('unknown'), []);
 });
 
@@ -64,38 +45,38 @@ it('getScenarios returns empty for unknown specialist', () => {
 
 console.log('\n── 2. Trigger Detection ──');
 
-it('detects "optimalizovat daně"', () => {
+await it('detects "optimalizovat daně"', () => {
   const s = scenarioRegistry.detectTrigger('accountant', 'Chci optimalizovat daně');
   assert(s);
   assert.equal(s.id, 'accountant.tax_optimization');
 });
 
-it('detects "OSVČ nebo s.r.o."', () => {
+await it('detects "OSVČ nebo s.r.o."', () => {
   const s = scenarioRegistry.detectTrigger('accountant', 'Co je lepší OSVČ nebo s.r.o.?');
   assert(s);
 });
 
-it('detects "porovnání daní"', () => {
+await it('detects "porovnání daní"', () => {
   const s = scenarioRegistry.detectTrigger('accountant', 'Chci porovnání daní');
   assert(s);
 });
 
-it('detects "průvodce daněmi"', () => {
+await it('detects "průvodce daněmi"', () => {
   const s = scenarioRegistry.detectTrigger('accountant', 'Spusť průvodce daněmi');
   assert(s);
 });
 
-it('returns null for non-matching', () => {
+await it('returns null for non-matching', () => {
   const s = scenarioRegistry.detectTrigger('accountant', 'Jaké je počasí?');
   assert.equal(s, null);
 });
 
-it('returns null for short input', () => {
+await it('returns null for short input', () => {
   const s = scenarioRegistry.detectTrigger('accountant', 'ahoj');
   assert.equal(s, null);
 });
 
-it('returns null for unknown specialist', () => {
+await it('returns null for unknown specialist', () => {
   const s = scenarioRegistry.detectTrigger('plumber', 'optimalizovat daně');
   assert.equal(s, null);
 });
@@ -147,21 +128,21 @@ testRegistry.register({
   recommendPrompt: 'Recommend something.',
 });
 
-it('start creates active session', () => {
+await it('start creates active session', () => {
   const result = testRunner.start('sess-1', 'test.simple');
   assert(result.message.includes('Welcome'));
   assert.equal(result.phase, ScenarioPhase.COLLECTING);
   assert(testRunner.isActive('sess-1'));
 });
 
-it('getState returns state', () => {
+await it('getState returns state', () => {
   const state = testRunner.getState('sess-1');
   assert(state);
   assert.equal(state.scenarioId, 'test.simple');
   assert.equal(state.phase, ScenarioPhase.COLLECTING);
 });
 
-it('isActive returns false for unknown', () => {
+await it('isActive returns false for unknown', () => {
   assert(!testRunner.isActive('unknown'));
 });
 
@@ -280,22 +261,22 @@ await it('adjustment re-computes with new data', async () => {
 
 console.log('\n── 9. Custom Registry ──');
 
-it('register requires id', () => {
+await it('register requires id', () => {
   const reg = new ScenarioRegistry();
   assert.throws(() => reg.register({}), /requires id/);
 });
 
-it('register requires specialistId', () => {
+await it('register requires specialistId', () => {
   const reg = new ScenarioRegistry();
   assert.throws(() => reg.register({ id: 'x' }), /requires specialistId/);
 });
 
-it('register requires steps', () => {
+await it('register requires steps', () => {
   const reg = new ScenarioRegistry();
   assert.throws(() => reg.register({ id: 'x', specialistId: 'y', triggers: [/a/] }), /requires at least one step/);
 });
 
-it('register requires triggers', () => {
+await it('register requires triggers', () => {
   const reg = new ScenarioRegistry();
   assert.throws(() => reg.register({
     id: 'x', specialistId: 'y',
@@ -303,73 +284,73 @@ it('register requires triggers', () => {
   }), /requires triggers/);
 });
 
-// ─── 10. Built-in Accountant Scenario ────────────────────────────────────────
+// ─── 10. Accountant Package Fixture ────────────────────────────────────────
 
 console.log('\n── 10. Accountant Tax Optimization ──');
 
-it('accountant scenario has 5 steps', () => {
+await it('accountant scenario has 5 steps', () => {
   const s = scenarioRegistry.getScenario('accountant.tax_optimization');
   assert.equal(s.steps.length, 5);
 });
 
-it('accountant scenario has compute and present functions', () => {
+await it('accountant scenario has compute and present functions', () => {
   const s = scenarioRegistry.getScenario('accountant.tax_optimization');
   assert(typeof s.compute === 'function');
   assert(typeof s.present === 'function');
 });
 
-it('accountant income step extracts 850k', () => {
+await it('accountant income step extracts 850k', () => {
   const s = scenarioRegistry.getScenario('accountant.tax_optimization');
   const val = s.steps[0].extract('850k');
   assert.equal(val, 850000);
 });
 
-it('accountant income step extracts "850 000"', () => {
+await it('accountant income step extracts "850 000"', () => {
   const s = scenarioRegistry.getScenario('accountant.tax_optimization');
   const val = s.steps[0].extract('850 000');
   assert.equal(val, 850000);
 });
 
-it('accountant entity step extracts OSVČ', () => {
+await it('accountant entity step extracts OSVČ', () => {
   const s = scenarioRegistry.getScenario('accountant.tax_optimization');
   const val = s.steps[1].extract('OSVČ');
   assert.equal(val, 'osvc');
 });
 
-it('accountant entity step extracts compare', () => {
+await it('accountant entity step extracts compare', () => {
   const s = scenarioRegistry.getScenario('accountant.tax_optimization');
   const val = s.steps[1].extract('3');
   assert.equal(val, 'compare');
 });
 
-it('accountant expense step skips for sro', () => {
+await it('accountant expense step skips for sro', () => {
   const s = scenarioRegistry.getScenario('accountant.tax_optimization');
   const skipFn = s.steps[2].skipIf;
   assert(skipFn({ entity_type: 'sro' }));
   assert(!skipFn({ entity_type: 'osvc' }));
 });
 
-it('accountant year step extracts 2025', () => {
+await it('accountant year step extracts 2025', () => {
   const s = scenarioRegistry.getScenario('accountant.tax_optimization');
   const val = s.steps[3].extract('2025');
   assert.equal(val, 2025);
 });
 
-it('accountant children step extracts 2', () => {
+await it('accountant children step extracts 2', () => {
   const s = scenarioRegistry.getScenario('accountant.tax_optimization');
   const val = s.steps[4].extract('2 děti');
   assert.equal(val, 2);
 });
 
-it('accountant children step extracts 0 for "žádné"', () => {
+await it('accountant children step extracts 0 for "žádné"', () => {
   const s = scenarioRegistry.getScenario('accountant.tax_optimization');
   const val = s.steps[4].extract('žádné');
   assert.equal(val, 0);
 });
 
-// ─── 11. Full E2E with Accountant Scenario ───────────────────────────────────
+// ─── 11. Complete Accountant Engine Flow ───────────────────────────────────
 
-console.log('\n── 11. Full E2E Accountant Flow ──');
+console.log('\n── 11. Complete Accountant Engine Flow ──');
 
 const e2eRunner = new ScenarioRunner(scenarioRegistry);
 
@@ -427,10 +408,3 @@ await it('full accountant scenario: s.r.o. skips expense step', async () => {
   assert(r4.results.sro);
 });
 
-// ─── Summary ─────────────────────────────────────────────────────────────────
-
-console.log(`\n══════════════════════════════════════════════════════════`);
-console.log(`  Scenario Engine: ${passed}/${passed + failed} PASS, ${failed} FAIL`);
-console.log(`══════════════════════════════════════════════════════════`);
-if (failed === 0) console.log('✅ ALL SCENARIO ENGINE TESTS PASS');
-else console.log(`❌ Failures: ${failures.join(', ')}`);
