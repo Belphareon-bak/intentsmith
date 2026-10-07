@@ -322,7 +322,12 @@ BE restart SQLite dokládá durable M2/zdroje; nedokládá DB v dalším novém 
 
 Aktuální produktový zdroj **e6b83884**: C7+C8, context41PASS, původní CHAT7/CODE12
 19PASS, nezávislé execution review a [CI37680691150](https://github.com/Belphareon-bak/intentsmith/actions/runs/37680691150) všech18SUCCESS.
-Následující starší celé profily patří svým přesným SHA; celý410profil se po C7/C8 neopakoval.
+Nový celý offline/database profil9b161de5,20:47:08–20:57:18UTC:409PASS/1FAIL,
+0BLOCKED/TIMEOUT/SKIPPED. Jediný FAIL je zastaralý LOC údaj v SYSTEM-MAP,159/160
+artifact assertions PASS. Nezávislý census0256f015…cf7c1c5 potvrzuje nové hodnoty;
+oprava mění jen dokumentaci, původní neúspěšný report zůstává. Aktuální
+[CI37684623930](https://github.com/Belphareon-bak/intentsmith/actions/runs/37684623930) na9b161de5 má18SUCCESS.
+Po opravě bude profil zopakován; zatím se neclaimuje410PASS. Starší profily patří svým SHA.
 
 Zdroj cache opravy a přijatého upgradu: **0d86b68e**; [CI37460776179](https://github.com/Belphareon-bak/intentsmith/actions/runs/37460776179), všech 18 kroků SUCCESS.
 CHAT 7 / CODE 12 kontroly zachované; merge 56138e4f obsahuje CHAT e066956b / CODE32k / D1.
@@ -330,7 +335,7 @@ CHAT checkout 6. 10. ověřený clean e066956b; produktovou logiku CHATu ROOT ne
 Historický ROOT offline/database profil **86dbca40: 410 PASS / 0 FAIL / BLOCKED / TIMEOUT**,
 5. 10., 04:44:14–04:54:05 UTC; report a5a2f4a3…326d11c, všechny řádky/logy nezávisle ověřené.
 Data 24/24, M1 kontrakt 74/74; tento starší profil necertifikuje cache opravu ani release.
-Historický doc/artifact gate160 PASS patří ROOT. Aktuální CHAT census src688/237206, tests604/270539; revidovaný graph1512/3cykly28.
+Historický doc/artifact gate160 PASS patří ROOT. Aktuální census9b161de5 src688/237244, tests604/270781; revidovaný graph1512/3cykly28.
 Studio bundle 7bf62455…bfe24 / instalovaný BE c84b88cd nezměněné; žádný deploy ani aktivace.
 Externí c5309a0/bundle místně chybí; jeho výsledky nejsou přijaté místní důkazy.
 

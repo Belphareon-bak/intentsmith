@@ -786,15 +786,15 @@ na nesouladu NVIDIA 595.84 / NVML 595.91; nové inference skóre nevzniklo.
 Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a role.
 **REVIEW_PENDING** — [aktuální UI oprava a evidence](docs/review/2026-09-17-HUNT-MODEL-CONTROLS-FOLLOWUP.md).
 
-Následující LOC a registry census jsou přeměřené 6. 10. 2026 přímo na zdroji
-pracovního kandidáta `0d86b68e`, přes stejný algoritmus jako `tests/artifact-validation.test.js`:
+Následující LOC a registry census jsou přeměřené 7. 10. 2026 přímo na zdroji
+pracovního kandidáta `9b161de5` (produktový zdroj `e6b83884`), přes stejný algoritmus jako `tests/artifact-validation.test.js`:
 počet skutečných `.js` souborů a počet znaků nového řádku v jejich bytech.
 Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
-| `src/**/*.js` | **237 226 ř.**, 688 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **270 608 ř.**, 604 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **237 244 ř.**, 688 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **270 781 ř.**, 604 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **596** (`498 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 109** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |
