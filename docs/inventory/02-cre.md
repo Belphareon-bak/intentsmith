@@ -53,6 +53,15 @@ FAIL, další2série NOT_RUN; není to3×přejímka ani nové53skóre.
 [Paket C7](../review/2026-10-07-CHAT-SAVE-CONTEXT.md),
 [paket C8](../review/2026-10-07-CHAT-TRANSPORT-FAILURES.md).
 
+C9 `24f329c6` nahrazuje seznam provozních výjimek ukončením každého rejected
+classifier callu. Provider500/502, chybějící/neověřený/změněný model i budoucí kód
+končí503; malformed obálka500, neplatná úspěšná klasifikace nadále fallback.
+Nested abort a existující typed chyby se zachovají. Source review PASS, řízené
+13HTTP/restart, context52 a v3unit7 PASS; nezávislé test/evidence review PASS.
+Projektová cesta používá tutéž chybovou hranici, přestala persistovat chybový text
+jako úspěch. Celý projektový test57GREEN; integrace/source acceptance nejsou
+živá modelová kvalita. [Paket C9](../review/2026-10-07-CHAT-TERMINAL-FAILURES.md).
+
 Následující inventura popisuje historický stav 2. 8.; její popis fallbacku při
 výpadku ani počty řádků nejsou aktuálním chováním výše uvedeného kandidáta.
 

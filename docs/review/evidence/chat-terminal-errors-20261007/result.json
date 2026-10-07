@@ -1,0 +1,119 @@
+{
+  "kind": "C9TerminalChatFailuresReviewPacket@1",
+  "at": "2026-10-07T21:34:19.889732+00:00",
+  "base": "22bb44134ba7e0dd1e9f145e2c77f301303cd808",
+  "source": "24f329c6a3ffb4e9b0b50a1051adeaee18100fcf",
+  "baselineCommit": "d2f39d7e0d026b0badff1ccf18762a4d2247646e",
+  "status": "SOURCE_AND_TEST_EVIDENCE_REVIEW_PASS; INTEGRATION_NOT_RUN",
+  "diff": {
+    "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/docs/review/evidence/chat-terminal-errors-20261007/source.patch",
+    "sha256": "f3554fd3cc0868361405ba30b8cd2b3639b0dbe1e9806215518cb463348d74c3"
+  },
+  "execution": "Exact argv, env, expected/actual exits and file hashes in referenced immutable reports/manifests and COMMAND/EXIT receipts. Controlled provider; no GPU or live inference.",
+  "restricted": [
+    "restricted/",
+    "H1/H2 corpus, responses and raw logs"
+  ],
+  "refs": [
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-m1-terminal-errors-20261007/REPORT.json",
+      "bytes": 51195,
+      "sha256": "90a94bc9fee8353fba2597b6d95396fa15640f486aa130eac8e7b8e2c2fc88b3"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-m1-terminal-errors-20261007/MANIFEST.json",
+      "bytes": 109112,
+      "sha256": "9d69875785c611ee3a566aa71d0268a67bc0b018412cdc2e9b45eabd196e6ac6"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-m1-terminal-errors-20261007/SOURCE-REVIEW.json",
+      "bytes": 4060,
+      "sha256": "63092169efe6dde7429fd99919a2d006a350149daf455d6e1eaf103efa1e273b"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-m1-terminal-errors-20261007/GREEN-REPORT.json",
+      "bytes": 27549,
+      "sha256": "b90c587bd0c3330fe06348f804c22384f67b972401ff841c13d7f55b47cf9425"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-m1-terminal-errors-20261007/GREEN-MANIFEST.json",
+      "bytes": 68656,
+      "sha256": "fd361d9db165a8f5ce8870066735b37ff1a6764f7df3d14b5b704bffc4ea2b16"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-project-terminal-errors-20261007/RED-503-RESULT.json",
+      "bytes": 9972,
+      "sha256": "dad85732faf43d11b3ba40c13273dc9985ec61a0bcce7ee5c51148edab5617b2"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-project-terminal-errors-20261007/RED-503-MANIFEST.json",
+      "bytes": 152198,
+      "sha256": "3eccb8c9a11f3a4fc472a7ed742403f58969510f3a1060c364b8d0cfdeda2888"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-project-terminal-errors-20261007/GREEN-RESULT.json",
+      "bytes": 37269,
+      "sha256": "a5fc7526931912469d735be5b7fe3988dbfaa336e57a8d23fbf0693092e91f5b"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-project-terminal-errors-20261007/GREEN-MANIFEST.json",
+      "bytes": 1897258,
+      "sha256": "e930ce4df522564968cb0711c299c4202cba46ebf93ad8e35da5abbf8cb5af8e"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-terminal-errors-20261007/final-unit-green/COMMAND.json",
+      "bytes": 4457,
+      "sha256": "d28a4a05430a53baf4abe063c6edca7e9aa7e6946f59542097f379e31f6571d6"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-terminal-errors-20261007/final-unit-green/EXIT.json",
+      "bytes": 137,
+      "sha256": "96e49dbb44bb971a3dacf80b248025ea7b00d1c7011ad867056b633810ddf1cf"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-terminal-errors-20261007/final-unit-green/run.log",
+      "bytes": 32791,
+      "sha256": "37a6ce1d7ae32238b5de9cd0635967be295836cabdc05308287d954474172d81"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-terminal-errors-20261007/boundary-baseline-write.json",
+      "bytes": 573,
+      "sha256": "ac9591e3e7408778211694b1599e51fdf23d648def1c526d6986df6ce7b1f761"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-terminal-errors-20261007/boundary-baseline-write.log",
+      "bytes": 426,
+      "sha256": "2b3044f03e29246021790f1284e7fa411b9ba5f214ef08618836369ac4adf619"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-terminal-errors-20261007/census.json",
+      "bytes": 157,
+      "sha256": "e33db448c5251a896b638390a6beb4303c789175086a17e475d1c5911052de45"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-terminal-errors-20261007/independent-review/M1-GREEN-EVIDENCE-REVIEW.json",
+      "bytes": 25438,
+      "sha256": "195d8b6558fd26cd9fd83cd53c900dd9da7888082e1a0ff2e26d2df4ea5ae59c"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-terminal-errors-20261007/independent-review/M1-RED-RAW-REVIEW.json",
+      "bytes": 33970,
+      "sha256": "bdd5736eced68ea7fa1d89e61397794eb196d1d780a56e226334f6010973a451"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-terminal-errors-20261007/independent-review/M1-TEST-V3-REVIEW.json",
+      "bytes": 4458,
+      "sha256": "6f5d0e9229c4154b20c34e2d860dbf2838bfcce8b638b0839b2b4a138fe3b9a4"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-terminal-errors-20261007/independent-review/PROJECT-RED-TEST-REVIEW.json",
+      "bytes": 7441,
+      "sha256": "6521beef431da0d9c8185f0e0f224b820472ae7f69e0793a7e6d4d6b8c3521cd"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-terminal-errors-20261007/independent-review/PROJECT-GREEN-REVIEW.json",
+      "bytes": 34740,
+      "sha256": "b941683b7dc197506551076cf46d8da47e4f965ff93102f321d7437780b6b0cf"
+    }
+  ]
+}

@@ -1,0 +1,525 @@
+diff --git a/src/chat/cre-decision.js b/src/chat/cre-decision.js
+index 74b20e9b..bf5e4036 100644
+--- a/src/chat/cre-decision.js
++++ b/src/chat/cre-decision.js
+@@ -34,8 +34,8 @@ import { classifyIntent as llmClassify } from '../llm/cre-bridge.js';
+ import { extractJSON } from '../llm/client.js';
+ import { config } from '../config.js';
+ import { featureManager } from '../core/feature-manager.js';
+-import { throwIfAborted } from '../core/abort-error.js';
+-import { ChatTurnErrorCode, ChatProcessingError, LLMProviderUnavailableError } from '../core/chat-turn-error.js';
++import { isAbortError, throwIfAborted } from '../core/abort-error.js';
++import { ChatProcessingError, isChatTurnError, throwChatModelCallFailure } from '../core/chat-turn-error.js';
+ import { buildProjectHint } from './handlers/utils/project-context-prompt.js';
+ import { buildInterpretationContext, pendingConversationQuestion } from './conversation-context.js';
+ import { getNumCtx } from '../llm/model-ctx.js';
+@@ -2463,7 +2463,7 @@ export class CREDecisionEngine {
+   //   1. Deterministic fast-path (LOCAL, gratitude) — no LLM needed
+   //   2. LLM structured classification — primary classifier
+   //   3. Deterministic guard layer — validates/downgrades LLM decision
+-  //   4. Regex classifyIntent() — fallback if LLM fails/unavailable
++  //   4. Regex classifyIntent() — fallback for invalid classification content
+   //
+   // SECURITY INVARIANTS (v71.1):
+   //   - LLM NEVER generates shell commands (shellCommand removed from schema)
+@@ -2483,7 +2483,7 @@ export class CREDecisionEngine {
+    * @param {string} input - User message
+    * @param {Object} context - Conversation context (history, project, session)
+    * @returns {Promise<{intent: string, confidence: number, fileTarget?: string} | null>}
+-   *          Parsed classification or null on failure
++   *          Parsed classification or null on invalid content; failed calls throw
+    */
+   async _llmClassifyIntent(input, context = {}) {
+     const VALID_INTENTS = Object.values(IntentType);
+@@ -2569,7 +2569,8 @@ PRAVIDLA:
+         // A shared CHAT artifact retains the same runner shape.
+         ...(classificationNumCtx === null ? {} : { num_ctx: classificationNumCtx }),
+         signal: context.signal,
+-      });
++      }).catch(error => throwChatModelCallFailure(error, context.signal,
++        'INTENT_CLASSIFICATION_PROVIDER_FAILED'));
+ 
+       if (!result?.content) {
+         logger.warn('CRE:LLM', 'LLM classifier returned empty response');
+@@ -2719,32 +2720,11 @@ PRAVIDLA:
+ 
+       return parsed;
+     } catch (err) {
+-      if (context.signal?.aborted) {
+-        throwIfAborted(context.signal);
+-      }
+-      // A provider outage is a failed turn, not uncertainty about the user's
+-      // intent. Preserve the existing M1 error boundary before regex fallback
+-      // can fabricate and persist a successful clarification response.
+-      // The legacy classification bridge wraps the gateway error in cause;
+-      // fetch connection failures may be nested one level further. Match typed
+-      // provider/transport failures, never provider message text.
+-      const visited = new Set();
+-      for (let cause = err; cause && typeof cause === 'object' && !visited.has(cause); cause = cause.cause) {
+-        visited.add(cause);
+-        if ([ChatTurnErrorCode.LLM_PROVIDER_UNAVAILABLE,
+-          'ECONNREFUSED', 'ECONNRESET', 'ETIMEDOUT', 'EHOSTUNREACH', 'UND_ERR_SOCKET'].includes(cause.code)) {
+-          throw new LLMProviderUnavailableError('INTENT_CLASSIFICATION_PROVIDER_UNAVAILABLE');
+-        }
+-        // A failed provider exchange is not a usable classification. Keep
+-        // malformed classifier content in the existing fallback below.
+-        if (['LLM_PROVIDER_HTTP_ERROR', 'LLM_PROVIDER_MALFORMED_RESPONSE'].includes(cause.code)) {
+-          throw new ChatProcessingError('INTENT_CLASSIFICATION_PROVIDER_FAILED', err);
+-        }
+-      }
+-      logger.warn('CRE:LLM', `LLM intent classification failed: ${err.message}`, {
+-        input: input.substring(0, 60),
+-      });
+-      return null;
++      throwIfAborted(context.signal);
++      if (isAbortError(err) || isChatTurnError(err)) throw err;
++      // Unexpected local processing failures are terminal too. Only the
++      // explicit successful-output checks above may request regex fallback.
++      throw new ChatProcessingError('INTENT_CLASSIFICATION_PROCESSING_FAILED', err);
+     }
+   }
+ 
+diff --git a/src/chat/handlers/project-collaboration.js b/src/chat/handlers/project-collaboration.js
+index fc8e00a4..e793d41c 100644
+--- a/src/chat/handlers/project-collaboration.js
++++ b/src/chat/handlers/project-collaboration.js
+@@ -1,3 +1,5 @@
++import { isAbortError, throwIfAborted } from '../../core/abort-error.js';
++import { ChatProcessingError, isChatTurnError, LLMProviderUnavailableError, throwChatModelCallFailure } from '../../core/chat-turn-error.js';
+ // Read-only project reasoning. This proposes work for the existing M2 editor;
+ // it cannot approve a plan, write a file, start an agent or run project code.
+ import { randomUUID, createHash } from 'node:crypto';
+@@ -201,7 +203,10 @@ export async function generateProjectDiscussion({ prompt, signal, sessionId }) {
+     import('../../config.js'), import('../../llm/gateway.js'), import('../../llm/auth-types.js'), import('../../llm/model-ctx.js'),
+   ]);
+   const model = config.models?.D1;
+-  if (!model) throw Object.assign(new Error('Role D1 nemá nakonfigurovaný model.'), { code: 'PROJECT_MODEL_UNAVAILABLE' });
++  if (!model) {
++    throwIfAborted(signal);
++    throw new LLMProviderUnavailableError('PROJECT_MODEL_UNAVAILABLE');
++  }
+   const budget = fitProjectDiscussionPrompt(prompt, resolveNumCtx(model));
+   const requestId = `project-work-${randomUUID()}`;
+   const token = auth.createAuthToken({ role: auth.LLMCallerRole.WORKFLOW_PLANNER,
+@@ -211,7 +216,8 @@ export async function generateProjectDiscussion({ prompt, signal, sessionId }) {
+     timeout: 120_000, maxTokens: budget.maxTokens, num_ctx: budget.numCtx, format: PROJECT_DISCUSSION_SCHEMA, temperature: 0.1,
+     capability: auth.LLMCapability.REASONING, requestType: 'm1:answer',
+     correlation: { requestId, conversationId: sessionId, turnId: requestId,
+-      callerRole: auth.LLMCallerRole.WORKFLOW_PLANNER, modelRole: 'D1', purpose: 'answer' } });
++      callerRole: auth.LLMCallerRole.WORKFLOW_PLANNER, modelRole: 'D1', purpose: 'answer' } })
++    .catch(error => throwChatModelCallFailure(error, signal, 'PROJECT_PLANNING_PROVIDER_FAILED'));
+   return { ...result, projectContextSelection: { excerptCount: budget.excerptCount,
+     numCtx: budget.numCtx, maxOutputTokens: budget.maxTokens,
+     promptBytes: Buffer.byteLength(budget.systemPrompt + budget.prompt) } };
+@@ -401,10 +407,9 @@ export async function handleProjectCollaboration(input, context) {
+     return row?.commit_mode ?? 'ask';
+   } }); }
+   catch (error) {
+-    if (context.signal?.aborted) throw error;
+-    response = { content: `Příprava dalšího kroku se nepodařila: ${error.message} Soubory projektu zůstaly beze změny.`,
+-      metadata: { handler: 'project.collaboration', mode: 'PROJECT', projectWorkProposal: null,
+-        planningError: error.code || 'PROJECT_PLANNING_UNAVAILABLE' } };
++    throwIfAborted(context.signal);
++    if (isAbortError(error) || isChatTurnError(error)) throw error;
++    throw new ChatProcessingError('PROJECT_PLANNING_FAILED', error);
+   }
+   return new TaggedResponse({ content: response.content, tag: new ResponseTag({
+     speaker: ResponseSpeaker.SYSTEM, mode: ChatMode.PROJECT, confidence: 0.8,
+diff --git a/src/core/chat-turn-error.js b/src/core/chat-turn-error.js
+index 34939413..2ae29a89 100644
+--- a/src/core/chat-turn-error.js
++++ b/src/core/chat-turn-error.js
+@@ -1,5 +1,5 @@
+ // Terminal chat failures that must not be represented as assistant responses.
+-import { AbortSource, createAbortError } from './abort-error.js';
++import { AbortSource, createAbortError, isAbortError, throwIfAborted } from './abort-error.js';
+ 
+ export const ChatTurnErrorCode = Object.freeze({
+   LLM_PROVIDER_UNAVAILABLE: 'LLM_PROVIDER_UNAVAILABLE',
+@@ -135,6 +135,31 @@ export function isChatTurnError(error) {
+   return error instanceof ChatTurnError;
+ }
+ 
++// Call only at a model-call boundary: a rejected call is never a usable
++// classification or project reply. Successful but invalid model content is
++// handled by the caller's output validation, separately from availability.
++export function throwChatModelCallFailure(error, signal, sourceErrorType = 'LLM_CALL_FAILED') {
++  throwIfAborted(signal);
++  const chain = [];
++  const visited = new Set();
++  for (let cause = error; cause && typeof cause === 'object' && !visited.has(cause); cause = cause.cause) {
++    visited.add(cause);
++    chain.push(cause);
++  }
++  // Cancellation has priority, including a timeout wrapped by the bridge.
++  const aborted = chain.find(isAbortError);
++  if (aborted) throw aborted;
++  for (const cause of chain) {
++    if (isChatTurnError(cause)) throw cause;
++    if (cause.code === 'LLM_PROVIDER_MALFORMED_RESPONSE') {
++      throw new ChatProcessingError(sourceErrorType, error);
++    }
++  }
++  // Missing/unverified artifacts and future gateway failure codes must fail
++  // closed too. Do not infer availability from provider message text.
++  throw new LLMProviderUnavailableError(sourceErrorType);
++}
++
+ export function chatTurnErrorPayload(error) {
+   if (!isChatTurnError(error)) {
+     throw new TypeError('Expected a ChatTurnError');
+diff --git a/tests/chat-context-interpretation.test.js b/tests/chat-context-interpretation.test.js
+index a471b43e..63e9713b 100644
+--- a/tests/chat-context-interpretation.test.js
++++ b/tests/chat-context-interpretation.test.js
+@@ -30,18 +30,27 @@ import { validateUnavailableAction, quoteActionDraft } from '../src/chat/unavail
+ 
+ test('M1 classifier outage is a typed error with no assistant persistence or effects', async t => {
+   const input = 'Napiš podrobný odborný rozbor dvoufázového commitu v distribuovaném systému.';
+-  for (const failure of ['http-503', 'connection-refused', 'http-502', 'socket-close-before-headers', 'partial-response-close']) {
++  for (const failure of ['http-503', 'http-500', 'http-502', 'malformed-provider-envelope', 'http-404',
++    'tags-model-absent', 'tags-http-500', 'connection-refused', 'socket-close-before-headers',
++    'partial-response-close', 'tags-digest-drift', 'served-model-drift', 'served-digest-drift']) {
+     await t.test(failure, async () => {
+       const owned = createOwnedJourneyRuntime(isolatedTestRuntime);
+       const model = 'fixture:1b';
+       const digest = 'a'.repeat(64);
+       const calls = [];
++      let active = false;
+       const provider = http.createServer(async (request, response) => {
+         let body = '';
+         for await (const chunk of request) body += chunk;
+         response.setHeader('Content-Type', 'application/json');
+         if (request.url === '/api/tags') {
+-          response.end(JSON.stringify({ models: [{ name: model, digest }] }));
++          if (active && failure === 'tags-http-500') {
++            response.writeHead(500).end(JSON.stringify({ error: 'PRIVATE_PROVIDER_OUTAGE_DETAIL' }));
++          } else {
++            response.end(JSON.stringify({ models: active && failure === 'tags-model-absent' ? [] : [{
++              name: model, digest: active && failure === 'tags-digest-drift' ? 'b'.repeat(64) : digest,
++            }] }));
++          }
+         } else if (request.url === '/api/show') {
+           response.end(JSON.stringify({ model_info: { 'fixture.context_length': 4096 } }));
+         } else if (request.url === '/api/chat') {
+@@ -52,9 +61,19 @@ test('M1 classifier outage is a typed error with no assistant persistence or eff
+             response.writeHead(200);
+             response.write('{"model":"fixture:1b","message":{"content":"');
+             setTimeout(() => response.destroy(), 25);
++          } else if (failure === 'malformed-provider-envelope') {
++            response.end(JSON.stringify({ model, digest, message: { content: 17 }, done: true }));
++          } else if (failure === 'served-model-drift' || failure === 'served-digest-drift') {
++            response.end(JSON.stringify({
++              model: failure === 'served-model-drift' ? 'different:1b' : model,
++              digest: failure === 'served-digest-drift' ? 'b'.repeat(64) : digest,
++              message: { content: JSON.stringify({ intent: 'AMBIGUOUS', confidence: 0.5,
++                question: 'Co přesně chceš?', continuesPending: false }) }, done: true, done_reason: 'stop',
++            }));
+           } else {
+-            response.writeHead(failure === 'http-502' ? 502 : 503)
+-              .end(JSON.stringify({ error: 'PRIVATE_PROVIDER_OUTAGE_DETAIL' }));
++            response.writeHead(Number(failure.slice(5)) || 503)
++              .end(JSON.stringify({ error: failure === 'http-500'
++                ? 'PRIVATE_PROVIDER_OUTAGE_DETAIL model not loaded' : 'PRIVATE_PROVIDER_OUTAGE_DETAIL' }));
+           }
+         } else {
+           response.writeHead(404).end('{}');
+@@ -66,6 +85,7 @@ test('M1 classifier outage is a typed error with no assistant persistence or eff
+       let database;
+       try {
+         product = await startProduct(owned, providerUrl, model);
++        active = true; // Change provider only after healthy durable binding startup.
+         if (failure === 'connection-refused') {
+           provider.closeAllConnections();
+           await new Promise(resolve => provider.close(resolve));
+@@ -88,7 +108,9 @@ test('M1 classifier outage is a typed error with no assistant persistence or eff
+ 
+         const conversationId = await createConversation(`outage-${failure}`);
+         database = new Database(owned.database, { readonly: true });
+-        const effectCount = () => database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n;
++        const effectCount = () => Object.fromEntries(['tool_v1_requests', 'm2_effect_requests',
++          'm2_approval_grants', 'm2_effect_results'].map(table => [table,
++          database.prepare(`SELECT count(*) AS n FROM ${table}`).get().n]));
+         const beforeEffects = effectCount();
+         const result = await send(conversationId, input);
+         const roles = () => database.prepare('SELECT role FROM messages WHERE conversation_id = ? ORDER BY id')
+@@ -98,24 +120,27 @@ test('M1 classifier outage is a typed error with no assistant persistence or eff
+         const evidencePath = path.join(owned.artifacts, 'm1-classifier-outage.json');
+         writeFileSync(evidencePath, JSON.stringify(observation, null, 2) + '\n', { mode: 0o600 });
+         t.diagnostic(`outage evidence: ${evidencePath}`);
+-        const unavailable = ['http-503', 'connection-refused', 'socket-close-before-headers'].includes(failure);
++        const unavailable = !['malformed-provider-envelope', 'partial-response-close'].includes(failure);
+         assert.equal(result.status, unavailable ? 503 : 500, JSON.stringify(observation));
+         assert.equal(result.data.error.code, unavailable ? 'LLM_PROVIDER_UNAVAILABLE' : 'CHAT_PROCESSING_FAILED');
+         assert.equal(result.data.status, 'error');
+         assert.equal(Object.hasOwn(result.data, 'response'), false);
+         assert(!JSON.stringify(result.data).includes('PRIVATE_PROVIDER_OUTAGE_DETAIL'));
+         assert.deepEqual(roles(), ['user']);
+-        assert.equal(effectCount(), beforeEffects);
+-        if (failure !== 'connection-refused') {
++        assert.deepEqual(effectCount(), beforeEffects);
++        const expectedCalls = failure === 'connection-refused' || failure.startsWith('tags-') ? 0 : 1;
++        assert.equal(calls.length, expectedCalls, 'binding rejection must precede generation; no retry/fallback');
++        if (expectedCalls === 1) {
+           assert.equal(calls.length, 1, 'classification must not retry or generate a fallback answer');
+           assert(calls[0].messages[0].content.includes('Klasifikuj'));
+           assert.equal(JSON.parse(calls[0].messages.at(-1).content).request, input);
+         }
+ 
+         await stopProduct(product);
++        active = false;
+         product = await startProduct(owned, providerUrl, model);
+         assert.deepEqual(roles(), ['user'], 'restart fabricated an assistant turn');
+-        assert.equal(effectCount(), beforeEffects);
++        assert.deepEqual(effectCount(), beforeEffects);
+         writeFileSync(path.join(owned.artifacts, 'm1-classifier-outage-restart.json'),
+           JSON.stringify({ failure, roles: roles(), effects: effectCount(), restartVerified: true }) + '\n',
+           { mode: 0o600 });
+@@ -129,7 +154,7 @@ test('M1 classifier outage is a typed error with no assistant persistence or eff
+   }
+ });
+ 
+-test('classifier error handling preserves cancellation and invalid-output fallback', async () => {
++test('classifier error handling preserves cancellation and invalid-output fallback', async t => {
+   const original = llmGateway.call;
+   try {
+     for (const content of ['not JSON', '{"intent":"UNKNOWN","confidence":0.9}',
+@@ -137,9 +162,41 @@ test('classifier error handling preserves cancellation and invalid-output fallba
+       llmGateway.call = async () => ({ content, finishReason: 'stop' });
+       assert.equal(await creDecisionEngine._llmClassifyIntent('Pomoz mi s výběrem.', {}), null);
+     }
+-    // Text mentioning an outage is not a transport error or permission to change routing.
+-    llmGateway.call = async () => { throw new Error('LLM_PROVIDER_UNAVAILABLE'); };
+-    assert.equal(await creDecisionEngine._llmClassifyIntent('Pomoz mi s výběrem.', {}), null);
++    // A rejected gateway call is terminal regardless of message text or a new error code.
++    // These are internal ChatTurnError fields; ConversationResult does not serialize recoverable.
++    for (const gatewayError of [new Error('LLM_PROVIDER_UNAVAILABLE'),
++      Object.assign(new Error('future gateway failure'), { code: 'LLM_NEW_OPERATIONAL_FAILURE' }),
++      Object.assign(new Error('empty provider reply'), { code: 'LLM_PROVIDER_EMPTY_RESPONSE' })]) {
++      await t.test(gatewayError.code || 'untyped-gateway-error', async () => {
++        llmGateway.call = async () => { throw gatewayError; };
++        await assert.rejects(creDecisionEngine._llmClassifyIntent('Pomoz mi s výběrem.', {}),
++          error => error.code === 'LLM_PROVIDER_UNAVAILABLE' && error.statusCode === 503
++            && error.recoverable === true);
++      });
++    }
++    await t.test('nested timeout preserves cancellation without an aborted signal', async () => {
++      const { AbortSource, createAbortError } = await import('../src/core/abort-error.js');
++      const timeout = createAbortError(AbortSource.TIMEOUT);
++      llmGateway.call = async () => { throw new Error('gateway wrapper', { cause: timeout }); };
++      await assert.rejects(creDecisionEngine._llmClassifyIntent('Pomoz mi s výběrem.', {}),
++        error => error === timeout && error.abortSource === AbortSource.TIMEOUT);
++    });
++    await t.test('cyclic unknown gateway causes fail closed', { timeout: 1000 }, async () => {
++      const cyclic = Object.assign(new Error('unknown gateway failure'), { code: 'LLM_FUTURE_FAILURE' });
++      cyclic.cause = cyclic;
++      llmGateway.call = async () => { throw cyclic; };
++      await assert.rejects(creDecisionEngine._llmClassifyIntent('Pomoz mi s výběrem.', {}),
++        error => error.code === 'LLM_PROVIDER_UNAVAILABLE' && error.statusCode === 503
++          && error.recoverable === true);
++    });
++    await t.test('existing typed capacity failure survives a gateway wrapper', async () => {
++      const { ChatContextCapacityError } = await import('../src/core/chat-turn-error.js');
++      const capacity = new ChatContextCapacityError('CLASSIFIER_CONTEXT_TOO_LARGE');
++      llmGateway.call = async () => { throw new Error('gateway wrapper', { cause: capacity }); };
++      await assert.rejects(creDecisionEngine._llmClassifyIntent('Pomoz mi s výběrem.', {}),
++        error => error === capacity && error.code === 'CHAT_CONTEXT_CAPACITY_EXCEEDED'
++          && error.statusCode === 413 && error.recoverable === false);
++    });
+     const controller = new AbortController();
+     llmGateway.call = async () => {
+       controller.abort();
+diff --git a/tests/project-collaboration.test.js b/tests/project-collaboration.test.js
+index 688634fb..c4318cd5 100644
+--- a/tests/project-collaboration.test.js
++++ b/tests/project-collaboration.test.js
+@@ -935,3 +935,189 @@ test('natural project request crosses the actual semantic classifier and default
+     Object.assign(creDecisionEngine, engineState);
+   }
+ });
++
++
++// C9: actual M1 terminal boundary, controlled local provider; no live inference.
++test('M1 project planner terminal failures preserve HTTP status, user-only history and zero effects across restart', { timeout: 180_000 }, async t => {
++  const http = await import('node:http');
++  const { randomUUID } = await import('node:crypto');
++  const { default: Database } = await import('better-sqlite3');
++  const { createOwnedJourneyRuntime, startProduct, stopProduct, requestJson, expectJson } =
++    await import('./helpers/chat-project-expertise-model-journey.js');
++  const { PROJECT_DISCUSSION_SCHEMA } = await import('../src/chat/handlers/project-collaboration.js');
++  const input = 'Vytvoř další přírůstek monitoru ve zdrojích a testech. Existující závislost uveď pouze jako contextFiles.';
++  const cases = [
++    { id: 'http-503', status: 503, code: 'LLM_PROVIDER_UNAVAILABLE' },
++    { id: 'http-502', status: 503, code: 'LLM_PROVIDER_UNAVAILABLE' },
++    { id: 'http-404', status: 503, code: 'LLM_PROVIDER_UNAVAILABLE' },
++    { id: 'tags-unverified', status: 503, code: 'LLM_PROVIDER_UNAVAILABLE', plannerCalls: 0 },
++    { id: 'malformed-envelope', status: 500, code: 'CHAT_PROCESSING_FAILED' },
++    { id: 'empty-response', status: 503, code: 'LLM_PROVIDER_UNAVAILABLE' },
++    { id: 'socket-close-before-headers', status: 503, code: 'LLM_PROVIDER_UNAVAILABLE' },
++    { id: 'invalid-planner-json', status: 500, code: 'CHAT_PROCESSING_FAILED' },
++    { id: 'incomplete-planner', status: 500, code: 'CHAT_PROCESSING_FAILED' },
++    { id: 'exhausted-structural-repair', status: 500, code: 'CHAT_PROCESSING_FAILED', plannerCalls: 2 },
++    { id: 'valid-plan-null', status: 200, code: null },
++    { id: 'cancel-planner', status: 409, code: 'CHAT_CANCELLED' },
++  ];
++  for (const scenario of cases) await t.test(scenario.id, async () => {
++    const owned = createOwnedJourneyRuntime(isolatedTestRuntime);
++    const model = 'fixture:1b', digest = 'a'.repeat(64);
++    const safeReply = 'Nejprve upřesni interval vzorkování; návrh zatím nic nemění.';
++    const calls = [], wire = [], violations = [];
++    let phase = 'startup', classifierCompleted = false, tagsFaults = 0;
++    let reachedPlanner; const plannerReached = new Promise(resolve => { reachedPlanner = resolve; });
++    const write = (name, value) => fs.writeFile(path.join(owned.artifacts, name), JSON.stringify(value, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
++    const wirePath = path.join(owned.artifacts, 'provider-wire.jsonl');
++    await fs.writeFile(wirePath, '', { flag: 'wx', mode: 0o600 });
++    const event = async value => { wire.push(value); await fs.appendFile(wirePath, JSON.stringify(value) + '\n'); };
++    const provider = http.createServer(async (req, res) => {
++      let raw = '';
++      try {
++        for await (const chunk of req) { raw += chunk; if (Buffer.byteLength(raw) > 1024 * 1024) throw Error('fixture request exceeded bound'); }
++        const row = { at: new Date().toISOString(), phase, method: req.method, url: req.url,
++          requestBase64: Buffer.from(raw).toString('base64') };
++        const respond = async (status, value) => {
++          const body = typeof value === 'string' ? value : JSON.stringify(value);
++          await event({ ...row, status, responseBase64: Buffer.from(body).toString('base64') });
++          res.writeHead(status, { 'Content-Type': 'application/json' }).end(body);
++        };
++        if (req.url === '/api/tags') {
++          if (phase === 'target' && classifierCompleted && scenario.id === 'tags-unverified') {
++            tagsFaults++; return await respond(200, { models: [] });
++          }
++          return await respond(200, { models: [{ name: model, digest }] });
++        }
++        if (req.url === '/api/show') return await respond(200, { model_info: { 'fixture.context_length': 4096 } });
++        if (req.url !== '/api/chat') throw Error(`unexpected provider route ${req.url}`);
++        const body = JSON.parse(raw); calls.push(body);
++        assert.equal(phase, 'target', 'startup/restart must not request inference');
++        assert.equal(body.model, model);
++        const classifier = body.format === 'json';
++        if (classifier) {
++          assert.equal(calls.length, 1, 'classification cannot retry');
++          assert.match(body.messages[0].content, /Klasifikuj/);
++          assert.equal(JSON.parse(body.messages.at(-1).content).request, input);
++          const value = { intent: 'CREATIVE', confidence: 0.95, fileTarget: null, question: null,
++            continuesPending: false, responseScope: 'project', briefResponse: false,
++            responseWordCount: null, requestedOperation: 'none', unavailableAction: null };
++          await respond(200, { model, digest, message: { content: JSON.stringify(value) }, done: true,
++            done_reason: 'stop', prompt_eval_count: 100, eval_count: 40 });
++          classifierCompleted = true; return;
++        }
++        assert.deepEqual(body.format, PROJECT_DISCUSSION_SCHEMA, 'second role must be actual D1 planner');
++        assert.equal(JSON.parse(body.messages.at(-1).content).request, input);
++        assert.ok(calls.length <= 1 + (scenario.plannerCalls ?? 1), 'no extra inference or unbounded repair');
++        reachedPlanner();
++        if (scenario.id === 'cancel-planner') { await event({ ...row, heldForCancellation: true }); return; }
++        if (scenario.id === 'socket-close-before-headers') { await event({ ...row, socketClosedBeforeHeaders: true }); req.socket.destroy(); return; }
++        if (scenario.id.startsWith('http-')) return await respond(Number(scenario.id.slice(5)), { error: 'PRIVATE_PROJECT_PROVIDER_DETAIL' });
++        if (scenario.id === 'malformed-envelope') return await respond(200, { model, digest, message: { content: 42 }, done: true, done_reason: 'stop' });
++        let content = JSON.stringify({ reply: safeReply, plan: null });
++        if (scenario.id === 'empty-response') content = '';
++        if (scenario.id === 'invalid-planner-json') content = 'PRIVATE_INVALID_PLAN_NOT_JSON';
++        if (scenario.id === 'exhausted-structural-repair') content = JSON.stringify({ reply: 'Proposed', plan: { instruction: 'Retain monitor history.', files: [] } });
++        return await respond(200, { model, digest, message: { content }, done: true,
++          done_reason: scenario.id === 'incomplete-planner' ? 'length' : 'stop', prompt_eval_count: 100, eval_count: 40 });
++      } catch (error) {
++        violations.push({ message: error.message, stack: error.stack });
++        if (!res.headersSent && !res.destroyed) res.writeHead(500, { 'Content-Type': 'application/json' }).end('{}');
++      }
++    });
++    await new Promise(resolve => provider.listen(0, '127.0.0.1', resolve));
++    const providerUrl = `http://127.0.0.1:${provider.address().port}`;
++    let product, database, project, conversationId, observation;
++    const stops = [];
++    const stop = async () => {
++      if (!product) return;
++      const state = product;
++      await stopProduct(state);
++      stops.push({ pid: state.child.pid, exitCode: state.code, signal: state.signal, outputTail: state.output });
++      product = null;
++    };
++    try {
++      product = await startProduct(owned, providerUrl, model);
++      project = (await expectJson(product, 'POST', '/api/projects', { name: `Planner ${scenario.id}`, type: 'general', description: 'Controlled monitor planner failure fixture.' }, 201)).project;
++      conversationId = (await expectJson(product, 'POST', '/api/conversations', { title: scenario.id, project_id: project.id, mode: 'chat' }, 201)).conversation.id;
++      database = new Database(owned.database, { readonly: true });
++      const tables = ['tool_v1_requests', 'm2_lifecycle_operations', 'm2_execution_requests', 'm2_effect_requests', 'm2_effect_results'];
++      const snapshot = () => ({ messages: database.prepare('SELECT id, role, content, metadata FROM messages WHERE conversation_id=? ORDER BY id').all(conversationId),
++        counts: Object.fromEntries(tables.map(name => [name, database.prepare(`SELECT count(*) AS n FROM ${name}`).get().n])) });
++      const projectSnapshot = async () => {
++        const git = args => execFileSync('git', args, { cwd: project.path, encoding: 'utf8' });
++        return { head: git(['rev-parse', 'HEAD']).trim(), status: git(['status', '--porcelain', '--untracked-files=all']),
++          files: Object.fromEntries(await Promise.all(git(['ls-files', '-z']).split('\0').filter(Boolean)
++            .map(async file => [file, (await fs.readFile(path.join(project.path, file))).toString('base64')]))) };
++      };
++      const before = snapshot(), beforeProject = await projectSnapshot();
++      const command = { contract: 'ConversationCommand', version: 1, action: 'send',
++        requestId: randomUUID(), turnId: randomUUID(), conversationId, input };
++      phase = 'target';
++      let result, cancellation = null;
++      const pending = requestJson(product, 'POST', '/api/chat', command);
++      if (scenario.id === 'cancel-planner') {
++        let timer;
++        try { await Promise.race([plannerReached, new Promise((_, reject) => { timer = setTimeout(() => reject(Error('planner not reached before cancel')), 15_000); })]); }
++        finally { clearTimeout(timer); }
++        cancellation = await requestJson(product, 'POST', '/api/chat', { contract: 'ConversationCommand', version: 1,
++          action: 'cancel', requestId: randomUUID(), turnId: randomUUID(), conversationId });
++      }
++      result = await pending;
++      const after = snapshot(), afterProject = await projectSnapshot();
++      observation = { scenario, ownedRoot: owned.root, database: owned.database, projectId: project.id,
++        projectPath: project.path, command, result, cancellation, before, after, beforeProject, afterProject,
++        calls, tagsFaults, violations };
++      await write('target-before-assertions.json', observation);
++      // A RED must retain restart evidence too: make no expected-status assertion before restart.
++      phase = 'restart';
++      await stop();
++      product = await startProduct(owned, providerUrl, model);
++      const restarted = snapshot(), restartedProject = await projectSnapshot();
++      await write('restart-before-assertions.json', { scenario: scenario.id, restarted, restartedProject, stops: [...stops] });
++      observation.restarted = restarted; observation.restartedProject = restartedProject;
++      await stop();
++      database.close(); database = null;
++      await write('observation.json', { ...observation, stops });
++      t.diagnostic(`C9 evidence: ${owned.artifacts}`);
++      // Fixture, isolation and durable no-effect assertions are independent of the expected RED status.
++      assert.deepEqual(violations, []);
++      assert.equal(calls.length, 1 + (scenario.plannerCalls ?? 1));
++      if (scenario.id === 'tags-unverified') assert.ok(tagsFaults > 0, 'D1 binding verification was not exercised');
++      assert.deepEqual(after.counts, before.counts);
++      assert.deepEqual(restarted.counts, before.counts);
++      assert.deepEqual(afterProject, beforeProject);
++      assert.deepEqual(restartedProject, beforeProject);
++      assert.deepEqual(restarted.messages, after.messages);
++      assert.equal(result.data.requestId, command.requestId);
++      assert.equal(result.data.turnId, command.turnId);
++      assert.equal(result.data.conversationId, conversationId);
++      assert.equal(result.status, scenario.status, JSON.stringify({ scenario: scenario.id, result }));
++      if (scenario.id === 'valid-plan-null') {
++        assert.equal(result.data.status, 'ok');
++        assert.equal(result.data.response.content, safeReply);
++        assert.equal(result.data.response.metadata.handler, 'project.collaboration');
++        assert.equal(result.data.response.metadata.projectWorkProposal, null);
++        assert.deepEqual(after.messages.map(row => row.role), ['user', 'assistant']);
++        assert.equal(after.messages[1].content, safeReply);
++      } else {
++        assert.equal(result.data.status, scenario.id === 'cancel-planner' ? 'cancelled' : 'error');
++        assert.equal(result.data.error.code, scenario.code);
++        assert.equal(Object.hasOwn(result.data, 'response'), false);
++        assert.doesNotMatch(JSON.stringify(result.data), /PRIVATE_PROJECT_PROVIDER_DETAIL|PRIVATE_INVALID_PLAN/);
++        assert.deepEqual(after.messages.map(row => row.role), ['user']);
++        if (scenario.id === 'cancel-planner') {
++          assert.equal(cancellation.status, 200);
++          assert.equal(cancellation.data.status, 'cancelled');
++          assert.equal(cancellation.data.error.code, 'CHAT_CANCELLED');
++        }
++      }
++    } finally {
++      database?.close();
++      await stop();
++      provider.closeAllConnections();
++      if (provider.listening) await new Promise(resolve => provider.close(resolve));
++      await write('cleanup.json', { scenario: scenario.id, stops, providerClosed: !provider.listening,
++        generatedByRealModel: false, fixtureViolations: violations });
++    }
++  });
++});

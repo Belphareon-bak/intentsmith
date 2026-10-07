@@ -26,6 +26,16 @@ strukturální počty a hodnocení pocházejí z historické inventury 2. 8. 202
 
 **Testy:** **47 sad** — nejvíc ze všech schopností. `database` 19, `model` 19, `offline` 7, `server` 2. `lastGreen: 0`.
 
+## Aktuální omezená oprava 7. 10. 2026
+
+C9 `24f329c6` opravuje doložený project.collaboration false-ok při D1 výpadku.
+Neúspěšný modelový call propaguje503, vadná provider obálka či plánování500;
+zrušení zůstává409. Platné doptání plan:null zůstává200. Původní jediný
+strukturální repair se nerozšiřuje. Řízená skutečná M1/restart sada57PASS,
+bez změny project/Git a bez nových efektů; nezávislé source/test/evidence
+review PASS, integrace NOT_RUN. Nejde o živou Studio/D1 přejímku.
+[Paket C9](../review/2026-10-07-CHAT-TERMINAL-FAILURES.md).
+
 ## Dobré, použije se
 - **Stavový automat SPEC → BUILD → REVIEW → CHANGE → COMPLETED** — lifecycle je explicitní stav v DB, ne implicitní stav v paměti.
 - **Checkpoint módy** `STRUCTURAL` / `FUNCTIONAL` / `SECURITY` — různé milníky se ověřují různě.

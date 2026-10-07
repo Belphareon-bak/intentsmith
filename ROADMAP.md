@@ -3,12 +3,16 @@
 **Aktuální checkpoint 7. 10. 2026:** [stav, implementační mezery a zbývající testy](docs/WORK-PROGRESS.md).
 Release `NOT_ACCEPTED`; BE `c84b88cd` / Studio `7bf62455…bfe24` nezměněné.
 Přijaté Ledger/TaskFlow/SQLite, omezený AST/GPU panel/cleanup, full109 DB roundtrip a M3 worker;
-opakovat pouze při nové změně nebo konkrétní pochybnosti. ROOT vlastní integraci i CHAT. Aktuální produktový zdroj `e6b83884` zahrnuje
-přezkoumané C7/C8; context41/integrace19 PASS. Nový čistý checkpoint f4754575:
-**celý offline/database410PASS/0FAIL/BLOCKED/TIMEOUT/SKIPPED**,21:00:05–21:09:49UTC,
-nezávislé execution reviewb132b085…0f8fe a [CI18](https://github.com/Belphareon-bak/intentsmith/actions/runs/37686205441) SUCCESS.
-Předchozí9b409PASS/1doc-censusFAIL zachovaný; opraven pouze naměřený údaj v dokumentaci.
-[Přesný celý profil a historie](docs/review/evidence/chat-transport-failures-20261007/full-profile.json).
+opakovat pouze při nové změně nebo konkrétní pochybnosti. ROOT vlastní integraci i CHAT.
+Aktuální produktový zdroj C9 `24f329c6` ukončuje neúspěšné classifier/D1 volání
+terminální chybou místo falešného úspěchu. Source review PASS; řízených13HTTP/restart,
+context52 (v2), dodatečných7unit (v3) a project57 PASS. Nezávislé source, test
+a evidence review PASS; integrace a celý profil tohoto zdroje NOT_RUN.
+[Paket C9](docs/review/2026-10-07-CHAT-TERMINAL-FAILURES.md).
+Předchozí čistý checkpoint f4754575 (produktový zdroj e6) měl
+celý offline/database410PASS/0FAIL/BLOCKED/TIMEOUT/SKIPPED a CI18SUCCESS;
+jeho výsledek se nepřenáší na C9. Původní9b409PASS/1doc-censusFAIL zachovaný.
+[Přesný starší profil a historie](docs/review/evidence/chat-transport-failures-20261007/full-profile.json).
 Živá kvalita a release nepřijaté.
 
 Cache oprava `0d86b68e`: CPU 23/23 a source review; [CI37460776179](https://github.com/Belphareon-bak/intentsmith/actions/runs/37460776179) všech 18 kroků SUCCESS.
@@ -23,8 +27,8 @@ Actual v5 na cd3b8f02 odeslal vstup,1classifier request/0úplných odpovědí/0D
 GPU monitor a cleanup FAIL, samostatná own-lease recovery přezkoumaná.
 Stagnace: další C5 retry v tomto cyklu zastaven, Studio→D1 nepřijaté. [Paket C5](docs/review/2026-10-07-STUDIO-D1-ENTRY.md).
 Historický ROOT offline/database profil `86dbca40`: 410 PASS /0 FAIL /BLOCKED /TIMEOUT; netestoval následnou cache opravu.
-Registry 596/35; CHAT kandidát: module graph má 1 512 hran, 3 cykly /28 členů.
-Jediná nová hrana CRE → chat-turn-error nezávisle schválená, baseline připnutý na `1f098912`.
+Registry 596/35; C9 module graph má 1 514 hran, 3 cykly /28 členů.
+Dvě nové project→core error/abort hrany nezávisle schválené; baseline připnutý na `24f329c6`.
 C1 context27/M1 74/project44 nezávisle opakované. Nový CHAT checkpoint `b9cfc7c5`:
 full offline/database410 PASS/0 FAIL/BLOCKED/TIMEOUT, CHAT7/CODE12 PASS;
 CI37644166375 všech18 SUCCESS; FINAL_EVIDENCE_REVIEW_PASS.
@@ -71,7 +75,8 @@ Fan 8/11, oracle 8 PASS/6 FAIL; repair4+CLI3/cumulative15 čeká na samostatnou 
 32k krátce změřené fullGPU/min free 2 512 MiB; celé okno ani kvalita aplikace tím nepřijaté.
 Classifier→D1 CPU 44 +parser 24/review PASS; živý přirozený vstup a fyzická ovladatelnost IDE/M2 otevřené.
 
-Nynější úkol: po přezkoumaných C7/C8 oddělit návaznost a save interpretaci
+Nynější úkol: dokončit C9 integrační kontroly po opravě zbývajících false-ok
+větví z externí revize C1/kolo5. Potom oddělit návaznost a save interpretaci
 na již známých vstupech; C6 NO_GO a C7 živý FAIL zůstávají. C5 retry zastaven,
 před návratem jiná omezená strategie; C3/C4 přezkoumány,
 H1 čeká na custody/dešifrovací krok operátora. Další:

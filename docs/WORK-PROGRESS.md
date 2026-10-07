@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 7. 10. 2026; zdroj e6b83884 publikován. C1/C3/C7/C8 source review PASS, aktuální context41 / integrace19 / celý offline+database410 / CI18 PASS (testovaný checkpoint f4754575). C4 fresh5 5PASS. C5 v5 LIVE_FAIL, D1 nedosažen; C6 kvalita NO_GO. C7 živá série 1/3 funkčně FAIL, cleanup FAIL; další dvě NOT_RUN. H1 sběr NOT_RUN.
+**Aktualizováno:** 7. 10. 2026; C9 zdroj24f329c6, source review PASS; classifier13HTTP/restart +context52/v3unit7, project57 GREEN. Nezávislé source/test/evidence review PASS; integrační kontroly NOT_RUN. Starší full410/CI18 patří f4754575/e6. C4 fresh5 5PASS. C5 v5 LIVE_FAIL, D1 nedosažen; C6 kvalita NO_GO. C7 živá série1/3 FAIL, další2 NOT_RUN. H1 sběr NOT_RUN.
 **Vlastník integrace a CHAT:** tento koordinátor přebírá ROOT
 (`work/real-chat-journeys-20260930`) podle následného pokynu operátora.
 Jediný writer `cre-decision.js` i společných map je nyní ROOT; HTTP, Fan, fresh5
@@ -25,7 +25,7 @@ main `838b8cee`. Obsahuje CHAT `e066956b` (merge `56138e4f`) a projektovou D1
 změnu `8fe6fb53`. Čistý vlastní CHAT checkout byl na tento základ fast-forwardnut;
 To byl stav vstupu C1. Nyní čistý ROOT checkout převzal přesný publikovaný
 CHAT `e15264f14b3db3e47837da1adac11509bcc37bc4` pomocí fast-forwardu
-z `a61fe70d`, bez slučovacího diffu. Aktuální zdroj po dalších cyklech je e6b83884.
+z `a61fe70d`, bez slučovacího diffu. Aktuální zdroj po dalších cyklech je24f329c6.
 Produkce ani oba zmrazené H1 kandidáty
 `c7f03d56` / `9591ea1b` se nemění.
 Full109 a kopírovaná cache/upgrade jsou přijaté v rozsahu níže; neopakují se bez
@@ -58,7 +58,9 @@ se v tomto cyklu neprovádí. C6 dokončil3×53 a dva posudky potvrzují NO_GO.
 Navazující C7 opravil prokázanou aplikační ztrátu save kontextu, C8 další tři
 třídy nepravdivého úspěchu při providerové chybě; oba mají nezávislé source
 a execution review. C7 cílená živá série přesto nabídku uložení nevytvořila.
-Další chatový krok musí oddělit rozhodnutí o návaznosti a save interpretaci
+Externí revize C1/kolo5 doložila zbývající404/binding false-ok, nesprávné500/502
+mapování a projektový catch. Přednost má jejich společná oprava C9 níže.
+Následující chatový krok musí oddělit rozhodnutí o návaznosti a save interpretaci
 na již exponovaných případech, nikoli přidat nedoložený prompt/regex. C2 již rozebral všech 36 neužitečných odpovědí a 22 zastavení
 z Gemma regrese podle rodiny a příčiny (aplikace/model/hodnocení, překryvy se nesčítají).
 H1 má naplánované jedno společné GPU okno pro oba pevné kandidáty, zatím
@@ -302,6 +304,37 @@ zůstává ok; tento cyklus neopravuje samostatnou M7 sémantiku ani všechny
 404/empty/binding/queue chyby. C5 přesná historická výjimka stále UNKNOWN.
 [Paket C8](review/2026-10-07-CHAT-TRANSPORT-FAILURES.md).
 
+### C9 — každé neúspěšné modelové volání ukončí tah (SOURCE_REVIEW_PASS; INTEGRATION_PENDING)
+
+Autorita: explicitní nálezy operátora C1/kolo5 nad e6b83884, včetně jednotného
+HTTP503 pro provozní výpadky a projektové cesty ve vlastnictví ROOT.
+BASE22bb4413; produktový zdroj24f329c6; samostatný přijatý baseline d2f39d7e.
+ROOT vlastní CRE, project-collaboration, core chat-turn-error a dva existující
+testy; nezávislý worker posoudil zdroj, další reviewer testy a raw evidence.
+
+RED13 ukázal6 false-ok s durable assistant (404, tags absent/500 a3drift podmínky)
+a2 chybné500/recoverable:false pro provider500/502;5 controls PASS.
+Samostatný projektový RED503 měl200/ok a assistant i po restartu.
+Přípravný probe1 chybně očekával recoverable na M1 wire; zachovaný FAIL je chyba
+sondy. Opravená sonda ověřuje recoverable uvnitř ChatTurnError; M1 kontrakt se nemění.
+
+C9 odděluje zamítnuté gateway volání od neplatného obsahu úspěšné klasifikace.
+Rejected call končí503/recoverable:true, včetně nových/neznámých kódů a EMPTY_RESPONSE;
+malformed provider obálka zůstává500. Cancellation a existující typed chyby se
+zachovají. Projektový handler už nepřevádí výjimku na úspěšnou assistant zprávu:
+invalid/incomplete/vyčerpaný strukturální repair končí500, platné plan:null zůstává200.
+Počet původních repair pokusů, prompty, modely, parametry ani approval se nemění.
+
+Řízený GREEN: classifier13HTTP/restart, celý contextv2 52PASS, v3delta7PASS;
+project57PASS (44původní+12scénářů+parent), včetně cancel409/validnull200.
+Nezávislé source/test/evidence review PASS včetně projektového57PASS.
+Žádná inference/GPU, žádný nový efekt či projektová změna. Dvě přesné nové
+project→core hrany přijaté; graph1514/3cykly28, žádné nové testové programy.
+Stop podmínka: neúspěšná nebo neověřená kontrola zůstane FAIL/NOT_RUN; bez
+integrace na čistém kandidátu se C9 nevydá za dokončený. Celý profil a CI čekají.
+[Paket C9: přesná identita, diff, příkazy/exity a SHA-256](review/2026-10-07-CHAT-TERMINAL-FAILURES.md).
+CPU přezkoušení nevyžaduje GPU; H1/H2/restricted/ se nečtou. Release NOT_ACCEPTED.
+
 ## Přijaté dílčí výsledky
 
 | Oblast | Doložený výsledek | Omezení |
@@ -320,7 +353,7 @@ BE restart SQLite dokládá durable M2/zdroje; nedokládá DB v dalším novém 
 
 ## Společný kandidát a kontroly
 
-Aktuální produktový zdroj **e6b83884**: C7+C8, context41PASS, původní CHAT7/CODE12
+Předchozí produktový zdroj **e6b83884**: C7+C8, context41PASS, původní CHAT7/CODE12
 19PASS, nezávislé execution review a [CI37680691150](https://github.com/Belphareon-bak/intentsmith/actions/runs/37680691150) všech18SUCCESS.
 Nový celý offline/database profil9b161de5,20:47:08–20:57:18UTC:409PASS/1FAIL,
 0BLOCKED/TIMEOUT/SKIPPED. Jediný FAIL je zastaralý LOC údaj v SYSTEM-MAP,159/160
@@ -344,7 +377,7 @@ CHAT checkout 6. 10. ověřený clean e066956b; produktovou logiku CHATu ROOT ne
 Historický ROOT offline/database profil **86dbca40: 410 PASS / 0 FAIL / BLOCKED / TIMEOUT**,
 5. 10., 04:44:14–04:54:05 UTC; report a5a2f4a3…326d11c, všechny řádky/logy nezávisle ověřené.
 Data 24/24, M1 kontrakt 74/74; tento starší profil necertifikuje cache opravu ani release.
-Historický doc/artifact gate160 PASS patří ROOT. Aktuální census9b161de5 src688/237244, tests604/270781; revidovaný graph1512/3cykly28.
+Historický doc/artifact gate160 PASS patří ROOT. Aktuální census d2f39d7e: src688/237254, tests604/271024; revidovaný graph1514/3cykly28.
 Studio bundle 7bf62455…bfe24 / instalovaný BE c84b88cd nezměněné; žádný deploy ani aktivace.
 Externí c5309a0/bundle místně chybí; jeho výsledky nejsou přijaté místní důkazy.
 
@@ -371,7 +404,7 @@ Actual používá zdroj cache 0700; původní zdroj 0775 pokrývá CPU regrese, 
 | Přirozené plánování | C5 v5 po opraveném ovladači odeslal vstup; GPU monitor FAIL před úplnou odpovědí, D1 NOT_REACHED. Stagnace: žádný další retry v tomto cyklu |
 | M1 outage | C1 `1f098912` source review a řízené HTTP/restart PASS; testovaný `b9cfc7c5` full410/CHAT7/CODE12/CI PASS; ROOT převzal e15264f1; C4 fresh5 b959a468 5PASS/review PASS |
 | Chatová kvalita | C6 úplné3×53/dva posudky NO_GO; C7 oprava context/restart CPU přijatá, živý save i cleanup první série FAIL; další2 NOT_RUN. Oddělit návaznost a save interpretaci |
-| Providerové chyby | C8 tři další false-ok větve opravené; context41/integrace19/CI18 PASS, source/evidence review PASS; interní M7 stav a ostatní error kategorie mimo rozsah |
+| Providerové chyby | C9 zdroj24f329c6: zbývající classifier404/binding/drift +projektové chyby terminal; řízené13HTTP/57project GREEN, source/test/evidence review PASS; integrace NOT_RUN. Interní M7 status se nemění |
 | Mobil | Chybí conversation.create; implementace a device přejímka až po stabilním IDE/BE |
 | Hunt | Potřebujeme nový grading report/cestu a vlastníka pokračování; ROOT cizí hodnocení nepřebírá |
 | H1 custody | Čeká volba veřejného GPG fingerprintu pro zašifrované výstupy nebo privátní raw custody u operátora, poté dešifrování těsně před společným oknem; sběr NOT_RUN |
@@ -394,7 +427,8 @@ To nedokládá zaplněné 32k okno. Output4096 platí jen pro vydaný exact CODE
 
 ## Zbývající testy a pořadí dokončení
 
-1. C4 původní fresh5 na b959a468: **5PASS/review PASS**. Historický90/3PASS2FAIL zachovaný.
+1. Dokončit C9 nezávislé evidence review a integraci na čistém kandidátu.
+   C4 původní fresh5 na b959a468: **5PASS/review PASS**. Historický90/3PASS2FAIL zachovaný.
    C5 uzavřít jako přezkoumaný FAIL; další strategie nesmí pokračovat řadou retry aparátu.
    C6 známá regrese74,21%/15,09% NO_GO; C7/C8 produktové opravy přijaté v uvedeném rozsahu,
    první cílený živý save stále FAIL. Další cyklus oddělí návaznost/interpretaci na známých
