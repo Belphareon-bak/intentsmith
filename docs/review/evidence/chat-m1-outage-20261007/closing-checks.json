@@ -1,0 +1,59 @@
+{
+  "scope": "documentation closure only; full candidate evidence is verification.json",
+  "checks": [
+    {
+      "command": [
+        "node",
+        "tests/artifact-validation.test.js"
+      ],
+      "head": "b9cfc7c56d6cf5648267a40573805fe1cd67241c",
+      "startedAt": "2026-10-07T15:57:31.449534+00:00",
+      "finishedAt": "2026-10-07T15:57:32.002935+00:00",
+      "exitCode": 0,
+      "logPath": ".intentsmith-artifacts/chat-m1-outage-20261007/docs-close.log",
+      "logSha256": "f52f3b750d7cd8d7f751d21f040b6e178db02e7090f12d6ed38b3f50e3b68476",
+      "note": "Final documentation content checked before closing commit; source/test/baseline unchanged from b9cfc7c5."
+    },
+    {
+      "head": "b9cfc7c56d6cf5648267a40573805fe1cd67241c",
+      "command": [
+        "node",
+        "scripts/module-boundary-ratchet.mjs"
+      ],
+      "startedAt": "2026-10-07T15:54:17.610684+00:00",
+      "finishedAt": "2026-10-07T15:54:19.016951+00:00",
+      "exitCode": 0,
+      "logPath": ".intentsmith-artifacts/chat-m1-outage-20261007/boundary-final.log",
+      "logSha256": "f4d7dc247116a700190d9f30f7164632c5d1fe0d8f92a15e41ecb52ced30c143",
+      "note": "Final documentation/evidence edits uncommitted during these document/graph/registry checks; product/test/baseline bytes unchanged from tested checkpoint."
+    },
+    {
+      "head": "b9cfc7c56d6cf5648267a40573805fe1cd67241c",
+      "command": [
+        "npm",
+        "run",
+        "test:registry"
+      ],
+      "startedAt": "2026-10-07T15:54:19.017349+00:00",
+      "finishedAt": "2026-10-07T15:54:19.162773+00:00",
+      "exitCode": 0,
+      "logPath": ".intentsmith-artifacts/chat-m1-outage-20261007/registry-close.log",
+      "logSha256": "074d65af3c8fcf9173f9c0156b924019c2e09a48027f25123dff5481b0440248",
+      "note": "Final documentation/evidence edits uncommitted during these document/graph/registry checks; product/test/baseline bytes unchanged from tested checkpoint."
+    },
+    {
+      "head": "b9cfc7c56d6cf5648267a40573805fe1cd67241c",
+      "command": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "startedAt": "2026-10-07T15:54:19.162971+00:00",
+      "finishedAt": "2026-10-07T15:54:19.173207+00:00",
+      "exitCode": 0,
+      "logPath": ".intentsmith-artifacts/chat-m1-outage-20261007/diff-final.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "note": "Final documentation/evidence edits uncommitted during these document/graph/registry checks; product/test/baseline bytes unchanged from tested checkpoint."
+    }
+  ]
+}

@@ -1,0 +1,373 @@
+{
+  "schema": 1,
+  "recordedAt": "2026-10-07T15:52:07.251100+00:00",
+  "scope": "C1 controlled error behavior and development checks; ROOT integration/fresh5 and release NOT_RUN/NOT_ACCEPTED",
+  "sourceCandidate": "1f0989124630887edd5ab146e6acf662a5b2307d",
+  "testedCheckpoint": "b9cfc7c56d6cf5648267a40573805fe1cd67241c",
+  "matchingObjects": {
+    "src": "e5afc6d25e2bd2b15473efa406ce3ea1dc754093",
+    "tests/chat-context-interpretation.test.js": "e0fc7c0afc588e872f086bd521e04cf1cf44d2a9",
+    "package-lock.json": "edcd5c8312231d69e963c962875291b1520a89d2"
+  },
+  "runs": [
+    {
+      "label": "full-profile",
+      "receipt": {
+        "head": "10ef40ab39b518f2f0a0d2006f9b6fa4ee4f6199",
+        "command": [
+          "npm",
+          "run",
+          "test:deterministic",
+          "--",
+          "--run-id=chat-m1-c1-full-20261007-10ef40ab",
+          "--concurrency=1",
+          "--allow-blocker=toolchain:python-pdf-runtime,toolchain:accountant-ocr-runtime,toolchain:git,toolchain:bwrap,toolchain:iproute2,toolchain:nftables,toolchain:prlimit,toolchain:bubblewrap,toolchain:systemd-analyze,toolchain:python3,toolchain:tar"
+        ],
+        "environmentOverrides": {
+          "PATH": "/home/belphareon/.nvm/versions/node/v24.21.0/bin:/usr/bin:/bin",
+          "INTENTSMITH_PDF_PYTHON": "/home/belphareon/.local/share/intentsmith/python/pdf/bin/python",
+          "UCETNI_RUNTIME_DIR": "/home/belphareon/.local/share/ucetni"
+        },
+        "startedAt": "2026-10-07T15:13:11.399823+00:00",
+        "finishedAt": "2026-10-07T15:23:03.832059+00:00",
+        "exitCode": 1,
+        "logPath": ".intentsmith-artifacts/chat-m1-outage-20261007/full-profile.log",
+        "logSha256": "021da0f16bb29149343b0733ced7bb7e411e035b9d9bb5854ed65bc36d396d75"
+      },
+      "receiptArtifact": {
+        "path": ".intentsmith-artifacts/chat-m1-outage-20261007/full-profile-receipt.json",
+        "sha256": "29ba3a639a0eb1342b3fee94434f1fa82fce3e66a9a141d167e6cdef61cb88d6",
+        "bytes": 1013
+      },
+      "report": {
+        "path": ".intentsmith-artifacts/test-runs/chat-m1-c1-full-20261007-10ef40ab/report.json",
+        "sha256": "b6c40b50db1bc5609f69e9f19df56492123659798c7b5823a1aa4ef5c7a4a6ea",
+        "bytes": 1661448
+      },
+      "counts": {
+        "PASS": 409,
+        "FAIL": 1,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "inventoryFingerprint": "bd458c98749dc45f2b45fc91bbddd9e6bed1796db59fee13e1e0b990e9ac9662",
+      "optionsFingerprint": "aa583033a3469ab962a9380f894a1ffc951d13818e2cea89966faa37bddbf717",
+      "registryHash": "47acf12dbacd05883fcb79c0d06cc2653f7a5744e368b5ea17f2d4291e54e748",
+      "suiteLogsVerified": 410,
+      "suiteLogHashesLocation": "results[*].logSha256 in the exact report",
+      "failures": [
+        {
+          "id": "IS-T1-TESTS-M2-GOVERNANCE-EVALUATOR-TEST",
+          "status": "FAIL",
+          "exitCode": 1,
+          "logPath": ".intentsmith-artifacts/test-runs/chat-m1-c1-full-20261007-10ef40ab/logs/tests_m2-governance-evaluator.test.js.8ae217b6.log",
+          "logSha256": "6f5dfeb95c531ba773de74c325710fca39e4f81a950f22b8dd49ff7f7654049d"
+        }
+      ]
+    },
+    {
+      "label": "code12",
+      "receipt": {
+        "head": "b9cfc7c56d6cf5648267a40573805fe1cd67241c",
+        "command": [
+          "node",
+          "scripts/nightly-audit.js",
+          "--concurrency=1",
+          "--run-id=chat-m1-c1-code12-20261007-b9cfc7c5",
+          "--suite=IS-T1-TESTS-PROJECT-APP-ACCEPTANCE-TEST,IS-T1-TESTS-PROJECT-APP-M2-FUNCTIONAL-TEST,IS-T1-TESTS-M2-GOVERNANCE-EVALUATOR-TEST,IS-T1-TESTS-M2-LIFECYCLE-APPLICATION-SERVICE-TEST,IS-T1-TESTS-M1-MODEL-CONTRACT-TEST,IS-T1-TESTS-MODEL-CTX-TEST,IS-T1-TESTS-PROJECT-COLLABORATION-TEST,IS-T1-TESTS-M2-PRIVATE-HTTP-CONTRACT-TEST,IS-T1-TESTS-M2-PRIVATE-HTTP-STARTUP-TEST,IS-T1-TESTS-M2-LIFECYCLE-STUDIO-SURFACE-TEST,IS-T1-TESTS-M2-EXECUTION-PROCESS-SUPERVISION-TEST,IS-T1-TESTS-PROJECT-WELCOME-TEST",
+          "--allow-blocker=toolchain:bwrap,toolchain:git,toolchain:prlimit,toolchain:iproute2,toolchain:nftables"
+        ],
+        "environmentOverrides": {
+          "PATH": "/home/belphareon/.nvm/versions/node/v24.21.0/bin:/usr/bin:/bin",
+          "INTENTSMITH_PDF_PYTHON": "/home/belphareon/.local/share/intentsmith/python/pdf/bin/python",
+          "UCETNI_RUNTIME_DIR": "/home/belphareon/.local/share/ucetni"
+        },
+        "startedAt": "2026-10-07T15:27:31.485289+00:00",
+        "finishedAt": "2026-10-07T15:29:15.055564+00:00",
+        "exitCode": 0,
+        "logPath": ".intentsmith-artifacts/chat-m1-outage-20261007/code12.log",
+        "logSha256": "d0cf37691de10b72154bc7b855657d3c454a872acd22fae1a4efc52d09834b00"
+      },
+      "receiptArtifact": {
+        "path": ".intentsmith-artifacts/chat-m1-outage-20261007/code12-receipt.json",
+        "sha256": "5e6529614f410f9e4d4be2b0b66f9530b076c9010a698b2de25a427e2361a877",
+        "bytes": 1355
+      },
+      "report": {
+        "path": ".intentsmith-artifacts/test-runs/chat-m1-c1-code12-20261007-b9cfc7c5/report.json",
+        "sha256": "b5f5c721b0e0fe3895fcb86139242b15334c0efecf9b959d15ac366bd813c9c1",
+        "bytes": 52313
+      },
+      "counts": {
+        "PASS": 12,
+        "FAIL": 0,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "inventoryFingerprint": "6fd1f57afa3773899be1cad4306e99581957aec36e5b39a44e02ab4b6899a60b",
+      "optionsFingerprint": "387b58a5477520670b6d6c0eca29c11a5dfadc2d2c4737b3fbaf1f1a819db000",
+      "registryHash": "47acf12dbacd05883fcb79c0d06cc2653f7a5744e368b5ea17f2d4291e54e748",
+      "suiteLogsVerified": 12,
+      "suiteLogHashesLocation": "results[*].logSha256 in the exact report",
+      "failures": []
+    },
+    {
+      "label": "chat7",
+      "receipt": {
+        "head": "b9cfc7c56d6cf5648267a40573805fe1cd67241c",
+        "command": [
+          "node",
+          "scripts/nightly-audit.js",
+          "--concurrency=1",
+          "--run-id=chat-m1-c1-chat7-20261007-b9cfc7c5",
+          "--suite=IS-T1-TESTS-CHAT-CONTEXT-INTERPRETATION-TEST,IS-T3-TESTS-CHAT-LITERAL-WRITE-HTTP-TEST,IS-T3-TESTS-CHAT-REPEAT-SAVE-HTTP-TEST,IS-T1-TESTS-CHAT-RESILIENCE-RUNNER-CONTRACT-TEST,IS-T3-TESTS-CRE-BUILD-ARBITRATION-TEST,IS-T2-TESTS-M1-CHAT-CONTRACT-TEST,IS-T1-TESTS-MODULE-BOUNDARY-RATCHET-TEST",
+          "--allow-blocker=toolchain:bubblewrap,toolchain:bwrap,toolchain:git,toolchain:prlimit"
+        ],
+        "environmentOverrides": {
+          "PATH": "/home/belphareon/.nvm/versions/node/v24.21.0/bin:/usr/bin:/bin",
+          "INTENTSMITH_PDF_PYTHON": "/home/belphareon/.local/share/intentsmith/python/pdf/bin/python",
+          "UCETNI_RUNTIME_DIR": "/home/belphareon/.local/share/ucetni"
+        },
+        "startedAt": "2026-10-07T15:29:15.056164+00:00",
+        "finishedAt": "2026-10-07T15:29:40.570599+00:00",
+        "exitCode": 0,
+        "logPath": ".intentsmith-artifacts/chat-m1-outage-20261007/chat7.log",
+        "logSha256": "53a8b0758b45590dd7fa9a86b8f8aa2ebde3ff55178ce3c5fc90105acb8b3cb9"
+      },
+      "receiptArtifact": {
+        "path": ".intentsmith-artifacts/chat-m1-outage-20261007/chat7-receipt.json",
+        "sha256": "f1e65c558f0ce122e71aec6b4d93fcd0c8323a52ded7e51144da761ef4dc0bd5",
+        "bytes": 1138
+      },
+      "report": {
+        "path": ".intentsmith-artifacts/test-runs/chat-m1-c1-chat7-20261007-b9cfc7c5/report.json",
+        "sha256": "937473038d27a61ad9ee6a0e2a922e1d51ed59603abc7b9849931a8d3c9823a4",
+        "bytes": 30915
+      },
+      "counts": {
+        "PASS": 7,
+        "FAIL": 0,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "inventoryFingerprint": "7292c9284803b9c5ea39bfecc4c7922e4b803081b68ed016a916cefd2df17092",
+      "optionsFingerprint": "da576965bc694987c472f351e22c1ec0c52429b0e8d9515a9755a8dcfb607a00",
+      "registryHash": "47acf12dbacd05883fcb79c0d06cc2653f7a5744e368b5ea17f2d4291e54e748",
+      "suiteLogsVerified": 7,
+      "suiteLogHashesLocation": "results[*].logSha256 in the exact report",
+      "failures": []
+    },
+    {
+      "label": "full-profile-after-ci",
+      "receipt": {
+        "head": "b9cfc7c56d6cf5648267a40573805fe1cd67241c",
+        "command": [
+          "npm",
+          "run",
+          "test:deterministic",
+          "--",
+          "--run-id=chat-m1-c1-full-after-ci-20261007-b9cfc7c5",
+          "--concurrency=1",
+          "--allow-blocker=toolchain:python-pdf-runtime,toolchain:accountant-ocr-runtime,toolchain:git,toolchain:bwrap,toolchain:iproute2,toolchain:nftables,toolchain:prlimit,toolchain:bubblewrap,toolchain:systemd-analyze,toolchain:python3,toolchain:tar"
+        ],
+        "environmentOverrides": {
+          "PATH": "/home/belphareon/.nvm/versions/node/v24.21.0/bin:/usr/bin:/bin",
+          "INTENTSMITH_PDF_PYTHON": "/home/belphareon/.local/share/intentsmith/python/pdf/bin/python",
+          "UCETNI_RUNTIME_DIR": "/home/belphareon/.local/share/ucetni"
+        },
+        "startedAt": "2026-10-07T15:29:40.571474+00:00",
+        "finishedAt": "2026-10-07T15:39:29.848136+00:00",
+        "exitCode": 1,
+        "logPath": ".intentsmith-artifacts/chat-m1-outage-20261007/full-profile-after-ci.log",
+        "logSha256": "c43b0098ee5bb7818d71de535c2a2b4a3bda11af405e4d9adfc41b4a24e85249"
+      },
+      "receiptArtifact": {
+        "path": ".intentsmith-artifacts/chat-m1-outage-20261007/full-profile-after-ci-receipt.json",
+        "sha256": "850f45f9cd51a524290fbef81a41f8e89eb865d540f5f657037511ab2ddede28",
+        "bytes": 1031
+      },
+      "report": {
+        "path": ".intentsmith-artifacts/test-runs/chat-m1-c1-full-after-ci-20261007-b9cfc7c5/report.json",
+        "sha256": "81cdf03ab4739add2476c0f417ab018dd2cdc5904527160be9ca414a80e2327c",
+        "bytes": 1705776
+      },
+      "counts": {
+        "PASS": 409,
+        "FAIL": 1,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "inventoryFingerprint": "bd458c98749dc45f2b45fc91bbddd9e6bed1796db59fee13e1e0b990e9ac9662",
+      "optionsFingerprint": "aa583033a3469ab962a9380f894a1ffc951d13818e2cea89966faa37bddbf717",
+      "registryHash": "47acf12dbacd05883fcb79c0d06cc2653f7a5744e368b5ea17f2d4291e54e748",
+      "suiteLogsVerified": 410,
+      "suiteLogHashesLocation": "results[*].logSha256 in the exact report",
+      "failures": [
+        {
+          "id": "IS-T1-TESTS-MOBILE-BROWSER-A11Y-TEST",
+          "status": "FAIL",
+          "exitCode": 1,
+          "logPath": ".intentsmith-artifacts/test-runs/chat-m1-c1-full-after-ci-20261007-b9cfc7c5/logs/tests_mobile-browser-a11y.test.js.1de6224d.log",
+          "logSha256": "75a9b197894982b53ff62ed92b5a2e11d777eca798b5e10cb2f1ade929042348"
+        }
+      ]
+    },
+    {
+      "label": "browser-retest",
+      "receipt": {
+        "head": "b9cfc7c56d6cf5648267a40573805fe1cd67241c",
+        "command": [
+          "node",
+          "scripts/nightly-audit.js",
+          "--run-id=chat-m1-c1-browser-20261007-b9cfc7c5",
+          "--suite=IS-T1-TESTS-MOBILE-BROWSER-A11Y-TEST",
+          "--concurrency=1"
+        ],
+        "environmentOverrides": {
+          "PATH": "/home/belphareon/.nvm/versions/node/v24.21.0/bin:/usr/bin:/bin",
+          "INTENTSMITH_PDF_PYTHON": "/home/belphareon/.local/share/intentsmith/python/pdf/bin/python",
+          "UCETNI_RUNTIME_DIR": "/home/belphareon/.local/share/ucetni"
+        },
+        "startedAt": "2026-10-07T15:41:44.182162+00:00",
+        "finishedAt": "2026-10-07T15:42:11.432049+00:00",
+        "exitCode": 0,
+        "logPath": ".intentsmith-artifacts/chat-m1-outage-20261007/browser-retest.log",
+        "logSha256": "cb2f4041d8a64b78c862bff1c2d007e7a93277ade7e04054e7ccd047e0260e33"
+      },
+      "receiptArtifact": {
+        "path": ".intentsmith-artifacts/chat-m1-outage-20261007/browser-retest-receipt.json",
+        "sha256": "5224ce503a25a1ebf1794f86fc1cdc8f02bf60b4cce1dab12d9dd44ffb93bcc9",
+        "bytes": 806
+      },
+      "report": {
+        "path": ".intentsmith-artifacts/test-runs/chat-m1-c1-browser-20261007-b9cfc7c5/report.json",
+        "sha256": "19c84eff9ac6a9cf1dab48de99a144238769f15bb566c8ea6f06f456bc36e8d1",
+        "bytes": 5844
+      },
+      "counts": {
+        "PASS": 1,
+        "FAIL": 0,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "inventoryFingerprint": "08b0dbe709fe106bc92ca739707ba3e5db0d6a0b544c1f5ddb96229f09d65c4e",
+      "optionsFingerprint": "851ac10d921cc7e58a8d45b127dda0f160128b12250e26f3eced441dd98565dc",
+      "registryHash": "47acf12dbacd05883fcb79c0d06cc2653f7a5744e368b5ea17f2d4291e54e748",
+      "suiteLogsVerified": 1,
+      "suiteLogHashesLocation": "results[*].logSha256 in the exact report",
+      "failures": []
+    },
+    {
+      "label": "full-profile-final",
+      "receipt": {
+        "head": "b9cfc7c56d6cf5648267a40573805fe1cd67241c",
+        "command": [
+          "npm",
+          "run",
+          "test:deterministic",
+          "--",
+          "--run-id=chat-m1-c1-full-final-20261007-b9cfc7c5",
+          "--concurrency=1",
+          "--allow-blocker=toolchain:python-pdf-runtime,toolchain:accountant-ocr-runtime,toolchain:git,toolchain:bwrap,toolchain:iproute2,toolchain:nftables,toolchain:prlimit,toolchain:bubblewrap,toolchain:systemd-analyze,toolchain:python3,toolchain:tar"
+        ],
+        "environmentOverrides": {
+          "PATH": "/home/belphareon/.nvm/versions/node/v24.21.0/bin:/usr/bin:/bin",
+          "INTENTSMITH_PDF_PYTHON": "/home/belphareon/.local/share/intentsmith/python/pdf/bin/python",
+          "UCETNI_RUNTIME_DIR": "/home/belphareon/.local/share/ucetni"
+        },
+        "startedAt": "2026-10-07T15:42:11.432738+00:00",
+        "finishedAt": "2026-10-07T15:51:54.474816+00:00",
+        "exitCode": 0,
+        "logPath": ".intentsmith-artifacts/chat-m1-outage-20261007/full-profile-final.log",
+        "logSha256": "99183f23189e5099b05000a49dea775340f8191f48e8eb17e8d6c2d52d8d63a2"
+      },
+      "receiptArtifact": {
+        "path": ".intentsmith-artifacts/chat-m1-outage-20261007/full-profile-final-receipt.json",
+        "sha256": "a1adf6dcbb9dbd1691f4e2e88d3f858d24d61bfdde976cbf6bd98edbf2ef3169",
+        "bytes": 1025
+      },
+      "report": {
+        "path": ".intentsmith-artifacts/test-runs/chat-m1-c1-full-final-20261007-b9cfc7c5/report.json",
+        "sha256": "c5a9733c326a7cf34430ec64ae64d22c5c37ab0da5064e63388f0e32f64ad651",
+        "bytes": 1691004
+      },
+      "counts": {
+        "PASS": 410,
+        "FAIL": 0,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "inventoryFingerprint": "bd458c98749dc45f2b45fc91bbddd9e6bed1796db59fee13e1e0b990e9ac9662",
+      "optionsFingerprint": "aa583033a3469ab962a9380f894a1ffc951d13818e2cea89966faa37bddbf717",
+      "registryHash": "47acf12dbacd05883fcb79c0d06cc2653f7a5744e368b5ea17f2d4291e54e748",
+      "suiteLogsVerified": 410,
+      "suiteLogHashesLocation": "results[*].logSha256 in the exact report",
+      "failures": []
+    }
+  ],
+  "additionalArtifacts": [
+    {
+      "path": ".intentsmith-artifacts/chat-m1-outage-20261007/registry-final-receipt.json",
+      "sha256": "3abf9dc31ce23d82bf543996424747f63a2e99422c2cf4464f4c13df96afbb5e",
+      "bytes": 677
+    },
+    {
+      "path": ".intentsmith-artifacts/chat-m1-outage-20261007/registry-final.log",
+      "sha256": "074d65af3c8fcf9173f9c0156b924019c2e09a48027f25123dff5481b0440248",
+      "bytes": 379
+    },
+    {
+      "path": ".intentsmith-artifacts/chat-m1-outage-20261007/dependency-drift-before.json",
+      "sha256": "2709e13e1c35b80739953cc2561d646f7822de6437a2a1a4f6cb89172a39c278",
+      "bytes": 255
+    },
+    {
+      "path": ".intentsmith-artifacts/chat-m1-outage-20261007/npm-ci-receipt.json",
+      "sha256": "40cf9aec042ef44e4f510af477c8cb8c4c45bebf4ce66d28c90602e2074f7e77",
+      "bytes": 525
+    },
+    {
+      "path": ".intentsmith-artifacts/chat-m1-outage-20261007/npm-ci.log",
+      "sha256": "51f513f6ba266a18eb4bcb8019fb96a5d2845a2b7d11857a564f91a7928df6fe",
+      "bytes": 826
+    },
+    {
+      "path": ".intentsmith-artifacts/chat-m1-outage-20261007/browser-restore-receipt.json",
+      "sha256": "3dac32c1c7c83cf5c23fc8eaf0254dba20467d7cd1e89df44375f583f995fa1f",
+      "bytes": 372
+    },
+    {
+      "path": ".intentsmith-artifacts/chat-m1-outage-20261007/browser-restore.log",
+      "sha256": "1cbc98a1c46da245e7ba3da24b1975fa2cd0bee47056bae329b86e5f18c5061e",
+      "bytes": 160
+    }
+  ],
+  "sourceAndRedEvidence": {
+    "path": "docs/review/evidence/chat-m1-outage-20261007/manifest.json",
+    "sha256": "0d801431706c5fae78e83ed3985f64eaa1dd6c2cabfc4f285e6648dad08d5f8d",
+    "bytes": 5886
+  },
+  "ci": {
+    "url": "https://github.com/Belphareon-bak/intentsmith/actions/runs/37644166375",
+    "job": {
+      "path": ".intentsmith-artifacts/chat-m1-outage-20261007/ci-b9c-job-complete.json",
+      "sha256": "f26f9f1fec46f6b4fc9eb9569b32fb277d2aba65670aa6d8650de8e18b425b9f",
+      "bytes": 5276
+    },
+    "allSteps": 18,
+    "conclusion": "success"
+  },
+  "provenanceLimitation": "PUPPETEER_SKIP_DOWNLOAD=true during npm ci is recorded by the author from this session execution, not independently present in the npm receipt/log. Missing browser before restore and pinned restored version are directly logged. Original receipts were not rewritten.",
+  "forbiddenInputs": [
+    "restricted/",
+    "H1/H2 plaintext, responses and per-family grades",
+    "unrelated private evidence"
+  ],
+  "independentReview": "Recorded separately in the review packet; this manifest is author-generated verification"
+}

@@ -1,7 +1,9 @@
 # C1 — pravdivý M1 výsledek při výpadku klasifikátoru
 
-**Stav:** SOURCE_REVIEW_PASS; první offline/database profil 409 PASS / 1 FAIL.
-CHAT7 a opakování po synchronizaci závislostí PENDING.
+**Stav:** SOURCE_REVIEW_PASS; finální offline/database **410 PASS / 0 FAIL /
+BLOCKED / TIMEOUT / SKIPPED**, CODE12 12/12, CHAT7 7/7, CI všech 18 kroků SUCCESS.
+**FINAL_EVIDENCE_REVIEW_PASS — připraveno pro ROOT integraci.**
+ROOT integrace/fresh5 zůstávají otevřené.
 ROOT integrace, fresh5, živý Studio → D1, GPU opakování a release přejímka NOT_RUN.
 Autorita: explicitní převzetí úzké M1 opravy operátorem 7. 10. 2026,
 stávající M1 kontrakt a WP-CHAT-QUALITY-20261001. Aktuální společný deník je
@@ -12,6 +14,10 @@ stávající M1 kontrakt a WP-CHAT-QUALITY-20261001. Aktuální společný dení
 - Base ROOT: `a61fe70d5ddabd63e066e9cbf4c8111b88f9fa56`.
 - RED regrese: `68a51405213f825acb14213a7e97a0bce1f1128a` (produkt stále base).
 - Přezkoumaný produkt/testy: `1f0989124630887edd5ab146e6acf662a5b2307d`.
+- Testovaný a publikovaný checkpoint: `b9cfc7c56d6cf5648267a40573805fe1cd67241c`.
+  Strom src, chat-context regresní test a lockfile jsou shodné s přezkoumaným zdrojem.
+  Jedinou změnou zbytku tests stromu je samostatně schválený module baseline.
+- [Konečné příkazy, exity, reporty a SHA-256](evidence/chat-m1-outage-20261007/verification.json).
 - [Přesný produktový a testový diff](evidence/chat-m1-outage-20261007/product-and-regression.patch).
 - [Manifest raw logů, SHA-256 a zachovaných JSON](evidence/chat-m1-outage-20261007/manifest.json).
 
@@ -85,7 +91,9 @@ git diff a61fe70d5ddabd63e066e9cbf4c8111b88f9fa56 1f0989124630887edd5ab146e6acf6
 ```
 
 Poslední příkaz má exit 0 i při zobrazených rozdílech. Širší registrované běhy
-a jejich přesné command/exit/HEAD/log/report identity budou doplněny po skončení.
+a jejich přesné command/exit/HEAD/log/report identity jsou v konečném manifestu
+odkazovaném výše; každý příkaz je uložený jako argv, včetně prostředí a očekávaného
+exitu (0 pro finální kontroly, 1 pro oba historické FAIL běhy).
 Následný předávací commit smí měnit pouze baseline, dokumentaci a důkazy;
 produktové/testové blobs se musí shodovat s přezkoumaným `1f098912`.
 
@@ -119,3 +127,59 @@ Přesný příkaz, prostředí, exit a hash logu:
 Synchronizace pouze vlastních závislostí přes `npm ci --no-audit --no-fund`
 není produktová oprava ani důvod přeznačit tento report. Následuje samostatné
 opakování se stejnými kontrolami a znovu doloženou identitou.
+
+## Druhý zachovaný FAIL a finální zelený profil
+
+Druhé celé opakování `b9cfc7c5`, 15:29:40–15:39:29 UTC: opět 409 PASS / 1 FAIL,
+ale M2 governance už má 34/34 PASS. Jediný FAIL je mobile-browser-a11y: po npm ci
+chybí původní browser na projektové cache cestě. Npm ci bylo podle záznamu autora
+v této relaci spuštěno s `PUPPETEER_SKIP_DOWNLOAD=true`; tato konkrétní hodnota
+není nezávisle zachycená v npm receipt/logu a nepřipisuje se jim. Původní receipts
+se zpětně nepřepisovaly. Chybějící browser a následná přesná verze jsou přímo v logu.
+
+`npx --no-install puppeteer browsers install chrome` obnovilo zamčený
+Chrome 152.0.7977.75, exit 0. Samostatný registrovaný browser retest má PASS
+(24 skutečných browserových kontrol), 15:41:44–15:42:11 UTC.
+Finální celý profil **15:42:11–15:51:54 UTC, b9cfc7c5: 410 PASS / 0 FAIL /
+BLOCKED / TIMEOUT / SKIPPED, exit 0**. Všechny tři celé běhy mají stejné
+inventory/options/registry fingerprinty, žádné vyřazení testu ani `noBlock`.
+
+CODE12 **12 PASS** a CHAT7 **7 PASS**, oba exit 0 na `b9cfc7c5`.
+[CI37644166375](https://github.com/Belphareon-bak/intentsmith/actions/runs/37644166375)
+na stejném SHA: všech **18 kroků SUCCESS**, ověřený dokončený job 112870464823.
+Konečný manifest uchovává každý report samostatně, včetně obou FAILů, environment
+receiptů a jejich hashe. Součet ověřených dílčích logů je 1250 (3×410 +12 +7 +1).
+
+Reviewer `/root/m1_outage_review` přijal opravy prostředí a zachování původních
+FAILů, s výslovnou provenienční výhradou k npm environment výše. Finální celý
+profil do tohoto dřívějšího review nespadal; jeho samostatné review je uzavřené níže.
+Žádná runtime/produktová oprava mimo již přezkoumané C1 se kvůli prostředí nedělala.
+
+## Uzavření cyklu pro ROOT
+
+Nezávislý `/root/workflow_review` vydal **FINAL_EVIDENCE_REVIEW_PASS** pro
+`b9cfc7c56d6cf5648267a40573805fe1cd67241c`: ověřil 1250 suite logů a dalších
+27 artefaktů, shodu tří celých profilů, oba zachované FAILy, všechny finální
+výsledky a přesný CI job. Přijatý manifest SHA-256:
+`de2302b3ee3c3910d4bec17c82f5583e2a91a91fc79f175043e45688d90c89a7`.
+
+Závěrečný commit k tomuto checkpointu přidává pouze aktuální dokumentaci a
+manifest. Pro úplný diff včetně dokumentace, baseline a důkazů použij:
+
+```bash
+git diff --binary --full-index a61fe70d5ddabd63e066e9cbf4c8111b88f9fa56 b9cfc7c56d6cf5648267a40573805fe1cd67241c
+git diff b9cfc7c56d6cf5648267a40573805fe1cd67241c HEAD
+git diff --exit-code b9cfc7c56d6cf5648267a40573805fe1cd67241c HEAD -- src tests scripts package.json package-lock.json
+```
+
+Očekávané exity jsou 0; třetí příkaz potvrzuje, že závěrečné předání nemění
+přezkoumanou implementaci, testy, baseline, runner ani závislosti. Skutečný
+publikovaný HEAD je uvedený při předání a ověřený přes `git ls-remote`.
+Samostatné dokumentační kontroly: artifact160 PASS, registry596 valid,
+module boundary1512/3/28 PASS, `git diff --check` PASS.
+
+ROOT nyní převezme větev/commit do svého integračního checkpointu a provede
+vlastní freeze/CI/fresh5; dosavadní ROOT checkout ani produkce se tímto cyklem
+nezměnily. GPU reviewerovo okno pro živý běh dosud není rezervované. Tento C1
+je plně opakovatelný bez GPU. H1 zůstává UNSEALED/NOT_RUN; určení odděleného
+správce sběru bylo operátorovi položeno předem, odpověď dosud není zapsaná.

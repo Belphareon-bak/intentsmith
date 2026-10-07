@@ -10,11 +10,14 @@ Cache oprava `0d86b68e`: CPU 23/23 a source review; [CI37460776179](https://gith
 Původní oracle 56→forcedFAIL80→restore56→109, přesné DB/canary/metadata, stejná DB a čistý stop.
 Dvě produktové kopie 0700, původní cache a source/deps/14 links zachované; fyzický zdroj700, CPU pokrývá775.
 Nejde o nový whole fresh5: historický fresh5 na90 má 3 PASS/2 FAIL, M1 oprava má řízené HTTP/restart důkazy, společný fresh5 ještě NOT_RUN.
-Poslední celý offline/database profil `86dbca40`: 410 PASS /0 FAIL /BLOCKED /TIMEOUT; netestoval následnou cache opravu.
+Historický ROOT offline/database profil `86dbca40`: 410 PASS /0 FAIL /BLOCKED /TIMEOUT; netestoval následnou cache opravu.
 Registry 596/35; CHAT kandidát: module graph má 1 512 hran, 3 cykly /28 členů.
 Jediná nová hrana CRE → chat-turn-error nezávisle schválená, baseline připnutý na `1f098912`.
-C1 context 27/27, M1 74/74, project 44/44 nezávisle opakované. První širší profil
-`10ef40ab`:409 PASS/1 FAIL kvůli chybějící instalaci TS grammar; opakování po npm ci čeká.
+C1 context27/M1 74/project44 nezávisle opakované. Nový CHAT checkpoint `b9cfc7c5`:
+full offline/database410 PASS/0 FAIL/BLOCKED/TIMEOUT, CHAT7/CODE12 PASS;
+CI37644166375 všech18 SUCCESS; FINAL_EVIDENCE_REVIEW_PASS, připraveno pro ROOT.
+Dva původní environment FAIL reporty zachované.
+C2 diagnóza36/22 a CPU experiment mají samostatná review; modelová kvalita stále NO_GO.
 [Revizní paket](docs/review/2026-10-07-CHAT-M1-OUTAGE.md); CI/CPU nejsou release acceptance.
 
 HTTP private-loopback profil zapojený; retained execution/M2/oracle/commit/restart prošel, API SOURCE FAIL.

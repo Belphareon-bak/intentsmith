@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 7. 10. 2026; převzetí úzké CHAT/M1 opravy a opravený autonomní postup.
+**Aktualizováno:** 7. 10. 2026; C1 oprava/retest dokončeny, C2 diagnóza a CPU experiment přezkoumány.
 **Vlastník integrace:** dosavadní ROOT (`work/real-chat-journeys-20260930`).
 **Vlastník CHAT/M1 C1:** tento navazující CHAT worker (`work/chat-quality-20261001`);
 operátor potvrdil, že předchozí CHAT již nezapisuje a úzkou opravu lze převzít.
@@ -20,7 +20,9 @@ main `838b8cee`. Obsahuje CHAT `e066956b` (merge `56138e4f`) a projektovou D1
 změnu `8fe6fb53`. Čistý vlastní CHAT checkout byl na tento základ fast-forwardnut;
 ROOT checkout, produkce a zmrazený Gemma kandidát `9591ea1b` se nemění.
 Full109 a kopírovaná cache/upgrade jsou přijaté v rozsahu níže; neopakují se bez
-nové změny nebo konkrétní pochybnosti. Celý profil 410 PASS patří pouze `86dbca40`.
+nové změny nebo konkrétní pochybnosti. Při převzetí patřil poslední celý profil 410 PASS pouze `86dbca40`; nový C1 výsledek je uveden níže.
+Po integraci se kontroluje shoda instalovaných závislostí s lockfilem i dostupnost
+předepsaného browser/PDF/OCR runtime před dalším celým během.
 
 **Vlastnictví a předání.** CHAT C1 vlastní jen klasifikační propagaci chyby,
 související regresní důkazy a vlastní dokumentaci v CHAT checkoutu. ROOT dále
@@ -97,7 +99,7 @@ s daty, variantami, doporučením a konkrétním blokovaným krokem včas.
 | H1/H2 obsah a hodnocení | Oddělený správce/hodnotitelé; implementátor pouze aggregate verdict a identita |
 | Nové výdaje, produkční binding/deploy, snížení prahů, rozšíření efektů nebo vyčerpaného schváleného budgetu | Konkrétní návrh a operátorské rozhodnutí před dotčeným krokem; nezávislá práce pokračuje |
 
-### C1 — M1 provider outage (SOURCE_REVIEW_PASS; širší kontroly probíhají)
+### C1 — M1 provider outage (FINAL_EVIDENCE_REVIEW_PASS; READY_FOR_ROOT)
 
 Výsledek: PROVIDER_UNAVAILABLE skutečně vyžádané modelové klasifikace skončí existujícím
 typovaným M1 error, bez odpovědi assistant/úspěšného terminálu a bez effectu.
@@ -113,9 +115,17 @@ tool requestů také po restartu. Nezávislý reviewer zopakoval context 27/27,
 M1 74/74 a project 44/44 (vše exit 0) a výslovně přijal jedinou novou importní
 hranu; přesný baseline byl následně vygenerován z čistého `1f098912`.
 [Revizní paket s SHA-256 a příkazy](review/2026-10-07-CHAT-M1-OUTAGE.md).
-První širší profil `10ef40ab`: 409 PASS / 1 FAIL (M2 TypeScript grammar chybí
-v node_modules proti lockfilu). FAIL report zachován; synchronizace vlastních
-závislostí a nové opakování probíhají. CI/publikace PENDING; ROOT fresh5 NOT_RUN.
+První širší profil `10ef40ab`: 409 PASS /1 FAIL (chybějící TS grammar).
+Druhý `b9cfc7c5`: 409 PASS /1 FAIL (browser cache po npm ci). Oba FAILy zachované.
+Závislosti synchronizované podle beze změny zachovaného lockfilu; obnoven tentýž
+Chrome152.0.7977.75, samostatný browser test PASS. Finální celý profil
+**b9cfc7c5, 15:42:11–15:51:54 UTC: 410 PASS /0 FAIL /BLOCKED /TIMEOUT /SKIPPED**.
+CODE12 12/12, CHAT7 7/7, registry596 a CI37644166375 všech18 SUCCESS.
+Strom src, chat-context test a lockfile shodné s `1f098912`; module baseline
+byl samostatně schválen, ostatní tests soubory se neměnily. `b9cfc7c5` publikován a remote SHA ověřeno;
+závěrečný commit doplňuje pouze dokumentaci a důkazy. Nezávislý reviewer ověřil
+1250 logových hashů +27 dalších artefaktů a vydal FINAL_EVIDENCE_REVIEW_PASS.
+Manifest `de2302b3…d90c89a7`, exact CI job112870464823. ROOT integrace a fresh5 NOT_RUN.
 
 ### C2 — okamžité uplatnění stagnace (diagnóza i CPU experiment REVIEW_PASS)
 
@@ -153,14 +163,14 @@ BE restart SQLite dokládá durable M2/zdroje; nedokládá DB v dalším novém 
 Zdroj cache opravy a přijatého upgradu: **0d86b68e**; [CI37460776179](https://github.com/Belphareon-bak/intentsmith/actions/runs/37460776179), všech 18 kroků SUCCESS.
 CHAT 7 / CODE 12 kontroly zachované; merge 56138e4f obsahuje CHAT e066956b / CODE32k / D1.
 CHAT checkout 6. 10. ověřený clean e066956b; produktovou logiku CHATu ROOT neměnil.
-Poslední celý offline/database profil **86dbca40: 410 PASS / 0 FAIL / BLOCKED / TIMEOUT**,
+Historický ROOT offline/database profil **86dbca40: 410 PASS / 0 FAIL / BLOCKED / TIMEOUT**,
 5. 10., 04:44:14–04:54:05 UTC; report a5a2f4a3…326d11c, všechny řádky/logy nezávisle ověřené.
 Data 24/24, M1 kontrakt 74/74; tento starší profil necertifikuje cache opravu ani release.
 Historický doc/artifact gate160 PASS patří ROOT. Aktuální CHAT census src688/237206, tests604/270539; revidovaný graph1512/3cykly28.
 Studio bundle 7bf62455…bfe24 / instalovaný BE c84b88cd nezměněné; žádný deploy ani aktivace.
 Externí c5309a0/bundle místně chybí; jeho výsledky nejsou přijaté místní důkazy.
 
-## Poslední přijatý milník: cache oprava a skutečný upgrade
+## Poslední přijatý ROOT runtime milník: cache oprava a skutečný upgrade
 
 Nový cache helper kontroluje vlastní nový cíl a nastaví pouze jeho kořen 0700;
 zdroj, payload a executable modes zachované. CPU 23/23; source review 69836bd2…350de0.
@@ -181,7 +191,7 @@ Actual používá zdroj cache 0700; původní zdroj 0775 pokrývá CPU regrese, 
 | HTTP strategie | Přesné M2 schválení/pending restart/rollback prošly; aplikace FAIL. Doporučený další krok: jeden skutečný repair routeru nad FAILED návrhem, rozpočet 13 vyžaduje rozhodnutí podle WP |
 | Fan | Frozen5f6: 8/11 volání, oracle 8 PASS /6 FAIL; repair4+CLI3 / cumulative15 čeká na samostatnou odpověď |
 | Přirozené plánování | Classifier→D1 CPU 44 +parser 24 /review PASS; skutečný vstup přes Studio ještě nepřijatý |
-| M1 outage | C1 `1f098912` SOURCE_REVIEW_PASS, řízené HTTP/restart testy PASS; širší profil/CI a ROOT fresh5 čekají |
+| M1 outage | C1 `1f098912` source review a řízené HTTP/restart PASS; testovaný `b9cfc7c5` full410/CHAT7/CODE12/CI PASS; ROOT převzetí/fresh5 čeká |
 | Mobil | Chybí conversation.create; implementace a device přejímka až po stabilním IDE/BE |
 | Hunt | Potřebujeme nový grading report/cestu a vlastníka pokračování; ROOT cizí hodnocení nepřebírá |
 
@@ -203,7 +213,7 @@ To nedokládá zaplněné 32k okno. Output4096 platí jen pro vydaný exact CODE
 
 ## Zbývající testy a pořadí dokončení
 
-1. Po opravě M1 od CHAT workera společný freeze/CI a původní fresh5: poslední actual na90 zůstal **3 PASS /2 FAIL**.
+1. Převzít přezkoumanou M1 opravu CHAT; ROOT společný freeze/CI a původní fresh5: poslední actual na90 zůstal **3 PASS /2 FAIL**.
    Electron boundary/Studio M1/Studio M2 prošly; historický M1 a cache FAIL se nepřepisují. Nový whole fresh5 NOT_RUN.
 2. HTTP: rozhodnout jeden genuine repair routeru nad skutečným FAILED M2 (12→13); poté frozen oracle +supplement17, commit/restart/persistence a review. Fan má samostatné rozhodnutí.
 3. Živý přirozený classifier→D1, fyzická ovladatelnost IDE/M2, file/web/export/skills a projektové A→B→A.
@@ -222,3 +232,12 @@ Poslední validované pokrytí 596/1173 responses,2324/3689 criteria; historick�
 Oddělený ROOT development draft 16/64 se nepřičítá. Nový worker progresspath vyžádaný; Gemma9591 poslední NO_GO, žádná aktivace.
 Holdout odpečetěn operátorem; jeho obsah ROOT nečetl, přejímku Gemma kandidáta vlastní CHAT worker.
 [Datovaný archiv](https://github.com/Belphareon-bak/intentsmith/blob/0d86b68ef94bfd260dfb6f06d2231d14865dc9f1/docs/WORK-PROGRESS.md).
+
+### Předání 7. 10. — zbývající vnější návaznosti
+
+C1 přezkoumán a vývojově ověřen; ROOT přebírá přesný publikovaný CHAT commit,
+bez zásahu tohoto workera do ROOT checkoutu. Živý fresh5 a Studio → D1 nejsou
+součástí CPU přijetí. C2 diagnóza i diskriminační experiment mají oddělené review;
+navazující C3 zatím nemění produkt. Správce odděleného H1 sběru byl vyžádán
+asynchronně v této relaci, odpověď dosud není zapsaná. CPU práce na H1 nečekala.
+Živé reviewerovo GPU okno dosud není rezervované; jeho předání vlastní ROOT.
