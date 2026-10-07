@@ -87,3 +87,24 @@ kontrolami; pokus o rerun odmítnut403 oprávněními integrace. FAIL/cancelled 
 zůstává. Následný společný C7+C8 e6b83884 má samostatnou čistou integraci19PASS
 a [CI37680691150](https://github.com/Belphareon-bak/intentsmith/actions/runs/37680691150) všech18SUCCESS.
 Publikace a zelené CPU kontroly nejsou přijetí živé kvality ani release.
+
+### C10 — oddělení chyby návaznosti a ztráty pending (8.10., bez nového modelu)
+
+Na čistém dd8a451b proběhly dvě izolované4tahové M1/DB varianty se skutečným
+restartem po „ano“ i finále. Sedm response contents je byteově převzato z C7 raw;
+jediná syntetická změna je classifier request17 continuesPending:false→true.
+Request17 dostal oběma variantám totožný relevantní vstup. Následující
+request19 je file.save.interpret, nikoli D1; jeho vstup se liší přítomností pending.
+
+False: clearSupersededFileSaveQuestion původní pending odstraní; resolver dostane
+photo.md +answer2, konečný stav má originalRequest:photo.md/user7. True: resolver
+vidí „Ulož tu odpověď.“ a původní user3. Zdrojanswer2 zůstává v obou. Obě varianty
+mají8durable zpráv,0všech5sledovaných efektových počtů a nezměněný projekt/Git;
+6vlastních product stopůexit0. Sada3PASS, nezávislé reviewc0e704e0…0164a1.
+Stejná konečná otázka je VYNUCENÁ REPLAYEM; není výsledkem lepšího modelu ani
+samostatným důkazem chyby save interpretátoru. Neopravuje produkt nebo skóre C6.
+Ignorovat false by ohrozilo zrušení či nové zadání. Před změnou patří do kontrol
+cancel/new task, jiný projekt, inactive pending, chybějící zdroj a literal/user
+provenance i summarize/create-only. Žádný nový prompt, regex nebo binding nevznikl.
+Raw RESULT ee7c2ee5…315c, MANIFEST4aa41e22…515f a nezávislý receipt s přesnými
+cestami/SHA jsou v [společném paketu](evidence/chat-terminal-errors-20261007/result.json).

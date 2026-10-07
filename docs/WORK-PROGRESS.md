@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 7. 10. 2026; C9 zdroj24f329c6, source review PASS; classifier13HTTP/restart +context52/v3unit7, project57 GREEN. Nezávislé source/test/evidence review PASS; integrační kontroly NOT_RUN. Starší full410/CI18 patří f4754575/e6. C4 fresh5 5PASS. C5 v5 LIVE_FAIL, D1 nedosažen; C6 kvalita NO_GO. C7 živá série1/3 FAIL, další2 NOT_RUN. H1 sběr NOT_RUN.
+**Aktualizováno:** 8. 10. 2026; produkt24f329c6/testovanýdd8a451b: C9 source/test/evidence/integrace19 review PASS, CI1job/18kroků SUCCESS. Celý dd8a i historický f475 profil NEPŘIJATÝ kvůli odhalenému false-green scenario testu. C11 oprava testu přezkoumaná, nový profil NOT_RUN. C10 save diagnóza přijatá, žádná další produktová změna. C4 fresh5 5PASS; C5/C7 LIVE_FAIL, C6 NO_GO, H1 NOT_RUN.
 **Vlastník integrace a CHAT:** tento koordinátor přebírá ROOT
 (`work/real-chat-journeys-20260930`) podle následného pokynu operátora.
 Jediný writer `cre-decision.js` i společných map je nyní ROOT; HTTP, Fan, fresh5
@@ -304,7 +304,7 @@ zůstává ok; tento cyklus neopravuje samostatnou M7 sémantiku ani všechny
 404/empty/binding/queue chyby. C5 přesná historická výjimka stále UNKNOWN.
 [Paket C8](review/2026-10-07-CHAT-TRANSPORT-FAILURES.md).
 
-### C9 — každé neúspěšné modelové volání ukončí tah (SOURCE_REVIEW_PASS; INTEGRATION_PENDING)
+### C9 — chyba classifier/D1 ukončí tah (SOURCE/TEST/EVIDENCE/INTEGRATION_REVIEW_PASS)
 
 Autorita: explicitní nálezy operátora C1/kolo5 nad e6b83884, včetně jednotného
 HTTP503 pro provozní výpadky a projektové cesty ve vlastnictví ROOT.
@@ -330,10 +330,46 @@ project57PASS (44původní+12scénářů+parent), včetně cancel409/validnull20
 Nezávislé source/test/evidence review PASS včetně projektového57PASS.
 Žádná inference/GPU, žádný nový efekt či projektová změna. Dvě přesné nové
 project→core hrany přijaté; graph1514/3cykly28, žádné nové testové programy.
-Stop podmínka: neúspěšná nebo neověřená kontrola zůstane FAIL/NOT_RUN; bez
-integrace na čistém kandidátu se C9 nevydá za dokončený. Celý profil a CI čekají.
+Na čistém dd8a proběhlo19/19 integračních sad PASS (21:38:09–21:40:59UTC),
+finální context55 a project57; nezávislé review0ff669b7…bf53. CI37691183506:
+1job/18kroků SUCCESS, reviewfc99f3ad…730b9. Celý profil21:41:51–21:52:35UTC
+hlásil410PASS/exit0, ale nezávislé review2d88e7e6…b24b4 jej NEPŘIJALO:
+scenario-engine raw22/42PASS20FAIL s exit0. Jde o samostatně opravovaný C11 test,
+nikoli přeznačení reportu nebo odvolání cílených C9 výsledků.
 [Paket C9: přesná identita, diff, příkazy/exity a SHA-256](review/2026-10-07-CHAT-TERMINAL-FAILURES.md).
 CPU přezkoušení nevyžaduje GPU; H1/H2/restricted/ se nečtou. Release NOT_ACCEPTED.
+
+### C10 — přehrání ztráty návaznosti (BOUNDED_CAUSAL_DIAGNOSIS_PASS)
+
+Přesných7 zaznamenaných modelových odpovědí C7, dvě fresh M1/DB varianty,
+4tahy a restart po „ano“ i finále. Jediná změna response je classifier
+continuesPending:false→true; následující file.save.interpret odpověď zůstává
+stejná. Zaznamenané false smaže pending a vytvoří nové originalRequest:photo.md,
+user7. Syntetické true předá původní „Ulož tu odpověď.“, user3. V obou je answer2,
+8durable zpráv,0efektů/approval, projekt/Git stejný,6vlastních stopů exit0.
+3testové výsledky PASS, nezávislé reviewc0e704e0…0164a1. Toto je příčinný důkaz
+přenosu kontextu, nikoli oprava nebo zlepšení modelu; finální stejné doptání je
+vynucené replayem. Samostatná chyba save interpretátoru prokázaná není.
+[Přesný C10 dodatek](review/2026-10-07-CHAT-SAVE-CONTEXT.md).
+
+### C11 — scénářový test nesmí skrývat assertion FAIL (SOURCE_REVIEW_PASS; FULL_NOT_RUN)
+
+Autorita: operátorský důraz na kvalitu testů a pravdivé release výsledky;
+konkrétní překážka z nezávislého C9 full review. Core od v121 načítá scénář
+z package, starý test ho neregistroval a jeho vlastní it jen tisklo chyby.
+Stejný22PASS/20FAILexit0 je ověřen také ve f475 raw; dřívější přijetí celého
+f475 profilu se tím stahuje. Původní logy/posudekb132 i JSON reporty zůstávají
+beze změny. Další historické profily se tím automaticky necertifikují ani neaudituji.
+
+ROOT mění pouze tests/scenario-engine.test.js: skutečný taxOptimizationScenario
+se explicitně registruje jako fixture generického enginu; všech42původních
+jmen a oracle bodies beze změny. Standardní node:test, všechny testy explicitně
+await, žádné polykání failure ani návrat doménové logiky do core.
+D91ea3e7 je testový commit, navazující whitespace odstraní jediný prázdný EOF řádek.
+GREEN42/0exit0; missing-fixture22/20exit1; sync i async mutant41/1exit1.
+Nezávislé source/test reviewc429a6d4…f5d261. Nové celé ověření čeká na čistý checkpoint.
+Samotné načtení helperu tests/output-gate.js v profilu je pouze import smoke;
+nevydává se za provedené funkční assertions. Žádný required program se nevyřazuje.
 
 ## Přijaté dílčí výsledky
 
@@ -360,7 +396,10 @@ Nový celý offline/database profil9b161de5,20:47:08–20:57:18UTC:409PASS/1FAIL
 artifact assertions PASS. Nezávislý census0256f015…cf7c1c5 potvrzuje nové hodnoty;
 oprava mění jen dokumentaci, původní neúspěšný report zůstává. Aktuální
 [CI37684623930](https://github.com/Belphareon-bak/intentsmith/actions/runs/37684623930) na9b161de5 má18SUCCESS.
-Po přijaté opravě dokumentace f4754575 proběhl celý původní profil znovu,
+**C11 erratum:** přijetí následujícího celého f475 profilu je STAŽENÉ: raw
+scenario-engine obsahuje20FAIL s exit0. Níže jsou historická tvrzení runneru
+a tehdejšího posudku, nikoli nynější zelené přijetí.
+Po tehdejší opravě dokumentace f4754575 proběhl celý původní profil znovu,
 **21:00:05–21:09:49UTC:410PASS/0FAIL/BLOCKED/TIMEOUT/SKIPPED, exit0**.
 Výběr410sad a všechny limity zachované, source/tests i tracked package/lock manifesty
 proti e6 beze změny; nejde o nový hash audit instalovaných dependencies/native loaderu.
@@ -377,7 +416,7 @@ CHAT checkout 6. 10. ověřený clean e066956b; produktovou logiku CHATu ROOT ne
 Historický ROOT offline/database profil **86dbca40: 410 PASS / 0 FAIL / BLOCKED / TIMEOUT**,
 5. 10., 04:44:14–04:54:05 UTC; report a5a2f4a3…326d11c, všechny řádky/logy nezávisle ověřené.
 Data 24/24, M1 kontrakt 74/74; tento starší profil necertifikuje cache opravu ani release.
-Historický doc/artifact gate160 PASS patří ROOT. Aktuální census d2f39d7e: src688/237254, tests604/271024; revidovaný graph1514/3cykly28.
+Historický doc/artifact gate160 PASS patří ROOT. Aktuální C11 census včetně EOF opravy: src688/237254, tests604/270997; revidovaný graph1514/3cykly28.
 Studio bundle 7bf62455…bfe24 / instalovaný BE c84b88cd nezměněné; žádný deploy ani aktivace.
 Externí c5309a0/bundle místně chybí; jeho výsledky nejsou přijaté místní důkazy.
 
@@ -404,7 +443,7 @@ Actual používá zdroj cache 0700; původní zdroj 0775 pokrývá CPU regrese, 
 | Přirozené plánování | C5 v5 po opraveném ovladači odeslal vstup; GPU monitor FAIL před úplnou odpovědí, D1 NOT_REACHED. Stagnace: žádný další retry v tomto cyklu |
 | M1 outage | C1 `1f098912` source review a řízené HTTP/restart PASS; testovaný `b9cfc7c5` full410/CHAT7/CODE12/CI PASS; ROOT převzal e15264f1; C4 fresh5 b959a468 5PASS/review PASS |
 | Chatová kvalita | C6 úplné3×53/dva posudky NO_GO; C7 oprava context/restart CPU přijatá, živý save i cleanup první série FAIL; další2 NOT_RUN. Oddělit návaznost a save interpretaci |
-| Providerové chyby | C9 zdroj24f329c6: zbývající classifier404/binding/drift +projektové chyby terminal; řízené13HTTP/57project GREEN, source/test/evidence review PASS; integrace NOT_RUN. Interní M7 status se nemění |
+| Providerové chyby | C9 zdroj24f329c6: zbývající classifier404/binding/drift +projektové chyby terminal; řízené13HTTP/57project GREEN, source/test/evidence/integrace19/CI PASS. Celý profil vrácen kvůli C11 testu; interní M7 status se nemění |
 | Mobil | Chybí conversation.create; implementace a device přejímka až po stabilním IDE/BE |
 | Hunt | Potřebujeme nový grading report/cestu a vlastníka pokračování; ROOT cizí hodnocení nepřebírá |
 | H1 custody | Čeká volba veřejného GPG fingerprintu pro zašifrované výstupy nebo privátní raw custody u operátora, poté dešifrování těsně před společným oknem; sběr NOT_RUN |
@@ -427,12 +466,12 @@ To nedokládá zaplněné 32k okno. Output4096 platí jen pro vydaný exact CODE
 
 ## Zbývající testy a pořadí dokončení
 
-1. Dokončit C9 nezávislé evidence review a integraci na čistém kandidátu.
+1. Dokončit C11 pravdivé celé ověření; C9 integrace19 a CI již přezkoumány.
    C4 původní fresh5 na b959a468: **5PASS/review PASS**. Historický90/3PASS2FAIL zachovaný.
    C5 uzavřít jako přezkoumaný FAIL; další strategie nesmí pokračovat řadou retry aparátu.
    C6 známá regrese74,21%/15,09% NO_GO; C7/C8 produktové opravy přijaté v uvedeném rozsahu,
-   první cílený živý save stále FAIL. Další cyklus oddělí návaznost/interpretaci na známých
-   vstupech při stejném promptu/schema/4K a negativních kontrolách. Širší M6/release otevřený.
+   první cílený živý save stále FAIL. C10 již oddělil příčinu ztráty návaznosti
+   přesným CPU replayem; další změna potřebuje důkaz proti cancel/new-task kontrolám. Širší M6/release otevřený.
 2. HTTP: rozhodnout jeden genuine repair routeru nad skutečným FAILED M2 (12→13); poté frozen oracle +supplement17, commit/restart/persistence a review. Fan má samostatné rozhodnutí.
 3. Živý přirozený classifier→D1, fyzická ovladatelnost IDE/M2, file/web/export/skills a projektové A→B→A.
 4. Kvalita expertise/specialistů, worker souběh a delší stabilita; project/config/skills restore; společný profil a finální M5/M6.

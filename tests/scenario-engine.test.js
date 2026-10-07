@@ -407,4 +407,3 @@ await it('full accountant scenario: s.r.o. skips expense step', async () => {
   assert.equal(r4.phase, ScenarioPhase.PRESENTING);
   assert(r4.results.sro);
 });
-

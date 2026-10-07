@@ -4,15 +4,18 @@
 Release `NOT_ACCEPTED`; BE `c84b88cd` / Studio `7bf62455…bfe24` nezměněné.
 Přijaté Ledger/TaskFlow/SQLite, omezený AST/GPU panel/cleanup, full109 DB roundtrip a M3 worker;
 opakovat pouze při nové změně nebo konkrétní pochybnosti. ROOT vlastní integraci i CHAT.
-Aktuální produktový zdroj C9 `24f329c6` ukončuje neúspěšné classifier/D1 volání
-terminální chybou místo falešného úspěchu. Source review PASS; řízených13HTTP/restart,
-context52 (v2), dodatečných7unit (v3) a project57 PASS. Nezávislé source, test
-a evidence review PASS; integrace a celý profil tohoto zdroje NOT_RUN.
-[Paket C9](docs/review/2026-10-07-CHAT-TERMINAL-FAILURES.md).
-Předchozí čistý checkpoint f4754575 (produktový zdroj e6) měl
-celý offline/database410PASS/0FAIL/BLOCKED/TIMEOUT/SKIPPED a CI18SUCCESS;
-jeho výsledek se nepřenáší na C9. Původní9b409PASS/1doc-censusFAIL zachovaný.
-[Přesný starší profil a historie](docs/review/evidence/chat-transport-failures-20261007/full-profile.json).
+Aktuální produktový zdroj C9 `24f329c6`, testovaný/publikovaný checkpoint `dd8a451b`:
+classifier13HTTP/restart, finální context55, project57 a integrace19 PASS;
+nezávislé source/test/evidence/integration review PASS. CI37691183506:1job/18kroků SUCCESS.
+Celý profil dd8a **NEPŘIJATÝ**: runner hlásí410PASS, ale scenario-engine má22PASS/20FAIL
+s chybným exit0. Stejná vada potvrzená v historickém f475 profilu; jeho přijetí celého
+profilu je stažené, původní raw a posudky zachované. C11 opravuje pouze testovací setup
+skutečným package fixture a hlášení přes node:test;42původních kontrol zachováno,
+GREEN42/0, tři negativní kontroly správněexit1. Nový celý profil po C11 NOT_RUN.
+C10 replay doložil ztrátu původního save požadavku po chybném modelovém
+continuesPending:false; nejde o opravu ani nové modelové skóre.
+[Paket C9/C11](docs/review/2026-10-07-CHAT-TERMINAL-FAILURES.md),
+[C10 diagnóza](docs/review/2026-10-07-CHAT-SAVE-CONTEXT.md).
 Živá kvalita a release nepřijaté.
 
 Cache oprava `0d86b68e`: CPU 23/23 a source review; [CI37460776179](https://github.com/Belphareon-bak/intentsmith/actions/runs/37460776179) všech 18 kroků SUCCESS.
@@ -75,9 +78,9 @@ Fan 8/11, oracle 8 PASS/6 FAIL; repair4+CLI3/cumulative15 čeká na samostatnou 
 32k krátce změřené fullGPU/min free 2 512 MiB; celé okno ani kvalita aplikace tím nepřijaté.
 Classifier→D1 CPU 44 +parser 24/review PASS; živý přirozený vstup a fyzická ovladatelnost IDE/M2 otevřené.
 
-Nynější úkol: dokončit C9 integrační kontroly po opravě zbývajících false-ok
-větví z externí revize C1/kolo5. Potom oddělit návaznost a save interpretaci
-na již známých vstupech; C6 NO_GO a C7 živý FAIL zůstávají. C5 retry zastaven,
+Nynější úkol: přezkoušet celý profil po C11 opravě false-green testu.
+C10 izoloval chybu modelové návaznosti a následnou ztrátu pending; další oprava
+nesmí ignorovat změnu zadání či cancel; C6 NO_GO a C7 živý FAIL zůstávají. C5 retry zastaven,
 před návratem jiná omezená strategie; C3/C4 přezkoumány,
 H1 čeká na custody/dešifrovací krok operátora. Další:
 HTTP/Fan v přijatých budgetech → IDE/BE/expertise/workers → M5/M6.

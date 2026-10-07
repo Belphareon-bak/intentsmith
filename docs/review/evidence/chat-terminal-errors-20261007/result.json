@@ -1,10 +1,10 @@
 {
   "kind": "C9TerminalChatFailuresReviewPacket@1",
-  "at": "2026-10-07T21:34:19.889732+00:00",
+  "at": "2026-10-07T22:02:24.426264+00:00",
   "base": "22bb44134ba7e0dd1e9f145e2c77f301303cd808",
   "source": "24f329c6a3ffb4e9b0b50a1051adeaee18100fcf",
   "baselineCommit": "d2f39d7e0d026b0badff1ccf18762a4d2247646e",
-  "status": "SOURCE_AND_TEST_EVIDENCE_REVIEW_PASS; INTEGRATION_NOT_RUN",
+  "status": "C9_SOURCE_TEST_EVIDENCE_INTEGRATION_PASS; CI_SUCCESS; FULL_NOT_ACCEPTED; C11_REVIEWED_FULL_NOT_RUN",
   "diff": {
     "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/docs/review/evidence/chat-terminal-errors-20261007/source.patch",
     "sha256": "f3554fd3cc0868361405ba30b8cd2b3639b0dbe1e9806215518cb463348d74c3"
@@ -114,6 +114,109 @@
       "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-terminal-errors-20261007/independent-review/PROJECT-GREEN-REVIEW.json",
       "bytes": 34740,
       "sha256": "b941683b7dc197506551076cf46d8da47e4f965ff93102f321d7437780b6b0cf"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-terminal-errors-20261007/INTEGRATION-command.json",
+      "bytes": 1348,
+      "sha256": "aab5b7c69eb088e45a29e300ab59077fe5c0d901a6ad446c9262e9c4341efc7d"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-terminal-errors-20261007/INTEGRATION-exit.json",
+      "bytes": 1410,
+      "sha256": "b596e988d68189a797f35ba49e2057c4d36f8384971e743524cf7938b3dd8507"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-terminal-errors-20261007/FULL-command.json",
+      "bytes": 791,
+      "sha256": "af38d3cba878e832b6ef9943707277e0b0365a9b26858f96f657502b2d3e3522"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-terminal-errors-20261007/FULL-exit.json",
+      "bytes": 853,
+      "sha256": "87b147215ca8b6fd790a5797d65272bf9d49f2a0448b35881a14b2df55800676"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-terminal-errors-20261007/REGISTRY.json",
+      "bytes": 217,
+      "sha256": "a7414c79e6363d765e0ab5db718faa8a873fc46cb48f35f093c2a1de9d41e6d6"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-terminal-errors-20261007/CI-run.json",
+      "bytes": 14294,
+      "sha256": "7500653587e1d58fdb14e0b43aab2cbae6ca26dcc4e1490832f34f4fdcaafe98"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-terminal-errors-20261007/CI-jobs.json",
+      "bytes": 6010,
+      "sha256": "2446ce2df23ea29f49d6eb22075c086fcfd8e6ea8c103b7f590fd709a81f2408"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-terminal-errors-20261007/independent-review/ACCEPTANCE.json",
+      "bytes": 5920,
+      "sha256": "8ff047dd3a7af9a48fe618ac0616fd4e377ea0535c79958cd9e998c70453c019"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-terminal-errors-20261007/independent-review/INTEGRATION-REVIEW.json",
+      "bytes": 24128,
+      "sha256": "0ff669b795b8aec332941604e6fec5e77512dd1eec6852d8d5e9e9c5611dbf53"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-terminal-errors-20261007/independent-review/CI-REVIEW.json",
+      "bytes": 6806,
+      "sha256": "fc99f3ad135a2e4e03170e81910143be4898a89c5156385ecbfe7f577ae730b9"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-terminal-errors-20261007/independent-review/FULL-REVIEW.json",
+      "bytes": 429898,
+      "sha256": "2d88e7e6cf87aa17e74980ab4afc1f600e27e4711c321fade1672009e89b24b4"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c9-m1-terminal-errors-20261007/DOCS-BASELINE-REVIEW.json",
+      "bytes": 6402,
+      "sha256": "54f2b2b509ad2df715d6faa4792904dc472c55e85fa634aa302b0cba6539e8be"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c10-save-continuation-diagnosis-20261007/RESULT.json",
+      "bytes": 8484,
+      "sha256": "ee7c2ee5db720602202ed5217ab53ad05beb254a40e3ef39a193517aea35315c"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c10-save-continuation-diagnosis-20261007/MANIFEST.json",
+      "bytes": 426740,
+      "sha256": "4aa41e22e5eadc1dea9ff022cc239922a404641f7ad0339b2c5335c89f6c515f"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c10-save-continuation-diagnosis-20261007/independent-review/REVIEW.json",
+      "bytes": 12799,
+      "sha256": "c0e704e0981e66f6f5ce47f3ed4fa3c1e74e9cacac9e59c8411dfd63700164a1"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c11-scenario-test-integrity-20261007/RESULT.json",
+      "bytes": 8682,
+      "sha256": "6a17e6e0ea289337c692961888febf37eeab001f809bd3a06747eef278ed4140"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c11-scenario-test-integrity-20261007/MANIFEST.json",
+      "bytes": 6117,
+      "sha256": "9da594626d971a6a28d7aa4a0bcd15af22507e41d86733bf266dbfb9a86ebf01"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c11-scenario-test-integrity-20261007/independent-review/REVIEW.json",
+      "bytes": 11989,
+      "sha256": "c429a6d4c47ffaa12a517ee83cbdb1a5556fe7b39333ff2c526a4f3febf5d261"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c11-scenario-test-integrity-20261007/EOF-WHITESPACE-DELTA.patch",
+      "bytes": 364,
+      "sha256": "f2bbf20a8b72686ed1b471f5a4d4b18d8968a2ead04debebc60dea039af7c983"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c11-scenario-test-integrity-20261007/FINAL-CENSUS.json",
+      "bytes": 113,
+      "sha256": "d15e87e24b416891ffa80f41da17b8053f51ac784f7b672bca5f08fe41208d82"
     }
-  ]
+  ],
+  "testedCheckpoint": "dd8a451b879ec99a3d5a62a2528dc5356239d995",
+  "testCorrectionCommit": "d91ea3e7cc2318b38917fd46ae631bc455823ba9",
+  "erratum": "Full dd8a and historical f475 runner PASS is false-green: scenario engine logs22PASS/20FAIL exit0. Original reports/reviews preserved. C11 preserves42 assertions with real package fixture and node:test; required profile unchanged."
 }

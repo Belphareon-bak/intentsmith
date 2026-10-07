@@ -57,7 +57,7 @@ C9 `24f329c6` nahrazuje seznam provozních výjimek ukončením každého reject
 classifier callu. Provider500/502, chybějící/neověřený/změněný model i budoucí kód
 končí503; malformed obálka500, neplatná úspěšná klasifikace nadále fallback.
 Nested abort a existující typed chyby se zachovají. Source review PASS, řízené
-13HTTP/restart, context52 a v3unit7 PASS; nezávislé test/evidence review PASS.
+13HTTP/restart, finální context55 a integrace19/CI PASS; nezávislé test/evidence review PASS.
 Projektová cesta používá tutéž chybovou hranici, přestala persistovat chybový text
 jako úspěch. Celý projektový test57GREEN; integrace/source acceptance nejsou
 živá modelová kvalita. [Paket C9](../review/2026-10-07-CHAT-TERMINAL-FAILURES.md).

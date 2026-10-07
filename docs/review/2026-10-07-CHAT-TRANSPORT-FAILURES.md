@@ -58,6 +58,12 @@ jsou mimo rozsah; release stále NOT_ACCEPTED.
 CPU reprodukce a review GPU nevyžadují. Nové živé opakování musí mít samostatné
 sériové GPU okno s ROOT; dřívější neúplná C7 kampaň se neobnovuje.
 
+**C11 erratum (8.10.): přijetí celého následujícího profilu je STAŽENÉ.**
+Přesný f475 scenario-engine log má22PASS/20FAIL a přestoexit0. Původní runner,
+raw JSON a posudekb132 jsou zachované; následující410/0 popisuje jejich tehdejší
+výsledek, nikoli nynější přijetí. C8 úzké source/HTTP/integration důkazy se nemění.
+[Nový nález a C11 oprava](2026-10-07-CHAT-TERMINAL-FAILURES.md).
+
 Celý původní offline/database profil na f4754575 (produktový zdroj e6 beze změny):
 **7.10.21:00:05–21:09:49UTC,410PASS/0FAIL/BLOCKED/TIMEOUT/SKIPPED, exit0**.
 Nezávislé execution reviewb132b085…0f8fe ověřilo všech410 logů, Git programy,
