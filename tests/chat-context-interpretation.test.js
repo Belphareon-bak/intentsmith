@@ -11,7 +11,7 @@ import { buildAnswerContext } from '../src/chat/handlers/decisions.js';
 import { llmGateway } from '../src/llm/gateway.js';
 import http from 'node:http';
 import { randomBytes } from 'node:crypto';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, copyFileSync } from 'node:fs';
 import path from 'node:path';
 import Database from 'better-sqlite3';
 import { createOwnedJourneyRuntime, expectJson, requestJson, startProduct, stopProduct } from './helpers/chat-project-expertise-model-journey.js';
@@ -1112,7 +1112,8 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
   const owned = createOwnedJourneyRuntime(isolatedTestRuntime);
   const model = 'fixture:1b';
   const digest = 'a'.repeat(64);
-  const calls = [];
+  const calls = [], responses = [], httpTurns = [], stops = [], observations = [];
+  const saveAudit = (name, value) => writeFileSync(path.join(owned.artifacts, name), JSON.stringify(value, null, 2) + '\n', { mode: 0o600 });
   const question = 'Do kterého souboru chceš uložit shrnutí?';
   const summaryRequest = 'Shrň odpověď a ulož ji do nového souboru, nic existujícího nepřepisuj.';
   const literal = '  Žluťoučký kůň\nřádek 2  \n```\n<img src=x onerror=alert(1)>';
@@ -1122,6 +1123,7 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
   const generationRequest = `${generationInstruction} a ulož je do nového souboru plants.md, nic existujícího nepřepisuj.`;
   const generatedContent = 'Rostliny potřebují světlo odpovídající svému druhu. Zálivku přizpůsob stavu substrátu.';
   const freshLiteralRequest = 'Ulož doslovně „Nový text“ do replacement.md.';
+  const cancellationRequest = 'Neukládej nic, jen vysvětli Git commit.';
   const failedBriefRequest = 'Napiš přesně pět slov.';
   let inventMissingTarget = false;
   const provider = http.createServer(async (req, res) => {
@@ -1194,15 +1196,17 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
           requestedOperation: 'delete',
           continuesPending: Boolean(parsed.pending), responseScope: 'conversation' });
       } else {
+      const standaloneTarget = ['notes.md', 'quoted.txt', 'cross-project.md'].includes(parsed?.request) ? parsed.request : null;
+      const cancelled = parsed?.request === cancellationRequest;
       const repeatedSaveQuestion = parsed?.request === 'ano' && parsed?.pending?.requestedOperation === 'write';
       const ambiguous = repeatedSaveQuestion || parsed?.request === 'Pomoz mi s výběrem.';
-      const write = parsed?.pending?.requestedOperation === 'write' || /ulož/i.test(parsed?.request || raw);
+      const write = !cancelled && (parsed?.pending?.requestedOperation === 'write' || standaloneTarget || /ulož/i.test(parsed?.request || raw));
       content = JSON.stringify({ intent: ambiguous ? 'AMBIGUOUS' : write ? 'FILE_WRITE'
         : parsed?.request?.includes('faktoriál') ? 'CODE' : 'CONVERSATIONAL',
-        confidence: repeatedSaveQuestion ? 0.5 : ambiguous ? 0.1 : 0.95, fileTarget: null,
+        confidence: repeatedSaveQuestion ? 0.5 : ambiguous ? 0.1 : 0.95, fileTarget: standaloneTarget,
         question: repeatedSaveQuestion ? parsed.pending.question : ambiguous ? 'Mezi čím se rozhoduješ?'
           : parsed?.request === 'Shrň odpověď a ulož ji do nového souboru, nic existujícího nepřepisuj.' ? question : null,
-        continuesPending: parsed?.request === freshLiteralRequest ? false : Boolean(parsed?.pending), responseScope: 'conversation',
+        continuesPending: standaloneTarget || cancelled || parsed?.request === freshLiteralRequest ? false : Boolean(parsed?.pending), responseScope: 'conversation',
         briefResponse: parsed?.request === failedBriefRequest,
         responseWordCount: parsed?.request === failedBriefRequest ? 5 : null,
         requestedOperation: write ? 'write' : 'none' });
@@ -1226,25 +1230,38 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     } else if (parsed?.input || parsed?.userInput || system.includes('"reply"')) {
       content = JSON.stringify({ reply: 'Původní odpověď: Git commit uchovává snímek změn a identitu autora.', plan: null });
     } else content = 'Původní odpověď: Git commit uchovává snímek změn a identitu autora.';
+    responses.push({ sequence: calls.length, request: parsed?.request ?? raw, content });
+    saveAudit('c14-http-provider-responses.json', responses);
     res.end(JSON.stringify({ model, digest, done: true, done_reason: 'stop',
       message: { role: 'assistant', content }, prompt_eval_count: 10, eval_count: 30 }));
   });
   await new Promise(resolve => provider.listen(0, '127.0.0.1', resolve));
   let product;
   let database;
+  const stop = async () => {
+    if (!product) return;
+    const ownedProduct = product;
+    await stopProduct(ownedProduct);
+    stops.push({ pid: ownedProduct.child.pid, code: ownedProduct.code, signal: ownedProduct.signal, output: ownedProduct.output });
+    product = null; saveAudit('c14-http-stops.json', stops);
+  };
+  const restart = async () => { await stop(); product = await startProduct(owned, `http://127.0.0.1:${provider.address().port}`, model); };
   try {
     product = await startProduct(owned, `http://127.0.0.1:${provider.address().port}`, model);
     const project = (await expectJson(product, 'POST', '/api/projects', { name: 'context-save', description: 'Owned context test' }, 201)).project;
     const conversationId = (await expectJson(product, 'POST', '/api/conversations', {
       title: 'context-save', project_id: project.id, mode: 'chat',
     }, 201)).conversation.id;
-    const send = (input, expectedStatus = 200) => expectJson(product, 'POST', '/api/chat', { contract: 'ConversationCommand', version: 1,
-      requestId: randomBytes(16).toString('hex'), turnId: randomBytes(16).toString('hex'), conversationId,
-      action: 'send', input }, expectedStatus);
+    const send = async (input, expectedStatus = 200) => {
+      const command = { contract: 'ConversationCommand', version: 1,
+        requestId: randomBytes(16).toString('hex'), turnId: randomBytes(16).toString('hex'), conversationId, action: 'send', input };
+      const result = await requestJson(product, 'POST', '/api/chat', command);
+      httpTurns.push({ command, result }); saveAudit('c14-http-turns.json', httpTurns);
+      assert.equal(result.status, expectedStatus, JSON.stringify(result)); return result.data;
+    };
     const genericQuestion = await send('Pomoz mi s výběrem.');
     assert.equal(genericQuestion.response.content, 'Mezi čím se rozhoduješ?');
-    await stopProduct(product);
-    product = await startProduct(owned, `http://127.0.0.1:${provider.address().port}`, model);
+    await restart();
     const continued = await send('Vybrat Lípu nebo Javor pro komunitní aplikaci.');
     const continuedClassification = calls.filter(call => call.messages[0]?.content?.includes('Klasifikuj')).at(-1);
     assert.equal(JSON.parse(continuedClassification.messages.at(-1).content).pending?.request, 'Pomoz mi s výběrem.');
@@ -1258,6 +1275,19 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     const pendingState = () => JSON.parse(database.prepare('SELECT state_json FROM session_state WHERE session_id = ?')
       .get(conversationId).state_json).pendingDecision;
     const effectResults = () => database.prepare('SELECT count(*) AS n FROM m2_effect_results').get().n;
+    const effects = () => Object.fromEntries(['tool_v1_requests', 'tool_v1_results', 'm2_effect_requests', 'm2_effect_results', 'm2_approval_grants']
+      .map(table => [table, database.prepare(`SELECT count(*) AS n FROM ${table}`).get().n]));
+    const observe = label => {
+      const value = { label, pending: pendingState(), effects: effects(),
+        messages: database.prepare('SELECT id, role, content, metadata FROM messages WHERE conversation_id = ? ORDER BY id').all(conversationId) };
+      observations.push(value); saveAudit('c14-http-observations.json', observations); return value;
+    };
+    const falseTargetReply = target => {
+      const row = responses.filter(row => row.request === target && JSON.parse(row.content).intent === 'FILE_WRITE').at(-1);
+      assert(row, 'controlled target classifier reached');
+      assert.equal(JSON.parse(row.content).continuesPending, false);
+      assert.equal(JSON.parse(row.content).fileTarget, target);
+    };
     const beforeMailCalls = calls.length;
     const mailReply = await send('Pošli e-mail na bob@example.test s textem "Ahoj".');
     assert.equal(mailReply.status, 'ok');
@@ -1293,8 +1323,7 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     const repeatedSummary = await send('ano');
     assert.equal(repeatedSummary.response.content, question);
     const afterSummaryYes = pendingState();
-    await stopProduct(product);
-    product = await startProduct(owned, `http://127.0.0.1:${provider.address().port}`, model);
+    await restart();
     const restartedSummary = pendingState();
     writeFileSync(path.join(owned.artifacts, 'summary-pending-before-after-restart.json'),
       JSON.stringify({ summaryPending, afterSummaryYes, restartedSummary }, null, 2) + '\n', { mode: 0o600 });
@@ -1304,7 +1333,9 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     assert.deepEqual(restartedSummary.metadata.fileSaveClarification, summaryPending.metadata.fileSaveClarification);
     assert.equal(effectResults(), beforeSummaryEffects);
     assert(!existsSync(path.join(project.path, 'notes.md')));
+    observe('summary-before-target-after-restart');
     const proposal = await send('notes.md');
+    falseTargetReply('notes.md');
     assert.equal(proposal.response.metadata.approvalRequired, true, JSON.stringify(proposal));
     const interpretation = calls.filter(call => call.format?.properties?.action).at(-1);
     const summaryEvidence = JSON.parse(interpretation.messages.at(-1).content);
@@ -1317,10 +1348,18 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     assert.equal(tool.toolId, 'file.create');
     assert.deepEqual(tool.input, { path: 'notes.md', content: 'Git commit uchovává snímek změn.' });
     assert(!existsSync(path.join(project.path, 'notes.md')));
+    assert.equal(effectResults(), beforeSummaryEffects, 'proposal does not execute a write');
+    const summaryBeforeApproval = observe('summary-proposal-before-approval');
+    await restart();
+    assert.deepEqual(effects(), summaryBeforeApproval.effects);
+    assert(!existsSync(path.join(project.path, 'notes.md')));
     const approved = await send(`schválit efekt ${proposal.response.metadata.effectId}`);
     assert.equal(approved.response.metadata.effectResult, 'succeeded');
     assert.equal(readFileSync(path.join(project.path, 'notes.md'), 'utf8'), tool.input.content);
     assert.equal(typeof approved.response.metadata.chatTiming.totalMs, 'number');
+    await restart();
+    assert.equal(readFileSync(path.join(project.path, 'notes.md'), 'utf8'), tool.input.content);
+    observe('summary-approved-after-restart');
     const beforeLiteral = database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n;
     await send(literalRequest);
     const literalPending = pendingState();
@@ -1332,8 +1371,7 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     await send('ano');
     const afterLiteralYes = pendingState();
     assert.equal(database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n, beforeLiteral);
-    await stopProduct(product);
-    product = await startProduct(owned, `http://127.0.0.1:${provider.address().port}`, model);
+    await restart();
     const restartedLiteral = pendingState();
     writeFileSync(path.join(owned.artifacts, 'literal-pending-before-after-restart.json'),
       JSON.stringify({ literalPending, afterLiteralYes, restartedLiteral }, null, 2) + '\n', { mode: 0o600 });
@@ -1343,7 +1381,9 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     assert.deepEqual(restartedLiteral.metadata.fileSaveClarification, literalPending.metadata.fileSaveClarification);
     assert.equal(effectResults(), beforeLiteralEffects);
     assert(!existsSync(path.join(project.path, 'quoted.txt')));
+    observe('literal-before-target-after-restart');
     const literalProposal = await send('quoted.txt');
+    falseTargetReply('quoted.txt');
     const literalEvidence = JSON.parse(calls.filter(call => call.format?.properties?.action).at(-1).messages.at(-1).content);
     assert.equal(literalEvidence.pending.request, literalRequest);
     assert.equal(literalEvidence.literals[0].content, literal);
@@ -1353,8 +1393,16 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     assert.equal(literalProposal.response.metadata.fileSaveSource.kind, 'user_literal');
     assert.equal(literalProposal.response.metadata.fileSaveSource.originMessageId, literalSource.id);
     assert(!existsSync(path.join(project.path, 'quoted.txt')));
-    await send(`schválit efekt ${literalProposal.response.metadata.effectId}`);
+    assert.equal(effectResults(), beforeLiteralEffects, 'literal proposal does not execute a write');
+    const literalBeforeApproval = observe('literal-proposal-before-approval');
+    await restart();
+    assert.deepEqual(effects(), literalBeforeApproval.effects);
+    assert(!existsSync(path.join(project.path, 'quoted.txt')));
+    assert.equal((await send(`schválit efekt ${literalProposal.response.metadata.effectId}`)).response.metadata.effectResult, 'succeeded');
     assert.equal(readFileSync(path.join(project.path, 'quoted.txt'), 'utf8'), literal);
+    await restart();
+    assert.equal(readFileSync(path.join(project.path, 'quoted.txt'), 'utf8'), literal);
+    observe('literal-approved-after-restart');
     const beforeDecomposed = database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n;
     const stopped = await send(decomposedRequest);
     assert.equal(stopped.response.metadata.error, 'file_write_byte_identity_unavailable', JSON.stringify(stopped));
@@ -1376,6 +1424,9 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     await send(`schválit efekt ${generated.response.metadata.effectId}`);
     assert.equal(readFileSync(path.join(project.path, 'plants.md'), 'utf8'), generatedContent);
     await send('Shrň odpověď a ulož ji do nového souboru, nic existujícího nepřepisuj.');
+    const newTaskPending = observe('new-task-original-pending');
+    assert.equal(newTaskPending.pending.metadata.originalRequest, summaryRequest);
+    await restart();
     const freshLiteral = await send(freshLiteralRequest);
     assert.equal(freshLiteral.response.metadata.approvalRequired, true, JSON.stringify(freshLiteral));
     const freshInterpretation = calls.filter(call => call.format?.properties?.action).at(-1);
@@ -1388,13 +1439,42 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     assert(!existsSync(path.join(project.path, 'replacement.md')));
     await send(`schválit efekt ${freshLiteral.response.metadata.effectId}`);
     assert.equal(readFileSync(path.join(project.path, 'replacement.md'), 'utf8'), 'Nový text');
+    inventMissingTarget = false;
+    await send(summaryRequest);
+    assert.equal(pendingState().metadata.originalRequest, summaryRequest);
+    await restart();
+    const cancellationBefore = observe('cancel-before');
+    const cancelled = await send(cancellationRequest);
+    assert.notEqual(cancelled.response.metadata.approvalRequired, true);
+    assert.equal(pendingState(), null);
+    assert.deepEqual(effects(), cancellationBefore.effects);
+    await restart();
+    assert.equal(pendingState(), null);
+    assert.deepEqual(observe('cancel-after-restart').effects, cancellationBefore.effects);
+
+    await send(literalRequest);
+    const switchedPending = observe('project-switch-before');
+    assert.equal(switchedPending.pending.metadata.originalRequest, literalRequest);
+    const projectB = (await expectJson(product, 'POST', '/api/projects', { name: 'context-save-b', description: 'Owned project switch boundary' }, 201)).project;
+    await expectJson(product, 'PUT', `/api/conversations/${encodeURIComponent(conversationId)}`, { project_id: projectB.id }, 200);
+    await restart();
+    const switched = await send('cross-project.md');
+    falseTargetReply('cross-project.md');
+    assert.notEqual(switched.response.metadata.approvalRequired, true);
+    assert.deepEqual(effects(), switchedPending.effects);
+    const switchInput = JSON.parse(calls.filter(call => call.format?.properties?.action).at(-1).messages.at(-1).content);
+    assert.equal(switchInput.pending, undefined, 'foreign-project original save must not reach interpreter');
+    assert(!existsSync(path.join(projectB.path, 'cross-project.md')));
+    await restart();
+    assert.deepEqual(observe('project-switch-after-restart').effects, switchedPending.effects);
+    assert(!existsSync(path.join(project.path, 'cross-project.md')));
+    await expectJson(product, 'PUT', `/api/conversations/${encodeURIComponent(conversationId)}`, { project_id: project.id }, 200);
+    await restart();
     const before = database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n;
-    await send('Neukládej nic, jen vysvětli Git commit.');
     assert.equal(database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n, before);
     const deleteQuestion = await send('Smaž ten druhý.');
     assert.equal(deleteQuestion.response.content, 'Který soubor chceš smazat?');
-    await stopProduct(product);
-    product = await startProduct(owned, `http://127.0.0.1:${provider.address().port}`, model);
+    await restart();
     const refusedDeletion = await send('Myslím notes.md.');
     assert(refusedDeletion.response.content.includes('soubory mazat neumím'), JSON.stringify(refusedDeletion));
     assert.notEqual(refusedDeletion.response.metadata.approvalRequired, true);
@@ -1404,23 +1484,204 @@ test('M1 restart resumes a targeted save question, preserves summarize/create co
     assert.equal(failed.error.code, 'CHAT_PROCESSING_FAILED', JSON.stringify(failed));
     assert.equal(database.prepare("SELECT role FROM messages WHERE conversation_id = ? ORDER BY id DESC LIMIT 1")
       .get(conversationId).role, 'user');
-    await stopProduct(product);
-    product = await startProduct(owned, `http://127.0.0.1:${provider.address().port}`, model);
+    await restart();
     const stale = await send('Ulož tu odpověď do stale.md.');
     assert.equal(stale.response.metadata.awaitingClarification, true, JSON.stringify(stale));
     assert(stale.response.content.includes('nemá dokončenou odpověď'), stale.response.content);
     assert.equal(database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n, before);
     assert(!existsSync(path.join(project.path, 'stale.md')));
-    await stopProduct(product);
-    product = await startProduct(owned, `http://127.0.0.1:${provider.address().port}`, model);
+    await restart();
     const stillStale = await send('stale.md');
     assert.equal(stillStale.response.metadata.awaitingClarification, true, JSON.stringify(stillStale));
     assert(stillStale.response.content.includes('nemá dokončenou odpověď'), stillStale.response.content);
     assert.equal(database.prepare('SELECT count(*) AS n FROM tool_v1_requests').get().n, before);
   } finally {
     database?.close();
-    await stopProduct(product);
+    await stop();
     provider.closeAllConnections();
     await new Promise(resolve => provider.close(resolve));
+    const copy = path.join(owned.artifacts, 'c14-closed-db-copy'); mkdirSync(copy, { mode: 0o700 });
+    for (const suffix of ['', '-wal', '-shm']) if (existsSync(owned.database + suffix)) copyFileSync(owned.database + suffix, path.join(copy, 'c3.db' + suffix));
+    saveAudit('c14-http-cleanup.json', { stops, providerClosed: !provider.listening, databaseCopy: copy,
+      ownedRoot: owned.root, originalDatabase: owned.database, scope: 'Only owned private M1 runtime and controlled provider' });
   }
+});
+
+// C14: exact C10 classifier request17 response, with no provider transport.
+// The false continuation is preserved in the fixture; the core owns context.
+const c14RecordedClassifier = { intent: 'FILE_WRITE', confidence: 1.0, fileTarget: 'photo.md',
+  question: null, continuesPending: false, responseScope: 'conversation', briefResponse: false,
+  responseWordCount: null, requestedOperation: 'write', unavailableAction: null };
+
+function c14SaveContext(request = 'Ulož tu odpověď.', provenance = { projectId: 1, sourceMessageId: 2, userMessageId: 3 }) {
+  const state = new SessionState('c14-save-context');
+  state.setProject({ id: 1 });
+  state.setPendingDecision({ type: 'ASK_USER', intent: 'FILE_WRITE', metadata: {
+    originalRequest: request, clarificationQuestion: 'Do kterého souboru?',
+    fileSaveClarification: provenance,
+  } }, ['file_save']);
+  return { project: { id: 1, path: isolatedTestRuntime.projects }, sessionState: state,
+    authenticatedSubject: { actorType: 'user', actorId: 'c14-test' }, userMessageId: 7,
+    history: [2, 4].map(messageId => ({ messageId,
+      response: { tag: { speaker: 'system' }, content: messageId === 2 ? 'Původní úplný podklad.' : 'Novější odpověď.' },
+      metadata: { saveSourceEligible: true, saveSourceProjectId: 1 } })) };
+}
+
+test('C14 lone save target retains original provenance through repeated questions and state restoration', async () => {
+  const { clearSupersededFileSaveQuestion, handleFileWriteDecision } = await import('../src/chat/handlers/file.js');
+  const original = llmGateway.call;
+  const observations = [];
+  const database = new Database(isolatedTestRuntime.database, { readonly: true });
+  const effects = () => Object.fromEntries(['tool_v1_requests', 'tool_v1_results', 'm2_effect_requests',
+    'm2_effect_results', 'm2_approval_grants'].map(table => [table,
+      database.prepare(`SELECT count(*) AS n FROM ${table}`).get().n]));
+  const before = effects();
+  const literal = '  Žluťoučký kůň\nřádek 2  ';
+  const origins = [
+    { request: 'Ulož tu odpověď.', sourceMessageId: 2, transformation: 'none', writeMode: 'replace' },
+    { request: 'Shrň odpověď a ulož ji do nového souboru, nic existujícího nepřepisuj.',
+      sourceMessageId: 2, transformation: 'summarize', writeMode: 'create' },
+    { request: `Ulož doslovně „${literal}“.`, sourceMessageId: null, transformation: 'none', writeMode: 'replace' },
+  ];
+  setNumCtx(config.models.FAST || config.models.CHAT, 4096);
+  try {
+    for (const origin of origins) {
+      const provenance = { projectId: 1, sourceMessageId: origin.sourceMessageId, userMessageId: 3 };
+      const context = c14SaveContext(origin.request, provenance);
+      let currentInput = 'ano';
+      llmGateway.call = async prompt => {
+        const input = JSON.parse(prompt);
+        assert.equal(input.request, currentInput);
+        assert.equal(input.pending.request, origin.request);
+        return { content: JSON.stringify(currentInput === 'ano'
+          ? { ...c14RecordedClassifier, intent: 'AMBIGUOUS', confidence: 0.5, fileTarget: null,
+            question: 'Do kterého souboru?', continuesPending: true }
+          : c14RecordedClassifier), finishReason: 'stop' };
+      };
+      const yes = await creDecisionEngine.decide('ano', context);
+      clearSupersededFileSaveQuestion(context, yes);
+      handleAskUserDecision('ano', yes, context);
+      assert.deepEqual(context.sessionState.pendingDecision.metadata.fileSaveClarification, provenance);
+      context.sessionState = SessionState.fromJSON(JSON.parse(JSON.stringify(context.sessionState.toJSON())));
+      currentInput = 'photo.md';
+      for (let repeat = 0; repeat < 2; repeat++) {
+        const decision = await creDecisionEngine.decide(currentInput, context);
+        assert.equal(decision.intent, 'FILE_WRITE');
+        assert.equal(decision.metadata.continuesPending, true);
+        assert.equal(decision.metadata.clarificationRequest, origin.request);
+        assert(decision.metadata.diag.overrides.includes('pending_save_target_continuation'));
+        clearSupersededFileSaveQuestion(context, decision);
+        assert.deepEqual(context.sessionState.pendingDecision.metadata.fileSaveClarification, provenance);
+        const response = await handleFileWriteDecision(currentInput, decision, context, {
+          interpretSave: async prompt => {
+            const input = JSON.parse(prompt);
+            assert.equal(input.pending.request, origin.request);
+            assert.deepEqual(input.answers.map(answer => answer.messageId), origin.sourceMessageId === null ? [4, 2] : [2]);
+            observations.push({ request: origin.request, repeat, input, decision: decision.toJSON() });
+            return { content: JSON.stringify({ action: 'clarify', question: 'Upřesni prosím obsah.',
+              target: 'photo.md', source: origin.sourceMessageId === null ? { kind: 'literal', literalId: 1 }
+                : { kind: 'answer', messageId: 2 }, transformation: origin.transformation,
+              writeMode: origin.writeMode, understood: false, unsupported: [] }) };
+          },
+        });
+        assert.equal(response.canExecute, false);
+        assert.equal(response.metadata.approvalRequired, false);
+        assert.equal(response.metadata.error, 'file_write_plan_ambiguous');
+        const pending = context.sessionState.pendingDecision.metadata;
+        assert.equal(pending.originalRequest, origin.request);
+        assert.deepEqual(pending.fileSaveClarification, provenance);
+        context.sessionState = SessionState.fromJSON(JSON.parse(JSON.stringify(context.sessionState.toJSON())));
+        assert.deepEqual(context.sessionState.pendingDecision.metadata.fileSaveClarification, provenance);
+      }
+      const verified = [];
+      context.verifyFileSaveOriginalRequest = value => verified.push(value);
+      const plan = await resolveFileSavePlan('photo.md', context, { interpretSave: async prompt => {
+        const input = JSON.parse(prompt);
+        assert.equal(input.pending.request, origin.request);
+        return { content: JSON.stringify({ action: 'write', question: null, target: 'photo.md',
+          source: origin.sourceMessageId === null ? { kind: 'literal', literalId: 1 } : { kind: 'answer', messageId: 2 },
+          transformation: origin.transformation, writeMode: origin.writeMode, understood: true, unsupported: [] }) };
+      } });
+      assert.equal(plan.toolId, origin.writeMode === 'create' ? 'file.create' : 'file.write');
+      assert.equal(plan.transformation, origin.transformation);
+      if (origin.sourceMessageId === null) {
+        assert.equal(plan.content, literal);
+        assert.equal(plan.literalOriginMessageId, 3);
+        assert.deepEqual(verified, [{ messageId: 3, request: origin.request }]);
+      } else {
+        assert.equal(plan.sourceMessageId, 2);
+        assert.equal(plan.content, 'Původní úplný podklad.');
+      }
+    }
+    assert.deepEqual(effects(), before);
+    writeFileSync(path.join(isolatedTestRuntime.artifacts, 'c14-repeat-observations.json'),
+      JSON.stringify({ observations, effectsBefore: before, effectsAfter: effects() }, null, 2) + '\n');
+  } finally { database.close(); llmGateway.call = original; clearNumCtxCache(); }
+});
+
+test('C14 filename continuation excludes cancellation, new tasks, foreign and inactive save contexts', async t => {
+  const { clearSupersededFileSaveQuestion } = await import('../src/chat/handlers/file.js');
+  const original = llmGateway.call;
+  const cases = [
+    { name: 'cancel', input: 'Neukládej nic, zruš to.', result: { intent: 'CONVERSATIONAL', fileTarget: null, requestedOperation: 'none' } },
+    { name: 'new read task', input: 'Přečti photo.md.', result: { intent: 'FILE_READ', requestedOperation: 'read' } },
+    { name: 'new literal write', input: 'Ulož text "Nový text" do photo.md.' },
+    { name: 'new unrelated task', input: 'Vysvětli mi třídění polí.', result: { intent: 'CONVERSATIONAL', fileTarget: null, requestedOperation: 'none' } },
+    { name: 'other project', projectId: 2 },
+    { name: 'no active project', projectId: null },
+    { name: 'inactive pending', inactive: true },
+    { name: 'no canonical save', noSave: true },
+    { name: 'canonical delete', operation: 'delete' },
+    { name: 'canonical read', operation: 'read' },
+    { name: 'two targets', input: 'photo.md other.md' },
+    { name: 'model target mismatch', result: { fileTarget: 'other.md' } },
+    { name: 'path traversal', input: '../photo.md', result: { fileTarget: '../photo.md' } },
+    { name: 'absolute target', input: '/tmp/photo.md', result: { fileTarget: '/tmp/photo.md' } },
+  ];
+  try {
+    for (const item of cases) await t.test(item.name, async () => {
+      const context = c14SaveContext();
+      if ('projectId' in item) context.project = { ...context.project, id: item.projectId };
+      if (item.operation) context.sessionState.pendingDecision.metadata.originalRequestedOperation = item.operation;
+      if (item.noSave) delete context.sessionState.pendingDecision.metadata.fileSaveClarification;
+      if (item.inactive) context.sessionState = { awaitingClarification: false,
+        pendingDecision: context.sessionState.pendingDecision, clearPendingDecision() { this.pendingDecision = null; } };
+      llmGateway.call = async () => ({ content: JSON.stringify({ ...c14RecordedClassifier, ...item.result }), finishReason: 'stop' });
+      const decision = await creDecisionEngine.decide(item.input || 'photo.md', context);
+      assert(!decision.metadata.diag.overrides?.includes('pending_save_target_continuation'));
+      assert.equal(decision.metadata.continuesPending, false);
+      clearSupersededFileSaveQuestion(context, decision);
+      if (!item.noSave) assert.equal(context.sessionState.pendingDecision, null);
+    });
+  } finally { llmGateway.call = original; }
+});
+
+test('C14 preserved save still rejects removed source and respects its barrier', async t => {
+  const { clearSupersededFileSaveQuestion } = await import('../src/chat/handlers/file.js');
+  const original = llmGateway.call;
+  llmGateway.call = async () => ({ content: JSON.stringify(c14RecordedClassifier), finishReason: 'stop' });
+  try {
+    await t.test('missing selected answer', async () => {
+      const context = c14SaveContext();
+      context.history = context.history.filter(answer => answer.messageId !== 2);
+      const decision = await creDecisionEngine.decide('photo.md', context);
+      clearSupersededFileSaveQuestion(context, decision);
+      await assert.rejects(resolveFileSavePlan('photo.md', context, {
+        interpretSave: async () => assert.fail('missing selected answer must stop before interpretation'),
+      }), error => error.code === 'file_write_source_changed');
+    });
+    await t.test('source barrier', async () => {
+      const context = c14SaveContext('Ulož tu odpověď.', { projectId: 1, sourceMessageId: null,
+        userMessageId: 3, sourceBarrier: 'file_write_source_unverified' });
+      const decision = await creDecisionEngine.decide('photo.md', context);
+      clearSupersededFileSaveQuestion(context, decision);
+      await assert.rejects(resolveFileSavePlan('photo.md', context, { interpretSave: async prompt => {
+        const input = JSON.parse(prompt);
+        assert.equal(input.sourceAvailability, 'file_write_source_unverified');
+        return { content: JSON.stringify({ action: 'write', question: null, target: 'photo.md',
+          source: { kind: 'answer', messageId: 4 }, transformation: 'none', writeMode: 'replace',
+          understood: true, unsupported: [] }) };
+      } }), error => error.code === 'file_write_source_unverified');
+    });
+  } finally { llmGateway.call = original; }
 });

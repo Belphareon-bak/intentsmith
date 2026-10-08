@@ -1,0 +1,81 @@
+{
+  "kind": "C13ActualContinuationSummary@1",
+  "sourceSha": "44567af758d130f553262b5a356c1556ebc8654e",
+  "release": "NOT_ACCEPTED",
+  "http": {
+    "modelRepairAttempts": 0,
+    "newCodeCalls": 0,
+    "historicalCodeCalls": 12,
+    "admissionFailures": 2,
+    "utilizationPercent": [
+      [
+        32
+      ],
+      [
+        21,
+        21,
+        32
+      ]
+    ],
+    "cleanup": "NO_LOAD_PASS_LEASE_RELEASED",
+    "status": "PRE_INFERENCE_FAIL"
+  },
+  "fan": {
+    "status": "FAIL_NOT_ACCEPTED",
+    "historicalCodeCalls": 8,
+    "newCodeCalls": 4,
+    "cumulative": 12,
+    "maximum": 15,
+    "newOutputsComplete": 4,
+    "coreBehavioralOracle": "NOT_RUN",
+    "newApprovals": 0,
+    "newExecutionEffects": 0,
+    "cleanup": "REAL_UNLOAD_THREE_EMPTY_SAMPLES_AND_LEASE_RELEASE_REVIEW_PASS",
+    "pendingExpiresUtc": "2026-10-08T08:47:55.357Z",
+    "cause": "Literal import spelling differs from original source policy AND protected oracle; module target equivalence proven separately",
+    "oracleChange": "CONCRETE_REVIEWED_PROPOSAL_AWAITING_OPERATOR_DECISION"
+  },
+  "ci": {
+    "runId": 37743439100,
+    "jobId": 113199257228,
+    "stepsSuccess": 18
+  },
+  "refs": {
+    "fanResult": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/fan-c13-cumulative15-44567af7-live-20261008/result.json",
+      "sha256": "42d7f8ebb5780be07f2d03209e53ad7a463bf718b1f91239f8d6c2a4beaf638e"
+    },
+    "fanReview": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c13-authorized-product-continuation-20261008/fan-final-independent-review/ACTUAL-REVIEW.json",
+      "sha256": "2680ba346806fc60919d42084477aff978aa21e3792c4b93d750bf7427e40024"
+    },
+    "httpFirstResult": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/http-c13-repair13-44567af7-live-20261008/result.json",
+      "sha256": "7c068bbd32ba435726a691e5c6e1e63b388b5ab71647e40a7b2963b4f9cdebe8"
+    },
+    "httpFirstReview": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c13-authorized-product-continuation-20261008/http-independent-review/HTTP-ADMISSION-FAIL-REVIEW.json",
+      "sha256": "8c05b9bcfd64d10fec2f6b6837dd25ed0e41a4025ea26afa222d7b393b8250a1"
+    },
+    "httpWindow2Result": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/http-c13-repair13-44567af7-window2-live-20261008/result.json",
+      "sha256": "5f3348427ec53be258c95473565c92ef087dfff6d3cb474a95d03093528d9bda"
+    },
+    "fanOracleProposal": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c13-authorized-product-continuation-20261008/fan-import-diagnosis/RESULT.json",
+      "sha256": "7cfa80cde0ef7a921de8457a3afed56fdd751be75fd32053589b22e5c70814db"
+    },
+    "fanOracleProposalReview": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c13-authorized-product-continuation-20261008/fan-import-diagnosis/ROOT-PROPOSAL-REVIEW.json",
+      "sha256": "d2b3d86ce439f40eede17ffb98bd27510d00cdb09234ded639f95b51ec9729bf"
+    },
+    "ciRun": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c13-authorized-product-continuation-20261008/CI-run.json",
+      "sha256": "8bd0c8e0be5c0683fc415463a0924ac4f19c4afe9e3f271d61e360eaea754b9f"
+    },
+    "ciJobs": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c13-authorized-product-continuation-20261008/CI-jobs.json",
+      "sha256": "a941f6f9f6f0f8af1470fdc80fbe4960cfc5c3a56f959e77f0d7e85b0f2e82b2"
+    }
+  }
+}

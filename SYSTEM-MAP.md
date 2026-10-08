@@ -4,7 +4,7 @@
 Release `NOT_ACCEPTED`; BE `c84b88cd` / Studio `7bf62455…bfe24` nezměněné.
 Přijaté Ledger/TaskFlow/SQLite, omezený AST/GPU panel/cleanup, full109 DB roundtrip a M3 worker;
 opakovat pouze při nové změně nebo konkrétní pochybnosti. ROOT vlastní integraci i CHAT.
-Aktuální produktový zdroj C9 `24f329c6`; přijatý a publikovaný checkpoint
+Poslední celý přijatý profil má produktový zdroj C9 `24f329c6`; publikovaný checkpoint
 `678eead707a59df568c7353a8b2dd7ad6c175b23` obsahuje také C11/C12 opravy testů.
 C9: classifier13 HTTP/restart, context55, project57 a integrace19 PASS;
 nezávislé source/test/evidence/integration review. Modelové výpadky již
@@ -28,6 +28,20 @@ continuesPending:false; nejde o opravu ani nové modelové skóre.
 [Paket C9/C11](docs/review/2026-10-07-CHAT-TERMINAL-FAILURES.md),
 [C10 diagnóza](docs/review/2026-10-07-CHAT-SAVE-CONTEXT.md).
 Živá kvalita a release nepřijaté.
+
+C13 helper checkpoint `44567af7`: CI18 SUCCESS a nezávislé source/CPU review.
+HTTP dva starty odmítl GPU admission před inferencí; historie12, nová volání0.
+Fan dokončil čtyři nové CODE výstupy (12/15), ale literal import guard zastavil
+návrh před approval a funkčním oracle; žádné nové efekty. Skutečný Qwen32k unload,
+tři prázdná ps/compute měření a uvolnění lease nezávisle přijaty. Návrh změny
+chráněného Fan oracle čeká na operátora; H1 plaintext/sběr stále nepřítomný.
+C14 nyní zachovává aktivní save požadavek ve stejném projektu při odpovědi pouhým
+názvem souboru i přes chybné modelové continuesPending:false. Source/CPU19 a
+řízené M1/SQLite/restart/approval review PASS; ROOT integrovaná context sada74 PASS.
+Tato fixture nepoužívá skutečný model a nenahrazuje C6 NO_GO ani C7 LIVE_FAIL.
+HTTP @6 admission nově čeká nejvýše20 vzorků/30s na tři po sobě platná měření;
+původní prahy i rozpočet zůstávají, source/test review a23+38CPU PASS.
+[Aktuální cykly a přesné důkazy](docs/WORK-PROGRESS.md).
 
 Cache oprava `0d86b68e`: CPU 23/23 a source review; [CI37460776179](https://github.com/Belphareon-bak/intentsmith/actions/runs/37460776179) všech 18 kroků SUCCESS.
 **Copied-cache upgrade 6. 10., 12:26 UTC: 1223d2a8…9d95e79 PASS**, n=1 /8,804 s /bez modelu.
@@ -815,14 +829,14 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 **REVIEW_PENDING** — [aktuální UI oprava a evidence](docs/review/2026-09-17-HUNT-MODEL-CONTROLS-FOLLOWUP.md).
 
 Následující LOC a registry census jsou přeměřené 8. 10. 2026 přímo na zdroji
-C12 testového commitu `6699e962` (produktový zdroj `24f329c6`), přes stejný algoritmus jako `tests/artifact-validation.test.js`:
+C14 pracovního kandidátu nad `44567af7`, přes stejný algoritmus jako `tests/artifact-validation.test.js`:
 počet skutečných `.js` souborů a počet znaků nového řádku v jejich bytech.
 Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
-| `src/**/*.js` | **237 254 ř.**, 688 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **270 801 ř.**, 604 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **237 269 ř.**, 688 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **271 062 ř.**, 604 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **596** (`498 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 109** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |

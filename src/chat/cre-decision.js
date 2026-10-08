@@ -3451,6 +3451,21 @@ PRAVIDLA:
       if (llmAccepted) {
         intent = llmResult.intent;
         llmMeta = llmResult;
+        // A lone filename fills the active save target; it cannot start a new
+        // save request by itself. Retain only canonical same-project context.
+        // The save interpreter still validates source and constraints; separate
+        // exact approval remains required by the existing write handler.
+        const pendingSave = context.sessionState?.pendingDecision?.metadata?.fileSaveClarification;
+        const pendingSaveQuestion = pendingConversationQuestion(context);
+        if (intent === IntentType.FILE_WRITE && llmMeta.contextualInterpretation === true
+          && llmMeta.continuesPending === false && _text === namedFileCandidate
+          && llmMeta.fileTarget === _text && pendingSaveQuestion
+          && ['write', 'create'].includes(pendingSaveQuestion.requestedOperation)
+          && Number.isSafeInteger(pendingSave?.projectId) && pendingSave.projectId > 0
+          && pendingSave.projectId === Number(context.project?.id ?? context.projectId)) {
+          llmMeta = { ...llmMeta, continuesPending: true };
+          _diag.overrides.push('pending_save_target_continuation');
+        }
         // Do not let a creative/sticky fallback turn an unresolved project scope
         // into a proposal. A concrete model question uses the existing ASK_USER port.
         if (requiresProjectScopeInterpretation && intent === IntentType.AMBIGUOUS) return clarifyProjectScope();

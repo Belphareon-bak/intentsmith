@@ -1,0 +1,123 @@
+{
+  "schema": "IntentSmithContinuationSourceReview@1",
+  "baseSha": "44567af758d130f553262b5a356c1556ebc8654e",
+  "status": "SOURCE_CPU_REVIEW_PASS_LIVE_NOT_RUN",
+  "source": {
+    "path": "src/chat/cre-decision.js",
+    "sha256": "72cc496d536a478fea2ddc63290553e8d56715fc37679dff6054f52dda062876"
+  },
+  "test": {
+    "path": "tests/chat-context-interpretation.test.js",
+    "sha256": "13a4494359af7bea3dfbc7e4a5c97648797e4fc613b15afa8c6c77e26fd0d40a"
+  },
+  "httpRunner": {
+    "path": "scripts/manual/run-http-items-journey.mjs",
+    "sha256": "0b0a86ef9e00005d42457155cb8394f365b2ce72bd2f85731c1d7b765f92b8fd"
+  },
+  "rootContextValidation": {
+    "command": [
+      "/home/belphareon/.nvm/versions/node/v24.21.0/bin/node",
+      "--test",
+      "tests/chat-context-interpretation.test.js"
+    ],
+    "expectedExit": 0,
+    "actualExit": 0,
+    "exitEvidence": "ROOT exec session90038 completed exit0; raw log retained",
+    "pass": 74,
+    "fail": 0,
+    "skipped": 0,
+    "modelCalls": 0
+  },
+  "newAdmissionCPU": 23,
+  "preservedHTTPTests": 38,
+  "knownModelQuality": "C6_NO_GO_UNCHANGED",
+  "releaseAcceptance": "NOT_ACCEPTED",
+  "refs": [
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/independent-review/REVIEW.json",
+      "bytes": 26885,
+      "sha256": "0b20da31b03f708d174bfaa8b4908eb69418b6242dd80630189ed8c8f498a3ef"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http-restart-independent-review/REVIEW.json",
+      "bytes": 10177,
+      "sha256": "eb9a9fe97ecc6413810a28d8bccc528f1306608618b52cae1c4efbdea8043d8b"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http-restart-preparation/RESULT.json",
+      "bytes": 13333,
+      "sha256": "1ee995718f1cae0fa2f149c00a205ce0063cd1d787caae158d515b8974d84344"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http-restart-preparation/MANIFEST.json",
+      "bytes": 11838,
+      "sha256": "3ce02eb3d5029d9c54a0fc526eceae2e5085aa8e9d3ea86172c4ef2bc1274ddd"
+    },
+    {
+      "path": ".intentsmith-artifacts/c13-authorized-product-continuation-20261008/http-admission-independent-review/REVIEW.json",
+      "bytes": 10749,
+      "sha256": "771a5e481a2cbdccfe1aad3cb9943729d847189f2f1966bd9a317d24abd99b9c"
+    },
+    {
+      "path": ".intentsmith-artifacts/c13-authorized-product-continuation-20261008/http-admission-candidate/MANIFEST-v2.json",
+      "bytes": 4764,
+      "sha256": "1074e81b0b7818d436dec854e315c6cf7e7f7d4a116b9b7f8bc614c5286c97f1"
+    },
+    {
+      "path": ".intentsmith-artifacts/c13-authorized-product-continuation-20261008/http-independent-review/HTTP-WINDOW2-ACTUAL-REVIEW.json",
+      "bytes": 4364,
+      "sha256": "543db9aa04f4e12e76dfc4f7d98a2759114a7747efdf2da4cab6f66c141cc1e0"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/root-validation/artifact.log",
+      "bytes": 13425,
+      "sha256": "f52f3b750d7cd8d7f751d21f040b6e178db02e7090f12d6ed38b3f50e3b68476"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/root-validation/context.log",
+      "bytes": 101440,
+      "sha256": "95a3a474af89511941523f5515d951dfc46a1ebf36d42ade44e2271d64588c13"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/root-validation/module.log",
+      "bytes": 740,
+      "sha256": "9fcf810c792b23e594982c4dc6708e35be3e4c386632df5577372862df3aac9e"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/root-validation/project.log",
+      "bytes": 47461,
+      "sha256": "d583278924205258985a91bdd86f32ed1f2914afb75d06a94efb95a784a15095"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/root-validation/registry.log",
+      "bytes": 116,
+      "sha256": "1eefdafb45876a09d4b4621e755ad027499abf812965e5dc4d497d7940061145"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/root-validation/artifact-exit.json",
+      "bytes": 560,
+      "sha256": "1c10e56c2994b8c6ecf3f79cbf5cf031dd4e43e2a60440f053e22e985f2488e2"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/root-validation/module-exit.json",
+      "bytes": 559,
+      "sha256": "12d84254a3f7be46d32b2eb45331b79f60181add3ee5043f68606ab9c34f9131"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/root-validation/project-exit.json",
+      "bytes": 575,
+      "sha256": "4a1e890a2772db7b89de0e2c79f15ab96889795521d9628fec75ba8d925ebde9"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/root-validation/registry-exit.json",
+      "bytes": 559,
+      "sha256": "803668f431e7e96c868bebc4735fbcbb2f54cb692401aa01f4bd59f8b44cb69f"
+    }
+  ],
+  "doNotRead": [
+    "restricted/",
+    "H1",
+    "H2",
+    "holdout plaintext or raw contents"
+  ]
+}

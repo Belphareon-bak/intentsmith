@@ -91,7 +91,12 @@ Před inferencí se opraví prokázané budget/cleanup nedostatky existujících
 32k krátce změřené fullGPU/min free 2 512 MiB; celé okno ani kvalita aplikace tím nepřijaté.
 Classifier→D1 CPU 44 +parser 24/review PASS; živý přirozený vstup a fyzická ovladatelnost IDE/M2 otevřené.
 
-Nynější úkol: kontrola GPU cleanup a autorizované HTTP/Fan pokračování.
+Nynější úkol: autorizované HTTP pokračování a skutečné CHAT ověření C14.
+C13 source44567af7/CI18: dva HTTP admission FAIL před inferencí (nová0/historie12),
+Fan čtyři úplné nové výstupy (12/15), literal import FAIL před approval/oracle.
+Skutečný Qwen32k cleanup pod lease přijat; Fan chráněný oracle čeká na rozhodnutí.
+HTTP @6 bounded admission23+38CPU/review PASS, prahy i budget beze změny.
+C14 source a M1/SQLite/restart fixture přijaté, context74PASS; živé skóre NOT_RUN.
 Navazuje souborový požadavek podle C10 s kontrolami cancel/nového zadání/jiného
 projektu; C9/C11/C12 CPU přejímka je uzavřená a není koncem produktové práce.
 C10 izoloval chybu modelové návaznosti a následnou ztrátu pending; další oprava

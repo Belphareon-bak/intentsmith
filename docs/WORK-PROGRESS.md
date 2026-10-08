@@ -42,7 +42,7 @@ Opravují se pouze potřebné části existujících helperů; generované aplik
 ROOT ručně neupravuje. Skutečnou schopnost cleanup ověří následný HTTP/Fan běh,
 nikoli zvláštní modelový smoke. CPU příprava sama aplikace nepřijímá.
 
-### C13 — schválené HTTP/Fan pokračování (SOURCE_AND_CPU_REVIEW_PASS; LIVE_NOT_RUN)
+### C13 — schválené HTTP/Fan pokračování (SOURCE/CPU_PASS; HTTP_PRE_INFERENCE_FAIL; FAN_LIVE_FAIL)
 
 BASE04d04ff0. Čtyři stávající manual helpers nyní přijímají přesně HTTP@6
 router1/server reusePrevious/cumulative13 a Fan historical8+repair4+CLI3/cumulative15.
@@ -62,6 +62,59 @@ Příkazy a očekávané exity jsou v jednotlivých receipt; CPU přezkoušení 
 bez další inference nad vyčerpaným budgetem. H1/H2, `restricted/`, holdout a jejich raw logy
 jsou mimo všechny revize. Další krok je čistý publikovaný kandidát/CI/freeze a skutečné
 HTTP/Fan; žádný modelový běh ani přejímka aplikace z této CPU přípravy neplyne.
+
+C13 skutečný source44567af7 publikovaný, remote SHA ověřeno, CI37743439100 všech18 SUCCESS.
+HTTP okna adf7a15d a c954b579 skončila před modelem na původním util limitu30:
+naměřeno32, potom21/21/32. Nová CODE0, historických12 beze změny, no-load cleanup3empty/release.
+Další krok pouze @6 bounded čekání na3 po sobě jdoucí původně platné vzorky,
+bez snížení prahů, skrytí odmítnutých měření nebo automatického modelového retry.
+
+Fan freeze2ac4119e vykonal čtyři nové CODE opravy kompletně; spotřeba8+4=12/15.
+Nový M2 návrh vznikl, ale source-policy jej zastavila před dnešním approval/oracle:
+`../src/history.mjs` a `../src/readings.mjs` místo literal `./history.mjs` / `./readings.mjs`.
+Původní protected oracle odmítá totéž; funkční core oracle ani CLI se dnes nespustily.
+Projektové soubory se nezměnily; žádný nový approval/execution/effect. Nový pending
+má pevnou expiry08:47:55.357UTC (10:47:55 Praha); expiry ani návrh se nepřepisují.
+Source/raw/DB-copy/immutable packet audit PASS, 4raw→preview přesně, starý FAIL zachován.
+Skutečný own-model unload +3empty ps/compute pod lease +release přijat druhým workerem;
+tím je doložen cleanup tohoto Qwen32k běhu, nikoli kvalita aplikace ani H1 sběr.
+H1 zůstává bez plaintextu/sběru; jeho další provozní a custody podmínky jsou samostatné.
+
+Nezávislá diagnóza prokázala ekvivalentní import targets (M2 governance je přijala),
+parse-only3+16CPU PASS, žádné spuštění subjectu. Konkrétní privátní změna source-policy
+**i chráněného oracle** je přezkoumaná, operátorovi byla předložena k rozhodnutí;
+zatím se neaplikuje. Funkční oracle scénáře a rozpočet15 se nemění, další core generace
+není povolená. Pouhé obnovení dnešního pendingu není současným runnerem podporované;
+změna chráněných souborů může zneplatnit jeho M2 workspace binding. Přijaté app výsledky0.
+[Přesné actual a revizní SHA-256](review/evidence/product-continuation-20261008/actual.json).
+HTTP admission V2 integrovaná po nezávislém review771a5e48…bd99b9c:
+23 nových a38 původních CPU PASS, všechny15 hashované refs ověřené.
+Pouze @6 čeká v každé ze dvou admission fází nejvýše20 vzorků/30s na3 po sobě
+jdoucí původně platná měření pod stejnou lease; každý odmítnutý vzorek zůstává.
+Cizí compute/model nebo ztráta lease okamžitě zastaví start. Žádné snížení prahů,
+modelový retry či změna oracle/rozpočtu. Nové source/CI/freeze před skutečným HTTP.
+
+### C14 — zachování požadavku při doplnění názvu souboru (SOURCE/CPU_PASS; LIVE_NOT_RUN)
+
+BASE44567af7, navazuje na přijatou C10 diagnózu. Pouhý název souboru ve stejném
+kladném projektu nyní zachová aktivní kanonický write/create požadavek, i když
+klasifikátor chybně vrátí continuesPending:false. Zdrojově15 řádků; prompt,
+model, resolver a samostatné write schválení se nemění. Cancel, nové zadání,
+jiný projekt, neaktivní otázka, chybějící původní odpověď a source barrier mají
+negativní regrese. Source72cc496d…62876 a test13a44943…0d40a integrovány ROOT.
+CPU RED15PASS/4FAIL → GREEN19PASS; původní testy zachované. Skutečný řízený
+M1/SQLite/restart test: RED1FAIL → GREEN1PASS,30 HTTP tahů,17 čistých zastavení,
+51 fixture provider odpovědí,0 skutečných modelových volání. Čtyři efekty mají
+čtyři přesné explicitní approval příkazy/granty; restart před cílem, před approval
+i po něm, přesné36/66/97/10B soubory. Nezávislé source review0b20da31…98a3ef
+a test/raw/DB-copy revieweb9a9fe9…043d8b; žádná self-acceptance.
+ROOT integrovaná context sada74PASS/0FAIL/exit0, raw v C14/root-validation/context.log.
+Integrované project57/artifact160, module1514+0/3cykly28 a registry596 PASS;
+raw logy i exit receipts zachované. [Hashové předání C14 a admission](review/evidence/product-continuation-20261008/c14-and-http-admission.json).
+Dosavadní C6 NO_GO a C7 LIVE_FAIL zůstávají; fixture není modelové skóre.
+Lokální evidence `.intentsmith-artifacts/c14-save-continuation-20261008/`;
+nečíst H1/H2, restricted/ ani holdout. Další: publikovaný čistý kandidát,
+skutečný HTTP repair a cílené živé ověření této CHAT změny.
 
 ## Autonomní postup přijatý po revizi 7. 10. 2026
 
