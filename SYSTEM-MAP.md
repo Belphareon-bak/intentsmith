@@ -131,7 +131,12 @@ Classifier→D1 CPU 44 +parser 24/review PASS; živý přirozený vstup a fyzick
 
 C15 společná změna serializeru a instrukce má přijatý přínos v uzavřeném A/B.
 Celý profil na `44e4d96c` předchází její integraci; integrované context 82 / project 57 a source review jsou PASS.
-Nová čtyřtahová uživatelská cesta je NOT_RUN (nejvýše 12 volání / 600 s, bez retry).
+Známá čtyřtahová cesta na `52d230c1` má nezávislé review PASS: 7 úplných volání,
+původní odpověď č. 2 → přesné schválení → `photo.md` se shodnými 90 bajty.
+Před schválením žádný efekt; vlastní unload, tři prázdné vzorky a release PASS.
+[Aktuální výsledek a meze](docs/review/evidence/product-continuation-20261008/c15-user-path.json).
+C16: šest dalších interpretačních případů, 13 CPU PASS pouze před M2; C17 se připravuje.
+Nové C6 skóre, živý restart, Studio→D1 ani release přejímka tím nevznikají.
 Původní grounding, cancel/nové zadání/jiný projekt a přesné schvalování se nemění.
 [Podrobnosti a přesné meze C15](docs/review/evidence/product-continuation-20261008/c15-input-ab.json).
 HTTP14 testovaný rozsah je uzavřený; Fan 12/15 čeká na rozhodnutí o oracle.

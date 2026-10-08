@@ -97,7 +97,7 @@ Před inferencí se opraví prokázané budget/cleanup nedostatky existujících
 32k krátce změřené fullGPU/min free 2 512 MiB; celé okno ani kvalita aplikace tím nepřijaté.
 Classifier→D1 CPU 44 +parser 24/review PASS; živý přirozený vstup a fyzická ovladatelnost IDE/M2 otevřené.
 
-Nynější úkol: nový source/CI pin přijaté integrace C15 a čtyřtahová uživatelská cesta; HTTP14 testovaný rozsah je uzavřený.
+Nynější úkol: připravit C17 porovnání role ukládání po přijaté C15 cestě a omezené C16 diagnóze; HTTP14 testovaný rozsah je uzavřený.
 C13 source44567af7/CI18: dva HTTP admission FAIL před inferencí (nová0/historie12),
 Fan čtyři úplné nové výstupy (12/15), literal import FAIL před approval/oracle.
 Skutečný Qwen32k cleanup pod lease přijat; Fan chráněný oracle čeká na rozhodnutí.
@@ -120,7 +120,11 @@ Cumulative14 vyčerpané; další CODE0, přirozený Studio→D1/release přejí
 C15 A/B přijato: u jednoho známého zadání A 0 ze 3, B 3 ze 3 správných opakování;
 obě varianty zachovaly význam všech tří negativních kontrol. Jde o společnou změnu
 vstupu, ne o celkové skóre chatu. Integrované context 82 / project 57 a source review
-jsou PASS; nová čtyřtahová cesta je NOT_RUN (nejvýše 12 volání / 600 s, bez retry).
+jsou PASS. Známá čtyřtahová cesta na `52d230c1` má nezávislé review PASS:
+7 úplných volání, jeden přesně schválený zápis původních 90 bajtů do `photo.md`,
+žádné předchozí efekty a cleanup PASS. [Aktuální výsledek a meze](docs/review/evidence/product-continuation-20261008/c15-user-path.json).
+C16: 13 CPU PASS pouze před M2 pro šest případů; C17 role comparison je NOT_RUN.
+C6 skóre, historické FAIL, Studio→D1 a release tím uzavřené nejsou.
 [Podrobnosti a přesné meze C15](docs/review/evidence/product-continuation-20261008/c15-input-ab.json).
 C10 izoloval chybu modelové návaznosti a následnou ztrátu pending; další oprava
 nesmí ignorovat změnu zadání či cancel; C6 NO_GO a C7 živý FAIL zůstávají. C5 retry zastaven,

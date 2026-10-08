@@ -1,0 +1,72 @@
+{
+  "kind": "C16LiteralSaveBeforeM2Diagnosis@1",
+  "status": "INDEPENDENT_REVIEW_PASS_BOUNDED_DIAGNOSIS",
+  "sourceSha": "52d230c15bcd09ad5c4707de7cb18162ee0c7ce9",
+  "cohort": {
+    "firstC6SeriesCases": 6,
+    "historicalNonF11Failures": 18,
+    "ids": [
+      "newname-plain",
+      "newname-typo",
+      "scoped-ban",
+      "scoped-ban-plain",
+      "no-overwrite",
+      "port8080"
+    ],
+    "notIncluded": "no-overwrite-plain is historically useful; error code alone was not used as failure label."
+  },
+  "cpu": {
+    "testsPass": 13,
+    "testsFail": 0,
+    "observations": 14,
+    "recordedClarificationsPreserved": 6,
+    "controlledValidPlansReachRejectingToolBoundary": 6,
+    "fileWriteSelections": 5,
+    "fileCreateSelections": 1,
+    "negativeStops": 2,
+    "modelCalls": 0,
+    "canonicalM2Admissions": 0,
+    "effectResults": 0,
+    "projectFileChanges": 0
+  },
+  "meaning": "No additional resolver/handler obstacle was observed before canonical M2 for the controlled valid plans. Their success is synthetic CPU wiring evidence, not a measured model improvement.",
+  "limits": [
+    "Recording toolExecutor always rejects at the pre-M2 boundary; no real approval or effect execution tested.",
+    "F13 proves selection of file.create only, not atomic create execution or disk-aware model interpretation.",
+    "C6 scores remain unchanged. Initial private import-depth failure was retained and corrected only in test imports.",
+    "Own project had exactly unchanged notes.md, existing.md and port.md; not a global filesystem or write-safety audit."
+  ],
+  "next": "C17 role comparison is preparation only, at most 24 calls (12/model), same shared input/prompt/schema/options with positive and negative controls; independent criteria/freeze review required before collection.",
+  "refs": [
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c16-literal-save-diagnosis-20261008/independent-review/REVIEW.json",
+      "bytes": 4991,
+      "sha256": "cda6c39be34a4e62818758c284912f3ad92312aa14867348dacf8929b5dc4c8b"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c16-literal-save-diagnosis-20261008/RESULT.json",
+      "bytes": 9953,
+      "sha256": "ae4457104b89db6ffe419561e59d28ce6b6df8cbd278f4b2a36573aa8a3a66ef"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c16-literal-save-diagnosis-20261008/MANIFEST.json",
+      "bytes": 6017,
+      "sha256": "b44d34b6bd599628ec7c87ab2671fc6dc32438d3f070912232a908317cbcb416"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c16-literal-save-diagnosis-20261008/COMMAND-v2.json",
+      "bytes": 7059,
+      "sha256": "89c178240e226f221e8a8c14dc231361f4313e485569ad8482cc7e88718ab15b"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c16-literal-save-diagnosis-20261008/EXIT-v2.json",
+      "bytes": 279,
+      "sha256": "4c50d93946db59cd332cea3ace68ac2d086e3ce3cf38225d7a92185df351cc97"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c16-literal-save-diagnosis-20261008/run-v2.log",
+      "bytes": 33608,
+      "sha256": "4a3cd3a41786773c2d1bc88fe3ba46e358e93176c3f96434041cd4b27684d561"
+    }
+  ]
+}

@@ -1,0 +1,222 @@
+{
+  "kind": "C15KnownSaveUserPathCheckpoint@1",
+  "status": "KNOWN_FOUR_TURN_SAVE_USER_PATH_REVIEW_PASS",
+  "sourceSha": "52d230c15bcd09ad5c4707de7cb18162ee0c7ce9",
+  "ci": {
+    "runId": 37764054511,
+    "jobId": 113267218503,
+    "successfulSteps": 18
+  },
+  "scope": "One authorized original known four-turn F11 dialog plus its original exact approval, actual M1 HTTP path; no holdout or general acceptance.",
+  "actual": {
+    "startedAt": "2026-10-08T10:45:03.843934+00:00",
+    "closedAt": "2026-10-08T10:45:29.813187+00:00",
+    "exitCode": 0,
+    "runId": "08dd84f7-bba4-45a1-91f5-8067a22f8d05",
+    "completeModelCalls": 7,
+    "authorizedMaximumCalls": 12,
+    "authorizedMaximumActiveSeconds": 600,
+    "series": 1,
+    "retries": 0,
+    "models": {
+      "actual": "gemma4:26b",
+      "digest": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+      "numCtx": 4096,
+      "completeGenerations": 7,
+      "maximumAuthorized": 12,
+      "d1Generations": 0,
+      "directBaselineGenerations": 0
+    }
+  },
+  "semantics": {
+    "usefulTurns": 4,
+    "unnecessaryStops": 0,
+    "criticalErrors": 0,
+    "requiredClarifications": 2,
+    "finalTarget": "photo.md",
+    "sourceMessageId": 2,
+    "payloadBytes": 90,
+    "payloadSha256": "bec611f3dfb58e74208888404c7c02c246ae23f2a56999d97f61f899b9647c0e",
+    "oneExactApproval": true,
+    "preApprovalEffectResults": 0,
+    "preApprovalFileChanges": 0,
+    "postApprovalSuccessfulEffects": 1,
+    "postApprovalChangedPaths": [
+      "photo.md"
+    ]
+  },
+  "cleanup": {
+    "rawLifecycle": "CLEANUP_PASS",
+    "actualOwnWorkerPid": 3259369,
+    "verifiedDaemonPid": 3135,
+    "sameLeaseUnload": true,
+    "threeConsecutiveEmptyPsCompute": true,
+    "leaseReleased": true,
+    "childClosed": true,
+    "termSent": false,
+    "killSent": false,
+    "postflightSeparateThreeEmptySamples": true,
+    "utilization": "Recorded only under the accepted F11 policy; this is not the HTTP <=30% admission gate.",
+    "limits": "Observed cleanup and known child closure; not continuous GPU residency or a global arbitrary descendant census."
+  },
+  "closure": {
+    "sourceBeforeAfter": "52d230c15bcd09ad5c4707de7cb18162ee0c7ce9",
+    "clean": true,
+    "independentRefsChecked": 74644,
+    "symlinksChecked": 221
+  },
+  "scopeLimits": [
+    "One development dialog, one new live series. C6 original 118/159 and 24 needless stops remain unchanged.",
+    "No 95% chat acceptance, holdout/H1/H2, broader file-save families or release acceptance.",
+    "This actual is backend M1 HTTP. The stored M2 surface string studio does not prove literal Studio UI operation or Studio -> semantic classifier -> D1.",
+    "There was no live backend restart in this series; copied durable DB after shutdown is inspected, not a new restart test.",
+    "Literal save, summary, cancellation, cross-project and no-overwrite are not new live controls in this four-turn series; separate CPU/A/B evidence retains its own scope.",
+    "The classifier returned continuesPending true on the filename turn. This actual does not independently exercise C14 false-flag repair.",
+    "No model rerun, tuning, product/source edits, original DB write, GPU or provider operation was performed by this reviewer."
+  ],
+  "fullProfileBoundary": {
+    "sourceSha": "44e4d96ceadde57eb67e81c6f67142b1143956f3",
+    "programsPass": 410,
+    "coversC15Source": false
+  },
+  "history": {
+    "c15-input-ab.json": "Historical A/B and pre-user-path checkpoint remains intact; its NOT_RUN / pending integration fields describe that earlier checkpoint. This index supplies the later published source, CI and actual user-path result.",
+    "C6": "118/159 useful and 24 needless stops unchanged; no regrading or new 53-case result.",
+    "F11": "Earlier LIVE_FAIL remains preserved."
+  },
+  "chat95PercentAccepted": false,
+  "naturalStudioD1Accepted": false,
+  "releaseAccepted": false,
+  "refs": [
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c15-save-user-path-20261008/independent-actual-review/REVIEW.json",
+      "bytes": 11082,
+      "sha256": "277a31a69d7a23a4b28c0b6c9c10b29e1b21644aaa35c7b709e37e2cfcd8232f"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c15-save-user-path-20261008/runs.json",
+      "bytes": 757178,
+      "sha256": "19a4c2378091c9cb7e037b59bd8ccf4f2c41b99ca0148b1605c4d9e1adc66bce"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c15-save-user-path-20261008/PREPARATION-final-v2.json",
+      "bytes": 22856199,
+      "sha256": "9cc339ce0d4771008d1a91ce899023bdb9d4eceb6e0a4358cfd95d9011debf76"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c15-save-user-path-20261008/c14-f11-1-command.json",
+      "bytes": 1921,
+      "sha256": "7f208bf773a8b05104e470e877660be9e6247b2058a8e1990e908737316bc686"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c15-save-user-path-20261008/c14-f11-1-exit.json",
+      "bytes": 386,
+      "sha256": "b906cf916e760677852481b098c781395a97460405fc23b6de56595891f484cd"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c15-save-user-path-20261008/c14-f11-1.log",
+      "bytes": 1420,
+      "sha256": "42b312d03a7f7ecf40e2d988acb4479345775d832bb31915fd9dc7e02532e276"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c15-save-user-path-20261008/c14-f11-1-before.json",
+      "bytes": 11264,
+      "sha256": "90362fc38a68bc25b89608186f2d39834d09fdc5d686f03aaf917f7f2eb70be4"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c15-save-user-path-20261008/c14-f11-1-after.json",
+      "bytes": 11262,
+      "sha256": "42f69a2e3d52daaed46d1024b40a7f37d2bb647a114a8a8d36d2620ba313d3aa"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c15-save-user-path-20261008/AFTER-REFS.json",
+      "bytes": 337,
+      "sha256": "902af4e060f98156cb3a378478c6e9722deb497514eec4cee0f611aba766c994"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c15-save-user-path-20261008/c14-f11-1-08dd84f7/initial-f11-lifecycle.json",
+      "bytes": 7405,
+      "sha256": "61e89455a1e7a9e84239c670d1ea8a341ac174bf4f1ffa1de45cb95c3f1b8044"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c15-save-user-path-20261008/c14-f11-1-08dd84f7/initial-provider-raw.jsonl",
+      "bytes": 339743,
+      "sha256": "c0746ab95f4c6c73568b91b33fb29c3b2a7a92bf039f1da0a1f341c6594f7cf8"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c15-save-user-path-20261008/c14-f11-1-08dd84f7/initial-provider-wire.json",
+      "bytes": 415965,
+      "sha256": "0a3c3d8600670402f0f6f0aabdaf527672aca17f572c143104f661d3fdf08295"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c15-save-user-path-20261008/c14-f11-1-08dd84f7/initial-results.json",
+      "bytes": 233422,
+      "sha256": "307ed6511baf8a0ff0b7c1bbba6232d0118c5b33a4f5939b221e569854516116"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c15-save-user-path-20261008/c14-f11-1-08dd84f7/initial-configuration.json",
+      "bytes": 2448,
+      "sha256": "d465b0c44c1457b6efdcf15e3a036ccf17dcd21968d9e9832bb37150081f5b06"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c15-save-user-path-20261008/c14-f11-1-08dd84f7/initial-exit.json",
+      "bytes": 608,
+      "sha256": "cd475ba1fa661fdb603ba5eab04577baa761e935f89b69797b8cb16ee6c4a581"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c15-save-user-path-20261008/c14-f11-1-08dd84f7/initial-process.log",
+      "bytes": 1842,
+      "sha256": "183c1f5737fccfd1764df170c72fce3e9874b8a4e70eb5375f4f1e24381bf3db"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c15-save-user-path-20261008/independent-actual-review/DB-COPY.json",
+      "bytes": 2123,
+      "sha256": "a37d4e1558bc15b961604f76e6145bcce3dde356f7384b1a8c5569906bf311b6"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c15-save-user-path-20261008/independent-actual-review/DB-AUDIT.json",
+      "bytes": 19312,
+      "sha256": "03e706b0833e979b6e4031bc98e4009fa19640a940023b02aa5a4aeb83ae79e5"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c15-save-user-path-20261008/independent-actual-review/RAW-AND-PROVENANCE.json",
+      "bytes": 10215,
+      "sha256": "4a21214e0f3b35c55d1188b545eb84c1bd308b57063aebcb8333c1a360b25964"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c15-save-user-path-20261008/independent-actual-review/CLOSURE-VERIFY.json",
+      "bytes": 449,
+      "sha256": "0b66bcb61ea57d4be4ae9dde6126f85020a57bbb88cbaa3e121803a8a1553bc1"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c15-save-user-path-20261008/independent-actual-review/SEMANTIC-ROWS.json",
+      "bytes": 2535,
+      "sha256": "7ddb3482991fd235d8fff8ddfeb1de0d0e08d9c2a3f802c0e5e3f73a8d809c1f"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c15-save-user-path-20261008/independent-technical-actual-review/REVIEW.json",
+      "bytes": 5313,
+      "sha256": "21d76d9bc3af2da85b3db5b06f9fcf3520960f44cb2a3aad6248d5a916af92b9"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c15-save-user-path-20261008/independent-freeze-review/READY.json",
+      "bytes": 5215,
+      "sha256": "898b1a58d3738f0e0dbd79fb2a68b36e5f5c509fc153c0453362c1330c871bd0"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c15-save-user-path-20261008/CI.json",
+      "bytes": 887,
+      "sha256": "39eaef9791b053fd4c9a387a19d04fa8bc8b2cea265e3251890c7671d3ba7107"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c15-save-user-path-20261008/CI-RUN-raw.json",
+      "bytes": 12985,
+      "sha256": "6a720cb88b32d59bb938f971d0033ca372a4ba7f5e7451ecc36efe2f2dd14308"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c15-save-user-path-20261008/CI-JOBS-raw.json",
+      "bytes": 4161,
+      "sha256": "dc9fa47d8eb03bb64ca2bb31894cad246efa4ea4a151f0cafc3fe854022ecc95"
+    }
+  ]
+}

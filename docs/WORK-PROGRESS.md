@@ -1,12 +1,12 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 8. 10. 2026. Publikovaný základ `44e4d96c` má celý offline/database profil 410 PASS a nezávislý review PASS. HTTP14 je přijatý v původním rozsahu 70 + 17 požadavků; rozpočet 14 CODE volání je uzavřený. F11 zůstává LIVE_FAIL, Fan čeká na rozhodnutí o oracle. C15 A/B prokázalo přínos společné změny vstupu; integrované context 82 a project 57 mají review PASS. Nová čtyřtahová uživatelská cesta je NOT_RUN. H1 NOT_RUN, release NOT_ACCEPTED.
+**Aktualizováno:** 8. 10. 2026. Celý offline/database profil 410 PASS patří zdroji `44e4d96c`, před C15. HTTP14 je přijatý v původním rozsahu 70 + 17 požadavků; rozpočet 14 CODE volání je uzavřený. C15 na `52d230c1` prošel jednou známou čtyřtahovou cestou až k přesně schválenému zápisu; C6 skóre a historický F11 FAIL se nepřepisují. C16 uzavřel omezenou CPU diagnózu dalších šesti souborových případů; C17 porovnání role se připravuje. Fan čeká na rozhodnutí o oracle. H1 NOT_RUN, release NOT_ACCEPTED.
 **Vlastník integrace a CHAT:** tento koordinátor přebírá ROOT
 (`work/real-chat-journeys-20260930`) podle následného pokynu operátora.
 Jediný writer `cre-decision.js` i společných map je nyní ROOT; HTTP, Fan, fresh5
 a M6 patří témuž koordinátorovi. Hunt a druhý posudek jeho matice zůstávají oddělené.
 CHAT checkout slouží následně jen jako vlastní sériový běhový checkout zmrazených kandidátů.
-**Release NOT_ACCEPTED. HTTP14 PRIMARY70_SUPPLEMENT17_REVIEW_PASS. Fan FAIL. F11 LIVE_FAIL. Mobil čeká na stabilní IDE/BE.**
+**Release NOT_ACCEPTED. HTTP14 PRIMARY70_SUPPLEMENT17_REVIEW_PASS. Fan FAIL. C15 známý save dialog PASS; historický F11 FAIL zachovaný. Mobil čeká na stabilní IDE/BE.**
 
 ## Pokračování schválené operátorem 8. 10. 2026
 
@@ -217,7 +217,7 @@ Runner-owned HOME/DB/env a process-group cleanup nejsou obecný host sandbox;
 žádná nová inference, Studio, H1/H2 ani release přejímka tím nevzniká.
 Historický C12 profil a všechny původní FAIL/withdrawn důkazy zůstávají zachované.
 
-### C15 — interpretace doplněného názvu souboru (A/B PŘÍNOS; USER_PATH_NOT_RUN)
+### C15 — interpretace doplněného názvu souboru (A/B PŘÍNOS; KNOWN_USER_PATH_REVIEW_PASS)
 
 Předem přijatý experiment porovnal společnou změnu instrukce a odstranění
 starých routingových polí z `pending`. Pevný sběr na source `44e4d96c` proběhl
@@ -241,10 +241,25 @@ Nezávislé integrované review přijalo source a testy: context 82 ze 82 a proj
 57 ze 57 PASS v oddělených privátních bwrap bězích bez sítě. Registry 596 a module
 graph 1 514 hran / 0 nových / 3 cykly / 28 členů mají nové exit 0 receipts.
 Celý profil 410 výše patří zdroji před C15, nikoli této změně.
-Další krok je samostatně zmrazená původní čtyřtahová uživatelská cesta: NOT_RUN,
-nejvýše 12 modelových volání a 600 sekund, bez retry. Vyžaduje přijatou integraci,
-nový source/CI pin a review přípravy. Výsledek A/B nepovoluje automatické efekty;
-původní grounding a přesné schvalování zůstávají. H1/H2 ani release nejsou přijaty.
+Na publikovaném `52d230c1` s CI 18 SUCCESS následně proběhla jedna původní
+čtyřtahová cesta 8. 10. 10:45:03–10:45:29 UTC: 7 úplných Gemma 4K volání
+z nejvýše 12, exit 0, bez retry. Chybějící název vyvolal dotaz; „ano“ jej
+nevyřešilo. `photo.md` pak vytvořilo návrh původní odpovědi č. 2. Jediné přesné
+schválení provedlo zápis shodných 90 bajtů; před ním žádný efekt ani změna souborů.
+Nezávislé významové/DB-copy review `277a31a6…cd8232f` a technické review
+`21d76d9b…af92b9` jsou PASS v tomto rozsahu. Vlastní unload, tři prázdná ps/compute
+měření a uvolnění GPU lease prošly; 74 644 refs a 221 symlinků zůstalo shodných.
+Nejde o živý restart, Studio→D1, nové C6 skóre, 95% kvalitu ani release.
+[Přesný aktuální výsledek a meze](review/evidence/product-continuation-20261008/c15-user-path.json).
+Původní A/B index je historický checkpoint před touto cestou.
+
+C16 přehrál šest prvních souborových případů C6 mimo F11 (18 historických FAIL).
+CPU 13 PASS a nezávislé review potvrdily zachování šesti otázek a průchod šesti
+syntetických platných plánů pouze k odmítající hranici před M2. F13 zachoval
+`file.create`; žádné efekty nebo změny projektových souborů. Modelový přínos ani
+provedení M2 tím doložené nejsou. [C16 důkazy a meze](review/evidence/product-continuation-20261008/c16-literal-save-cpu.json).
+Následuje příprava C17: nejvýše 24 volání, 12 na model, společný prompt/schema/options
+a předem přijaté pozitivní i negativní kontroly. Zatím NOT_RUN; žádné ladění po případech.
 
 ## Autonomní postup přijatý po revizi 7. 10. 2026
 
@@ -303,9 +318,10 @@ C10 a C14 oddělily a opravily doloženou ztrátu návaznosti. F11 request19 nyn
 odhalil clarify i při úplném vstupu a správném target/source. C15 dokončil
 řízené CPU kontroly a pevné A/B: A 0 ze 3, B 3 ze 3 správných pozitivních opakování,
 obě varianty zachovaly všechny tři negativy. Integrované context 82 / project 57
-mají review PASS. Následuje nová čtyřtahová uživatelská cesta (NOT_RUN,
-nejvýše 12 volání / 600 s), bez retry, automatických efektů nebo povýšení
-understood:false na zápis. Další rozhodnutí staví na těchto omezených důkazech,
+mají review PASS. Následná známá čtyřtahová cesta na `52d230c1` prošla včetně
+přesného schválení a zápisu; C16 odlišil dalších šest interpretačních případů
+od překážek před M2. Připravované C17 porovnání role je NOT_RUN.
+`understood:false` se nepovyšuje na zápis. Další rozhodnutí staví na těchto omezených důkazech,
 nikoli na novém nedoloženém promptu či regexu. C2 již rozebral všech 36 neužitečných odpovědí a 22 zastavení
 z Gemma regrese podle rodiny a příčiny (aplikace/model/hodnocení, překryvy se nesčítají).
 H1 má naplánované jedno společné GPU okno pro oba pevné kandidáty, zatím
@@ -721,7 +737,7 @@ Actual používá zdroj cache 0700; původní zdroj 0775 pokrývá CPU regrese, 
 | Fan | C13 dokončil4 další výstupy, celkem12/15; literal import guard/oracle změna čeká na operátora, původní FAIL zachovaný. Cleanup skutečného Qwen32k běhu přijat; další core inference nepovolena |
 | Přirozené plánování | C5 v5 po opraveném ovladači odeslal vstup; GPU monitor FAIL před úplnou odpovědí, D1 NOT_REACHED. Stagnace: žádný další retry v tomto cyklu |
 | M1 outage | C1 `1f098912` source review a řízené HTTP/restart PASS; testovaný `b9cfc7c5` full410/CHAT7/CODE12/CI PASS; ROOT převzal e15264f1; C4 fresh5 b959a468 5PASS/review PASS |
-| Chatová kvalita | C6 tři53 série/dva posudky NO_GO zachované. C14 CPU oprava přijata; jediná F11 live série přezkoumaný FAIL při request19, kontext úplný,0approval/efektů,cleanup PASS. C15 A/B přijato: A 0 ze 3, B 3 ze 3 pozitivních opakování, obě varianty 3 ze 3 negativ. Integrované context 82 / project 57 a review PASS; nová čtyřtahová cesta NOT_RUN |
+| Chatová kvalita | C6 skóre 74,21 % / 15,09 % zůstává NO_GO. C15 na `52d230c1`: známý čtyřtahový dialog, přesný schválený zápis 90 B a cleanup mají nezávislé review PASS. Historické F11 FAIL zachované. C16: šest dalších zadání, CPU 13 PASS pouze před M2. C17 porovnání role NOT_RUN, nejvýše 24 volání |
 | Providerové chyby | C9 zdroj24f329c6: zbývající classifier404/binding/drift +projektové chyby terminal; řízené13HTTP/57project GREEN, source/test/evidence/integrace19/CI PASS. C12 celý profil410/CI18 historicky přijat na678eead7; aktuální C14 celý410/CI18 přijat na44e4d96c; interní M7 status se nemění |
 | Mobil | Chybí conversation.create; implementace a device přejímka až po stabilním IDE/BE |
 | Hunt | Potřebujeme nový grading report/cestu a vlastníka pokračování; ROOT cizí hodnocení nepřebírá |
@@ -746,12 +762,13 @@ To nedokládá zaplněné 32k okno. Output4096 platí jen pro vydaný exact CODE
 
 ## Zbývající testy a pořadí dokončení
 
-1. Publikovat přijatou integraci C15 a připnout nový source/CI pro další běh.
-   Přijaté A/B prokázalo přínos společné změny vstupu; následuje samostatně
-   přezkoumaná čtyřtahová uživatelská cesta (NOT_RUN, nejvýše 12 volání / 600 s).
-   Bez automatických efektů, změny původního oracle nebo dodatečného retry.
-   C14
-   oprava návaznosti má source/CPU přejímku. C9/C11/C12 jsou uzavřené v uvedeném
+1. Navázat C17 na přijatou diagnózu C16: porovnat roli interpretace ukládání
+   na dvou přesně připnutých modelech se stejným promptem, schema a nastavením.
+   Zatím NOT_RUN; nejvýše 24 volání, 12 na model, předem přijaté pozitivní
+   i negativní kontroly, bez efektů, změny bindingů nebo dodatečného retry.
+   C15 je publikovaný na `52d230c1`, CI 18 PASS; jeho jediný známý čtyřtahový
+   průchod až k přesně schválenému souboru má nezávislou přejímku.
+   C14 oprava návaznosti má source/CPU přejímku. C9/C11/C12 jsou uzavřené v uvedeném
    CPU rozsahu; aktuální přijatý celý profil je44e4d96c,410PASS a CI18.
    C4 původní fresh5 na b959a468: **5PASS/review PASS**. Historický90/3PASS2FAIL zachovaný.
    C5 uzavřít jako přezkoumaný FAIL; další strategie nesmí pokračovat řadou retry aparátu.
