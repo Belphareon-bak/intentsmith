@@ -448,7 +448,9 @@ try {
   // after its static isolation bootstrap. Removing only this root returns
   // 142 in the joint tree; removing its bootstrap exposes it as unprotected.
   // 142 -> 143: chat-context-interpretation adds its owned M1/SQLite journey.
-  const expectedDatabaseReachableRootTests = 143;
+  // 143 -> 144: project-app-provider-relay imports the real Fan runtime graph
+  // after its static isolation bootstrap. Its in-memory tests need no live DB.
+  const expectedDatabaseReachableRootTests = 144;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

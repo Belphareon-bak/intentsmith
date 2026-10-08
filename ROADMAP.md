@@ -20,8 +20,11 @@ C22 přidává řízený přechod modelů pod stejnou lease a opravu reentrantn�
 ukončování relay. Source/CPU review PASS (57 kontrol), nová trvalá sada 9 testů
 je registrovaná offline: 597 programů celkem, budoucí celý profil 411.
 Integrovaná nová sada 9, artifact 160, module 1516 +0 a registry 597 prošly.
-Nezávislá integrační revize, CI a nový freeze/živý Studio pokus čekají; C21 profil 410
-tento následný kvalifikační helper a novou testovou sadu nepokrývá.
+Nezávislá integrační revize a CI18 prošly na `692dae2c`. Jeho celý profil
+411 však skončil 410 PASS / 1 FAIL na DB bootstrap inventuře. Přijatá oprava
+doplňuje první izolační import nové sady a doložených 144 chráněných rootů;
+samotný count bez importu správně selže. Nový celý profil, CI a freeze/živý
+Studio pokus čekají; C21 profil tuto následnou změnu nepokrývá.
 [Příprava C22 a meze](docs/review/evidence/product-continuation-20261008/c22-studio-transition.json).
 Historický C12 profil na `678eead707a59df568c7353a8b2dd7ad6c175b23`
 měl produktový zdroj C9 `24f329c6` a obsahoval C11/C12 opravy testů.

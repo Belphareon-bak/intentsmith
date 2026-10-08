@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 8. 10. 2026. Celý offline/database profil na čistém `7b7e1f9d` s produktem C21 má 410 PASS / CI 18 SUCCESS a nezávislé review; předchozí profil C19 `e7f2dd92` i starší zůstávají historické. HTTP14 je přijatý v původním rozsahu 70 + 17 požadavků; rozpočet 14 CODE volání je uzavřený. C15 na `52d230c1` prošel jednou známou čtyřtahovou cestou až k přesně schválenému zápisu; C6 skóre a historický F11 FAIL se nepřepisují. C16 uzavřel omezenou CPU diagnózu dalších šesti souborových případů. C17 dokončil 24 odpovědí a nezávislé posudky: NO_MODEL_PREFERENCE; žádný binding ani retry. C18 je publikovaný na `21b25085`, CI 18 SUCCESS. C19 doplňuje kontinuitu přes ASK_USER: source/CPU/HTTP i integrovaný context 143 / project 57 mají nezávislé review; source checkpoint `d3dbc897`, standardní baseline 1516 i celý profil na publikovaném `e7f2dd92` jsou přijaté. Fan čeká na rozhodnutí o oracle. H1 má celkové READY na exact freeze R2; čeká jen JIT dešifrování operátorem. H1 NOT_RUN, release NOT_ACCEPTED. C21 archivní extrakce má source/CPU/integration/full review PASS. C22 má source/CPU review přechodu Studio→D1 a novou trvalou sadu; integrovaná sada 9, artifact 160, module 1516 +0 a registry 597 prošly; integrační review/CI/freeze čekají, žádný nový live pokus.
+**Aktualizováno:** 8. 10. 2026. Celý offline/database profil na čistém `7b7e1f9d` s produktem C21 má 410 PASS / CI 18 SUCCESS a nezávislé review; předchozí profil C19 `e7f2dd92` i starší zůstávají historické. HTTP14 je přijatý v původním rozsahu 70 + 17 požadavků; rozpočet 14 CODE volání je uzavřený. C15 na `52d230c1` prošel jednou známou čtyřtahovou cestou až k přesně schválenému zápisu; C6 skóre a historický F11 FAIL se nepřepisují. C16 uzavřel omezenou CPU diagnózu dalších šesti souborových případů. C17 dokončil 24 odpovědí a nezávislé posudky: NO_MODEL_PREFERENCE; žádný binding ani retry. C18 je publikovaný na `21b25085`, CI 18 SUCCESS. C19 doplňuje kontinuitu přes ASK_USER: source/CPU/HTTP i integrovaný context 143 / project 57 mají nezávislé review; source checkpoint `d3dbc897`, standardní baseline 1516 i celý profil na publikovaném `e7f2dd92` jsou přijaté. Fan čeká na rozhodnutí o oracle. H1 má celkové READY na exact freeze R2; čeká jen JIT dešifrování operátorem. H1 NOT_RUN, release NOT_ACCEPTED. C21 archivní extrakce má source/CPU/integration/full review PASS. C22 má source/CPU review přechodu Studio→D1 a novou trvalou sadu; integrovaná sada 9, artifact 160, module 1516 +0 a registry 597 prošly včetně review a CI18 na692dae2c. Jeho celý profil410PASS/1FAIL zachytil chybějící izolaci nové sady; dvousouborová oprava má nezávislé review, nový celý profil/CI/freeze čekají, žádný nový live pokus.
 **Vlastník integrace a CHAT:** tento koordinátor přebírá ROOT
 (`work/real-chat-journeys-20260930`) podle následného pokynu operátora.
 Jediný writer `cre-decision.js` i společných map je nyní ROOT; HTTP, Fan, fresh5
@@ -427,7 +427,18 @@ stejná sonda pak ukázala 1 close / 1 promise. Původní FAIL je zachovaný.
 Autor i revizor mají 57 CPU PASS; ROOT zvlášť přijal převzatý regresní oracle.
 Devět kontrol je nově trvalá registrovaná offline sada bez private importů.
 Po adopci je registr 597 programů / 324 offline / 87 database; nový celý profil
-má 411 programů a zatím neběžel. C21 410 zůstává přijatý pro svůj source.
+má 411 programů. První běh na `692dae2c` 15:22:54–15:33:14 UTC skončil
+410 PASS / 1 FAIL, bez retry/timeout/blocked/skipped a hlášených úniků.
+Všech 411 logů je hashově ověřeno, zdroj před i po čistý. CI18 prošlo.
+Meta-test správně zastavil na 144 dosažitelných DB rootech proti inventuře143;
+jediný nový nechráněný root je relay sada. Původní celý FAIL zůstává.
+
+Přijatá dvousouborová oprava doplňuje první canonical isolation import a
+zdůvodněnou inventuru144. Nezávislý replay 1181 modulů potvrdil144/0 nechráněných;
+bez nové sady143/0. Samotný count bez importu RED; úplný meta-test i relay9 GREEN.
+Graf má dynamickou DB hranu, nikoli důkaz otevření provozní DB. Zachován je i
+první diagnostický FAIL příliš silného očekávání čistě statické cesty.
+Nový celý411 čeká; přijatý C21 410 stále platí pouze pro svůj source.
 
 Původní vstup, policy, oracle i 7 658 B inside Studio části jsou byte-identické.
 Modely zůstávají Gemma4 classifier / Qwen3.5 D1, oba 4K; nejvýše 1 classifier
@@ -435,8 +446,9 @@ Modely zůstávají Gemma4 classifier / Qwen3.5 D1, oba 4K; nejvýše 1 classifi
 ROOT integrace: nová sada 9, artifact 160, module 1516 +0 a registry 597 PASS.
 První artifact běh měl 159 PASS / 1 FAIL kvůli starému počtu v README;
 původní důkaz zůstává, opravená aktuální dokumentace prošla novou kontrolou.
-Nezávislá integrační revize, CI a nový freeze/READY čekají; žádný další
-skutečný pokus neproběhl.
+Nezávislá integrace V2 a source/CPU review opravy izolace prošly. Nový
+čistý source, celý profil, CI a freeze/READY čekají; žádný další skutečný
+pokus neproběhl.
 [Přesné patche, příkazy, SHA-256 a meze](review/evidence/product-continuation-20261008/c22-studio-transition.json).
 
 ### Historický celý profil po C15 (FULL_PROFILE_REVIEW_PASS; před C18/C19)

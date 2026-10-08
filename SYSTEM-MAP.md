@@ -20,8 +20,11 @@ C22 přidává řízený přechod modelů pod stejnou lease a opravu reentrantn�
 ukončování relay. Source/CPU review PASS (57 kontrol), nová trvalá sada 9 testů
 je registrovaná offline: 597 programů celkem, budoucí celý profil 411.
 Integrovaná nová sada 9, artifact 160, module 1516 +0 a registry 597 prošly.
-Nezávislá integrační revize, CI a nový freeze/živý Studio pokus čekají; C21 profil 410
-tento následný kvalifikační helper a novou testovou sadu nepokrývá.
+Nezávislá integrační revize a CI18 prošly na `692dae2c`. Jeho celý profil
+411 však skončil 410 PASS / 1 FAIL na DB bootstrap inventuře. Přijatá oprava
+doplňuje první izolační import nové sady a doložených 144 chráněných rootů;
+samotný count bez importu správně selže. Nový celý profil, CI a freeze/živý
+Studio pokus čekají; C21 profil tuto následnou změnu nepokrývá.
 [Příprava C22 a meze](docs/review/evidence/product-continuation-20261008/c22-studio-transition.json).
 Historický C12 profil na `678eead707a59df568c7353a8b2dd7ad6c175b23`
 měl produktový zdroj C9 `24f329c6` a obsahoval C11/C12 opravy testů.
@@ -910,14 +913,14 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 **REVIEW_PENDING** — [aktuální UI oprava a evidence](docs/review/2026-09-17-HUNT-MODEL-CONTROLS-FOLLOWUP.md).
 
 Následující LOC a registry census jsou přeměřené 8. 10. 2026 přímo na zdroji
-C22 pracovního kandidátu nad `3aed95e6` včetně nové trvalé relay sady, archivní extrakce a tří HTTP/restart větví, přes stejný algoritmus jako `tests/artifact-validation.test.js`:
+C22 pracovního kandidátu nad `692dae2c` po přijaté opravě testové izolace včetně nové trvalé relay sady, archivní extrakce a tří HTTP/restart větví, přes stejný algoritmus jako `tests/artifact-validation.test.js`:
 počet skutečných `.js` souborů a počet znaků nového řádku v jejich bytech.
 Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
 | `src/**/*.js` | **237 486 ř.**, 688 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **272 065 ř.**, 605 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **272 068 ř.**, 605 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **597** (`499 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 109** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |

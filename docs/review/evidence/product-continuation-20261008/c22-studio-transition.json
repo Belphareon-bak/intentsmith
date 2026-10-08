@@ -1,6 +1,6 @@
 {
   "kind": "C22StudioTransitionPreparation@2",
-  "status": "SOURCE_CPU_AND_INTEGRATION_PASS_INDEPENDENT_INTEGRATION_REVIEW_PENDING_NOT_LIVE_READY",
+  "status": "SOURCE_CPU_AND_ISOLATION_REVIEW_PASS_NEW_FULL411_PENDING_NOT_LIVE_READY",
   "baseSha": "3aed95e6d6d813ead2a2312c76fcbf9817ca1af1",
   "scope": "Bounded C5 Studio/D1 qualification transport and shared GPU drain. Original input, policy, oracle, models and no-effect scope retained.",
   "cpu": {
@@ -40,7 +40,7 @@
   },
   "limits": [
     "No real GPU, provider generation or Studio journey executed by this preparation.",
-    "The C21 full410 on 7b7e1f9d predates this helper/test/registry change; a new full411 is pending.",
+    "C21 full410 predates C22; original C22 full411 on692dae2c is410PASS1FAIL and retained; new isolation-fixed whole411 pending.",
     "Transition requires completed uncancelled exchange and retains lease; final cleanup additionally requires settled application/relay before release.",
     "UNKNOWN never receives signal/unload authority or counts as an empty sample. Post-unload transient handling resets the empty sequence as in the accepted existing drain.",
     "A new exact freeze, independent READY and serial GPU admission remain necessary; old C5 claim is spent.",
@@ -127,6 +127,46 @@
       "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/root-docs-recheck/RESULT.json",
       "bytes": 225,
       "sha256": "7d2d0085c049a079a948dde534f0d1f37da9b6abd92ffba8bcc1844f4060ab92"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/independent-review/INTEGRATION-REVIEW.json",
+      "bytes": 20469,
+      "sha256": "9062c19242849313e0b2ee883c77d46517776be34cceef74a0e625b3f60cbdfd"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/full-profile/ROOT-FAILURE-VERIFICATION.json",
+      "bytes": 2107,
+      "sha256": "22857ce75ca2ab19f9adfcc136733c25a3e8ad94feefa24cb0b4859049686c5d"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/CI-692dae2c.json",
+      "bytes": 232,
+      "sha256": "c73dfa40e90ecbd9e618f9ae32144884a13ba1c93e85c413212287eb0855a40e"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/isolation-fix/MANIFEST.json",
+      "bytes": 8508,
+      "sha256": "3e7fede52d7e33172d6c7108f5ee89c0afa9a099eeaed4ba24d842f8a35f08f0"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/isolation-fix/RESULT.json",
+      "bytes": 7763,
+      "sha256": "cc20b151d47a3f3fd524e857a8b5443f5ae9e0bb47fa337f69d5deb42725b4e3"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/isolation-fix/ISOLATION.patch",
+      "bytes": 964,
+      "sha256": "7c98e15ed4209ae8f870c93def5358e878b2670635afc186f6341d8864e1eead"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/independent-review/ISOLATION-REVIEW.json",
+      "bytes": 7369,
+      "sha256": "7304f1e320e8b990aa3fd3dff18ca584e101a4daa9f7b56a37c75d133f3cbaa0"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/ROOT-CENSUS-v3.json",
+      "bytes": 113,
+      "sha256": "5fa059dbe040bcd032bb58ec369aa8c5837ddaeb72a3e1b509c4e34ff54ee714"
     }
   ],
   "integration": {
@@ -138,6 +178,40 @@
     "cycleMembers": 28,
     "registryPrograms": 597,
     "readmeCountFailurePreserved": true,
-    "full411": "NOT_RUN"
+    "full411": "ORIGINAL_FAIL_RETAINED_NEW_CANDIDATE_NOT_RUN",
+    "independentIntegrationReview": "PASS_FOR_ORIGINAL_V2"
+  },
+  "sourceCheckpoint": "692dae2c3ccb38b9860097efd186312aa82106db",
+  "originalFull": {
+    "sourceSha": "692dae2c3ccb38b9860097efd186312aa82106db",
+    "pass": 410,
+    "fail": 1,
+    "exitCode": 1,
+    "preserved": true,
+    "reason": "New database-reachable root needs canonical isolation bootstrap and reviewed census144; original expected143.",
+    "ciSuccessSteps": 18
+  },
+  "isolationFix": {
+    "changedFiles": [
+      "tests/project-app-provider-relay.test.js",
+      "tests/harness-exit-code.test.js"
+    ],
+    "originalGraph": {
+      "reachable": 144,
+      "unprotected": 1
+    },
+    "withoutNewSuite": {
+      "reachable": 143,
+      "unprotected": 0
+    },
+    "correctedGraph": {
+      "reachable": 144,
+      "unprotected": 0
+    },
+    "originalAndCountOnlyMutant": "RED",
+    "correctedMeta": "GREEN",
+    "correctedRelayPass": 9,
+    "independentGraphModules": 1181,
+    "limit": "Transitive graph includes dynamic DB edge; no claim of actual DB opening."
   }
 }
