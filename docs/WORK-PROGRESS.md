@@ -8,7 +8,27 @@ ptá a návrhy předkládá před implementací. Nový kvalitativní test až po
 ověření funkčnosti GPU Huntu; potřebné lidské hodnocení dostane lokální HTML.
 [Autorita rozhodnutí](../DIRECTION.md#3-rozhodnutí-o-produktu).
 
-**Poslední naměřený checkpoint:** 8. 10. 2026. Release **NOT_ACCEPTED**; chatové skóre C6 zůstává
+**Přijatý funkční checkpoint 8. 10. 2026:** čistý `b19d5f19` má celý
+offline/database profil **411 PASS** (324+87) a nezávislou kontrolu všech logů.
+Work branch i main jsou publikované na tomto SHA, obě CI mají18 SUCCESS.
+Skutečné Studio uložení/readback → B → A → vlastní restart/cold reopen prošlo
+všemi5 kroky, filePOST1/model0/backend3/Studio2; nezávislá actual revize bez nálezů.
+B a sourozenecké soubory beze změny. Původní UI layout tím není změřený.
+C28 exportní diagnostika je CLOSED: fyzický download176B přesně odpovídá
+backendu, původní CDP oracle FAIL zůstává; další pokusy0.
+[Přesné výsledky, hashe a revize](review/evidence/product-functional-completion-20261008/b19-functional-checkpoint.json).
+[Aktuální bounded WP](wp/WP-PRODUCT-FUNCTIONAL-COMPLETION-20261008.md).
+Další source candidate není dosud přijatý; oprava lokálního same-version skill
+restore R2 má source/CPU review58 PASS a je aplikovaná v přesných přezkoumaných
+bytech. Původní TOCTOU vadný návrh zůstává CHANGES_REQUIRED. M3 skill authority
+PASS; počáteční stale LOC census FAIL zachovaný, po aktualizaci artifact160 PASS.
+Nová přesná installer → registry závislost čeká na přijetí standardním writerem;
+ratchet1516→1517 FAIL je zachovaný, limity3cykly/28členů se nemění. Čistý nový
+celý profil a CI teprve následují.
+M2/obnova/GPU actual přípravy nejsou výsledky. Produkční BE `c84b88cd` nezměněný;
+release **NOT_ACCEPTED**, kvalita/Fan/H1/H2 **DEFERRED**.
+
+**Historický naměřený checkpoint před převzetím:** 8. 10. 2026. Release **NOT_ACCEPTED**; chatové skóre C6 zůstává
 74,21 % užitečných /15,09 % zbytečných zastavení. HTTP14 přijatý 70+17, rozpočet
 uzavřený; Fan 12/15 čeká na chráněný oracle. H1 READY, bez JIT vstupu, NOT_RUN.
 Poslední přijatý celý profil je 411 PASS na `e4156946`; následné C24/C25 mají vlastní

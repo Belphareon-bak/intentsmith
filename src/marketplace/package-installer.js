@@ -2,6 +2,10 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import fs from 'fs/promises';
+import { constants } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
+import { parseSkillDefinition } from '../skills/registry.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { logger } from '../core/logger.js';
@@ -124,6 +128,7 @@ export class PackageInstaller {
       // Idempotent check
       const existing = this._stmts.getOne.get(catalogEntry.id, type);
       if (existing && existing.version === catalogEntry.version) {
+        if (type === 'skill') return this._ensureInstalledSkill(catalogEntry);
         return { ok: true, id: catalogEntry.id, version: catalogEntry.version, alreadyInstalled: true };
       }
 
@@ -152,6 +157,74 @@ export class PackageInstaller {
       logger.info('Marketplace', `marketplace.install.success ${type}/${catalogEntry.id}@${catalogEntry.version}`);
       return { ok: true, id: catalogEntry.id, version: catalogEntry.version, deps: installedDeps };
     });
+  }
+
+  async _readRegularSkill(file) {
+    const handle = await fs.open(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    try {
+      if (!(await handle.stat()).isFile()) throw new Error('SKILL_SOURCE_NOT_REGULAR');
+      return await handle.readFile('utf8');
+    } finally { await handle.close(); }
+  }
+
+  async _ensureInstalledSkill(entry) {
+    if (!entry.id || /[\/\\]|\.\.|\0/.test(entry.id) || entry.id.length > 128)
+      throw new Error(`Invalid package id: ${entry.id}`);
+    const skillsDir = path.join(this._projectRoot, 'skills');
+    const directory = await fs.lstat(skillsDir);
+    if (!directory.isDirectory() || directory.isSymbolicLink())
+      throw new Error('INSTALLED_SKILLS_DIRECTORY_UNAVAILABLE');
+    const target = path.join(skillsDir, `${entry.id}.json`);
+    const hash = raw => createHash('sha256').update(raw).digest('hex');
+    const decode = raw => {
+      const definition = parseSkillDefinition(raw);
+      if (definition.id !== entry.id) throw new Error('SKILL_SOURCE_ID_MISMATCH');
+      if (entry.sha256 && (!/^[a-f0-9]{64}$/i.test(entry.sha256)
+        || hash(raw) !== entry.sha256.toLowerCase()))
+        throw new Error('INSTALLED_SKILL_CONTENT_CONFLICT');
+      return definition;
+    };
+    const verifyRegistry = definition => {
+      this._skillRegistry?.reload?.();
+      if (typeof this._skillRegistry?.get === 'function'
+        && !isDeepStrictEqual(this._skillRegistry.get(entry.id), definition))
+        throw new Error('SKILL_REGISTRY_READBACK_FAILED');
+    };
+    let installed;
+    try { installed = await this._readRegularSkill(target); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+    if (installed !== undefined) {
+      const definition = decode(installed);
+      if (entry._local === true && typeof entry.localPath === 'string'
+        && path.resolve(entry.localPath) !== path.resolve(target)) {
+        let archive;
+        try { archive = await this._readRegularSkill(entry.localPath); }
+        catch (error) { if (error.code !== 'ENOENT') throw error; }
+        if (archive !== undefined && archive !== installed) throw new Error('INSTALLED_SKILL_CONTENT_CONFLICT');
+      }
+      verifyRegistry(definition);
+      return { ok: true, id: entry.id, version: entry.version, alreadyInstalled: true };
+    }
+    if (entry._local !== true || typeof entry.localPath !== 'string' || !entry.localPath)
+      throw new Error('INSTALLED_SKILL_MISSING_LOCAL_SOURCE_REQUIRED');
+    if (typeof this._skillRegistry?.reload !== 'function' || typeof this._skillRegistry?.get !== 'function')
+      throw new Error('SKILL_RESTORE_REGISTRY_REQUIRED');
+    const raw = await this._readRegularSkill(entry.localPath);
+    const definition = decode(raw);
+    // Prepare complete bytes in an owned private directory. link() publishes
+    // exclusively: an existing/conflicting file is never truncated or replaced.
+    const staging = await fs.mkdtemp(path.join(skillsDir, '.restore-'));
+    const staged = path.join(staging, 'skill.json');
+    try {
+      await fs.writeFile(staged, raw, { mode: 0o600, flag: 'wx' });
+      await fs.link(staged, target);
+      if (await this._readRegularSkill(target) !== raw) throw new Error('SKILL_RESTORE_READBACK_FAILED');
+      // If readback fails, preserve the complete published file and report the
+      // failure. Removing a public path after checking it can delete a file
+      // concurrently replaced by another writer. Only private staging is cleaned.
+      verifyRegistry(definition);
+      return { ok: true, id: entry.id, version: entry.version, restored: true };
+    } finally { await fs.rm(staging, { recursive: true, force: true }); }
   }
 
   async _installByType(type, entry) {

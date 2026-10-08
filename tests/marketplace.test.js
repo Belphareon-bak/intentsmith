@@ -4,6 +4,10 @@
 import { suite, test, testAsync, assert, assertEqual, assertThrows, summary } from './harness.js';
 import Database from 'better-sqlite3';
 import fs from 'node:fs';
+import fsp from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import strictAssert from 'node:assert/strict';
+import { skillRegistry, parseSkillDefinition } from '../src/skills/registry.js';
 import path from 'node:path';
 import { MarketplaceClient } from '../src/marketplace/marketplace-client.js';
 import { PackageInstaller, parseSemver, semverGte, semverNewer, parseDependencySpec } from '../src/marketplace/package-installer.js';
@@ -324,14 +328,25 @@ await testAsync('install expertise calls addCustom', async () => {
 await testAsync('idempotent install (same version)', async () => {
   const db = createTestDb();
   const mockClient = new MockMarketplaceClient();
-  const installer = new PackageInstaller(db, {
-    client: mockClient,
-    skillRegistry: new MockSkillRegistry(),
-    projectRoot: makeMarketplaceProject('marketplace-idempotent'),
-  });
+  const projectRoot = makeMarketplaceProject('marketplace-idempotent');
+  fs.mkdirSync(path.join(projectRoot, 'skills'));
+  const raw = JSON.stringify({ id: 'code-review', version: 1, description: 'Valid owned skill',
+    steps: [{ id: 'result', type: 'template', template: 'Owned result' }] });
+  const entry = { ...MOCK_CATALOG.packages.skills[0], sha256: createHash('sha256').update(raw).digest('hex') };
+  mockClient.downloadPackage = async (candidate, dir) => {
+    mockClient.downloadCalls.push({ entry: candidate, targetDir: dir });
+    const file = path.join(dir, `${candidate.id}.json`);
+    fs.writeFileSync(file, raw);
+    return { path: file, verified: true };
+  };
+  skillRegistry.load(path.join(projectRoot, 'skills'));
+  const installer = new PackageInstaller(db, { client: mockClient, skillRegistry, projectRoot });
 
-  await installer.install('skill', MOCK_CATALOG.packages.skills[0]);
-  const r2 = await installer.install('skill', MOCK_CATALOG.packages.skills[0]);
+  await installer.install('skill', entry);
+  const before = fs.statSync(path.join(projectRoot, 'skills', `${entry.id}.json`));
+  const r2 = await installer.install('skill', entry);
+  assertEqual(fs.statSync(path.join(projectRoot, 'skills', `${entry.id}.json`)).mtimeMs, before.mtimeMs);
+  strictAssert.deepEqual(skillRegistry.get(entry.id), parseSkillDefinition(raw));
   assert(r2.alreadyInstalled);
   // download should only be called once
   assertEqual(mockClient.downloadCalls.length, 1);
@@ -658,6 +673,219 @@ test('getInstalled with type filter', () => {
   assertEqual(installer.getInstalled('expertise').length, 1);
   assertEqual(installer.getInstalled('specialist').length, 0);
   db.close();
+});
+
+suite('PackageInstaller — explicit owned local recovery');
+
+async function withOwnedRestoreFixture(label, callback) {
+  const projectRoot = makeMarketplaceProject(`marketplace-restore-${label}`);
+  const skills = path.join(projectRoot, 'skills'), origin = path.join(projectRoot, 'origin');
+  fs.mkdirSync(skills); fs.mkdirSync(origin);
+  const definition = { id: 'owned-restore', version: 1, description: 'Owned restore fixture',
+    steps: [{ id: 'result', type: 'template', template: 'Owned result' }] };
+  const raw = JSON.stringify(definition), target = path.join(skills, `${definition.id}.json`);
+  const source = path.join(origin, 'archive.json');
+  fs.writeFileSync(source, raw);
+  const sibling = path.join(skills, 'sibling.json');
+  fs.writeFileSync(sibling, JSON.stringify({ ...definition, id: 'owned-sibling' }));
+  const siblingBytes = fs.readFileSync(sibling, 'utf8');
+  const db = createTestDb(); let downloads = 0;
+  const client = { async downloadPackage() { downloads++; throw new Error('Unexpected remote download'); } };
+  skillRegistry.load(skills);
+  const installer = new PackageInstaller(db, { projectRoot, skillRegistry, client });
+  const entry = { id: definition.id, version: '1.0.0', downloadUrl: 'local', _local: true,
+    localPath: source, sha256: createHash('sha256').update(raw).digest('hex') };
+  try {
+    await installer.install('skill', entry);
+    const receipt = db.prepare('SELECT * FROM marketplace_packages WHERE id=? AND type=?').get(entry.id, 'skill');
+    const verify = () => {
+      strictAssert.deepEqual(db.prepare('SELECT * FROM marketplace_packages WHERE id=? AND type=?').get(entry.id, 'skill'), receipt);
+      assertEqual(downloads, 0);
+      assertEqual(fs.readFileSync(sibling, 'utf8'), siblingBytes);
+      assertEqual(fs.readdirSync(skills).filter(name => name.startsWith('.restore-')).length, 0);
+    };
+    const lose = () => { fs.unlinkSync(target); skillRegistry.reload(); assertEqual(skillRegistry.get(entry.id), null); };
+    await callback({ installer, entry, raw, source, target, projectRoot, skills, lose, verify, db, client });
+    verify();
+  } finally { db.close(); fs.rmSync(projectRoot, { recursive: true, force: true }); }
+}
+
+await testAsync('same-version explicit local archive restores real file and registry; repeat stays idempotent', async () => {
+  await withOwnedRestoreFixture('positive', async ({ installer, entry, raw, source, target, lose }) => {
+    lose();
+    const restored = await installer.install('skill', entry);
+    assert(restored.ok && restored.restored && !restored.alreadyInstalled);
+    assertEqual(fs.readFileSync(target, 'utf8'), raw);
+    strictAssert.deepEqual(skillRegistry.get(entry.id), parseSkillDefinition(raw));
+    const before = fs.statSync(target);
+    fs.unlinkSync(source); // Healthy install need not depend on an old archive still being present.
+    const again = await installer.install('skill', entry);
+    assert(again.alreadyInstalled);
+    assertEqual(fs.statSync(target).mtimeMs, before.mtimeMs);
+  });
+});
+
+for (const [label, replacement] of [
+  ['malformed-json', '{'],
+  ['invalid-steps', JSON.stringify({ id: 'owned-restore', version: 1, description: 'Invalid', steps: [] })],
+  ['wrong-id', JSON.stringify({ id: 'other-id', version: 1, description: 'Wrong ID', steps: [{ id: 'result', type: 'template' }] })],
+]) {
+  await testAsync(`invalid local archive (${label}) is refused before target publication`, async () => {
+    await withOwnedRestoreFixture(label, async ({ installer, entry, source, target, lose }) => {
+      lose(); fs.writeFileSync(source, replacement);
+      await strictAssert.rejects(installer.install('skill', entry));
+      assertEqual(fs.existsSync(target), false);
+    });
+  });
+}
+
+await testAsync('missing local archive and missing remote target cause no implicit download', async () => {
+  await withOwnedRestoreFixture('missing', async ({ installer, entry, source, target, lose }) => {
+    lose(); fs.unlinkSync(source);
+    await strictAssert.rejects(installer.install('skill', entry));
+    await strictAssert.rejects(installer.install('skill', { ...entry, _local: false }), /LOCAL_SOURCE_REQUIRED/);
+    assertEqual(fs.existsSync(target), false);
+  });
+});
+
+await testAsync('existing conflicting regular skill and symlink target are preserved and refused', async () => {
+  await withOwnedRestoreFixture('conflict', async ({ installer, entry, source, target, lose, raw }) => {
+    const conflicting = JSON.stringify({ ...JSON.parse(raw), description: 'Existing different content' });
+    fs.writeFileSync(target, conflicting);
+    await strictAssert.rejects(installer.install('skill', entry), /CONTENT_CONFLICT/);
+    assertEqual(fs.readFileSync(target, 'utf8'), conflicting);
+    lose(); fs.symlinkSync(source, target);
+    await strictAssert.rejects(installer.install('skill', entry));
+    assert(fs.lstatSync(target).isSymbolicLink());
+    assertEqual(fs.readlinkSync(target), source);
+  });
+});
+
+await testAsync('exclusive publication preserves a target concurrently created by another writer', async () => {
+  await withOwnedRestoreFixture('race', async ({ installer, entry, target, lose }) => {
+    lose(); const previous = fsp.link, competing = 'Existing concurrent bytes';
+    fsp.link = async (from, to) => { fs.writeFileSync(to, competing, { flag: 'wx' }); return previous(from, to); };
+    try { await strictAssert.rejects(installer.install('skill', entry), error => error.code === 'EEXIST'); }
+    finally { fsp.link = previous; }
+    assertEqual(fs.readFileSync(target, 'utf8'), competing);
+  });
+});
+
+await testAsync('failed registry readback retains published bytes and an explicit healthy retry verifies them', async () => {
+  await withOwnedRestoreFixture('readback', async ({ installer: healthyInstaller, entry, raw, target, projectRoot, lose, client, db }) => {
+    lose();
+    const rejectingRegistry = { reload: () => skillRegistry.reload(), get: () => null };
+    const installer = new PackageInstaller(db, { projectRoot, skillRegistry: rejectingRegistry, client });
+    await strictAssert.rejects(installer.install('skill', entry), /REGISTRY_READBACK_FAILED/);
+    assertEqual(fs.readFileSync(target, 'utf8'), raw);
+    strictAssert.deepEqual(skillRegistry.get(entry.id), parseSkillDefinition(raw));
+    assertEqual(installer.getInstalledVersion('skill', entry.id), entry.version);
+    const retry = await healthyInstaller.install('skill', entry);
+    assert(retry.ok && retry.alreadyInstalled);
+  });
+});
+
+await testAsync('failed readback cannot remove a replacement introduced at the public-unlink boundary', async () => {
+  await withOwnedRestoreFixture('unlink-window', async ({ entry, raw, target, projectRoot, lose, client, db }) => {
+    lose(); const previous = fsp.unlink, competing = 'Concurrent replacement at unlink boundary';
+    fsp.unlink = async file => {
+      if (file === target) {
+        fs.unlinkSync(target);
+        fs.writeFileSync(target, competing, { flag: 'wx' });
+      }
+      return previous(file);
+    };
+    const rejectingRegistry = { reload: () => skillRegistry.reload(), get: () => null };
+    const installer = new PackageInstaller(db, { projectRoot, skillRegistry: rejectingRegistry, client });
+    try { await strictAssert.rejects(installer.install('skill', entry), /REGISTRY_READBACK_FAILED/); }
+    finally { fsp.unlink = previous; }
+    assert(fs.existsSync(target), 'A failed restore must retain the public file');
+    const retained = fs.readFileSync(target, 'utf8');
+    assert(retained === raw || retained === competing, 'Retained file must contain complete published or concurrent bytes');
+  });
+});
+
+test('shared parser retains governed authority, enabled-state and payload validation', () => {
+  const manifest = JSON.parse(fs.readFileSync(new URL('../skills/m3-project-note.json', import.meta.url), 'utf8'));
+  const definition = parseSkillDefinition(JSON.stringify(manifest));
+  assert(definition.governed);
+  assertEqual(definition.id, manifest.id);
+  strictAssert.throws(() => parseSkillDefinition(JSON.stringify({ ...manifest,
+    requiredCapabilities: ['skill.runtime.v1'] })), /undeclared runtime authority/);
+  strictAssert.throws(() => parseSkillDefinition(JSON.stringify({ ...manifest,
+    payload: { ...manifest.payload, enabledByDefault: false } })), /disabled/);
+  const invalid = structuredClone(manifest); delete invalid.payload.definition.qualityCriteria;
+  strictAssert.throws(() => parseSkillDefinition(JSON.stringify(invalid)), /skill-definition/);
+});
+
+await testAsync('missing registry readback support refuses repair before writing', async () => {
+  await withOwnedRestoreFixture('no-registry', async ({ entry, target, projectRoot, lose, client, db }) => {
+    lose(); const installer = new PackageInstaller(db, { projectRoot, client });
+    await strictAssert.rejects(installer.install('skill', entry), /REGISTRY_REQUIRED/);
+    assertEqual(fs.existsSync(target), false);
+  });
+});
+
+await testAsync('readback failure preserves a replacement inode created after publication', async () => {
+  await withOwnedRestoreFixture('replacement', async ({ installer, entry, target, lose, raw }) => {
+    lose(); const previous = skillRegistry.reload;
+    const replacement = JSON.stringify({ ...JSON.parse(raw), description: 'Replacement owned by another writer' });
+    skillRegistry.reload = function() {
+      fs.unlinkSync(target);
+      fs.writeFileSync(target, replacement, { flag: 'wx' });
+      return previous.call(this);
+    };
+    try { await strictAssert.rejects(installer.install('skill', entry), /REGISTRY_READBACK_FAILED/); }
+    finally { skillRegistry.reload = previous; }
+    assertEqual(fs.readFileSync(target, 'utf8'), replacement);
+  });
+});
+
+await testAsync('healthy repeat after version update uses current entry bytes despite historical receipt hash', async () => {
+  const projectRoot = makeMarketplaceProject('marketplace-restore-updated');
+  const skills = path.join(projectRoot, 'skills'); fs.mkdirSync(skills);
+  const source = path.join(projectRoot, 'archive.json'), db = createTestDb();
+  let downloads = 0;
+  const installer = new PackageInstaller(db, { projectRoot, skillRegistry,
+    client: { async downloadPackage() { downloads++; throw new Error('Unexpected remote download'); } } });
+  skillRegistry.load(skills);
+  try {
+    const definition = { id: 'owned-updated', version: 1, description: 'Version one',
+      steps: [{ id: 'result', type: 'template', template: 'Owned result' }] };
+    const raw1 = JSON.stringify(definition), hash = raw => createHash('sha256').update(raw).digest('hex');
+    fs.writeFileSync(source, raw1);
+    const entry1 = { id: definition.id, version: '1.0.0', downloadUrl: 'local', _local: true,
+      localPath: source, sha256: hash(raw1) };
+    await installer.install('skill', entry1);
+    const raw2 = JSON.stringify({ ...definition, version: 2, description: 'Version two' });
+    fs.writeFileSync(source, raw2);
+    const entry2 = { ...entry1, version: '2.0.0', sha256: hash(raw2) };
+    await installer.install('skill', entry2);
+    const receipt = db.prepare('SELECT * FROM marketplace_packages WHERE id=? AND type=?').get(entry1.id, 'skill');
+    // Existing updater retains its historical sha256 column; current catalog_data/entry identifies v2.
+    assertEqual(receipt.sha256, hash(raw1));
+    assertEqual(JSON.parse(receipt.catalog_data).sha256, hash(raw2));
+    const target = path.join(skills, `${entry1.id}.json`), before = fs.statSync(target);
+    const repeated = await installer.install('skill', entry2);
+    assert(repeated.alreadyInstalled);
+    assertEqual(fs.readFileSync(target, 'utf8'), raw2);
+    assertEqual(fs.statSync(target).mtimeMs, before.mtimeMs);
+    strictAssert.deepEqual(skillRegistry.get(entry1.id), parseSkillDefinition(raw2));
+    strictAssert.deepEqual(db.prepare('SELECT * FROM marketplace_packages WHERE id=? AND type=?').get(entry1.id, 'skill'), receipt);
+    assertEqual(downloads, 0);
+  } finally { db.close(); fs.rmSync(projectRoot, { recursive: true, force: true }); }
+});
+
+await testAsync('same-version expertise and specialist retain their existing no-op behavior', async () => {
+  const db = createTestDb(), installer = new PackageInstaller(db, { client: new MockMarketplaceClient() });
+  try {
+    for (const type of ['expertise', 'specialist']) {
+      db.prepare('INSERT INTO marketplace_packages (id,type,version,download_url) VALUES (?,?,?,?)')
+        .run('owned', type, '1.0.0', 'local');
+      const result = await installer.install(type, { id: 'owned', version: '1.0.0' });
+      assert(result.ok && result.alreadyInstalled);
+    }
+  } finally { db.close(); }
 });
 
 // ══════════════════════════════════════════════════════════════════════════════

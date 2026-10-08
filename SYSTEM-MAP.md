@@ -7,11 +7,19 @@ do testování po releasu. Historické FAIL/NO_GO a funkční či bezpečnostní
 zůstávají evidované. [Rozhodnutí](DIRECTION.md#3-rozhodnutí-o-produktu)
 a [aktuální pracovní fronta](docs/WORK-PROGRESS.md#aktuální-funkční-fronta).
 
+**Nový funkční checkpoint:** `b19d5f19`, nezávisle ověřený celý profil411 PASS,
+vývojový main + work branch / CI18, skutečný Studio save/readback/A-B-A/restart
+5/5 v omezeném model0 rozsahu. Exportní diagnostika CLOSED, download176B
+správný a původní CDP oracle FAIL zachovaný, další pokusy0.
+[Důkazy a meze](docs/review/evidence/product-functional-completion-20261008/b19-functional-checkpoint.json)
+a [aktuální bounded WP](docs/wp/WP-PRODUCT-FUNCTIONAL-COMPLETION-20261008.md).
+Nová oprava obnovy skillu, M2/restore/GPU actual a release jsou dosud otevřené.
+
 **Naměřený checkpoint 8. 10. 2026:** [stav, implementační mezery a zbývající testy](docs/WORK-PROGRESS.md).
 Release `NOT_ACCEPTED`; BE `c84b88cd` / Studio `7bf62455…bfe24` nezměněné.
 Přijaté Ledger/TaskFlow/SQLite, omezený AST/GPU panel/cleanup, full109 DB roundtrip a M3 worker;
 opakovat pouze při nové změně nebo konkrétní pochybnosti. ROOT vlastní integraci i CHAT.
-Aktuální přijatý celý offline/database profil na čistém `e4156946` má
+Historický přijatý celý offline/database profil na čistém `e4156946` má
 8. 10. 15:43:31–15:54:07 UTC **411 PASS / 0 FAIL/TIMEOUT/BLOCKED/SKIPPED**, exit 0.
 Nezávislé review ověřilo všech 411 logů / 1 334 434 B a přesný výběr
 324 offline + 87 database; CI `37803095558` má 18 SUCCESS.
@@ -945,14 +953,15 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 **REVIEW_PENDING** — [aktuální UI oprava a evidence](docs/review/2026-09-17-HUNT-MODEL-CONTROLS-FOLLOWUP.md).
 
 Následující LOC a registry census jsou přeměřené 8. 10. 2026 přímo na zdroji
-C25 pracovního kandidátu nad `ca3776ae` včetně exportu a opravy projektového pokynu, přes stejný algoritmus jako `tests/artifact-validation.test.js`:
+produktového pracovního kandidátu nad `b19d5f19` včetně lokální skill-restore R2 opravy,
+přes stejný algoritmus jako `tests/artifact-validation.test.js`:
 počet skutečných `.js` souborů a počet znaků nového řádku v jejich bytech.
 Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
-| `src/**/*.js` | **237 486 ř.**, 688 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **272 250 ř.**, 605 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **237 566 ř.**, 688 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **272 478 ř.**, 605 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **597** (`499 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 109** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |

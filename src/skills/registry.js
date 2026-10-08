@@ -177,36 +177,11 @@ class SkillRegistry {
       try {
         const fullPath = path.join(basePath, file);
         const raw = fs.readFileSync(fullPath, 'utf-8');
-        const parsed = JSON.parse(raw);
-        let def = parsed;
-        if (parsed?.contract === 'ExtensionManifest') {
-          const manifest = canonicalizeExtensionManifestV1(parsed, EXTENSION_KIND.SKILL);
-          const exactCapabilities = manifest.requiredCapabilities.length === 2
-            && manifest.requiredCapabilities[0] === 'core.tool-authority.v1'
-            && manifest.requiredCapabilities[1] === 'skill.runtime.v1'
-            && manifest.optionalCapabilities.length === 0;
-          if (!exactCapabilities) {
-            this._log('warn', `Skill ${file}: undeclared runtime authority (skipped)`);
-            continue;
-          }
-          if (manifest.payload.enabledByDefault !== true) {
-            this._log('debug', `Skill ${file}: disabled ExtensionManifest (skipped)`);
-            continue;
-          }
-          const governedErrors = validateGovernedSkillDefinition(manifest.payload.definition);
-          if (governedErrors.length > 0) {
-            this._log('warn', `Skill ${file}: ${governedErrors.join(', ')} (skipped)`);
-            continue;
-          }
-          def = {
-            ...structuredClone(manifest.payload.definition),
-            id: manifest.id,
-            extensionManifest: manifest,
-            governed: true,
-          };
+        const { definition: def, error, disabled } = this._parseDefinition(raw);
+        if (disabled) {
+          this._log('debug', `Skill ${file}: disabled ExtensionManifest (skipped)`);
+          continue;
         }
-
-        const error = this._validate(def, file);
         if (error) {
           this._log('warn', `Skill ${file}: ${error} (skipped)`);
           continue;
@@ -300,6 +275,31 @@ class SkillRegistry {
     return Object.keys(skill.parameters);
   }
 
+  // Pure shared decoding: registry loading and local repair use identical rules.
+  _parseDefinition(raw) {
+    const parsed = JSON.parse(raw);
+    let def = parsed;
+    if (parsed?.contract === 'ExtensionManifest') {
+      const manifest = canonicalizeExtensionManifestV1(parsed, EXTENSION_KIND.SKILL);
+      const exactCapabilities = manifest.requiredCapabilities.length === 2
+        && manifest.requiredCapabilities[0] === 'core.tool-authority.v1'
+        && manifest.requiredCapabilities[1] === 'skill.runtime.v1'
+        && manifest.optionalCapabilities.length === 0;
+      if (!exactCapabilities) return { error: 'undeclared runtime authority' };
+      if (manifest.payload.enabledByDefault !== true) return { disabled: true };
+      const governedErrors = validateGovernedSkillDefinition(manifest.payload.definition);
+      if (governedErrors.length > 0) return { error: governedErrors.join(', ') };
+      def = {
+        ...structuredClone(manifest.payload.definition),
+        id: manifest.id,
+        extensionManifest: manifest,
+        governed: true,
+      };
+    }
+    const error = this._validate(def);
+    return error ? { error } : { definition: def };
+  }
+
   // ─── Validation ─────────────────────────────────────────────────────────
 
   _validate(def, filename) {
@@ -328,3 +328,10 @@ class SkillRegistry {
 }
 
 export const skillRegistry = new SkillRegistry();
+
+// Parse a loadable enabled skill without changing the active registry.
+export function parseSkillDefinition(raw) {
+  const { definition, error, disabled } = skillRegistry._parseDefinition(raw);
+  if (error || disabled) throw new Error(error || 'disabled ExtensionManifest');
+  return definition;
+}

@@ -1,6 +1,14 @@
 # Project collaboration and import completion
 
-## Current operator continuation — 8 October 2026
+## Current product priority — 8 October 2026
+
+Operator closed HTTP14 and deferred Fan, chat quality and H1/H2 until
+post-release testing. Continue actual Studio/project functionality under
+[the current product WP](WP-PRODUCT-FUNCTIONAL-COMPLETION-20261008.md).
+The dated Fan authority below is historical; its FAIL, spent12/15 budget and
+protected oracle remain unchanged. It does not authorize a new Fan attempt.
+
+## Historical Fan continuation — earlier on 8 October 2026
 
 Operator authorized “Fan — 15, one repair batch”. Current ROOT04d04ff0 may
 execute historical8 + one core repair4 + CLI3, at most15 CODE calls overall.

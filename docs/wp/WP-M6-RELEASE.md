@@ -4,7 +4,13 @@
 **Vstupní revision:** `55938fd0628bdb725736acdf21a451854580aaa7`
 **Původní vlastník:** `codex/m6-release-20260827`; navazující ROOT scope níže.
 
-**Aktuální ROOT scope,6. 10. 2026:** pouze vlastní cache/evidence oprava v
+**Aktuální ROOT scope,8. 10. 2026:** operátor upřednostnil produktovou funkčnost,
+obnovu, GPU Hunt a stabilitu; konkrétní soubory, limity a nezávislé revize stanoví
+[produktový WP](WP-PRODUCT-FUNCTIONAL-COMPLETION-20261008.md). HTTP14 CLOSED;
+Fan, chat quality a H1/H2 DEFERRED. Akceptační authority a vnější M5/M6 podmínky
+se tím nemění.
+
+**Historický ROOT scope,6. 10. 2026:** pouze vlastní cache/evidence oprava v
 `scripts/run-m6-candidate-evidence.js`, `tests/m6-candidate-plan.test.js`,
 `tests/m1-journey.test.js` a zdejší report/maps/inventura. M1 oracle/CHAT logika,
 model parametry a historické FAIL beze změny. M5 aktuálně8/9/privacy changes required;

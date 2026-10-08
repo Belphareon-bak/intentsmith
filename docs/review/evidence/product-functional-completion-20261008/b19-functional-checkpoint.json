@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "status": "REVIEWED_B19_FUNCTIONAL_EVIDENCE_NOT_RELEASE_ACCEPTANCE",
+  "recordedAt": "2026-10-08T21:04:42.271490+00:00",
+  "sourceSha": "b19d5f194d423ecc37288257f76692e7e1d93ff2",
+  "scopeAuthority": "docs/wp/WP-PRODUCT-FUNCTIONAL-COMPLETION-20261008.md",
+  "results": [
+    {
+      "id": "studio-save-restart",
+      "actual": {
+        "path": ".intentsmith-artifacts/studio-file-save-restart-preparation-r2-20261008/actual-v1/RESULT.json",
+        "sha256": "9035198051ce3cbc900e5472c5974167d4e8cb692c4bb918b939345de7e07d58",
+        "status": "KNOWN_STUDIO_FILE_SAVE_RESTART_PASS"
+      },
+      "independentReview": {
+        "path": "/home/belphareon/Projects/.codex-review-runs/studio-save-restart-r2-actual-review-20261008-s91v7_o3/REVIEW.json",
+        "sha256": "962102f3ef47cb9a053c7cdd42b30b1ad9ab2c61013f14dea167a1da262d3788",
+        "status": "KNOWN_STUDIO_FILE_SAVE_RESTART_REVIEW_PASS"
+      }
+    },
+    {
+      "id": "export-cdp-diagnosis",
+      "actual": {
+        "path": ".intentsmith-artifacts/c28-export-cdp-diagnosis-20261008/live-preparation-v1/actual-v2/DIAGNOSIS.json",
+        "sha256": "6d8340e48eeb58b4b170a9c0e20310be802476bbf2e5061adbde35170ec74655",
+        "status": "CDP_MEASUREMENT_GAP_REPRODUCED_DIAGNOSIS_CLOSED"
+      },
+      "independentReview": {
+        "path": "/home/belphareon/Projects/.codex-review-runs/c28-actual-review-20261008-fd8pk5b2/REVIEW.json",
+        "sha256": "cfdc6e83c482836d52679f8b729bd0997a9f0fa89964db267e8e4060be4e402e",
+        "status": "REVIEW_PASS"
+      }
+    },
+    {
+      "id": "full-deterministic",
+      "actual": {
+        "path": ".intentsmith-artifacts/test-runs/product-functionality-full-20261008-b19d5f19/report.json",
+        "sha256": "5546a19526fba52dcafbca30d373a8cd18018672ef04e6e8b2cd6c3f3222586d",
+        "status": "PASS",
+        "statusCounts": {
+          "PASS": 411,
+          "FAIL": 0,
+          "TIMEOUT": 0,
+          "BLOCKED": 0,
+          "SKIPPED": 0
+        }
+      },
+      "independentReview": {
+        "path": "/home/belphareon/Projects/.codex-review-runs/product-full-profile-review-20261008-mxh26wgm/REVIEW.json",
+        "sha256": "3b58b6d49d602acc7a1d52a779f1bef60d17aed30fff7191564e2a3adfac3897",
+        "status": "REVIEW_PASS"
+      }
+    }
+  ],
+  "limitations": [
+    "Exact owned known scenarios and their frozen source/build; no broad quality claim",
+    "Export original CDP oracle FAIL retained; physical download176B matches backend; diagnosis closed, further attempts0",
+    "Studio save POST1/model0/backend3/Studio2; five steps; cold backend persistence, original UI layout not measured",
+    "Full profile411/411 on b19; subsequent source changes require their own verification",
+    "Development main integration and CI18/18, no production deploy or release acceptance",
+    "HTTP14 CLOSED; Fan/chatquality/H1/H2 DEFERRED; prior FAIL/NO_GO/oracles/budgets retained"
+  ]
+}
