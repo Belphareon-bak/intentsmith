@@ -22,9 +22,10 @@ Další source candidate není dosud přijatý; oprava lokálního same-version 
 restore R2 má source/CPU review58 PASS a je aplikovaná v přesných přezkoumaných
 bytech. Původní TOCTOU vadný návrh zůstává CHANGES_REQUIRED. M3 skill authority
 PASS; počáteční stale LOC census FAIL zachovaný, po aktualizaci artifact160 PASS.
-Nová přesná installer → registry závislost čeká na přijetí standardním writerem;
-ratchet1516→1517 FAIL je zachovaný, limity3cykly/28členů se nemění. Čistý nový
-celý profil a CI teprve následují.
+Nová přesná installer → registry závislost má nezávislé přijetí a standardní
+writer ji připnul k čistému lokálnímu `d0fe6b89`, edges1517/removed0/limity3cykly/28členů
+beze změny. Původní ratchet1516→1517 FAIL je zachovaný. Čistý nový celý profil
+a CI teprve následují. [Oprava a revize](review/evidence/product-functional-completion-20261008/skill-restore-r2-source.json).
 M2/obnova/GPU actual přípravy nejsou výsledky. Produkční BE `c84b88cd` nezměněný;
 release **NOT_ACCEPTED**, kvalita/Fan/H1/H2 **DEFERRED**.
 

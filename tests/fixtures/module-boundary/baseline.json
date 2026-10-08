@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "authority": "integration",
-  "sourceRevision": "d3dbc8979fac677ffd836b03771409060ec630da",
-  "sourceTree": "d4eb2b6c3440b525e8a7fc989ea7c0f8bf7e928b",
+  "sourceRevision": "d0fe6b891dd0e22df3ebddd725eff001e0e0a4c4",
+  "sourceTree": "5ca12a7d3a1a18765d91e91b4f6e9eee8895ca01",
   "scanner": "scripts/module-graph.mjs",
   "scannerProtocol": 1,
   "scannerBlob": "a111646c052627fd0803fc881838f58d7d5fd8dc",
@@ -838,6 +838,7 @@
     "src/llm/web-search.js -> src/core/logger.js",
     "src/marketplace/marketplace-client.js -> src/core/logger.js",
     "src/marketplace/package-installer.js -> src/core/logger.js",
+    "src/marketplace/package-installer.js -> src/skills/registry.js",
     "src/media/comfyui-connector.js -> src/core/logger.js",
     "src/media/output-storage.js -> src/core/logger.js",
     "src/media/vram-manager.js -> src/core/logger.js",

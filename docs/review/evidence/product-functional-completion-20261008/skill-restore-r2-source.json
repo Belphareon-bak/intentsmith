@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "status": "SOURCE_CPU_REVIEW_PASS_CURRENT_FULL_PROFILE_PENDING",
+  "sourceSha": "d0fe6b891dd0e22df3ebddd725eff001e0e0a4c4",
+  "recordedAt": "2026-10-08T21:15:50.166926+00:00",
+  "problem": "Same-version receipt could report successful install while the skill file and registry entry were missing",
+  "result": "Validate materialized skill; repair missing bytes only from explicit valid local archive by exclusive publication and real registry readback; preserve public target on post-publication error and clean own staging only",
+  "scope": "In-process explicit local maintenance, marketplace production OFF; no remote download, model, schema, automatic archive activation or binding changes",
+  "patch": {
+    "path": "/home/belphareon/Projects/.codex-review-runs/skill-restore-patch-r2-20261008-vxurroaq/proposal.patch",
+    "sha256": "8a94581c49fe46698ce06e991e4692dc119436626acf6971be2f81480039b9fa"
+  },
+  "sourceFiles": [
+    {
+      "path": "src/skills/registry.js",
+      "sourceSha256": "853f9820fc30bf90c44332108e6f744db419e20720a8447a8506821262ae85ac",
+      "candidateSha256": "6819779a5dad906baa0cbd1ef54ddfcb956d65677688fb227ef9b0c51b8a05ee"
+    },
+    {
+      "path": "src/marketplace/package-installer.js",
+      "sourceSha256": "a598903b3a2c185c30ac6401aee2aa836cf30f79b5ab4fe03a42dc2faa5a5a7a",
+      "candidateSha256": "0dd40aea667736932b5df6011e93db21fa3b9187808acb0b1fc9deaf6851181a"
+    },
+    {
+      "path": "tests/marketplace.test.js",
+      "sourceSha256": "0fcd23351c5db51d82cff7da8f6871517aa7fda3eda8e61f53786beb4f85b994",
+      "candidateSha256": "be34b635dc01cd36811ba69448029db3961fba262c7f3053d0a53583dc2d0b72"
+    }
+  ],
+  "independentReviews": [
+    {
+      "path": "/home/belphareon/Projects/.codex-review-runs/skill-restore-r2-independent-review-20261008-waxn02fu/REVIEW.json",
+      "sha256": "384ff3e53651904a6cabbc6333d81944735a6d4a5561ea0f6670651da24e0fd6",
+      "status": "SOURCE_AND_CPU_REVIEW_PASS"
+    },
+    {
+      "path": "/home/belphareon/Projects/.codex-review-runs/skill-r2-edge-and-docs-review-20261008-qic0xyh4/REVIEW.json",
+      "sha256": "447c247255af2a2850a06683c9d7756aaec4ef2abe684b801b3d01dcaeb1ee6f",
+      "status": "CODE_DOCS_AND_EXACT_EDGE_REVIEW_PASS"
+    }
+  ],
+  "checks": {
+    "independentMarketplaceCases": 58,
+    "parserEquivalenceCases": 12,
+    "ownedFailureRetentionAndHealthyReinstall": "PASS",
+    "rootM3SkillAuthorityCases": 10,
+    "rootArtifactValidationCases": 160,
+    "rootOriginalCensusFailure": "159PASS_1FAIL_PRESERVED",
+    "moduleWriter": {
+      "path": ".intentsmith-artifacts/skill-restore-r2-module-baseline-20261008/RESULT.json",
+      "sha256": "28ee20cb130f64f838603324b94aa6222aba8be32a2e4297e226f8156909ea70",
+      "result": {
+        "exitCode": 0,
+        "endedAt": "2026-10-08T21:13:47.974281+00:00",
+        "sourceSha": "d0fe6b891dd0e22df3ebddd725eff001e0e0a4c4",
+        "newBaselineSha256": "1116405f470879ff0c99b7272073c61bcf0e2301fb481df863781c38fa2ac7d3",
+        "newEdges": 1517,
+        "oldEdges": 1516,
+        "limits": {
+          "cycles": 3,
+          "filesInCycles": 28
+        },
+        "sourceStatus": "M tests/fixtures/module-boundary/baseline.json",
+        "logSha256": "e4eb3ca0d2ffc6b3f811681a9be1b1b6894f83b9e247e5d12058444e829e039c"
+      }
+    }
+  },
+  "preservedEvidence": {
+    "originalFalseSuccessReproduction": "/home/belphareon/Projects/.codex-review-runs/skill-restore-repro-b19-20261008-ad6n1wb7/REPORT.json",
+    "originalProposal": "/home/belphareon/Projects/.codex-review-runs/skill-restore-patch-proposal-20261008-gyu9mi_i/proposal.patch",
+    "originalProposalReview": "/home/belphareon/Projects/.codex-review-runs/skill-restore-independent-proposal-review-20261008-gt8kwmz9/REVIEW.json",
+    "originalRatchetFailure": ".intentsmith-artifacts/skill-restore-r2-root-checks-v2-20261008/module-boundaries.log"
+  },
+  "limits": [
+    "Source/CPU evidence only, subsequent supported full backup/reinstall/runner journey not yet performed",
+    "Publication followed by registry failure retains the file and reports error; no public-target compensation",
+    "Current clean full411, CI and production release acceptance not yet obtained",
+    "Local intermediate source commit not published while its baseline required canonical refresh"
+  ]
+}

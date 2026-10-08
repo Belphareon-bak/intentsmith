@@ -13,7 +13,11 @@ vývojový main + work branch / CI18, skutečný Studio save/readback/A-B-A/rest
 správný a původní CDP oracle FAIL zachovaný, další pokusy0.
 [Důkazy a meze](docs/review/evidence/product-functional-completion-20261008/b19-functional-checkpoint.json)
 a [aktuální bounded WP](docs/wp/WP-PRODUCT-FUNCTIONAL-COMPLETION-20261008.md).
-Nová oprava obnovy skillu, M2/restore/GPU actual a release jsou dosud otevřené.
+Oprava lokální obnovy skillu R2 má přijaté source/CPU review58 PASS;
+aktuální module graph má 1 517 hran, 3 cykly/28 členů beze změny. Přesný nový
+installer → registry edge byl přijat a standardní writer připnul baseline k
+čistému `d0fe6b89`. [Oprava a zachované FAIL](docs/review/evidence/product-functional-completion-20261008/skill-restore-r2-source.json).
+Nový celý profil, CI, M2/restore/GPU actual a release jsou dosud otevřené.
 
 **Naměřený checkpoint 8. 10. 2026:** [stav, implementační mezery a zbývající testy](docs/WORK-PROGRESS.md).
 Release `NOT_ACCEPTED`; BE `c84b88cd` / Studio `7bf62455…bfe24` nezměněné.
