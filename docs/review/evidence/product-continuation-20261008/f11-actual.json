@@ -1,0 +1,67 @@
+{
+  "kind": "C14F11ActualCheckpoint@1",
+  "sourceSha": "a7ef9239f5c73b55787ff03e33d034bd64127a2e",
+  "status": "LIVE_FAIL_REVIEW_PENDING",
+  "transportExit": 0,
+  "modelCalls": 7,
+  "model": "gemma4:26b",
+  "context": 4096,
+  "cases": 4,
+  "approvals": 0,
+  "effects": 0,
+  "cleanup": "PASS",
+  "afterReferences": "PASS",
+  "failure": "Interpreter returned clarify and understood:false despite correct target photo.md and source answer2; classifier continuation true and original pending preserved.",
+  "refs": [
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c14-f11-live-preparation-20261008/PREPARATION-final.json",
+      "sha256": "3780c5ed977fb75a1cef65db654649f28c1650fe990a3f2566bacfdf2d50abcb",
+      "bytes": 22845064
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c14-f11-live-preparation-20261008/independent-review/READY-a7ef9239.json",
+      "sha256": "b47c62aa0faa865ebcd80c38183c5e0f38d9a74b6462cb4deb8c04d4f1e9370c",
+      "bytes": 4961
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c14-f11-live-preparation-20261008/c14-f11-1-before.json",
+      "sha256": "2d55618db0a588e5e79647733ff892b64307e404761471648c07d07d8645c759",
+      "bytes": 11264
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c14-f11-live-preparation-20261008/c14-f11-1-after.json",
+      "sha256": "9d011380fc64f88ab3c0383d7811287d9c642df71b16dc58788d9bfea56029a2",
+      "bytes": 11262
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c14-f11-live-preparation-20261008/c14-f11-1-exit.json",
+      "sha256": "ce8bc67a241ff216f882df59328135152d4da0a452844e48819460953ef5b3c5",
+      "bytes": 386
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c14-f11-live-preparation-20261008/AFTER-REFS.json",
+      "sha256": "ef1263ad1ae85beed2952dae2b0b7743c83b9a10c628f3366abfe647924c16e0",
+      "bytes": 225
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c14-f11-live-preparation-20261008/runs.json",
+      "sha256": "6aadf679add0864349adcef3747286c11e6227725b23156646fa6c85a3d5b838",
+      "bytes": 722569
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c14-f11-live-preparation-20261008/c14-f11-1-2c0dc21d/initial-f11-lifecycle.json",
+      "sha256": "af5b1c4308bfab5c4792e91fca273cab98006e45bc58dae4038bdac7abaaaea6",
+      "bytes": 8336
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c14-f11-live-preparation-20261008/c14-f11-1-2c0dc21d/initial-results.json",
+      "sha256": "b5d89ddd9d1009c4a22bc26a041ff98cd93da080e217939f88991e2e3c3d70f4",
+      "bytes": 201369
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c14-f11-live-preparation-20261008/c14-f11-1-2c0dc21d/initial-provider-wire.json",
+      "sha256": "a400182c479afc79c7309d11f3925389687824257d6fcc06630843a0e058040d",
+      "bytes": 415347
+    }
+  ]
+}

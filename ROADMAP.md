@@ -98,11 +98,14 @@ Skutečný Qwen32k cleanup pod lease přijat; Fan chráněný oracle čeká na r
 HTTP @6 bounded admission23+38CPU/review PASS, prahy i budget beze změny.
 C14 source a M1/SQLite/restart fixture přijaté, context74PASS; živé skóre NOT_RUN.
 Publikovaný eb6effe6/CI18: první skutečný HTTP repair vykonal jedno CODE volání,
-celkem13; primární70 +M2/commit/restart/cleanup PASS, nezávislá actual revize běží.
+celkem13; primární70 +M2/commit/restart/cleanup nezávisle přijaty.
 Původní supplement FAIL po16requests: charset= utf-8 vrací201 místo415.
 Druhý a poslední již schválený single-router pokus se připravuje, maximum14.
-F11 malý živý CHAT průchod se připravuje; při revizi helperu zachycen chybějící
-timeout metadat, nejdřív oprava a nové review. Žádné nové chatové skóre.
+F11 helper V3 přijatý a publikovaný a7ef9239/CI18. Skutečná série4tahů/7Gemma4K
+volání znovu LIVE_FAIL; původní context se zachoval, ale interpreter vrací
+clarify i se správným target/source.0approval/efektů; cleanup+afterrefs PASS.
+Žádný F11 retry ani nové53skóre. HTTP14 normal router-only/helper42CPU+review
+PASS, zbývá poslední autorizovaný skutečný pokus a původní70+17 oracly.
 Navazuje souborový požadavek podle C10 s kontrolami cancel/nového zadání/jiného
 projektu; C9/C11/C12 CPU přejímka je uzavřená a není koncem produktové práce.
 C10 izoloval chybu modelové návaznosti a následnou ztrátu pending; další oprava

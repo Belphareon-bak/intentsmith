@@ -151,6 +151,31 @@ ROOT integrovaný runner-contract1 a artifact160 PASS; raw logy i exity zachovan
 [Hashové předání F11](review/evidence/product-continuation-20261008/f11-preparation.json).
 Live_READY vyžaduje nový čistý source/CI/freeze; CPU příprava není přijetím chatu.
 
+F11 helper publikovaný na `a7ef9239`, CI37752903870/job113230219183 všech18 SUCCESS,
+source review16c51713…170fe67, freeze3780c5ed…d50abcb a READYb47c62aa…e9370c.
+Skutečná jediná série09:12–09:13UTC:4 známé tahy,7 úplných Gemma4K volání,
+transport exit0; praktický **LIVE_FAIL**. Na `photo.md` se znovu ptá na soubor,
+nevznikl approval ani efekt. Classifier tentokrát správně vrací continuesPending:true,
+původní požadavek se zachoval; následující interpreter dostal i vrátil správný
+target photo.md/source answer2, ale zvolil clarify/understood:false. Jde o další
+hranici modelového rozhodnutí; úspěch C14 guardu na chybném false flagu tento
+konkrétní běh nepotvrzuje ani nevyvrací. Žádný opakovaný modelový pokus F11.
+Shared cleanup skutečně unloadnul Gemmu,3empty a lease release PASS; before i after
+metadata PASS. Všech74 613 refs/221symlinků po běhu shodných, source clean.
+Nezávislé actual/DB/semantics review běží; C6 skóre ani release se nezlepšují tvrzením.
+
+### HTTP14 — poslední autorizovaný modelový pokus (SOURCE/CPU_PASS; LIVE_NOT_RUN)
+
+Nový freeze@7 navazuje normální změnou pouze routeru na succeeded app6e80b9f0.
+Bez revisionOf, bez přeznačení předchozího M2 stavu a bez nové generace serveru.
+Původní primary70 i supplement17 beze změny, maximum13+1=14 CODE, žádný retry.
+On-disk anchored edit předává skutečnou chybu charset whitespace a původní
+pozitivní případy, nikoli hotovou ruční opravu. Server zůstává hashově chráněný;
+do modelového kontextu se znovu nevkládá kvůli původnímu produktovému limitu.
+CPU42PASS a nezávislý replay42PASS, review3184907d…83f271a, přesná rekonstrukce
+patche a16nových/12historických refs; cleanup a původní oracly zachované.
+Následuje čistý publikovaný source/CI/freeze a poslední skutečný CODE pokus.
+
 ## Autonomní postup přijatý po revizi 7. 10. 2026
 
 Autorita: operátor opravil návrh v bodech 1–10 a výslovně povolil po jejich

@@ -1,0 +1,28 @@
+{
+  "kind": "HTTP14SourcePreparation@1",
+  "status": "SOURCE_CPU_REVIEW_PASS_LIVE_NOT_RUN",
+  "baseSha": "a7ef9239f5c73b55787ff03e33d034bd64127a2e",
+  "historicalCodeCalls": 13,
+  "maximumNewCodeCalls": 1,
+  "maximumTotalCodeCalls": 14,
+  "retry": false,
+  "authorCpuPass": 42,
+  "independentCpuPass": 42,
+  "refs": [
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http14-prep/MANIFEST.json",
+      "bytes": 4882,
+      "sha256": "6c0da1069e8ec76615a19cd25f85ef807579043864ac92227855cfcf05802a6b"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http14-independent-review/REVIEW-v2.json",
+      "bytes": 14405,
+      "sha256": "3184907d1a201c4f89ccaaa6a9b5aec053ba1f39a6112bea71809dba783f271a"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http14-prep/HTTP-NORMAL-ROUTER14.patch",
+      "bytes": 53237,
+      "sha256": "9dcd71a992f1cd6fb420968c7884137d0548104d780979db64f96bb02ce12ecd"
+    }
+  ]
+}

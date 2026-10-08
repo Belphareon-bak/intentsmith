@@ -83,8 +83,9 @@ async function manualColumnAction(model, args) {
 }
 
 
-export function validateHttpDraft(draft,{expected,repair=false,repairTargets=TARGETS,normalModify2=false,genuineRepair=false}){
-  validateBlueprint(draft);assert.ok(draft.gitCommit,'HTTP_GIT_COMMIT_REQUIRED_BEFORE_MODEL');assert.deepEqual(sorted(draft.files.map(f=>f.path)),sorted((normalModify2||genuineRepair)?RETENTION_REPAIR_TARGETS:TARGETS));
+export function validateHttpDraft(draft,{expected,repair=false,repairTargets=TARGETS,normalModify2=false,genuineRepair=false,normalRouter=false}){
+  validateBlueprint(draft);assert.ok(draft.gitCommit,'HTTP_GIT_COMMIT_REQUIRED_BEFORE_MODEL');assert.deepEqual(sorted(draft.files.map(f=>f.path)),sorted(normalRouter?['src/router.mjs']:(normalModify2||genuineRepair)?RETENTION_REPAIR_TARGETS:TARGETS));
+  if(normalRouter){assert.equal(repair,false);assert.equal(normalModify2,false);assert.equal(genuineRepair,false);assert.deepEqual(draft,expected,'normal router frozen draft');assert.deepEqual(draft.files.map(f=>f.dependsOn),[[]]);assert.deepEqual(draft.files.map(f=>f.contextFiles),[['API.md','src/store.mjs','src/validation.mjs']]);}
   if(normalModify2){assert.equal(repair,false);assert.deepEqual(draft,expected,'normal MODIFY2 frozen draft');assert.deepEqual(draft.files.map(f=>f.path),RETENTION_REPAIR_TARGETS);assert.deepEqual(draft.files.map(f=>f.dependsOn),[[],['src/router.mjs']]);assert.deepEqual(draft.files.map(f=>f.contextFiles),[['API.md','src/store.mjs','src/validation.mjs'],['API.md','src/store.mjs']]);}
   if(genuineRepair){assert.equal(repair,true);assert.equal(normalModify2,false);assert.deepEqual(draft.files.map(f=>f.path),RETENTION_REPAIR_TARGETS);assert.deepEqual(draft.files.map(f=>f.reusePrevious),[false,true]);assert.deepEqual(repairTargets,['src/router.mjs']);}
   assert.deepEqual(draft.focusedTest,expected.focusedTest);assert.deepEqual(draft.gitCommit,expected.gitCommit);
@@ -102,16 +103,16 @@ export function validateHttpDraft(draft,{expected,repair=false,repairTargets=TAR
   return draft;
 }
 export function checkComposerRoundTrip(draft,origin){const output=composerDraft(createForm(origin,draft));assert.deepEqual(output,draft);return output;}
-export async function prepareHttpDraft(studio,{sessionId,projectId,conversationId,draft,expected,beforeSubmit,proposal=null,repairTargets=TARGETS,normalModify2=false,genuineRepair=false}){
-  validateHttpDraft(draft,{expected,repair:Boolean(draft.revisionOf),repairTargets,normalModify2,genuineRepair});if(normalModify2||genuineRepair)assert.equal(proposal,null);
+export async function prepareHttpDraft(studio,{sessionId,projectId,conversationId,draft,expected,beforeSubmit,proposal=null,repairTargets=TARGETS,normalModify2=false,genuineRepair=false,normalRouter=false}){
+  validateHttpDraft(draft,{expected,repair:Boolean(draft.revisionOf),repairTargets,normalModify2,genuineRepair,normalRouter});if(normalModify2||genuineRepair||normalRouter)assert.equal(proposal,null);
   if(proposal){const p=compileM2ProjectChangeProposal(proposal);assert.equal(draft.revisionOf,undefined);assert.deepEqual(sorted(p.changes.map(x=>x.path)),sorted(TARGETS));assert.deepEqual(p.focusedTest,draft.focusedTest);assert.deepEqual(p.gitCommit,draft.gitCommit);}
   const command=(proposal?'/m2-plan ':'/m2-build ')+JSON.stringify(proposal||draft),args={sessionId,projectId,conversationId,command};
   await waitUntil(async()=>{const r=await invoke(studio,manualColumnAction,{...args,action:'probe'});return r.ready?r:null;},'HTTP actual selected session Send',15000);
   await beforeSubmit(copy(draft));assert.equal((await invoke(studio,manualColumnAction,{...args,action:'send'})).ready,true);
-  const result=await waitUntil(()=>invoke(studio,(model,args)=>{const s=model.widget.store.find(args.sessionId),entry=model.widget.m2.entry(s);if(entry.busy)return null;if(entry.error)throw Error('HTTP_CODE_PREPARE:'+entry.error);return entry.view?.state==='awaiting_approval'?{view:JSON.parse(JSON.stringify(entry.view)),userRecorded:s.chat.msgs.some(x=>x.role==='user'&&x.tag==='M2'&&x.text===args.command),ordinaryTurnActive:model.widget.transport.hasActiveM1Turn(s),proposal:s.chat._projectWorkProposal||null}:null;},{sessionId,command}),'HTTP full-source CODE preview',((normalModify2||genuineRepair)?HTTP_NORMAL_MODIFY_BOUNDS:HTTP_JOURNEY_BOUNDS).phaseWaitMs);
+  const result=await waitUntil(()=>invoke(studio,(model,args)=>{const s=model.widget.store.find(args.sessionId),entry=model.widget.m2.entry(s);if(entry.busy)return null;if(entry.error)throw Error('HTTP_CODE_PREPARE:'+entry.error);return entry.view?.state==='awaiting_approval'?{view:JSON.parse(JSON.stringify(entry.view)),userRecorded:s.chat.msgs.some(x=>x.role==='user'&&x.tag==='M2'&&x.text===args.command),ordinaryTurnActive:model.widget.transport.hasActiveM1Turn(s),proposal:s.chat._projectWorkProposal||null}:null;},{sessionId,command}),'HTTP full-source CODE preview',((normalModify2||genuineRepair||normalRouter)?HTTP_NORMAL_MODIFY_BOUNDS:HTTP_JOURNEY_BOUNDS).phaseWaitMs);
   assert.equal(result.userRecorded,true);assert.equal(result.ordinaryTurnActive,false);assert.equal(result.proposal,null);
   assert.deepEqual(result.view.plan.origin,{surface:'studio',sessionId:conversationId,conversationId,projectId});
-  assert.deepEqual(sorted(result.view.diff.map(f=>f.path)),sorted((normalModify2||genuineRepair)?RETENTION_REPAIR_TARGETS:TARGETS));assert.equal(result.view.plan.version,2);assert.equal(result.view.audit?.governanceDecision?.verdict,'allow');
+  assert.deepEqual(sorted(result.view.diff.map(f=>f.path)),sorted(normalRouter?['src/router.mjs']:(normalModify2||genuineRepair)?RETENTION_REPAIR_TARGETS:TARGETS));assert.equal(result.view.plan.version,2);assert.equal(result.view.audit?.governanceDecision?.verdict,'allow');
   return{...result,submittedDraft:copy(draft),...(proposal?{submittedProposal:copy(proposal),entryCommand:'/m2-plan'}:{entryCommand:'/m2-build'})};
 }
 export async function approveHttpPlan(studio,{sessionId,view,beforeClick=async()=>{}}){
