@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 8. 10. 2026. Přijatý checkpoint `678eead7`: C9 oprava výpadků + C11/C12 pravdivé testování; celý deterministický profil 410 PASS, CI 18 kroků SUCCESS a registry 596 ověřené druhým workerem. Produktový zdroj `24f329c6`; původní dd8a/f475 full zůstávají nepřijaté. C10 diagnóza přijatá; C5/C7 LIVE_FAIL, C6 NO_GO, H1 NOT_RUN. Release NOT_ACCEPTED.
+**Aktualizováno:** 8. 10. 2026. Aktuální publikovaný source `eb6effe6`: C14 save oprava, context74 a project57 PASS, CI18 SUCCESS. HTTP první nové volání (celkem13) prošlo primární70/M2/commit/restart/cleanup, supplement FAIL; druhý poslední pokus se připravuje. Fan12/15, import guard FAIL před approval; cleanup přijat. Poslední celý přijatý deterministický profil patří checkpointu `678eead7` a produktu `24f329c6`:410 PASS; novější celé přeměření se netvrdí. C5/C7 LIVE_FAIL, C6 NO_GO, H1 NOT_RUN. Release NOT_ACCEPTED.
 **Vlastník integrace a CHAT:** tento koordinátor přebírá ROOT
 (`work/real-chat-journeys-20260930`) podle následného pokynu operátora.
 Jediný writer `cre-decision.js` i společných map je nyní ROOT; HTTP, Fan, fresh5
@@ -115,6 +115,41 @@ Dosavadní C6 NO_GO a C7 LIVE_FAIL zůstávají; fixture není modelové skóre.
 Lokální evidence `.intentsmith-artifacts/c14-save-continuation-20261008/`;
 nečíst H1/H2, restricted/ ani holdout. Další: publikovaný čistý kandidát,
 skutečný HTTP repair a cílené živé ověření této CHAT změny.
+
+C14 source checkpoint `eb6effe6b782f64b264cefbb5a29abeccdf4a98b` publikovaný,
+remote přesně ověřené. CI37749230168/job113218074669 všech18 SUCCESS;
+source binding6ba4f5de…39c904 a finální HTTP freeze reviewf3163a79…f1a994.
+HTTP freeze f8e7ae2f…e9960fd, skutečný běh08:32:18–08:33:32UTC exit0:
+jeden nový úplný CODE výstup238tokens, cumulative13. Přesný M2 approval,
+primární oracle, commit app6e80b9f0, pending i durable restart replay PASS.
+Původní util limit dodržen po11 a10 vzorcích; všechny odmítnuté vzorky zachované.
+Own-model unload,3empty a lease release PASS. Stav je zatím PHYSICAL_PASS_REVIEW_PENDING.
+Původní supplemental oracle beze změny, freeze76d7248c…530b172:
+skutečný jeden běh08:34:36UTC/exit1,16requestů; slash aliasy a quotedUTF8/OWS
+kontroly prošly, `application/json; charset= utf-8` vrátil201 místo415.
+Supplement FAIL, aplikace NOT_ACCEPTED. Přijatý druhý/poslední operátorský
+pokus se připravuje jako nový normální single-router CODE modify, nejvýše14 celkem.
+Současný lifecycle je succeeded a nesmí být přeznačen na FAILED; žádná ruční
+oprava generované aplikace ani oslabení oracle. První běh i jeho FAIL zůstávají.
+Po HTTP cleanup se připravuje jedna původní F11 CHAT série, bez retry a bez H1.
+Nezávislý actual audit2e80ca42…a758ff přijal primární fyzickou cestu a správné
+uzavření suplementálního FAIL; nová modelová volání z něj neplynou.
+
+### C14 F11 — jeden cílený živý průchod (SOURCE/CPU_PASS; LIVE_NOT_RUN)
+
+Původní čtyři známé F11 tahy a původní schvalovací oracle zůstávají stejné;
+žádný holdout, nový chatový korpus, prompt nebo změna modelu. Exact Gemma4K CHAT
+a dosavadní Qwen4K D1 dependency. Nejvýše jedna série/12 generation forwards,
+600s aktivní práce, žádný retry. Původní kontrola obsahu dovolí nejvýše jeden
+přesný approval. Dva stávající helpery nyní přebírají přijatý owned cleanup;
+3empty admission pod stejnou lease, vlastnictví provideru před forwardingem,
+bounded metadata/deadline, join potomka a3empty cleanup před release.
+První revize našla visící metadata fetch; druhá mez po synchronním ověření
+vlastnictví. V3 obojí opravuje,35Node+5supervisor CPU PASS, staré FAIL zachované.
+Source60f021b7…84263e +relay0bbd77ab…ea094a3, nezávislé review18affb60…aa0b49.
+ROOT integrovaný runner-contract1 a artifact160 PASS; raw logy i exity zachované.
+[Hashové předání F11](review/evidence/product-continuation-20261008/f11-preparation.json).
+Live_READY vyžaduje nový čistý source/CI/freeze; CPU příprava není přijetím chatu.
 
 ## Autonomní postup přijatý po revizi 7. 10. 2026
 

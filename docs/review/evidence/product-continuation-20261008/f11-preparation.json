@@ -1,0 +1,71 @@
+{
+  "kind": "C14F11SourceEvidence@1",
+  "baseSha": "eb6effe6b782f64b264cefbb5a29abeccdf4a98b",
+  "status": "SOURCE_CPU_PASS_LIVE_NOT_RUN",
+  "nodeCpu": 35,
+  "supervisorCpu": 5,
+  "refs": [
+    {
+      "path": ".intentsmith-artifacts/c14-f11-live-preparation-20261008/MANIFEST-v3.json",
+      "bytes": 4286,
+      "sha256": "8d271672838d9fcbd6695bf4fe1a513c73a2edad5664f447beb83e907735fae0"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-f11-live-preparation-20261008/RESULT-v3.json",
+      "bytes": 3205,
+      "sha256": "de6bdb8a9f6a7707d13cc622bce2b00aab2c49169518687ac0bb28be0bb72dc5"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-f11-live-preparation-20261008/independent-review/REVIEW-v3.json",
+      "bytes": 5565,
+      "sha256": "18affb60a006541fc4195f4ce4de44918326b0feabfa7cbb388eef5802aa0b49"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-f11-live-preparation-20261008/HANDOFF-v3.md",
+      "bytes": 8132,
+      "sha256": "0127dc9f437627617dea956019d026abcdef5deb2646bea3687a6d0465b7e07b"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-f11-live-preparation-20261008/run-phase-v2.py",
+      "bytes": 7889,
+      "sha256": "f18cb1fd8f7cb83055d212869667e8419e618cd1d24f3c9b7e06d80f158917e8"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-f11-live-preparation-20261008/PREPARATION-template-v2.json",
+      "bytes": 6546,
+      "sha256": "6a0f09718af2708b2e1a39d1f0e8557f6af83a9fa213c322f6bd58cc065b1e24"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-f11-live-preparation-20261008/root-validation/artifact-exit.json",
+      "bytes": 485,
+      "sha256": "ffe834df27d0ed2724f6720a073c824ff7427e52e17989f58f746689c5b35609"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-f11-live-preparation-20261008/root-validation/artifact.log",
+      "bytes": 13425,
+      "sha256": "f52f3b750d7cd8d7f751d21f040b6e178db02e7090f12d6ed38b3f50e3b68476"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-f11-live-preparation-20261008/root-validation/runner-exit.json",
+      "bytes": 507,
+      "sha256": "061d6a2a9b97661053e6092fa8f66c7fd4e20a66d25f4836333636abe4df330c"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-f11-live-preparation-20261008/root-validation/runner.log",
+      "bytes": 353,
+      "sha256": "8e1b144dc1ec33241a3cae3a01f10bd282a8d0cc710e82a62c33945a58428cc9"
+    }
+  ],
+  "rootIntegratedValidation": {
+    "runnerContract": {
+      "pass": 1,
+      "fail": 0,
+      "modelCalls": 0
+    },
+    "artifact": {
+      "pass": 160,
+      "fail": 0
+    },
+    "diffCheck": 0
+  }
+}

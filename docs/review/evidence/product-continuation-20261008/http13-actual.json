@@ -1,0 +1,69 @@
+{
+  "kind": "HTTPActualContinuation@1",
+  "sourceSha": "eb6effe6b782f64b264cefbb5a29abeccdf4a98b",
+  "status": "PRIMARY_PHYSICAL_PASS_SUPPLEMENTAL_FAIL_CLOSED",
+  "newCodeCalls": 1,
+  "cumulativeCodeCalls": 13,
+  "operatorMaximumCalls": 14,
+  "nextModelAttemptsMaximum": 1,
+  "applicationAccepted": false,
+  "releaseAccepted": false,
+  "supplementFailure": "application/json; charset= utf-8 returns201 instead of415",
+  "refs": [
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/PUBLISHED.json",
+      "bytes": 1588,
+      "sha256": "b8f685c4745f258a454936f73faae8393b953c65c60f694ff7de7c6e4fbd6238"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http-final-independent-review/REVIEW.json",
+      "bytes": 13744,
+      "sha256": "f3163a7951da8fef6454e5a3d9e0b40396f843a66e16540621f0084580f1a994"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/root-validation/HTTP-LIVE-EXIT.json",
+      "bytes": 953,
+      "sha256": "e28db5e0719f3ff724018aaa5300fedecc2294e4d672a1a1c05c807eeb6fa265"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/root-validation/HTTP-SUPPLEMENT-EXIT.json",
+      "bytes": 918,
+      "sha256": "7298c4d5cc3d1b0d9b4977996a055d78578f6044e1e4cbf35501c073e28abd53"
+    },
+    {
+      "path": ".intentsmith-artifacts/http-c14-repair13-eb6effe6-live-20261008/FROZEN.json",
+      "bytes": 10016505,
+      "sha256": "f8e7ae2f8d9b86ffadd0cdd667389ad64c1ee96b6f472795d14b3dcd5e9960fd"
+    },
+    {
+      "path": ".intentsmith-artifacts/http-c14-repair13-eb6effe6-live-20261008/result.json",
+      "bytes": 10133186,
+      "sha256": "41f38adafe85988646e144fb64e97cdc5104efd85549eb2f261f1e0ec31b6465"
+    },
+    {
+      "path": ".intentsmith-artifacts/http-c14-repair13-eb6effe6-live-20261008/repair-completed.json",
+      "bytes": 147912,
+      "sha256": "059d92c35b1f60dfa654961a6573975903333c1cacb943748558b9e1bb5fdbc0"
+    },
+    {
+      "path": ".intentsmith-artifacts/http-c14-supplement17-eb6effe6-live-20261008/FROZEN.json",
+      "bytes": 8351,
+      "sha256": "76d7248c3fd92e497b8db9aeeaccff0e032c40f22e700db7f5ad878c6530b172"
+    },
+    {
+      "path": ".intentsmith-artifacts/http-c14-supplement17-eb6effe6-live-20261008/ROOT-SUPPLEMENTAL-RESULT.json",
+      "bytes": 445,
+      "sha256": "0be821a07cfa1156257517741f535f145f41d2ee8057209b476abdacd9a71184"
+    },
+    {
+      "path": ".intentsmith-artifacts/http-c14-supplement17-eb6effe6-live-20261008/ACTUAL-PROVIDER.stdout.log",
+      "bytes": 2220,
+      "sha256": "fd2e139485c428c7e687e3f03062c7a8391156ef0b6591cccb41acee87188cf8"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http-actual-independent-review/REVIEW.json",
+      "bytes": 7189,
+      "sha256": "2e80ca42c737f589392ac604f0a116538efadee22e94e477ae763c5164a758ff"
+    }
+  ]
+}

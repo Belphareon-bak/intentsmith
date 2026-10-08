@@ -43,6 +43,13 @@ HTTP @6 admission nově čeká nejvýše20 vzorků/30s na tři po sobě platná 
 původní prahy i rozpočet zůstávají, source/test review a23+38CPU PASS.
 [Aktuální cykly a přesné důkazy](docs/WORK-PROGRESS.md).
 
+Následný publikovaný `eb6effe6` má CI18 SUCCESS. Skutečný HTTP repair:
+nové1/celkem13 CODE, primární70 HTTP požadavků PASS, přesný M2 approval,
+app commit6e80b9f0 a restart; cleanup3empty/lease release PASS. Actual review běží.
+Původní doplňkový oracle FAIL po16 požadavcích: `charset= utf-8` vrací201 místo415.
+HTTP aplikace zůstává NOT_ACCEPTED; druhý poslední povolený pokus má strop14.
+[Hashové předání skutečného běhu](docs/review/evidence/product-continuation-20261008/http13-actual.json).
+
 Cache oprava `0d86b68e`: CPU 23/23 a source review; [CI37460776179](https://github.com/Belphareon-bak/intentsmith/actions/runs/37460776179) všech 18 kroků SUCCESS.
 **Copied-cache upgrade 6. 10., 12:26 UTC: 1223d2a8…9d95e79 PASS**, n=1 /8,804 s /bez modelu.
 Původní oracle 56→forcedFAIL80→restore56→109, přesné DB/canary/metadata, stejná DB a čistý stop.

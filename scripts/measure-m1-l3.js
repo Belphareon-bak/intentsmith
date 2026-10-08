@@ -10,6 +10,7 @@
 
 import { writeFileSync } from 'node:fs';
 import fs from 'node:fs';
+import assert from 'node:assert/strict';
 import path from 'node:path';
 import http from 'node:http';
 import { spawn, execFileSync } from 'node:child_process';
@@ -198,6 +199,7 @@ const arg = name => { const n = process.argv.indexOf(name); if (n < 0 || !proces
 const root = process.cwd();
 const inside = process.argv.includes('--inside');
 const phase = process.env.CHAT_PROBE_PHASE || arg('--phase');
+const isF11Pilot = phase === 'c14-f11-1';
 const runId = process.env.CHAT_PROBE_RUN_ID || randomUUID();
 const recordPath = path.resolve(process.env.CHAT_PROBE_RECORD || arg('--record'));
 const out = process.env.CHAT_PROBE_OUT || path.join(path.dirname(recordPath), `${phase}-${runId.slice(0, 8)}`);
@@ -260,6 +262,12 @@ for (const [index, entry] of corpus.entries()) {
   if (sourceIndex < 0 || sourceIndex >= index || corpus[sourceIndex].dialog !== entry.dialog) {
     throw new Error(`Invalid previous-answer source for ${entry.id}`);
   }
+}
+if (isF11Pilot) {
+  assert.deepEqual(requestedCases, ['missing-content', 'missing-target', 'missing-target-yes', 'missing-target-name']);
+  assert.equal(process.env.CHAT_PROBE_NO_DIRECT, 'true');
+  assert.equal(model, 'gemma4:26b');
+  assert.equal(modelDigest, '08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68');
 }
 const isFinal = /^final-[123]$/u.test(phase) || isHoldout;
 if (phase.startsWith('final-') && !isFinal) throw new Error('Unknown final phase');
@@ -670,22 +678,71 @@ if(process.argv.includes('--inside')) {
  const {acquireGpuEvaluationLock}=await import(path.join(root,'src/upgrade/gpu-evaluation-lock.js'));
  let lease;
  const wire=[];let child,proxy;
+ const lifecycle = isF11Pilot ? await import('./manual/run-fan-monitor-journey.mjs') : null;
+ const pilot = { deadlineAt: Date.now() + 600000, status: 'RUNNING', owners: {}, readiness: [], forwarded: [], interrupted: null };
+ const pilotAbort = new AbortController();
+ const metadataFetch = (url, options) => isF11Pilot ? fetchF11Metadata(url, {signal:pilotAbort.signal,deadlineAt:pilot.deadlineAt}) : fetch(url, options);
+ let pilotTermination = null, pilotTimer = null;
+ const stopPilot = signal => {
+  pilot.interrupted ||= signal; pilotAbort.abort(new Error('F11_INTERRUPTED: '+signal));
+  if (child && !pilot.childClosed && !pilotTermination) pilotTermination = lifecycle.terminateOwnedChild(child);
+ };
+ const onInt = () => stopPilot('SIGINT'), onTerm = () => stopPilot('SIGTERM');
+ if (isF11Pilot) { process.on('SIGINT', onInt); process.on('SIGTERM', onTerm); pilotTimer = setTimeout(() => stopPilot('WALL_TIME_LIMIT'), 600000); }
+
  // Linux sun_path is limited to 108 bytes. Bind only this private short socket
  // directory into the otherwise read-only child namespace.
  const socketDir=fs.mkdtempSync('/tmp/is-chat-live-'); const socket=path.join(socketDir,'provider.sock');
  try{
   canonical();
   lease=acquireGpuEvaluationLock({command:`CHAT resilience ${phase} ${manifest.revision}`});
-  const ps=await (await fetch('http://127.0.0.1:11434/api/ps')).json();
-  const compute=execFileSync('nvidia-smi',['--query-compute-apps=pid,process_name,used_memory','--format=csv,noheader'],{encoding:'utf8'}).trim();
+  if (isF11Pilot) {
+   assert.equal(lease.lockPath, '/tmp/intentsmith-gpu-evaluation.lock');
+   const versionResponse = await metadataFetch('http://127.0.0.1:11434/api/version', { signal: AbortSignal.timeout(5000) });
+   assert.equal(versionResponse.status, 200);
+   const version = (await versionResponse.json()).version;
+   assert.equal(version, '0.34.0-intentsmith.1');
+   for (const [name, digest] of Object.entries(modelArtifacts))
+    pilot.owners[name] = lifecycle.captureGpuCleanupOwner(name, digest, version);
+   for (let sample = 1; sample <= 3; sample++) {
+    assert.equal(pilot.interrupted, null);
+    const row = { sample, at: new Date().toISOString() }; pilot.readiness.push(row);
+    try {
+     const response = await metadataFetch('http://127.0.0.1:11434/api/ps', { signal: AbortSignal.timeout(5000) });
+     assert.equal(response.status, 200); row.ps = await response.json();
+     row.compute = execFileSync('nvidia-smi', ['--query-compute-apps=pid,process_name,used_memory', '--format=csv,noheader,nounits'], {encoding:'utf8',timeout:5000}).trim();
+     row.gpu = execFileSync('nvidia-smi', ['--query-gpu=memory.free,utilization.gpu', '--format=csv,noheader,nounits'], {encoding:'utf8',timeout:5000}).trim();
+     const mem = /^MemAvailable:\s+(\d+) kB$/m.exec(fs.readFileSync('/proc/meminfo','utf8')), disk = fs.statfsSync(root);
+     row.memoryAvailableBytes = Number(mem?.[1]) * 1024; row.diskAvailableBytes = disk.bavail * disk.bsize;
+     assertF11Readiness(row);
+     for (const [name, digest] of Object.entries(modelArtifacts))
+      assert.deepEqual(lifecycle.captureGpuCleanupOwner(name, digest, version), pilot.owners[name], 'same provider lifetime');
+    } catch (error) { row.error = error.message; throw error; }
+    finally { save('initial-f11-lifecycle.json', pilot); }
+    if (sample < 3) await delay(1000);
+   }
+  }
+
+  const ps=await (await metadataFetch('http://127.0.0.1:11434/api/ps')).json();
+  const compute=execFileSync('nvidia-smi',['--query-compute-apps=pid,process_name,used_memory','--format=csv,noheader'],{encoding:'utf8',...(isF11Pilot?{timeout:5000,maxBuffer:65536}:{})}).trim();
   if (!Array.isArray(ps.models)) throw new Error('GPU_PREFLIGHT_ERROR: invalid provider residency response');
   if(ps.models.length||compute)throw new Error('BLOCKED_GPU: occupied before pilot');
-  const artifacts=(await (await fetch('http://127.0.0.1:11434/api/tags')).json()).models;
+  const artifacts=(await (await metadataFetch('http://127.0.0.1:11434/api/tags')).json()).models;
   if(Object.entries(modelArtifacts).some(([name,digest])=>artifacts?.find(entry=>entry.name===name)?.digest!==digest))
    throw new Error('MODEL_DIGEST_DRIFT: expected fixed CHAT/D1 artifact is unavailable');
-  save('initial-preflight.json',{at:new Date().toISOString(),lease:{pid:lease.owner.pid,command:lease.owner.command,startedAt:lease.owner.startedAt},ps,compute,modelArtifacts:Object.fromEntries(Object.keys(modelArtifacts).map(name=>[name,artifacts.find(entry=>entry.name===name).digest])),gpu:execFileSync('nvidia-smi',['--query-gpu=memory.total,memory.used,utilization.gpu','--format=csv,noheader'],{encoding:'utf8'}).trim(),provider:await (await fetch('http://127.0.0.1:11434/api/version')).json()});
+  save('initial-preflight.json',{at:new Date().toISOString(),lease:{pid:lease.owner.pid,command:lease.owner.command,startedAt:lease.owner.startedAt},ps,compute,modelArtifacts:Object.fromEntries(Object.keys(modelArtifacts).map(name=>[name,artifacts.find(entry=>entry.name===name).digest])),gpu:execFileSync('nvidia-smi',['--query-gpu=memory.total,memory.used,utilization.gpu','--format=csv,noheader'],{encoding:'utf8',...(isF11Pilot?{timeout:5000,maxBuffer:65536}:{})}).trim(),provider:await (await metadataFetch('http://127.0.0.1:11434/api/version')).json()});
   proxy=createChatResilienceProviderRelay({out,upstream:{hostname:'127.0.0.1',port:11434},model,models:Object.keys(modelArtifacts),wire,
-   persistWire:rows=>save('initial-provider-wire.json',rows)});
+   persistWire:rows=>save('initial-provider-wire.json',rows),
+   ...(isF11Pilot ? { beforeForward: row => {
+    if (Date.now() >= pilot.deadlineAt) stopPilot('WALL_TIME_LIMIT');
+    assert.equal(pilot.interrupted, null, 'interrupted before forwarding');
+    if (['/api/chat','/api/generate'].includes(row.path) && Object.hasOwn(modelArtifacts, row.body?.model))
+     assert.deepEqual(lifecycle.captureGpuCleanupOwner(row.body.model, modelArtifacts[row.body.model], '0.34.0-intentsmith.1'), pilot.owners[row.body.model], 'same owned provider before forward');
+    if (Date.now() >= pilot.deadlineAt) stopPilot('WALL_TIME_LIMIT');
+    assert.equal(pilot.interrupted, null, 'interrupted after ownership check');
+    admitF11Forward(row, pilot.forwarded, modelArtifacts);
+    save('initial-f11-lifecycle.json', pilot);
+   } } : {})});
   await new Promise((resolve,reject)=>{
    proxy.once('error',reject);
    proxy.listen(socket,()=>{proxy.off('error',reject);resolve();});
@@ -695,11 +752,13 @@ if(process.argv.includes('--inside')) {
   const env={PATH:process.env.PATH,LANG:'C.UTF-8',TZ:'Europe/Prague',HOME:path.join(runtime,'home'),XDG_CONFIG_HOME:path.join(runtime,'config'),XDG_CACHE_HOME:path.join(runtime,'cache'),XDG_DATA_HOME:path.join(runtime,'data'),XDG_STATE_HOME:path.join(runtime,'state'),TMPDIR:path.join(runtime,'tmp'),DOTENV_CONFIG_PATH:path.join(runtime,'absent'),NODE_ENV:'test',CI:'1',CHAT_PROBE_RUNTIME:runtime,CHAT_PROBE_RUN_ID:runId,CHAT_PROBE_RECORD:recordPath,CHAT_PROBE_OUT:out,CHAT_PROBE_CORPUS:corpusFile,CHAT_PROBE_PHASE:phase,CHAT_PROBE_MODEL:model,CHAT_PROBE_MODEL_DIGEST:modelDigest,CHAT_PROBE_HOLDOUT:String(isHoldout),CHAT_PROBE_HOLDOUT_SHA256:expectedHoldoutSha256 || undefined,CHAT_PROBE_CASES:process.env.CHAT_PROBE_CASES,CHAT_PROBE_NO_DIRECT:process.env.CHAT_PROBE_NO_DIRECT||(isFinal?'false':'true'),CHAT_PROBE_SOCKET:socket,INTENTSMITH_DB_PATH:path.join(runtime,'db.sqlite'),INTENTSMITH_PORT_FILE:path.join(runtime,'port.json'),INTENTSMITH_PROJECTS_DIR:path.join(runtime,'home/projects'),INTENTSMITH_TEST_PROJECTS_DIR:path.join(runtime,'home/projects'),INTENTSMITH_TEST_ARTIFACT_DIR:path.join(runtime,'artifacts'),INTENTSMITH_TEST_SERVER_NONCE:randomBytes(24).toString('base64url'),INTENTSMITH_MODEL_CHAT:model,INTENTSMITH_MODEL_D1:'qwen3.5:27b',INTENTSMITH_MODEL_CODE:'qwen3.8:latest',INTENTSMITH_MODEL_D2:'qwen3.8:latest',INTENTSMITH_MODEL_R1:'qwen3.8:latest',INTENTSMITH_MODEL_R2:'devstral-small-2:latest',INTENTSMITH_ENABLE_AGENTS:'false',INTENTSMITH_ENABLE_EXPERTISES:'false',INTENTSMITH_ENABLE_LIFECYCLE:'false',INTENTSMITH_ENABLE_COMFYUI:'false',INTENTSMITH_ENABLE_AUTONOMY:'false',INTENTSMITH_MODEL_UNIVERSE_ENABLED:'false',INTENTSMITH_LOG_LEVEL:'warn',INTENTSMITH_TRACE:'0'};
   const log=fs.createWriteStream(path.join(out,'initial-process.log'),{mode:0o600});let tail='';
   const runInside=async childEnv=>{
+  if (isF11Pilot) assert.equal(pilot.interrupted, null, 'interrupted before own child spawn');
   child=spawn('bwrap',['--ro-bind','/','/','--dev-bind','/dev','/dev','--bind',out,out,
    '--tmpfs','/tmp','--bind',socketDir,socketDir,'--unshare-net','--die-with-parent','--new-session',
    process.execPath,self,'--isolated-chat','--inside'],{cwd:root,env:childEnv,stdio:['ignore','pipe','pipe']});
+  if (isF11Pilot) { pilot.childClosed = false; child.once('close', () => { pilot.childClosed = true; }); }
   child.stdout.on('data',c=>{log.write(c);const text=c.toString();for(const line of text.split('\n'))if(line.startsWith('CHAT_PROBE')){canonical(); console.log(line);}});child.stderr.on('data',c=>{log.write(c);tail=(tail+c).slice(-2000);});
-  return await new Promise((resolve,reject)=>{child.on('error',reject);child.on('exit',(code,signal)=>resolve({code,signal}));});
+  return await new Promise((resolve,reject)=>{child.on('error',reject);child.on(isF11Pilot ? 'close' : 'exit',(code,signal)=>resolve({code,signal}));});
   };
   let exit=await runInside(env);
   if(isLongContext && exit.code===0){
@@ -715,7 +774,7 @@ if(process.argv.includes('--inside')) {
   try { recorded=JSON.parse(fs.readFileSync(path.join(out,'initial-results.json'),'utf8')); } catch {}
   const selected=corpus.filter(c=>!requestedCases||requestedCases.includes(c.id));
   let postflightDigest=null,postflightArtifacts={};
-  try { const installed=(await (await fetch('http://127.0.0.1:11434/api/tags')).json()).models;
+  try { const installed=(await (await metadataFetch('http://127.0.0.1:11434/api/tags')).json()).models;
    postflightArtifacts=Object.fromEntries(Object.keys(modelArtifacts).map(name=>[name,installed?.find(entry=>entry.name===name)?.digest||null]));
    postflightDigest=postflightArtifacts[model]; } catch {}
   const {inferenceWire,exactWire,invalidInferenceCallCount,contextBudgetValid,artifactSetValid,transportComplete}
@@ -729,7 +788,69 @@ if(process.argv.includes('--inside')) {
   console.log('pilot exit',JSON.stringify({...exit,transportComplete}),isHoldout ? '' : tail);
   process.exitCode=transportComplete?0:1;
  }catch(error){proxy?.sealPending('RUNNER_ERROR_WITH_PENDING_PROVIDER_REQUEST');save('initial-exit.json',{code:1,blocked:['GPU_EVALUATION_BUSY','BLOCKED_GPU'].includes(error.code)||error.message.startsWith('BLOCKED_GPU'),errorCode:error.code||null,error:error.message,at:new Date().toISOString()});process.exitCode=1;console.error(error.message);}
- finally{if(child&&child.exitCode===null)child.kill('SIGTERM');if(proxy){proxy.sealPending('RUNNER_SHUTDOWN_WITH_PENDING_PROVIDER_REQUEST');proxy.closeAllConnections();await new Promise(r=>proxy.close(r));proxy.closeJournal();}fs.rmSync(socketDir,{recursive:true,force:true});lease?.release();canonical();}
+ finally {
+  if (!isF11Pilot) { if(child&&child.exitCode===null)child.kill('SIGTERM');if(proxy){proxy.sealPending('RUNNER_SHUTDOWN_WITH_PENDING_PROVIDER_REQUEST');proxy.closeAllConnections();await new Promise(r=>proxy.close(r));proxy.closeJournal();}fs.rmSync(socketDir,{recursive:true,force:true});lease?.release();canonical(); }
+  else {
+   let settled = !child;
+   try {
+    if (child) { pilot.childStop = pilotTermination ? await pilotTermination : pilot.childClosed ? {closed:true,termSent:false,killSent:false} : await lifecycle.terminateOwnedChild(child); settled = pilot.childStop.closed && !pilot.childStop.killSent; }
+    if (proxy) { proxy.sealPending('RUNNER_SHUTDOWN_WITH_PENDING_PROVIDER_REQUEST');proxy.closeAllConnections();await new Promise(r=>proxy.close(r));proxy.closeJournal(); }
+    if (lease) {
+     const response = await fetch('http://127.0.0.1:11434/api/ps', { signal: AbortSignal.timeout(5000) });
+     pilot.cleanupResidency = { status: response.status, ps: await response.json() };
+     save('initial-f11-lifecycle.json', pilot); assert.equal(response.status, 200);
+     const selected = selectF11Cleanup(pilot.cleanupResidency.ps, pilot.forwarded, modelArtifacts, model);
+     pilot.cleanup = await lifecycle.finishOwnedGpuCleanup({ lease, owner: pilot.owners[selected], model: selected,
+      digest: modelArtifacts[selected], loaded: pilot.forwarded.some(row=>row.model===selected), cleanupSettled: settled,
+      cleanupFiles: () => fs.rmSync(socketDir,{recursive:true,force:true}) });
+     assert.equal(pilot.cleanup.status, 'PASS'); assert.equal(pilot.cleanup.leaseReleased, true);
+    } else fs.rmSync(socketDir,{recursive:true,force:true});
+    assert.equal(pilot.interrupted, null); assert.ok(settled, 'owned child did not settle');
+    pilot.status = 'CLEANUP_PASS';
+   } catch (error) { pilot.status = 'FAIL'; pilot.error = error.message; process.exitCode = 1; }
+   finally {
+    pilot.leaseRetainedForRecovery = Boolean(lease && pilot.cleanup?.leaseReleased !== true);
+    pilot.completedAt = new Date().toISOString(); save('initial-f11-lifecycle.json', pilot);
+    if (pilot.status !== 'CLEANUP_PASS') {
+     let exit = {}; try { exit = JSON.parse(fs.readFileSync(path.join(out,'initial-exit.json'),'utf8')); } catch {}
+     save('initial-exit.json', {...exit, transportComplete: false, code: 1, cleanupFailed: true});
+    }
+    clearTimeout(pilotTimer); process.off('SIGINT', onInt); process.off('SIGTERM', onTerm); canonical();
+   }
+  }
+ }
 }
 
+}
+
+function assertF11Readiness(row) {
+ assert.deepEqual(row.ps?.models, []); assert.equal(row.compute, '');
+ const metrics = /^([0-9]+)\s*,\s*([0-9]+)$/.exec(row.gpu);
+ assert.ok(metrics && Number(metrics[1]) >= 20000 && Number(metrics[2]) <= 100, 'known VRAM >=20000 MiB; utilization record only');
+ assert.ok(Number.isSafeInteger(row.memoryAvailableBytes) && row.memoryAvailableBytes >= 8 * 1024 ** 3, 'RAM >=8GiB');
+ assert.ok(Number.isSafeInteger(row.diskAvailableBytes) && row.diskAvailableBytes >= 2 * 1024 ** 3, 'disk >=2GiB');
+}
+function admitF11Forward(row, forwarded, artifacts) {
+ if (!['/api/chat', '/api/generate'].includes(row.path)) return;
+ assert.ok(['missing-content','missing-target','missing-target-yes','missing-target-name'].includes(row.caseId), 'known F11 case only');
+ assert.ok(Object.hasOwn(artifacts, row.body?.model), 'known CHAT/D1 model');
+ assert.equal(row.body?.options?.num_ctx, 4096, '4K before forwarding');
+ assert.ok(forwarded.length < 12, 'one-pass generation ceiling 12; no retry');
+ forwarded.push({requestId:row.requestId,caseId:row.caseId,model:row.body.model});
+}
+function selectF11Cleanup(ps, forwarded, artifacts, fallback) {
+ assert.ok(Array.isArray(ps?.models), 'known residency'); assert.ok(ps.models.length <= 1, 'multiple residents require recovery');
+ const resident = ps.models[0];
+ if (!resident) return fallback;
+ assert.equal(resident.digest, artifacts[resident.name], 'exact resident artifact');
+ assert.ok(Object.hasOwn(artifacts, resident.name) && forwarded.some(row=>row.model===resident.name), 'resident must have a run-owned forwarded call');
+ return resident.name;
+}
+
+async function fetchF11Metadata(url, { signal, deadlineAt, fetchImpl = fetch, now = Date.now, timeoutSignal = ms => AbortSignal.timeout(ms) }) {
+ const remaining = deadlineAt - now();
+ if (!(remaining > 0)) throw new Error('F11_METADATA_DEADLINE');
+ signal.throwIfAborted();
+ // Fetch retains this signal for deferred response body reads as well as headers.
+ return fetchImpl(url, { signal: AbortSignal.any([signal, timeoutSignal(Math.min(5000, remaining))]) });
 }
