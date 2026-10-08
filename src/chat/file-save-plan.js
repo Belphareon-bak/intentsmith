@@ -93,10 +93,16 @@ export function validateFileSavePlan(plan, input, available) {
     || !['replace', 'create'].includes(plan.writeMode)
     || typeof plan.understood !== 'boolean'
     || !Array.isArray(plan.unsupported) || plan.unsupported.some(v => typeof v !== 'string')) fail('file_write_plan_invalid');
-  if (plan.action !== 'write') return { action: plan.action, question: plan.question,
-    candidateMessageId: !available.barrier && plan.source?.kind === 'answer'
+  if (plan.action !== 'write') {
+    const candidateMessageId = !available.barrier && plan.source?.kind === 'answer'
       && available.answers.some(answer => answer.messageId === plan.source.messageId)
-      ? plan.source.messageId : null };
+      ? plan.source.messageId : null;
+    return { action: plan.action, question: plan.question, candidateMessageId,
+      ...(plan.action === 'clarify' && plan.target === null && !plan.unsupported.length
+        && Number.isSafeInteger(candidateMessageId) && candidateMessageId > 0
+        && sameKeys(plan.source, ['kind', 'messageId'])
+        ? { targetRequired: true } : {}) };
+  }
   if (!plan.understood || plan.unsupported.length) fail('file_write_constraints_unresolved');
   if (!plan.target || plan.target.length > 4096 || /[\p{Cc}\p{Cf}]/u.test(plan.target)) fail('file_write_target_unverified');
   if (!plan.source || typeof plan.source !== 'object') fail('file_write_source_unverified');
@@ -150,6 +156,29 @@ export function validateFileSavePlan(plan, input, available) {
   return { action: 'write', filePath: plan.target, content, sourceMessageId: messageId,
     ...(generationInstruction ? { generationInstruction } : {}),
     transformation: plan.transformation, toolId: plan.writeMode === 'create' ? 'file.create' : 'file.write' };
+}
+
+
+// Closed filename atoms, not prose. This recognizes no command or authority.
+function saveTargetAtom(value) {
+  const text = value.trim();
+  const quoted = /^(?:"[^"\r\n]+"|'[^'\r\n]+')$/.test(text);
+  const target = quoted ? text.slice(1, -1) : text;
+  if (!quoted && /\s/u.test(target)) return null;
+  const filename = /^(?:[\p{L}\p{N}_-][\p{L}\p{N}_.-]*\/)*[\p{L}\p{N}_-][\p{L}\p{N}_. -]*\.[\p{L}\p{N}]{1,16}$/u;
+  return target.length <= 4096 && filename.test(target) ? target : null;
+}
+
+// Negative-only grammar: the entire reply is two distinct relative filename
+// atoms joined by Czech "nebo" or English "or". Quoted atoms may contain spaces.
+// It neither counts names in prose nor selects a target from the pair.
+function explicitSaveTargetChoice(input) {
+  if (input.length > 8192) return null;
+  const atom = String.raw`(?:"[^"\r\n]+"|'[^'\r\n]+'|[^\s"']+)`;
+  const match = new RegExp(`^(${atom})[ \\t]+(?:nebo|or)[ \\t]+(${atom})$`, 'iu').exec(input.trim());
+  if (!match) return null;
+  const targets = [saveTargetAtom(match[1]), saveTargetAtom(match[2])];
+  return targets.every(Boolean) && targets[0] !== targets[1] ? targets : null;
 }
 
 export async function resolveFileSavePlan(input, context, dependencies = {}) {
@@ -235,6 +264,37 @@ Interpret all negations, conditions and additional clauses. No saving is allowed
     validated = validateFileSavePlan({ ...plan, action: 'clarify',
       question: plan.question || context.saveClarificationQuestion
         || questions[context.langCtx?.language] || questions.cs }, groundingInput, visible);
+  }
+  // Only a core-recorded missing-target question can enter this narrow guard.
+  // Validate schema/source/constraints first; provider and malformed-plan errors
+  // must retain their original failure. Legacy questions have no such marker.
+  if (pending && savedQuestion.targetRequired === true
+    && ['write', 'create'].includes(pending.requestedOperation)
+    && Number.isSafeInteger(projectId) && projectId > 0
+    && Number.isSafeInteger(savedQuestion.sourceMessageId) && savedQuestion.sourceMessageId > 0
+    && !visible.barrier
+    && visible.answers.some(answer => answer.messageId === savedQuestion.sourceMessageId)) {
+    const freshChoices = explicitSaveTargetChoice(input);
+    const priorChoices = savedQuestion.targetChoices;
+    const choices = freshChoices || (Array.isArray(priorChoices) && priorChoices.length === 2
+      && priorChoices.every(value => typeof value === 'string' && saveTargetAtom(JSON.stringify(value)) === value)
+      ? priorChoices : null);
+    // A model question cannot erase the core-bound source or unresolved pair.
+    // Keep its action/text unchanged; this metadata grants no write authority.
+    if (validated.action === 'clarify') {
+      validated = { ...validated, candidateMessageId: savedQuestion.sourceMessageId,
+        targetRequired: true, ...(choices ? { targetChoices: choices } : {}) };
+    }
+    // "Yes" cannot resolve the earlier pair, even if its names also occur in
+    // the original request. Only a new explicit single filename can do so.
+    if (validated.action === 'write' && validated.sourceMessageId === savedQuestion.sourceMessageId
+      && choices && (freshChoices || saveTargetAtom(input) !== validated.filePath)) {
+      return { action: 'clarify', candidateMessageId: savedQuestion.sourceMessageId,
+        targetRequired: true, targetChoices: choices,
+        question: context.langCtx?.language === 'en'
+          ? `Which file should I save to: ${JSON.stringify(choices[0])} or ${JSON.stringify(choices[1])}?`
+          : `Do kterého souboru chceš uložit obsah: ${JSON.stringify(choices[0])}, nebo ${JSON.stringify(choices[1])}?` };
+    }
   }
   if (validated.action === 'write' && pending && plan.source?.kind === 'literal') {
     const selected = literalSources(groundingInput).find(value => value.literalId === plan.source.literalId);

@@ -1,0 +1,451 @@
+{
+  "kind": "C18UnresolvedSaveTargetCheckpoint@1",
+  "status": "SOURCE_CPU_HTTP_INTEGRATION_REVIEW_PASS_PUBLICATION_PENDING",
+  "baseSource": "d43048990bbb5edf7fb644252d8cbcfbd43e3f34",
+  "preparationHead": "c8b0f772786de2bd8ce8bfea53e1d2759a6e621c",
+  "publicationSha": null,
+  "sourceIntegration": "APPLIED_WORKING_CANDIDATE_NOT_YET_PUBLISHED",
+  "sourceReview": {
+    "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/independent-review/REVIEW-v2.json",
+    "bytes": 9640,
+    "sha256": "ca203992da7289608411186922b600898b19467f3e0d9e5aabf65f6475dbc178"
+  },
+  "scope": "The negative-only guard runs only after dispatch to FILE_WRITE and entry into the file-save resolver/file.save.interpret path. It applies to a core-recorded missing-target question bound to one eligible known answer in the same positive project, when the entire newest reply is two distinct relative filename atoms joined by nebo/or. It never chooses a target or promotes clarify/decline to write.",
+  "behavior": [
+    "After FILE_WRITE dispatch, the actual handler creates targetRequired from a validated file.save.interpret clarify with a known answer and missing target, not from wording of the question.",
+    "After the same FILE_WRITE resolver entry, fresh unresolved choices are retained for both a valid file.save.interpret write and clarify. This clarify means the interpreter action, not classifier AMBIGUOUS routed to ASK_USER. Valid interpreter clarify keeps its exact question/action while retaining the already verified canonical source and choices.",
+    "After choices are stored, yes cannot select one. Resolution requires the entire newest reply to be one filename atom equal to the already validated model target; a stale different target is rejected.",
+    "Explicit matching selection follows the original source/constraint resolver and approval boundary; no automatic effect is added."
+  ],
+  "grammar": {
+    "connector": [
+      "nebo",
+      "or"
+    ],
+    "arity": 2,
+    "wholeReply": true,
+    "relativePathsWithExtension": true,
+    "quotedAtoms": "ASCII single/double quotes may contain spaces; quoted or/nebo remains filename data.",
+    "notSupported": "General prose, >2 choices, arbitrary path syntax, or NLP interpretation. After saved choices, prose containing a filename alone does not satisfy the complete-atom resolution guard."
+  },
+  "candidate": {
+    "resolver": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/file-save-plan.candidate-v3.js",
+      "bytes": 26916,
+      "sha256": "bdd0a2d2a1ce9fe74de4508f3efd0865f1c1166eb85484343acfd7be7bb86d90"
+    },
+    "handler": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/file-handler.candidate.js",
+      "bytes": 68131,
+      "sha256": "9c22984d9019cde66facb79096f140096134f643dba19f6d942f491c09a157cd"
+    },
+    "test": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/chat-context.candidate-v6.test.js",
+      "bytes": 146847,
+      "sha256": "b3dc6f096d3f6ab09cd7128409754661ca2e88b58a13a77f41e96ef52092d59d"
+    },
+    "sourcePatch": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/SOURCE-v3.patch",
+      "bytes": 6483,
+      "sha256": "5303d5640a9c197b360f570d1fdc3d9800ffa9b38a3162eb559508787e186f82"
+    },
+    "testPatch": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/TEST-v3.patch",
+      "bytes": 25432,
+      "sha256": "6273778340dba8124c5fa87a2e1d9c3cb70b44a297fc1f386d262c44a847a163"
+    },
+    "integratedTest": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/current-docs-candidate-v2/chat-context.integrated.test.js",
+      "bytes": 157691,
+      "sha256": "c3df83221c004cc66a9ffa50e6db8af2138873b695779c4cefa63721f40dfad4"
+    },
+    "httpAppendPatch": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/http-restart-review/HTTP-TEST-after-C18-v3.patch",
+      "bytes": 11182,
+      "sha256": "e1100059fae138f891ca50c1d4b3d3148c8c4ca89229e6f4f3b96f18293ef225"
+    }
+  },
+  "targetedCpu": {
+    "tests": 85,
+    "pass": 85,
+    "fail": 0,
+    "skipped": 0,
+    "exitCode": 0,
+    "selectedExisting": 41,
+    "newIncludingParents": 44,
+    "namePattern": "^C1[458] |^ASK_USER save provenance|^new-content saves|^an explicit older answer ID|^many durable choices|^resumed literal requires",
+    "isFullContextSuite": false,
+    "sessionRestore": "SessionState JSON restore, not HTTP/backend restart.",
+    "effects": "Rejecting/counting toolExecutor; one existing controlled approval-proposal presentation. No real M2 effect or approval grant.",
+    "constraints": "Original request/source/user/project and summarize/create restrictions retained; deterministic summary/persistence stubs only after explicit selection."
+  },
+  "independentHistory": {
+    "sealedV2Review": "CHANGES_REQUIRED",
+    "findings": [
+      "C18-CHOICE-01: first model clarify dropped fresh choices",
+      "C18-CHOICE-02: repeated source:null clarify erased canonical source"
+    ],
+    "v2Red": {
+      "tests": 2,
+      "fail": 2,
+      "exitCode": 1
+    },
+    "v3Status": "Both findings resolved; independent exact original regression probes each 1 PASS/exit0.",
+    "earlierRuns": "Original baseline RED, V4 targeted82 and separate V5 one-case result remain immutable. The earlier V3 invalid partial fixture run is not quality evidence."
+  },
+  "remainingGates": {
+    "independentIntegratedExecutionReview": "PASS",
+    "publicationAndCI": "PENDING",
+    "newFullProfile": "NOT_RUN_FOR_C18",
+    "liveModel": "NOT_RUN_NOT_REQUIRED_FOR_THIS_CPU_GUARD",
+    "release": "NOT_ACCEPTED"
+  },
+  "fullProfileBoundary": {
+    "sourceSha": "d43048990bbb5edf7fb644252d8cbcfbd43e3f34",
+    "productBase": "52d230c15bcd09ad5c4707de7cb18162ee0c7ce9",
+    "pass": 410,
+    "coversC18": false
+  },
+  "limits": [
+    "Known open gap: a fresh pair classified AMBIGUOUS and routed to ASK_USER bypasses the FILE_WRITE resolver and loses targetChoices. Controlled HTTP RED reproduces a later unilateral photo.md proposal after two restarts, with no grant/result/file effect. C18 acceptance remains restricted to the resolver branch; C19 is separate pending work.",
+    "Only core targetRequired state with a known eligible answer source; legacy markerless, literal and generated source continuations are outside this new guard.",
+    "Selected CPU replay is not general semantic understanding, full safety coverage, live model quality, new C6 score or 95% acceptance.",
+    "No prompt/model binding change, retry, holdout access or new approval authority.",
+    "Census includes accepted CPU test plus HTTP append: src688/237336 newline bytes, tests604/271667; publication/CI and a full410 run on C18 remain separate."
+  ],
+  "historicalC6": {
+    "useful": 118,
+    "total": 159,
+    "needlessStops": 24,
+    "critical": 0,
+    "status": "NO_GO_UNCHANGED"
+  },
+  "roleBindingChanged": false,
+  "releaseAccepted": false,
+  "census": {
+    "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/CENSUS-integrated.json",
+    "bytes": 1147,
+    "sha256": "89452e581a2798bb1e09b15028ef25e8d1db23be2aa7faf5a03c3118f131ab5f"
+  },
+  "refs": [
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/MANIFEST-v3.json",
+      "bytes": 10769,
+      "sha256": "73096e148ea0fa8cd2a5fe8aa548a16a118f9ddb1d9c5f838919c8fb9464811d"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/RESULT-v3.json",
+      "bytes": 9511,
+      "sha256": "16fc42b011973b3771045682894034f14b0969822dfc298efea66a2f74e1b9de"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/BASE-v3.json",
+      "bytes": 1878,
+      "sha256": "4d32024726f90bbfe77a9da94de6fe4d70786a1aade42505b448c204dc788f58"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/CHECKS-v3.json",
+      "bytes": 444,
+      "sha256": "af62789145706080a3772c2af79becb51ef15a94c9b064728493347f3b14004d"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/independent-review/REVIEW-v1.json",
+      "bytes": 11519,
+      "sha256": "4b653d30e44477eb9090c9eccea027c0582643a64ea6f3758f7751ae139d8cf3"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/independent-review/REVIEW-v2.json",
+      "bytes": 9640,
+      "sha256": "ca203992da7289608411186922b600898b19467f3e0d9e5aabf65f6475dbc178"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/candidate-v6/COMMAND.json",
+      "bytes": 8649,
+      "sha256": "78d3ec1141b05ab5e9c608af98a6da096a0beda4b08c57e25fef142d24f0bae2"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/candidate-v6/EXIT.json",
+      "bytes": 517,
+      "sha256": "987c3509c9e00c586aac4ec77d5aaf8b51f385eb77a9310638be3a2f8370e621"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/candidate-v6/run.log",
+      "bytes": 64161,
+      "sha256": "afea8d13f0c03ec0df5643e590cf47b303f310831d4b04279d1650e773c5608e"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/v2-red-v6/COMMAND.json",
+      "bytes": 8526,
+      "sha256": "403f82ea0372d98a869070b7e1bfe91a4a03fcc30d39649e0c07548314482bdc"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/v2-red-v6/EXIT.json",
+      "bytes": 514,
+      "sha256": "6ef5905814df349fb3233adb79c695ed45cd1051381e386ad548a63ae7f59387"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/v2-red-v6/run.log",
+      "bytes": 33974,
+      "sha256": "8d33255d12ad320c2bf67a9dc82125a77d976d0faa0b46c821d6553836a90440"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/execution-evidence-review/REVIEW-v3.json",
+      "bytes": 16770,
+      "sha256": "6452bff34c354c437033908612864fce4682472d73f8ab591ee403144ebb8558"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/independent-http-review/REVIEW.json",
+      "bytes": 7838,
+      "sha256": "59c346f9635429c75df50b8321381879f2d33bb55f9ddb18dc9b4a1280247047"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/http-restart-review/RESULT.json",
+      "bytes": 26357,
+      "sha256": "bf76cd2f2631628465240d18dc66e62411c55ecc28e55d8af7e3c42d76e1c31a"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/http-restart-review/MANIFEST.json",
+      "bytes": 992394,
+      "sha256": "0e94b4739453e10803597c0695255a8c3830a8d1a0128e9c7f972e4b4c6a1ce9"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/http-restart-review/HTTP-TEST-after-C18-v3.patch",
+      "bytes": 11182,
+      "sha256": "e1100059fae138f891ca50c1d4b3d3148c8c4ca89229e6f4f3b96f18293ef225"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/CENSUS-integrated.json",
+      "bytes": 1147,
+      "sha256": "89452e581a2798bb1e09b15028ef25e8d1db23be2aa7faf5a03c3118f131ab5f"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/integrated-execution-review/REVIEW.json",
+      "bytes": 28777,
+      "sha256": "e7bc9667f33812c9ab703e6a1c8e0a3ddb33f709869f3ab0c83916763e69307a"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/ask-user-gap-review/RESULT.json",
+      "bytes": 11491,
+      "sha256": "05f574075d429d65e37e16715ce53b78263c082646a0e44a460e21fd812ece53"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/ask-user-gap-review/MANIFEST.json",
+      "bytes": 4823,
+      "sha256": "2b5ba69be0a3e074244ec7ebb990e9dd57dbd7ebe3b13216eed9da18035f1be3"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/ask-user-gap-review/actual/COMMAND.json",
+      "bytes": 6965,
+      "sha256": "5473591ca65e65a551e3de91f5a0bcda311041b7b480724d706488ddd8bf1e8e"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/ask-user-gap-review/actual/EXIT.json",
+      "bytes": 585,
+      "sha256": "7d1b5d4cbb719594d6ee704fc9b219c9c55d502feabf98fea5e97a01ab7ca141"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/ask-user-gap-review/actual/test.log",
+      "bytes": 34702,
+      "sha256": "383b48b666998428ffd26c84e036910f5436cee8b3d86e81c983c0fa687fe30f"
+    }
+  ],
+  "executionEvidenceReview": {
+    "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/execution-evidence-review/REVIEW-v3.json",
+    "bytes": 16770,
+    "sha256": "6452bff34c354c437033908612864fce4682472d73f8ab591ee403144ebb8558"
+  },
+  "httpTestAndEvidenceReview": {
+    "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/independent-http-review/REVIEW.json",
+    "bytes": 7838,
+    "sha256": "59c346f9635429c75df50b8321381879f2d33bb55f9ddb18dc9b4a1280247047"
+  },
+  "httpRestart": {
+    "status": "HTTP_TEST_AND_EVIDENCE_REVIEW_PASS",
+    "author": "workflow_review",
+    "reviewer": "m1_outage_review",
+    "green": {
+      "tests": 3,
+      "pass": 3,
+      "fail": 0,
+      "exitCode": 0,
+      "branches": 2,
+      "freshDatabases": 2,
+      "turns": 14,
+      "controlledProviderCalls": 26,
+      "restartsPerBranch": 3,
+      "lifetimesPerBranch": 4
+    },
+    "redAgainstV2": {
+      "tests": 3,
+      "pass": 1,
+      "fail": 2,
+      "exitCode": 1,
+      "meaning": "Write branch passes; first-model-clarify branch and parent fail because later yes permits a wrong photo.md proposal."
+    },
+    "verified": "Pending choices and original source/user/project survive three backend restarts per branch. AMBIGUOUS yes, FILE_WRITE yes and archive.md with stale model photo.md create no proposal. Matching archive.md creates exactly one canonical approval proposal per branch; no approval is sent.",
+    "finalAcrossTwoGreenDBs": {
+      "toolRequests": 2,
+      "effectRequests": 2,
+      "approvalGrants": 0,
+      "toolResults": 0,
+      "effectResults": 0,
+      "photoAndArchiveFiles": 0
+    },
+    "limits": [
+      "Controlled model fixture, not live model quality.",
+      "Only photo.md/archive.md absence checked, not every filesystem path.",
+      "Readonly host root/private writable artifacts and unshared network; no claim of hidden host filesystem or distinct kernel device namespace."
+    ]
+  },
+  "rootIntegration": {
+    "status": "INDEPENDENT_EXECUTION_REVIEW_PASS",
+    "sourceHead": "c8b0f772786de2bd8ce8bfea53e1d2759a6e621c",
+    "workingCandidate": true,
+    "sameSourceTestRefsBeforeAfter": true,
+    "tests": {
+      "context": {
+        "observedCount": 129,
+        "exitCode": 0,
+        "completedAt": "2026-10-08T12:11:46.778552+00:00",
+        "command": {
+          "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/root-integration/context/COMMAND.json",
+          "bytes": 5697,
+          "sha256": "bb8ad5ac35de431f0b1d663ca6e92bdccd25909952e5566d0dc45e52c990e8c3"
+        },
+        "exit": {
+          "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/root-integration/context/EXIT.json",
+          "bytes": 727,
+          "sha256": "68e249698c4f0cf9c7ee4155481f76ea486e84f8e1815b4b64cbcb8957490a21"
+        },
+        "log": {
+          "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/root-integration/context/test.log",
+          "bytes": 109220,
+          "sha256": "b546f2d0490508e4143a0bca5b89fe6c44ef7d04f0ec5c19151a461cd1ce5eee"
+        }
+      },
+      "project": {
+        "observedCount": 57,
+        "exitCode": 0,
+        "completedAt": "2026-10-08T12:11:27.053556+00:00",
+        "command": {
+          "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/root-integration/project/COMMAND.json",
+          "bytes": 5691,
+          "sha256": "cdb24284f6f725cefb29481d26c2d93fb9474b4bc97498cb14ac66ea1df2793b"
+        },
+        "exit": {
+          "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/root-integration/project/EXIT.json",
+          "bytes": 727,
+          "sha256": "f02f589f9ebe01c605b6fd6991b329ca92918a30d12a918e9f8d977104a3d754"
+        },
+        "log": {
+          "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/root-integration/project/test.log",
+          "bytes": 47627,
+          "sha256": "e58700798f51de32f95beaee04f6a9040af05d0f6d9f514f8ffa7d0c6410d964"
+        }
+      },
+      "artifact": {
+        "observedCount": 160,
+        "exitCode": 0,
+        "completedAt": "2026-10-08T12:11:03.452189+00:00",
+        "command": {
+          "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/root-integration/artifact/COMMAND.json",
+          "bytes": 5614,
+          "sha256": "766be3a1bfa4bb8933b906c1ccb01875ace2351a78fa8c1487d63578fb447325"
+        },
+        "exit": {
+          "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/root-integration/artifact/EXIT.json",
+          "bytes": 727,
+          "sha256": "62e957b8b0ae74018fce16a2b6518b77b8987e8c7c3c22fda498c6f542c54b36"
+        },
+        "log": {
+          "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/root-integration/artifact/test.log",
+          "bytes": 13425,
+          "sha256": "f52f3b750d7cd8d7f751d21f040b6e178db02e7090f12d6ed38b3f50e3b68476"
+        }
+      },
+      "registry": {
+        "observedCount": 596,
+        "exitCode": 0,
+        "completedAt": "2026-10-08T12:11:03.009846+00:00",
+        "command": {
+          "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/root-integration/registry/COMMAND.json",
+          "bytes": 5611,
+          "sha256": "3a1d088cd0ca77e8274b16884d8141c9bc5676af45913cb3bbac219779c8fb6d"
+        },
+        "exit": {
+          "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/root-integration/registry/EXIT.json",
+          "bytes": 727,
+          "sha256": "12e2df0df96fc257db423fcfcde9c0483b0f65fd6167831e057da2176d064eab"
+        },
+        "log": {
+          "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/root-integration/registry/test.log",
+          "bytes": 116,
+          "sha256": "1eefdafb45876a09d4b4621e755ad027499abf812965e5dc4d497d7940061145"
+        }
+      },
+      "module": {
+        "observedCount": 1514,
+        "exitCode": 0,
+        "completedAt": "2026-10-08T12:11:04.374300+00:00",
+        "command": {
+          "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/root-integration/module/COMMAND.json",
+          "bytes": 5577,
+          "sha256": "a6ccf9204d656c8e672b79d5bcfa712e1f66b7592b64a7aeca70a471ec3207c7"
+        },
+        "exit": {
+          "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/root-integration/module/EXIT.json",
+          "bytes": 727,
+          "sha256": "b000e2af434b0b69f428779d2933fe9a78a248c97d30f3d6b4176d0fa851ff57"
+        },
+        "log": {
+          "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/root-integration/module/test.log",
+          "bytes": 741,
+          "sha256": "d9a49e4280640c261d324240a7d06ae4b0a0d182bd775d865fe4f05b8240a734"
+        }
+      }
+    },
+    "contextScope": "Entire combined context suite129 incl new HTTP3; distinct from targeted85.",
+    "moduleScope": "1514 edges, added0, removed0, cycles3/files28; existing scanner limits apply.",
+    "artifactScope": "160 prior to this final docs patch; ROOT must rerun required docs gate after applying final documentation.",
+    "review": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/integrated-execution-review/REVIEW.json",
+      "bytes": 28777,
+      "sha256": "e7bc9667f33812c9ab703e6a1c8e0a3ddb33f709869f3ab0c83916763e69307a"
+    }
+  },
+  "integratedExecutionReview": {
+    "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/integrated-execution-review/REVIEW.json",
+    "bytes": 28777,
+    "sha256": "e7bc9667f33812c9ab703e6a1c8e0a3ddb33f709869f3ab0c83916763e69307a"
+  },
+  "classifierAskUserBranch": {
+    "status": "KNOWN_OPEN_GAP_HTTP_RED",
+    "trigger": "Fresh explicit pair first classified AMBIGUOUS and routed to ASK_USER; file.save.interpret is not reached for that pair.",
+    "acceptedByCurrentC18Evidence": false,
+    "observed": {
+      "tests": 2,
+      "pass": 0,
+      "fail": 2,
+      "exitCode": 1,
+      "meaning": "One child and its parent fail: after two backend restarts, FILE_WRITE yes creates one unilateral photo.md proposal because fresh choices were not stored.",
+      "toolRequests": 1,
+      "effectRequests": 1,
+      "approvalGrants": 0,
+      "toolResults": 0,
+      "effectResults": 0,
+      "photoAndArchiveFiles": 0
+    },
+    "distinction": "The accepted C18 HTTP test covers ambiguous yes after choices exist. It does not fix fresh-pair creation in classifier ASK_USER.",
+    "result": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/ask-user-gap-review/RESULT.json",
+      "bytes": 11491,
+      "sha256": "05f574075d429d65e37e16715ce53b78263c082646a0e44a460e21fd812ece53"
+    },
+    "manifest": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/ask-user-gap-review/MANIFEST.json",
+      "bytes": 4823,
+      "sha256": "2b5ba69be0a3e074244ec7ebb990e9dd57dbd7ebe3b13216eed9da18035f1be3"
+    },
+    "nextStep": "Bounded private C19 continuity correction in ASK_USER with shared narrow filename parser and independent source/test/HTTP review before another GPU chat strategy. No model/prompt/schema change."
+  }
+}

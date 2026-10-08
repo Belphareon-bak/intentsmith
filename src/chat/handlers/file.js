@@ -982,6 +982,10 @@ export async function handleFileWriteDecision(input, decision, context, dependen
         metadata: { contextualInterpretation: true, clarificationQuestion: question,
           originalRequest: previous?.fileSaveClarification ? previous.originalRequest : input,
           fileSaveClarification: { projectId, sourceMessageId: plan.candidateMessageId,
+            ...(plan.targetRequired || previous?.fileSaveClarification?.targetRequired
+              ? { targetRequired: true } : {}),
+            ...(plan.targetChoices || previous?.fileSaveClarification?.targetChoices
+              ? { targetChoices: plan.targetChoices || previous.fileSaveClarification.targetChoices } : {}),
             ...(plan.sourceBarrier ? { sourceBarrier: plan.sourceBarrier } : {}),
             userMessageId: previous?.fileSaveClarification?.userMessageId ?? context.userMessageId } } }, ['file_save']);
       return new TaggedResponse({ content: question,

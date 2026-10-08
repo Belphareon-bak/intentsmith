@@ -152,8 +152,24 @@ před návratem jiná omezená strategie; C3/C4 přezkoumány,
 Původní H1 podmínka kontroly cleanup je splněná. Sběr i soukromé předání operátorovi
 už jsou autorizované; zbývá vnější dohled, dvoumodelový úklid, bezpečná metadata
 a fresh freeze původních c7/959. Dešifrování operátorem až před připraveným oknem;
-H1 NOT_RUN. C18 je soukromá CPU práce s review pending, ne přijatá oprava.
-Další: omezená CHAT strategie z C17 a technická příprava H1 → IDE/BE/expertise/workers → M5/M6.
+H1 NOT_RUN. C18 má source/CPU review PASS, cílených 85 = 41 vybraných existujících
++ 44 nových kontrol včetně rodičů. Samostatný řízený HTTP/restart má review PASS:
+dvě DB, každá tři restarty; po přesném výběru pouze návrh, žádný grant ani zápis.
+ROOT integrovaný celý context129/project57, artifact160/registry596/module1514+0
+prošly a mají nezávislý integrační posudek; publikace/CI ještě čekají.
+Nový negativní guard se provede až po dispatch do FILE_WRITE resolveru
+(file.save.interpret), jen pro známou odpověď a typed targetRequired marker.
+Dvojici názvů nebo/or uchová i přes interpreter clarify/source:null; „ano“ nevybere
+cíl. Toto clarify není classifier AMBIGUOUS→ASK_USER. Ten má známý otevřený
+HTTP RED: nová dvojice se nezapíše, po dvou restartech FILE_WRITE „ano“ navrhne
+photo.md; 1 tool/M2 request, 0 grantů/resultů/cílových souborů. Interpreter se
+na původním tahu s dvojicí nevolal. Test AMBIGUOUS „ano“ po již uložené dvojici
+tuto mezeru nepokrývá; navazuje samostatný C19 continuity fix a jeho review.
+Následný celý filename atom musí odpovídat modelovému cíli; obecná věta nestačí.
+Legacy bez markeru, literal/generated source a obecná NLP/95% kvalita jsou mimo.
+Model, prompt a approval se nemění. C17 profil 410 nad C15 nepokrývá C18.
+[Source, CPU, historie CHANGES_REQUIRED a meze](docs/review/evidence/product-continuation-20261008/c18-file-choice.json).
+Další: publikace/CI C18 a celý profil; před další GPU chat strategií C19 oprava známé AMBIGUOUS→ASK_USER mezery s nezávislým source/test/HTTP review. Souběžně technická příprava H1 → IDE/BE/expertise/workers → M5/M6.
 Fan čeká na oracle rozhodnutí; HTTP14 rozpočet je uzavřený.
 M5 je 8/9/privacy changes required; retain_and_rotate zvolené, signed 8 categories+history chybí.
 CustodyA/B doložená; druhá operator offline kopie/reviewer recovery/13 signed/24h/throughput/Gate0/demo otevřené.
@@ -871,14 +887,14 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 **REVIEW_PENDING** — [aktuální UI oprava a evidence](docs/review/2026-09-17-HUNT-MODEL-CONTROLS-FOLLOWUP.md).
 
 Následující LOC a registry census jsou přeměřené 8. 10. 2026 přímo na zdroji
-C15 pracovního kandidátu nad `44e4d96c`, přes stejný algoritmus jako `tests/artifact-validation.test.js`:
+C18 pracovního kandidátu nad `c8b0f772` včetně HTTP/restart regrese, přes stejný algoritmus jako `tests/artifact-validation.test.js`:
 počet skutečných `.js` souborů a počet znaků nového řádku v jejich bytech.
 Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
-| `src/**/*.js` | **237 272 ř.**, 688 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **271 156 ř.**, 604 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **237 336 ř.**, 688 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **271 667 ř.**, 604 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **596** (`498 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 109** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |

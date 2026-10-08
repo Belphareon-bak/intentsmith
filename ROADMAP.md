@@ -99,7 +99,7 @@ Před inferencí se opraví prokázané budget/cleanup nedostatky existujících
 32k krátce změřené fullGPU/min free 2 512 MiB; celé okno ani kvalita aplikace tím nepřijaté.
 Classifier→D1 CPU 44 +parser 24/review PASS; živý přirozený vstup a fyzická ovladatelnost IDE/M2 otevřené.
 
-Nynější úkol: navrhnout další omezenou strategii interpretace podle uzavřeného C17 NO_MODEL_PREFERENCE; modely se automaticky nepřepínají. HTTP14 testovaný rozsah i jeho rozpočet jsou uzavřené.
+Nynější úkol: publikovat C18 po přijatém source/CPU/HTTP i integračním review a navázat novým celým profilem; C17 NO_MODEL_PREFERENCE nemění modelové bindingy. HTTP14 testovaný rozsah i jeho rozpočet jsou uzavřené.
 C13 source44567af7/CI18: dva HTTP admission FAIL před inferencí (nová0/historie12),
 Fan čtyři úplné nové výstupy (12/15), literal import FAIL před approval/oracle.
 Skutečný Qwen32k cleanup pod lease přijat; Fan chráněný oracle čeká na rozhodnutí.
@@ -138,8 +138,24 @@ před návratem jiná omezená strategie; C3/C4 přezkoumány,
 Původní H1 podmínka kontroly cleanup je splněná. Sběr i soukromé předání operátorovi
 už jsou autorizované; zbývá vnější dohled, dvoumodelový úklid, bezpečná metadata
 a fresh freeze původních c7/959. Dešifrování operátorem až před připraveným oknem;
-H1 NOT_RUN. C18 je soukromá CPU práce s review pending, ne přijatá oprava.
-Další: omezená CHAT strategie z C17 a technická příprava H1 → IDE/BE/expertise/workers → M5/M6.
+H1 NOT_RUN. C18 má source/CPU review PASS, cílených 85 = 41 vybraných existujících
++ 44 nových kontrol včetně rodičů. Samostatný řízený HTTP/restart má review PASS:
+dvě DB, každá tři restarty; po přesném výběru pouze návrh, žádný grant ani zápis.
+ROOT integrovaný celý context129/project57, artifact160/registry596/module1514+0
+prošly a mají nezávislý integrační posudek; publikace/CI ještě čekají.
+Nový negativní guard se provede až po dispatch do FILE_WRITE resolveru
+(file.save.interpret), jen pro známou odpověď a typed targetRequired marker.
+Dvojici názvů nebo/or uchová i přes interpreter clarify/source:null; „ano“ nevybere
+cíl. Toto clarify není classifier AMBIGUOUS→ASK_USER. Ten má známý otevřený
+HTTP RED: nová dvojice se nezapíše, po dvou restartech FILE_WRITE „ano“ navrhne
+photo.md; 1 tool/M2 request, 0 grantů/resultů/cílových souborů. Interpreter se
+na původním tahu s dvojicí nevolal. Test AMBIGUOUS „ano“ po již uložené dvojici
+tuto mezeru nepokrývá; navazuje samostatný C19 continuity fix a jeho review.
+Následný celý filename atom musí odpovídat modelovému cíli; obecná věta nestačí.
+Legacy bez markeru, literal/generated source a obecná NLP/95% kvalita jsou mimo.
+Model, prompt a approval se nemění. C17 profil 410 nad C15 nepokrývá C18.
+[Source, CPU, historie CHANGES_REQUIRED a meze](docs/review/evidence/product-continuation-20261008/c18-file-choice.json).
+Další: publikace/CI C18 a celý profil; před další GPU chat strategií C19 oprava známé AMBIGUOUS→ASK_USER mezery s nezávislým source/test/HTTP review. Souběžně technická příprava H1 → IDE/BE/expertise/workers → M5/M6.
 Fan čeká na oracle rozhodnutí; HTTP14 rozpočet je uzavřený.
 M5 je 8/9/privacy changes required; retain_and_rotate zvolené, signed 8 categories+history chybí.
 CustodyA/B doložená; druhá operator offline kopie/reviewer recovery/13 signed/24h/throughput/Gate0/demo otevřené.

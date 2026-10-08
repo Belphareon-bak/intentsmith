@@ -1779,3 +1779,514 @@ test('C15 input change preserves model refusal and unresolved meanings without i
     assert.deepEqual(context.sessionState.pendingDecision, before);
   });
 });
+
+
+// C18: exact exposed C17 bad interpreter plan; no provider or M2 authority.
+const c18RecordedWrite = { action: 'write', question: null, target: 'photo.md',
+  source: { kind: 'answer', messageId: 2 }, transformation: 'none',
+  writeMode: 'replace', understood: true, unsupported: [] };
+const c18Decision = { type: 'LOCAL', intent: 'FILE_WRITE', metadata: {},
+  toJSON() { return { type: this.type, intent: this.intent, metadata: this.metadata }; } };
+
+async function c18Handle(input, context, modelPlan = c18RecordedWrite, additions = {}) {
+  const { handleFileWriteDecision } = await import('../src/chat/handlers/file.js');
+  const admissions = [], interpretations = [];
+  const response = await handleFileWriteDecision(input, c18Decision, context, {
+    interpretSave: async prompt => { interpretations.push(JSON.parse(prompt));
+      return { content: JSON.stringify(modelPlan), finishReason: 'stop' }; },
+    summarizeSave: async () => { throw Object.assign(new Error('C18 requires an explicit controlled summary stub'),
+      { code: 'C18_NO_IMPLICIT_SUMMARY' }); },
+    toolExecutor: { executeM2Tool: async ({ toolId, input }) => {
+      admissions.push({ toolId, input });
+      throw Object.assign(new Error('C18 fixture refuses real M2 admission'), { code: 'C18_NO_M2' });
+    } }, ...additions,
+  });
+  return { response: { content: response.content, metadata: response.metadata, canExecute: response.canExecute },
+    admissions, interpretations };
+}
+
+async function c18OpenTargetQuestion(request = 'Ulož tu odpověď.') {
+  const context = c14SaveContext(request);
+  context.sessionState.clearPendingDecision();
+  context.history = context.history.filter(answer => answer.messageId === 2);
+  context.userMessageId = 3;
+  const first = await c18Handle(request, context, { ...c18RecordedWrite, action: 'clarify',
+    question: 'Do kterého souboru?', target: null, understood: false });
+  assert.equal(first.admissions.length, 0);
+  assert.equal(first.response.metadata.awaitingClarification, true);
+  context.userMessageId = 7;
+  return context;
+}
+
+test('C18 recorded unresolved target choice stops before M2 despite model write', async () => {
+  const context = await c18OpenTargetQuestion();
+  const before = structuredClone(context.sessionState.pendingDecision.metadata);
+  const actual = await c18Handle('photo.md nebo archive.md', context);
+  writeFileSync(path.join(isolatedTestRuntime.artifacts, 'c18-recorded-choice.json'),
+    JSON.stringify({ before, actual, pendingAfter: context.sessionState.pendingDecision }, null, 2) + '\n');
+  assert.equal(actual.admissions.length, 0, 'unresolved choice must never reach ToolRequest admission');
+  assert.equal(actual.response.metadata.awaitingClarification, true);
+  assert.equal(actual.response.metadata.approvalRequired, false);
+  assert.equal(actual.response.canExecute, false);
+  assert(actual.response.content.includes('photo.md') && actual.response.content.includes('archive.md'));
+  assert.equal(context.sessionState.pendingDecision.metadata.originalRequest, before.originalRequest);
+  assert.deepEqual(context.sessionState.pendingDecision.metadata.fileSaveClarification,
+    { ...before.fileSaveClarification, targetChoices: ['photo.md', 'archive.md'] });
+});
+
+
+test('C18 closed two-filename replies stop without changing the original source or conditions', async t => {
+  const cases = [
+    { reply: 'archive.md nebo photo.md', target: 'archive.md' },
+    { reply: 'photo.md or archive.md', target: 'archive.md' },
+    { reply: 'PHOTO.md OR archive.md', target: 'PHOTO.md' },
+    { reply: '  sub/photo.md\tnebo\tother/archive.md  ', target: 'sub/photo.md' },
+    { reply: '"photo one.md" nebo "archive two.md"', target: 'photo one.md' },
+    { reply: "'photo.md' or 'archive.md'", target: 'archive.md' },
+    { reply: 'žlutý.md nebo modrý.md', target: 'modrý.md' },
+  ];
+  for (const item of cases) await t.test(item.reply, async () => {
+    const original = 'Shrň původní odpověď a ulož ji do nového souboru; nic existujícího nepřepisuj.';
+    const context = await c18OpenTargetQuestion(original);
+    context.sessionState.pendingDecision.metadata.originalRequestedOperation = 'create';
+    const provenance = structuredClone(context.sessionState.pendingDecision.metadata.fileSaveClarification);
+    const actual = await c18Handle(item.reply, context, { ...c18RecordedWrite,
+      target: item.target, transformation: 'summarize', writeMode: 'create' });
+    assert.equal(actual.admissions.length, 0);
+    assert.equal(actual.response.metadata.awaitingClarification, true);
+    assert.equal(actual.response.metadata.approvalRequired, false);
+    assert.equal(context.sessionState.pendingDecision.metadata.originalRequest, original);
+    assert.deepEqual({ ...context.sessionState.pendingDecision.metadata.fileSaveClarification, targetChoices: undefined },
+      { ...provenance, targetChoices: undefined });
+    assert.equal(context.sessionState.pendingDecision.metadata.fileSaveClarification.targetChoices.length, 2);
+    context.sessionState = SessionState.fromJSON(JSON.parse(JSON.stringify(context.sessionState.toJSON())));
+    const followup = await resolveFileSavePlan('chosen.md', context, { interpretSave: async prompt => {
+      const evidence = JSON.parse(prompt);
+      assert.equal(evidence.pending.request, original);
+      assert(evidence.pending.question.includes(item.target));
+      assert.deepEqual(evidence.answers.map(x => x.messageId), [2]);
+      return { content: JSON.stringify({ ...c18RecordedWrite, target: 'chosen.md',
+        transformation: 'summarize', writeMode: 'create' }), finishReason: 'stop' };
+    } });
+    assert.equal(followup.filePath, 'chosen.md');
+    assert.equal(followup.content, 'Původní úplný podklad.');
+    assert.equal(followup.sourceMessageId, 2);
+    assert.equal(followup.transformation, 'summarize');
+    assert.equal(followup.toolId, 'file.create');
+    assert.equal(followup.summaryRequest, `${original}\nDoplnění uživatele: chosen.md`);
+  });
+});
+
+test('C18 explicit later selection reaches only the existing approval proposal boundary', async () => {
+  const context = await c18OpenTargetQuestion();
+  const first = await c18Handle('photo.md nebo archive.md', context);
+  assert.equal(first.admissions.length, 0);
+  context.sessionState = SessionState.fromJSON(JSON.parse(JSON.stringify(context.sessionState.toJSON())));
+  const captured = [];
+  context.verifyFileSaveSource = value => { assert.equal(value.sourceMessageId, 2);
+    assert.equal(value.content, 'Původní úplný podklad.'); };
+  const followup = await c18Handle('archive.md', context, { ...c18RecordedWrite, target: 'archive.md' }, {
+    toolExecutor: { executeM2Tool: async ({ toolId, input }) => {
+      captured.push({ toolId, input });
+      return { state: 'approval_required', effectRequestId: 'c18-fixture-effect',
+        request: { requestId: 'c18-fixture-request' } };
+    } },
+  });
+  assert.deepEqual(captured, [{ toolId: 'file.write', input: { path: 'archive.md', content: 'Původní úplný podklad.' } }]);
+  assert.equal(followup.response.metadata.approvalRequired, true);
+  assert.equal(followup.response.metadata.fileOperation, false);
+  assert.equal(followup.response.canExecute, false);
+  assert(followup.response.content.includes('schválit efekt c18-fixture-effect'));
+  assert.equal(context.sessionState.pendingDecision, null);
+  assert(!existsSync(path.join(context.project.path, 'archive.md')));
+});
+
+test('C18 grammar does not turn filename data or scoped instructions into target choices', async t => {
+  for (const item of [
+    { input: 'photo.md', target: 'photo.md' },
+    { input: 'photo.md nebo photo.md', target: 'photo.md' },
+    { input: '"photo.md or archive.md"', target: 'photo.md or archive.md' },
+    { input: '"photo.md nebo archive.md"', target: 'photo.md nebo archive.md' },
+    { input: 'or/photo.md', target: 'or/photo.md' },
+    { input: 'nebo-photo.md', target: 'nebo-photo.md' },
+    { input: 'Neodstraňuj notes.md, ulož odpověď do scoped-copy.txt.', target: 'scoped-copy.txt' },
+    { input: 'photo.md, nikoli archive.md', target: 'photo.md' },
+    { input: 'Ulož doslovně "photo.md nebo archive.md" do literal.txt.', target: 'literal.txt', literal: true },
+  ]) await t.test(item.input, async () => {
+    const context = await c18OpenTargetQuestion();
+    if (item.literal) context.sessionState.clearPendingDecision();
+    const actual = await c18Handle(item.input, context, { ...c18RecordedWrite, target: item.target,
+      ...(item.literal ? { source: { kind: 'literal', literalId: 1 } } : {}) });
+    assert.equal(actual.admissions.length, 1, 'clear request retains old path up to rejecting fixture; no real M2');
+    assert.equal(actual.admissions[0].input.path, item.target);
+    assert.equal(actual.admissions[0].input.content,
+      item.literal ? 'photo.md nebo archive.md' : 'Původní úplný podklad.');
+    assert.equal(actual.response.metadata.error, 'C18_NO_M2');
+    assert.equal(actual.response.metadata.awaitingClarification, undefined);
+  });
+});
+
+test('C18 retains model clarification and source cancellation/project boundaries', async t => {
+  await t.test('existing model clarify never becomes a write', async () => {
+    const context = await c18OpenTargetQuestion();
+    const actual = await c18Handle('photo.md nebo archive.md', context, { ...c18RecordedWrite,
+      action: 'clarify', question: 'Vyber prosím soubor.', understood: false });
+    assert.equal(actual.admissions.length, 0);
+    assert.equal(actual.response.content, 'Vyber prosím soubor.');
+  });
+  for (const name of ['foreign project', 'missing selected source', 'unverified source', 'wrong answer ID']) await t.test(name, async () => {
+    const context = await c18OpenTargetQuestion();
+    if (name === 'foreign project') context.project = { ...context.project, id: 2 };
+    if (name === 'missing selected source') context.history = context.history.filter(x => x.messageId !== 2);
+    if (name === 'unverified source') for (const x of context.history) delete x.metadata.saveSourceEligible;
+    const actual = await c18Handle('photo.md nebo archive.md', context, { ...c18RecordedWrite,
+      ...(name === 'wrong answer ID' ? { source: { kind: 'answer', messageId: 4 } } : {}) });
+    assert.equal(actual.admissions.length, 0);
+    assert.equal(actual.response.metadata.approvalRequired, false);
+    assert.notEqual(actual.response.metadata.awaitingClarification, true,
+      'source failure must not be replaced with the new target-selection clarification');
+  });
+  for (const [name, input] of [['cancel', 'Zruš ukládání.'], ['new task', 'Vysvětli mi Git commit.']]) await t.test(name, async () => {
+    const { clearSupersededFileSaveQuestion } = await import('../src/chat/handlers/file.js');
+    const context = await c18OpenTargetQuestion();
+    await c18Handle('photo.md nebo archive.md', context);
+    clearSupersededFileSaveQuestion(context, { type: 'ANSWER', intent: 'CONVERSATIONAL',
+      metadata: { contextualInterpretation: true, continuesPending: false } });
+    assert.equal(context.sessionState.pendingDecision, null);
+    const plan = await resolveFileSavePlan(input, context, { interpretSave: async prompt => {
+      assert.equal(JSON.parse(prompt).pending, undefined);
+      return { content: JSON.stringify({ ...c18RecordedWrite, action: 'decline',
+        question: 'Ukládání nepokračuje.', target: null, understood: false }) };
+    } });
+    assert.equal(plan.action, 'decline');
+    assert.equal(plan.filePath, undefined);
+    assert.equal(context.sessionState.pendingDecision, null);
+  });
+});
+
+
+test('C18 actual handler records a missing-target marker without classifying question prose', async () => {
+  const context = await c18OpenTargetQuestion();
+  assert.deepEqual(context.sessionState.pendingDecision.metadata.fileSaveClarification,
+    { projectId: 1, sourceMessageId: 2, userMessageId: 3, targetRequired: true });
+  const literalContext = c14SaveContext();
+  literalContext.sessionState.clearPendingDecision();
+  const literal = await c18Handle('Ulož doslovně "photo.md nebo archive.md".', literalContext,
+    { ...c18RecordedWrite, action: 'clarify', question: 'Do kterého souboru?', target: null,
+      source: { kind: 'literal', literalId: 1 }, understood: false });
+  assert.equal(literal.admissions.length, 0);
+  assert.equal(literalContext.sessionState.pendingDecision.metadata.fileSaveClarification.targetRequired, undefined,
+    'C18 currently protects known answer sources only; literal continuation scope is not widened');
+});
+
+test('C18 two targets then yes cannot select a target already mentioned in the original request', async () => {
+  const request = 'Ulož tu odpověď do photo.md nebo archive.md.';
+  const context = await c18OpenTargetQuestion(request);
+  const first = await c18Handle('photo.md nebo archive.md', context);
+  assert.equal(first.admissions.length, 0);
+  context.sessionState = SessionState.fromJSON(JSON.parse(JSON.stringify(context.sessionState.toJSON())));
+  const yes = await c18Handle('ano', context);
+  writeFileSync(path.join(isolatedTestRuntime.artifacts, 'c18-choice-yes.json'),
+    JSON.stringify({ request, first, yes, pending: context.sessionState.pendingDecision }, null, 2) + '\n');
+  assert.equal(yes.admissions.length, 0);
+  assert.equal(yes.response.metadata.approvalRequired, false);
+  assert.equal(yes.response.metadata.awaitingClarification, true);
+  assert(yes.response.content.includes('photo.md') && yes.response.content.includes('archive.md'));
+  assert.equal(context.sessionState.pendingDecision.metadata.originalRequest, request);
+  assert.deepEqual(context.sessionState.pendingDecision.metadata.fileSaveClarification.targetChoices, ['photo.md', 'archive.md']);
+  // A model's repeated clarify must retain the unresolved pair as well.
+  const repeat = await c18Handle('ano', context, { ...c18RecordedWrite,
+    action: 'clarify', question: 'Prosím vyber soubor.', understood: false });
+  assert.equal(repeat.admissions.length, 0);
+  assert.deepEqual(context.sessionState.pendingDecision.metadata.fileSaveClarification.targetChoices, ['photo.md', 'archive.md']);
+  const final = await c18Handle('archive.md', context, { ...c18RecordedWrite, target: 'archive.md' });
+  assert.deepEqual(final.admissions, [{ toolId: 'file.write', input: { path: 'archive.md', content: 'Původní úplný podklad.' } }]);
+  assert.equal(final.response.metadata.error, 'C18_NO_M2');
+});
+
+test('C18 legacy and other-question pending states are explicitly outside the typed target guard', async t => {
+  await t.test('legacy pending without marker remains legacy behavior', async () => {
+    const context = c14SaveContext();
+    const actual = await c18Handle('photo.md nebo archive.md', context);
+    assert.equal(actual.admissions.length, 1, 'explicit coverage limit, not general ambiguity acceptance');
+    assert.equal(actual.response.metadata.error, 'C18_NO_M2');
+  });
+  for (const item of [
+    { name: 'known target but source question', target: 'photo.md', source: null, unsupported: [] },
+    { name: 'unsupported condition question', target: null, source: { kind: 'answer', messageId: 2 }, unsupported: ['disk-space check'] },
+  ]) await t.test(item.name, async () => {
+    const context = c14SaveContext();
+    context.sessionState.clearPendingDecision();
+    await c18Handle('Ulož odpověď.', context, { ...c18RecordedWrite, action: 'clarify',
+      question: 'Upřesni prosím podmínku nebo zdroj.', target: item.target,
+      source: item.source, unsupported: item.unsupported, understood: false });
+    assert.equal(context.sessionState.pendingDecision.metadata.fileSaveClarification.targetRequired, undefined);
+  });
+});
+
+test('C18 does not disguise provider failure or malformed and unresolved plans as a target question', async t => {
+  for (const item of [
+    { name: 'provider failure', throws: true, code: 'LLM_PROVIDER_UNAVAILABLE' },
+    { name: 'malformed JSON', content: 'not JSON', code: 'file_write_plan_invalid' },
+    { name: 'extra schema field', plan: { ...c18RecordedWrite, injected: true }, code: 'file_write_plan_invalid' },
+    { name: 'unresolved unsupported condition', plan: { ...c18RecordedWrite, unsupported: ['disk-space check'] }, code: 'file_write_constraints_unresolved' },
+    { name: 'wrong source', plan: { ...c18RecordedWrite, source: { kind: 'answer', messageId: 999 } }, code: 'file_write_source_unverified' },
+  ]) await t.test(item.name, async () => {
+    const context = await c18OpenTargetQuestion();
+    const before = structuredClone(context.sessionState.pendingDecision);
+    const actual = await c18Handle('photo.md nebo archive.md', context, item.plan || c18RecordedWrite, {
+      interpretSave: async () => {
+        if (item.throws) throw Object.assign(new Error('controlled unavailable'), { code: item.code });
+        return { content: item.content || JSON.stringify(item.plan), finishReason: 'stop' };
+      },
+    });
+    assert.equal(actual.admissions.length, 0);
+    assert.equal(actual.response.metadata.error, item.code);
+    assert.equal(actual.response.metadata.awaitingClarification, undefined);
+    assert.deepEqual(context.sessionState.pendingDecision, before);
+  });
+});
+
+
+test('C18 summary create continuation keeps conditions and calls summary only after explicit selection', async () => {
+  const original = 'Shrň původní odpověď a ulož ji do photo.md nebo archive.md jako nový soubor; nic nepřepisuj.';
+  const context = await c18OpenTargetQuestion(original);
+  const summaryCalls = [], persisted = [], sourceChecks = [];
+  const summary = 'Souhrn původního podkladu.';
+  context.persistFileSaveSummary = value => { persisted.push(value); return { persisted: true, id: 99 }; };
+  context.verifyFileSaveSource = value => sourceChecks.push(value);
+  const additions = { summarizeSave: async prompt => {
+    summaryCalls.push(JSON.parse(prompt));
+    return { content: summary, finishReason: 'stop' };
+  } };
+  const plan = { ...c18RecordedWrite, transformation: 'summarize', writeMode: 'create' };
+  const choices = await c18Handle('photo.md nebo archive.md', context, plan, additions);
+  assert.equal(choices.admissions.length, 0);
+  assert.equal(summaryCalls.length, 0);
+  const yes = await c18Handle('ano', context, plan, additions);
+  assert.equal(yes.admissions.length, 0);
+  assert.equal(summaryCalls.length, 0);
+  assert.equal(persisted.length, 0);
+  context.sessionState = SessionState.fromJSON(JSON.parse(JSON.stringify(context.sessionState.toJSON())));
+  const chosen = await c18Handle('archive.md', context, { ...plan, target: 'archive.md' }, additions);
+  assert.deepEqual(summaryCalls, [{ request: `${original}\nDoplnění uživatele: archive.md`, answer: 'Původní úplný podklad.' }]);
+  assert.deepEqual(persisted, [{ content: summary, sourceMessageId: 2, sourceContent: 'Původní úplný podklad.' }]);
+  assert.deepEqual(sourceChecks, [{ content: summary, sourceMessageId: 99 }]);
+  assert.deepEqual(chosen.admissions, [{ toolId: 'file.create', input: { path: 'archive.md', content: summary } }]);
+  assert.equal(chosen.response.metadata.error, 'C18_NO_M2');
+  assert(!existsSync(path.join(context.project.path, 'archive.md')));
+  writeFileSync(path.join(isolatedTestRuntime.artifacts, 'c18-summary-continuation.json'),
+    JSON.stringify({ choices, yes, chosen, summaryCalls, persisted, sourceChecks }, null, 2) + '\n');
+});
+
+
+test('C18 explicit new target rejects the model stale target even when original text contains it', async () => {
+  const context = await c18OpenTargetQuestion('Ulož odpověď do photo.md nebo archive.md.');
+  const first = await c18Handle('photo.md nebo archive.md', context);
+  assert.equal(first.admissions.length, 0);
+  const mismatch = await c18Handle('archive.md', context, c18RecordedWrite);
+  writeFileSync(path.join(isolatedTestRuntime.artifacts, 'c18-explicit-target-mismatch.json'),
+    JSON.stringify({ first, mismatch, pendingAfterMismatch: context.sessionState.pendingDecision }, null, 2) + '\n');
+  assert.equal(mismatch.admissions.length, 0, 'a new exact choice cannot authorize the model old target');
+  assert.equal(mismatch.response.metadata.approvalRequired, false);
+  assert.equal(mismatch.response.metadata.awaitingClarification, true);
+  assert.deepEqual(context.sessionState.pendingDecision.metadata.fileSaveClarification.targetChoices, ['photo.md', 'archive.md']);
+  assert(mismatch.response.content.includes('photo.md') && mismatch.response.content.includes('archive.md'));
+  const matching = await c18Handle('archive.md', context, { ...c18RecordedWrite, target: 'archive.md' });
+  assert.deepEqual(matching.admissions, [{ toolId: 'file.write', input: { path: 'archive.md', content: 'Původní úplný podklad.' } }]);
+  assert.equal(matching.response.metadata.error, 'C18_NO_M2');
+});
+
+
+test('C18 review model clarification also keeps unresolved choices on subsequent yes', async () => {
+  const context = await c18OpenTargetQuestion('Ulož odpověď do photo.md nebo archive.md.');
+  const first = await c18Handle('photo.md nebo archive.md', context, { ...c18RecordedWrite,
+    action: 'clarify', question: 'Vyber prosím jeden soubor.', target: null, understood: false });
+  const beforeYes = structuredClone(context.sessionState.pendingDecision);
+  context.sessionState = SessionState.fromJSON(JSON.parse(JSON.stringify(context.sessionState.toJSON())));
+  const yes = await c18Handle('ano', context);
+  writeFileSync(path.join(isolatedTestRuntime.artifacts, 'review-model-clarify-gap.json'),
+    JSON.stringify({ first, beforeYes, yes, afterYes: context.sessionState.pendingDecision }, null, 2) + '\n');
+  assert.equal(first.response.content, 'Vyber prosím jeden soubor.');
+  assert.equal(first.admissions.length, 0);
+  assert.equal(yes.admissions.length, 0, 'a model clarify must not discard an unresolved target pair before yes');
+  assert.equal(beforeYes.metadata.fileSaveClarification.sourceMessageId, 2);
+  assert.equal(beforeYes.metadata.fileSaveClarification.targetRequired, true);
+  assert.deepEqual(beforeYes.metadata.fileSaveClarification.targetChoices, ['photo.md', 'archive.md']);
+  assert.equal(beforeYes.metadata.originalRequest, 'Ulož odpověď do photo.md nebo archive.md.');
+  assert.equal(beforeYes.metadata.fileSaveClarification.userMessageId, 3);
+  assert.equal(beforeYes.metadata.fileSaveClarification.projectId, context.project.id);
+  const matching = await c18Handle('archive.md', context, { ...c18RecordedWrite, target: 'archive.md' });
+  assert.deepEqual(matching.admissions, [{ toolId: 'file.write', input: { path: 'archive.md', content: 'Původní úplný podklad.' } }]);
+  assert.equal(matching.response.metadata.error, 'C18_NO_M2');
+  assert(!existsSync(path.join(context.project.path, 'archive.md')));
+
+});
+
+
+test('C18 review repeated clarify with unknown source retains unresolved target authority', async () => {
+  const context = await c18OpenTargetQuestion('Ulož odpověď do photo.md nebo archive.md.');
+  const first = await c18Handle('photo.md nebo archive.md', context);
+  const repeat = await c18Handle('ano', context, { ...c18RecordedWrite, action: 'clarify',
+    question: 'Vyber prosím jeden soubor.', source: null, target: null, understood: false });
+  const beforeYes = structuredClone(context.sessionState.pendingDecision);
+  context.sessionState = SessionState.fromJSON(JSON.parse(JSON.stringify(context.sessionState.toJSON())));
+  const yes = await c18Handle('ano', context);
+  writeFileSync(path.join(isolatedTestRuntime.artifacts, 'review-clarify-source-gap.json'),
+    JSON.stringify({ first, repeat, beforeYes, yes, afterYes: context.sessionState.pendingDecision }, null, 2) + '\n');
+  assert.equal(first.admissions.length, 0);
+  assert.equal(repeat.admissions.length, 0);
+  assert.equal(yes.admissions.length, 0, 'an unknown-source clarify must not clear unresolved target choice authority');
+  assert.equal(repeat.response.content, 'Vyber prosím jeden soubor.');
+  assert.equal(beforeYes.metadata.fileSaveClarification.sourceMessageId, 2);
+  assert.equal(beforeYes.metadata.fileSaveClarification.targetRequired, true);
+  assert.deepEqual(beforeYes.metadata.fileSaveClarification.targetChoices, ['photo.md', 'archive.md']);
+  assert.equal(beforeYes.metadata.originalRequest, 'Ulož odpověď do photo.md nebo archive.md.');
+  assert.equal(beforeYes.metadata.fileSaveClarification.userMessageId, 3);
+  assert.equal(beforeYes.metadata.fileSaveClarification.projectId, context.project.id);
+  const matching = await c18Handle('archive.md', context, { ...c18RecordedWrite, target: 'archive.md' });
+  assert.deepEqual(matching.admissions, [{ toolId: 'file.write', input: { path: 'archive.md', content: 'Původní úplný podklad.' } }]);
+  assert.equal(matching.response.metadata.error, 'C18_NO_M2');
+  assert(!existsSync(path.join(context.project.path, 'archive.md')));
+
+});
+
+// C18: real M1 HTTP and durable restart, with controlled provider responses.
+// No approval command is sent. The final valid choice may only propose an effect.
+test('C18 HTTP restart retains unresolved target choices for write and clarify model replies', async t => {
+  for (const pairAction of ['write', 'clarify']) await t.test(pairAction, async () => {
+    const owned = createOwnedJourneyRuntime(isolatedTestRuntime);
+    const model = 'fixture:1b', digest = 'a'.repeat(64);
+    const answer = 'Fotografie dokáže zachytit neopakovatelný okamžik a proměnit ho v trvalou vzpomínku.';
+    const initial = pairAction === 'write' ? 'Ulož tu odpověď.' : 'Ulož tu odpověď do photo.md nebo archive.md.';
+    const question = 'Kam mám tuto odpověď uložit? (Prosím, uveďte název souboru.)';
+    const pair = 'photo.md nebo archive.md';
+    const calls = [], responses = [], turns = [], observations = [], stops = [];
+    const audit = (name, data) => writeFileSync(path.join(owned.artifacts, name), JSON.stringify(data, null, 2) + '\n', { mode: 0o600 });
+    let stage = 'answer';
+    const provider = http.createServer(async (req, res) => {
+      try {
+        let body = ''; for await (const chunk of req) body += chunk;
+        const payload = body ? JSON.parse(body) : {};
+        res.setHeader('Content-Type', 'application/json');
+        if (req.url === '/api/tags') { res.end(JSON.stringify({ models: [{ name: model, digest }] })); return; }
+        if (req.url === '/api/show') { res.end(JSON.stringify({ model_info: { 'fixture.context_length': 4096 } })); return; }
+        if (req.url !== '/api/chat') { res.writeHead(503).end(); return; }
+        calls.push({ stage, payload }); audit('provider-requests.json', calls);
+        const raw = payload.messages.at(-1)?.content || '';
+        const system = payload.messages[0]?.content || '';
+        let parsed; try { parsed = JSON.parse(raw); } catch { parsed = null; }
+        let content;
+        if (payload.format?.properties?.action) {
+          const clarify = stage === 'initial' || (stage === 'pair' && pairAction === 'clarify');
+          content = JSON.stringify({ action: clarify ? 'clarify' : 'write',
+            question: clarify ? stage === 'initial' ? question : 'Do photo.md, nebo archive.md?' : null,
+            target: clarify ? null : stage === 'selected' ? 'archive.md' : 'photo.md',
+            source: { kind: 'answer', messageId: parsed.answers[0]?.messageId },
+            transformation: 'none', writeMode: 'replace', understood: !clarify, unsupported: [] });
+        } else if (system.includes('Klasifikuj')) {
+          const ambiguous = stage === 'ambiguous-yes';
+          content = JSON.stringify({ intent: ambiguous ? 'AMBIGUOUS' : stage === 'answer' ? 'CONVERSATIONAL' : 'FILE_WRITE',
+            confidence: ambiguous ? 0.5 : 0.95,
+            fileTarget: ['stale-selection', 'selected'].includes(stage) ? 'archive.md' : null,
+            question: ambiguous ? parsed.pending.question : null,
+            continuesPending: ['stale-selection', 'selected'].includes(stage) ? false : Boolean(parsed.pending),
+            requestedOperation: stage === 'answer' ? 'none' : 'write', responseScope: 'conversation' });
+        } else if (parsed?.input || parsed?.userInput || system.includes('"reply"')) content = JSON.stringify({ reply: answer, plan: null });
+        else content = answer;
+        responses.push({ stage, sequence: calls.length, content }); audit('provider-responses.json', responses);
+        res.end(JSON.stringify({ model, digest, done: true, done_reason: 'stop',
+          message: { role: 'assistant', content }, prompt_eval_count: 10, eval_count: 30 }));
+      } catch (error) { audit('provider-error.json', { message: error.message, stack: error.stack }); res.writeHead(500).end(JSON.stringify({ error: error.message })); }
+    });
+    await new Promise(resolve => provider.listen(0, '127.0.0.1', resolve));
+    let product, database, conversationId, project;
+    const stop = async () => {
+      if (!product) return;
+      const current = product; await stopProduct(current);
+      stops.push({ pid: current.child.pid, code: current.code, signal: current.signal, output: current.output });
+      product = null; audit('stops.json', stops);
+    };
+    const restart = async () => { await stop(); product = await startProduct(owned, `http://127.0.0.1:${provider.address().port}`, model); };
+    try {
+      product = await startProduct(owned, `http://127.0.0.1:${provider.address().port}`, model);
+      project = (await expectJson(product, 'POST', '/api/projects', { name: `c18-${pairAction}`, description: 'Owned CPU target-choice persistence regression' }, 201)).project;
+      conversationId = (await expectJson(product, 'POST', '/api/conversations', { title: `c18-${pairAction}`, project_id: project.id, mode: 'chat' }, 201)).conversation.id;
+      database = new Database(owned.database, { readonly: true });
+      const pending = () => JSON.parse(database.prepare('SELECT state_json FROM session_state WHERE session_id = ?').get(conversationId)?.state_json || '{}').pendingDecision;
+      const counts = () => Object.fromEntries(['tool_v1_requests', 'tool_v1_results', 'm2_effect_requests', 'm2_effect_results', 'm2_approval_grants'].map(table => [table, database.prepare(`SELECT count(*) AS n FROM ${table}`).get().n]));
+      const observe = label => {
+        const value = { label, pending: pending(), counts: counts(), project,
+          targetExists: Object.fromEntries(['photo.md', 'archive.md'].map(file => [file, existsSync(path.join(project.path, file))])),
+          messages: database.prepare('SELECT id, role, content, metadata FROM messages WHERE conversation_id = ? ORDER BY id').all(conversationId) };
+        observations.push(value); audit('observations.json', observations); return value;
+      };
+      const send = async (label, input) => {
+        stage = label;
+        const command = { contract: 'ConversationCommand', version: 1, requestId: randomBytes(16).toString('hex'), turnId: randomBytes(16).toString('hex'), conversationId, action: 'send', input };
+        const result = await requestJson(product, 'POST', '/api/chat', command);
+        turns.push({ stage, command, result }); audit('http-turns.json', turns); observe(label);
+        assert.equal(result.status, 200, JSON.stringify(result)); return result.data;
+      };
+      const noAdmission = value => {
+        assert.deepEqual(value.counts, { tool_v1_requests: 0, tool_v1_results: 0, m2_effect_requests: 0, m2_effect_results: 0, m2_approval_grants: 0 });
+        assert.deepEqual(value.targetExists, { 'photo.md': false, 'archive.md': false });
+      };
+      const choices = value => {
+        assert.equal(value.pending.metadata.fileSaveClarification.targetRequired, true);
+        assert.deepEqual(value.pending.metadata.fileSaveClarification.targetChoices, ['photo.md', 'archive.md']);
+      };
+      const answered = await send('answer', 'Napiš jednu větu o fotografii.');
+      assert.equal(answered.response.content, answer);
+      await send('initial', initial);
+      const first = observe('initial-state'); noAdmission(first);
+      const provenance = first.pending.metadata.fileSaveClarification;
+      assert.equal(provenance.projectId, project.id);
+      assert.equal(provenance.targetRequired, true);
+      const source = first.messages.find(row => row.id === provenance.sourceMessageId);
+      assert.equal(source.content, answer); assert.equal(source.role, 'assistant');
+      assert.equal(first.messages.find(row => row.id === provenance.userMessageId).content, initial);
+      await send('pair', pair);
+      const paired = observe('paired-before-restart'); noAdmission(paired);
+      // Preserve the actual RED history even when marker persistence is wrong.
+      await restart();
+      const restored = observe('paired-after-restart'); assert.deepEqual(restored, { ...paired, label: restored.label });
+      await send('ambiguous-yes', 'ano');
+      const yes = observe('ambiguous-yes-before-restart'); noAdmission(yes);
+      await restart();
+      const yesRestored = observe('ambiguous-yes-after-restart'); assert.deepEqual(yesRestored, { ...yes, label: yesRestored.label });
+      await send('write-yes', 'ano');
+      const badYes = observe('write-yes-after-restart'); noAdmission(badYes); choices(badYes);
+      choices(paired); choices(yesRestored);
+      assert.equal(badYes.pending.metadata.originalRequest, initial);
+      for (const value of [paired, restored, yes, yesRestored, badYes]) {
+        const meta = value.pending.metadata.fileSaveClarification;
+        for (const key of ['projectId', 'sourceMessageId', 'userMessageId']) assert.equal(meta[key], provenance[key]);
+      }
+      await send('stale-selection', 'archive.md');
+      const stale = observe('stale-model-target'); noAdmission(stale);
+      const proposal = await send('selected', 'archive.md');
+      const selected = observe('selected-before-approval');
+      assert.equal(proposal.response.metadata.approvalRequired, true, JSON.stringify(proposal));
+      const request = JSON.parse(database.prepare('SELECT request_json FROM tool_v1_requests WHERE request_id = ?').get(proposal.response.metadata.toolRequestId).request_json);
+      audit('final-proposal.json', { proposal, request });
+      assert.equal(request.toolId, 'file.write'); assert.deepEqual(request.input, { path: 'archive.md', content: answer });
+      assert.equal(selected.counts.tool_v1_requests, 1);
+      assert.equal(selected.counts.m2_effect_results, 0); assert.equal(selected.counts.m2_approval_grants, 0);
+      assert.deepEqual(selected.targetExists, { 'photo.md': false, 'archive.md': false });
+      await restart();
+      const final = observe('proposal-after-restart'); assert.deepEqual(final.counts, selected.counts);
+      assert.deepEqual(final.targetExists, selected.targetExists);
+      const lastSave = calls.filter(row => row.payload.format?.properties?.action).at(-1);
+      const evidence = JSON.parse(lastSave.payload.messages.at(-1).content);
+      assert.equal(evidence.pending.request, initial);
+      assert.deepEqual(evidence.answers.map(row => row.messageId), [provenance.sourceMessageId]);
+    } finally {
+      if (database) database.close();
+      await stop(); provider.closeAllConnections(); await new Promise(resolve => provider.close(resolve));
+      const copy = path.join(owned.artifacts, 'closed-db-copy'); mkdirSync(copy, { mode: 0o700 });
+      for (const suffix of ['', '-wal', '-shm']) if (existsSync(owned.database + suffix)) copyFileSync(owned.database + suffix, path.join(copy, 'c3.db' + suffix));
+      audit('cleanup.json', { stops, providerClosed: !provider.listening, databaseCopy: copy, ownedRoot: owned.root, originalDatabase: owned.database, liveInference: 0, approvalsSent: 0 });
+    }
+  });
+});
