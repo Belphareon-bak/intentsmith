@@ -6,7 +6,7 @@ fungující generované projekty. Produktový požadavek je v
 relevantní kontext s provenance, návrh, přesné schválení, atomické provedení
 a kontrola výsledku. Naměřený stav zůstává v
 [`SYSTEM-MAP.md`](../../SYSTEM-MAP.md) a
-[`completion trackeru`](../review/2026-09-30-COMPLETION-TRACKER.md).
+[`aktuálním deníku`](../WORK-PROGRESS.md).
 Tento WP nepřidává produktovou ani schvalovací autoritu.
 
 **Přijatý SQLite milník:** `CONTEXT_SOURCE_REVIEW_PASS / CONTINUATION_SOURCE_REVIEW_PASS / APPLICATION_ACCEPTANCE_REVIEW_PASS / MILESTONE_ACCEPTED`.
@@ -15,7 +15,13 @@ CLI revizi skutečná aplikace prošla celým omezeným backend/M2 kontraktem.
 Nezávislá fyzická přejímka přijala doložený scénář; historický osmigenerační
 FAIL platí. Release a instalované Studio mají samostatné brány.
 
-**Aktuální navazující práce, 4. 10.:** operátor zvolil nejprve změřit32k.
+**Pokračování 8. 10.:** operátor autorizoval jednu Fan dávku cumulative15
+(historical8 +repair4+CLI3) a HTTP první repair13, případně nejvýše14.
+Existující exact CODE32k repair4096 se nemění; příslušné WP nově vymezují
+manual guards, budget/provenance a kontrolu GPU cleanup. Starší allocation-only
+výsledky níže ani autorizace samy nepřijímají aplikaci. H1 čeká na GPU cleanup.
+
+**Historická navazující práce, 4. 10.:** operátor zvolil nejprve změřit32k.
 Na source `5cf1c36d` přesný Qwen3.8/provider `0.34.0-intentsmith.1` prošel
 19:10:15–19:10:34 UTC jedním krátkým32768/1 requestem: plná GPU rezidence,
 CPU spill0, minfree2512 MiB; vlastní unload a lease release ověřené.

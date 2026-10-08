@@ -11,6 +11,22 @@ Nezávislé omezené design/scope review na `92767d77`: receipt
 `ebcf2fad2bcd29363643ed3363c062979d7b9f54a55b3b57d0282f45e645e2fc`.
 V2 schema/native source a skutečné product controls mají následné review/gates.
 
+## Aktuální rozhodnutí operátora — 8. 10. 2026
+
+Operátor povolil „jeden maximálně dva pokusy“. ROOT provede nejprve jediný
+skutečný CODE repair routeru nad zachovaným FAILED návrhem z anchored@5,
+server jen digest-checked reusePrevious; cumulative12→13. Druhý pokus není
+implicitní retry: podle konkrétního výsledku prvního může dostat samostatný
+freeze, součet všech spotřebovaných volání nejvýše14. Žádná ruční app oprava,
+nová konverzace/owner/origin, fake FAILED, změna oracle ani modelu. Primary70,
+supplement17, přesný M2 approval/rollback/commit/restart zůstávají podmínkou.
+
+Nezbytná příprava patří do stávajících qualification helperů: @6 režim
+router1/serverretain, účet všech skutečných callů, úzká oprava runtime ref cap
+supplement17 a přezkoumaný GPU cleanup. Při chybě drain se lease nevydává za
+bezpečně uvolněnou. Historické FAIL/rozpočty níže se nepřepisují; starý max12
+je nyní doplněný tímto explicitním pokračováním. H1 je samostatně odložený.
+
 ## Výsledek a hranice
 
 Jeden skutečný focused test generované HTTP/SQLite aplikace: nový soukromý

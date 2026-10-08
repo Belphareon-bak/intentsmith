@@ -16,16 +16,22 @@ const sorted = values => [...values].sort();
 
 // Called by the existing owned relay BEFORE forwarding each actual request.
 // Counting only after a UI operation would not enforce the inference bound.
-export function createFanCallBudget({ d1Model, codeModel, entryMode = 'd1', historicalRows = [], continuationMode = null }) {
+export function createFanCallBudget({ d1Model, codeModel, entryMode = 'd1', historicalRows = [], consumedFailedRows = [], continuationMode = null }) {
   assert.ok(d1Model && codeModel, 'exact role model identities required');
   assert.ok(['d1', 'manual'].includes(entryMode));
-  assert.ok(continuationMode === null || continuationMode === 'failed-core4-cli3');
+  const afterOutputLimit = continuationMode === 'failed-core4-cli3-after-output-limit';
+  assert.ok(continuationMode === null || continuationMode === 'failed-core4-cli3' || afterOutputLimit);
   if (continuationMode) { assert.equal(entryMode, 'manual'); assert.equal(historicalRows.length, 4); }
+  assert.equal(consumedFailedRows.length, afterOutputLimit ? 4 : 0, 'only exact four spent incomplete-attempt calls');
+  consumedFailedRows.forEach((row, index) => assert.deepEqual(row,
+    { sequence: index + 5, role: 'CODE', model: codeModel, phase: 'core', kind: 'repair' }));
+  const maximumCode = afterOutputLimit ? 15 : 11;
+  const historicalCount = historicalRows.length + consumedFailedRows.length;
   const maximumD1 = entryMode === 'manual' ? 0 : 8;
-  const rows = copy(historicalRows); const operations = new Set(); let active = null;
-  if (rows.length) {
-    assert.equal(entryMode, 'manual'); assert.equal(rows.length, 4, 'only the preserved four-call pending core can resume');
-    rows.forEach((row, index) => assert.deepEqual(row, { sequence: index + 1, role: 'CODE', model: codeModel, phase: 'core', kind: 'initial' }));
+  const rows = copy([...historicalRows, ...consumedFailedRows]); const operations = new Set(); let active = null;
+  if (historicalRows.length) {
+    assert.equal(entryMode, 'manual'); assert.equal(historicalRows.length, 4, 'only the preserved four-call pending core can resume');
+    historicalRows.forEach((row, index) => assert.deepEqual(row, { sequence: index + 1, role: 'CODE', model: codeModel, phase: 'core', kind: 'initial' }));
     operations.add('core:initial'); // The saved initial draft cannot be regenerated.
   }
   return {
@@ -34,8 +40,8 @@ export function createFanCallBudget({ d1Model, codeModel, entryMode = 'd1', hist
       const key = phase + ':' + kind;
       if (continuationMode) {
         assert.ok(key === 'core:repair' || key === 'cli:initial', 'failed continuation permits only core4 repair then CLI3');
-        if (key === 'cli:initial') assert.equal(rows.filter(row => row.phase === 'core' && row.kind === 'repair').length, 4, 'all four core repair calls must precede CLI');
-        else assert.equal(rows.length, 4, 'one core repair immediately after historical seed');
+        if (key === 'cli:initial') assert.equal(rows.slice(historicalCount).filter(row => row.phase === 'core' && row.kind === 'repair').length, 4, 'all four new core repair calls must precede CLI');
+        else assert.equal(rows.length, historicalCount, 'one core repair immediately after historical seed');
       }
       assert.equal(operations.has(key), false, 'one operation of each kind per increment');
       operations.add(key); active = { phase, kind, d1: 0, code: 0 };
@@ -50,13 +56,14 @@ export function createFanCallBudget({ d1Model, codeModel, entryMode = 'd1', hist
       else {
         const maximum = continuationMode && active.phase === 'core' && active.kind === 'repair' ? 4
           : active.kind === 'repair' ? 2 : TARGETS[active.phase].length;
-        assert.ok(code < 11 && active.code < maximum, continuationMode ? 'CODE total11/operation bound' : 'CODE total11/repair2 bound'); active.code++;
+        assert.ok(code < maximumCode && active.code < maximum, continuationMode ? `CODE total${maximumCode}/operation bound` : 'CODE total11/repair2 bound'); active.code++;
       }
       const row = { sequence: rows.length + 1, role, model, phase: active.phase, kind: active.kind };
       rows.push(row); return copy(row);
     },
     stop() { active = null; },
-    snapshot() { return copy({ maximumD1, maximumCode: 11, ...(continuationMode ? { continuationMode } : {}), rows, active }); },
+    snapshot() { return copy({ maximumD1, maximumCode, ...(continuationMode ? { continuationMode } : {}),
+      ...(afterOutputLimit ? { consumedFailedCalls: consumedFailedRows.length } : {}), rows, active }); },
   };
 }
 

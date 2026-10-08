@@ -29,6 +29,65 @@ const VERSION = '0.34.0-intentsmith.1';
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const read = file => JSON.parse(fs.readFileSync(file, 'utf8'));
 const save = (root, name, value) => fs.writeFileSync(path.join(root, name), JSON.stringify(value, null, 2) + '\n', { mode: 0o600 });
+const CONSUMED_FAILED_ATTEMPT = Object.freeze({
+  packet: path.join(ARTIFACTS, 'fan-monitor-failed-5f6c3fb7-live-20261004-2127'),
+  resultSha256: '09817197b812cd85f0520243460bbc7c4c191f69711b634db2daf59d2cd46190',
+  providerRequestsSha256: '2fa8185806caecf1a702a752d2e17a1b1fffa0d16b2a985b2d34f4b1aea349cd',
+  callBudgetSha256: '407a1ef7f93d7a04c9cf5229fddbf1f826d83dbee1534f377148917c091ce7c2',
+  freezeSha256: 'd9a32bca30e22a7165c873635f393f53d94b64f13c6549f414d74ae56ff79879',
+});
+const continuationMode = freeze => freeze.resumeFailed
+  ? freeze.consumedFailedAttempt ? 'failed-core4-cli3-after-output-limit' : 'failed-core4-cli3' : null;
+const maximumCode = freeze => freeze.consumedFailedAttempt ? 15 : 11;
+
+// These four billed replies never produced a durable draft. Preserve their
+// exact failure evidence separately from requests eligible for dependency reuse
+// or model-to-preview proof. They still consume sequence numbers 5 through 8.
+export function readFanConsumedAttempt(freeze) {
+  if (freeze.consumedFailedAttempt === undefined) return null;
+  assert.deepEqual(freeze.consumedFailedAttempt, CONSUMED_FAILED_ATTEMPT, 'exact consumed failed attempt pins');
+  assert.ok(freeze.resumeFailed); assert.equal(freeze.entryMode, 'manual');
+  assert.equal(freeze.maximumCode, 15); assert.equal(freeze.maximumD1, 0);
+  assert.equal(freeze.codeContext, 32768); assert.equal(freeze.repairOutputTokens, 4096);
+  const packet = CONSUMED_FAILED_ATTEMPT.packet;
+  const pinned = [ ['result.json', 'resultSha256'], ['provider-requests.json', 'providerRequestsSha256'],
+    ['call-budget.json', 'callBudgetSha256'], ['frozen-input.json', 'freezeSha256'] ];
+  const values = Object.fromEntries(pinned.map(([name, key]) => {
+    const bytes = fs.readFileSync(path.join(packet, name));
+    assert.equal(sha(bytes), CONSUMED_FAILED_ATTEMPT[key], 'consumed failed attempt bytes:' + name);
+    return [name, JSON.parse(bytes)];
+  }));
+  const result = values['result.json'], oldFreeze = values['frozen-input.json'];
+  assert.equal(result.status, 'FAIL'); assert.match(result.error.message, /M2_CODE_DRAFT_OUTPUT_INCOMPLETE/);
+  assert.equal(result.sourceUnchanged, true); assert.equal(result.originalPacketUnchanged, true);
+  assert.equal(result.freezeSha256, CONSUMED_FAILED_ATTEMPT.freezeSha256);
+  assert.equal(oldFreeze.sourceSha, '5f6c3fb7400367bf25e96e47e32e1ef0a12dca43');
+  for (const key of ['model', 'digest', 'providerVersion', 'codeContext', 'entryMode', 'resumeFailed']) {
+    assert.deepEqual(freeze[key], oldFreeze[key], 'consumed attempt scope:' + key);
+  }
+  const calls = values['provider-requests.json'].filter(row => row.admission);
+  assert.equal(calls.length, 8); assert.equal(values['call-budget.json'].rows.length, 8);
+  assert.deepEqual(calls.map(row => row.admission), values['call-budget.json'].rows);
+  const initial = calls.slice(0, 4), consumed = calls.slice(4);
+  assert.ok(initial.every(row => row.physicalIdentityComplete && row.admission.kind === 'initial'));
+  consumed.forEach((row, index) => {
+    assert.deepEqual(row.admission, { sequence: index + 5, role: 'CODE', model: freeze.model, phase: 'core', kind: 'repair' });
+    assert.equal(row.body.options.num_ctx, 32768); assert.equal(row.body.options.num_predict, 2048);
+    assert.equal(row.terminal.done_reason, index === 3 ? 'length' : 'stop');
+    assert.equal(row.physicalIdentityComplete, index !== 3);
+  });
+  assert.equal(consumed[3].terminal.eval_count, 2048);
+  return { pins: { ...CONSUMED_FAILED_ATTEMPT }, initial,
+    rows: consumed.map(row => row.admission), consumedCalls: 4, materialReuseAllowed: false };
+}
+
+export function summarizeFanCalls(requests, freeze) {
+  const consumed = freeze.consumedFailedAttempt ? 4 : 0;
+  const materialized = freeze.resumePending || freeze.resumeFailed ? 4 : 0;
+  const actual = requests.filter(row => row.admission).length;
+  return { historical: materialized + consumed, new: actual - materialized, total: actual + consumed,
+    maximum: maximumCode(freeze), ...(consumed ? { materializedHistorical: materialized, consumedFailedHistorical: consumed } : {}) };
+}
 const safeEnv = () => Object.fromEntries(['PATH', 'LANG', 'LC_ALL', 'TZ', 'INTENTSMITH_STUDIO_DISPLAY', 'INTENTSMITH_STUDIO_XAUTHORITY']
   .filter(key => process.env[key] !== undefined).map(key => [key, process.env[key]]));
 function git(root, args) { return execFileSync('/usr/bin/git', args, { cwd: root, encoding: 'utf8', env: {
@@ -52,7 +111,8 @@ export function validateFanGpuAdmission(freeze) {
   if (freeze.gpuAdmission === undefined) return null;
   assert.deepEqual(freeze.gpuAdmission, FAILED32_GPU_ADMISSION, 'exact frozen failed32 GPU admission policy');
   assert.equal(freeze.entryMode, 'manual'); assert.equal(freeze.codeContext, 32768);
-  assert.equal(freeze.maximumD1, 0); assert.equal(freeze.maximumCode, 11);
+  assert.equal(freeze.maximumD1, 0); assert.equal(freeze.maximumCode, maximumCode(freeze));
+  readFanConsumedAttempt(freeze);
   assert.equal(freeze.model, MODEL); assert.equal(freeze.digest, DIGEST); assert.equal(freeze.providerVersion, VERSION);
   assert.equal(freeze.resumePending, undefined); validateFailedResumePins(freeze);
   return FAILED32_GPU_ADMISSION;
@@ -106,7 +166,9 @@ export function validateFreeze(freeze) {
     assert.equal(freeze.entryMode, 'manual'); validateFailedResumePins(freeze);
   }
   const entryMode = freeze.entryMode ?? 'd1'; assert.ok(['d1', 'manual'].includes(entryMode));
-  assert.equal(freeze.maximumCode, 11); assert.equal(freeze.maximumD1, entryMode === 'manual' ? 0 : 8);
+  assert.equal(freeze.maximumCode, maximumCode(freeze)); assert.equal(freeze.maximumD1, entryMode === 'manual' ? 0 : 8);
+  assert.equal(freeze.repairOutputTokens ?? 2048, freeze.consumedFailedAttempt ? 4096 : 2048);
+  readFanConsumedAttempt(freeze);
   validateFanGpuAdmission(freeze);
   if (freeze.resumePending) assert.equal(entryMode, 'manual', 'only the preserved explicit CODE journey may continue');
   if (entryMode === 'manual') {
@@ -173,7 +235,7 @@ export function classifyGeneration(body, freeze, admission, priorRequests = []) 
       properties: { replacements: { type: 'array', minItems: 1, maxItems: 16, items: { type: 'object', required: ['before', 'after'], additionalProperties: false,
         properties: { before: { type: 'string', minLength: 1 }, after: { type: 'string' } } } } } }
       : { type: 'object', required: ['afterContent'], additionalProperties: false, properties: { afterContent: { type: ['string', 'null'] } } };
-    assert.deepEqual(body.format, expectedFormat); assert.equal(body.options.num_predict, repair ? 2048 : 4096);
+    assert.deepEqual(body.format, expectedFormat); assert.equal(body.options.num_predict, repair ? freeze.repairOutputTokens ?? 2048 : 4096);
     const compiled = compileCodeDraftInput(admission.draft);
     const input = JSON.parse(user), target = typeof input.path === 'number' ? input.paths?.[input.path] : input.path;
     const index = compiled.changes.findIndex(change => change.path === target);
@@ -218,7 +280,8 @@ export function classifyGeneration(body, freeze, admission, priorRequests = []) 
 }
 
 export function createFanProviderProxy({ freeze, out, requests, onModelCall }) {
-  const budget = createFanCallBudget({ d1Model: freeze.model, codeModel: freeze.model, entryMode: freeze.entryMode ?? 'd1', historicalRows: requests.filter(row => row.admission).map(row => row.admission), continuationMode: freeze.resumeFailed ? 'failed-core4-cli3' : null }); let lastKey = null, stopped = false;
+  const consumed = readFanConsumedAttempt(freeze);
+  const budget = createFanCallBudget({ d1Model: freeze.model, codeModel: freeze.model, entryMode: freeze.entryMode ?? 'd1', historicalRows: requests.filter(row => row.admission).map(row => row.admission), consumedFailedRows: consumed?.rows ?? [], continuationMode: continuationMode(freeze) }); let lastKey = null, stopped = false;
   return createOwnedProviderRelay(async (incoming, outgoing, forward) => {
     let row;
     try {
@@ -236,7 +299,7 @@ export function createFanProviderProxy({ freeze, out, requests, onModelCall }) {
         const admission = read(path.join(out, 'admission.json'));
         assert.ok(['core', 'cli'].includes(admission.phase) && ['initial', 'repair'].includes(admission.kind));
         if (admission.kind === 'repair') {
-          const { selection, selectionSha256 } = readRepairSelection(out, admission.phase, admission.repairSelection, freeze.resumeFailed ? 'failed-core4-cli3' : null);
+          const { selection, selectionSha256 } = readRepairSelection(out, admission.phase, admission.repairSelection, continuationMode(freeze));
           assert.equal(selectionSha256, admission.repairSelection.selectionSha256, 'selection cannot drift after receipt');
           assert.deepEqual(selection.targets, admission.repairSelection.targets);
         }
@@ -362,8 +425,101 @@ export async function stopOwnedRuntime(state, gracefulStop, label, bounds = {}) 
   return { label, ...join, gracefulError, status: !join.closed ? 'OWNED_STOP_UNRESOLVED' : gracefulError || join.termSent || join.killSent ? 'OWNED_STOP_FAILED_JOINED' : 'OWNED_STOP_PASS' };
 }
 
+// Cleanup authority is captured under the existing lease before any model request.
+// No process is signalled here; a disappearing PID is an unknown, nonempty sample.
+function gpuCleanupProcess(pid) {
+  const stat = () => { const raw = fs.readFileSync(`/proc/${pid}/stat`, 'utf8'); const fields = raw.slice(raw.lastIndexOf(')') + 2).split(' '); return { ppid: Number(fields[1]), startTicks: fields[19] }; };
+  try {
+    const before = stat(), uid = fs.statSync(`/proc/${pid}`).uid;
+    const argv = fs.readFileSync(`/proc/${pid}/cmdline`).toString().split('\0').filter(Boolean);
+    assert.deepEqual(stat(), before, 'cleanup process lifetime changed');
+    return { pid, ...before, uid, argv };
+  } catch (error) { if (error.code === 'ENOENT') return { pid, vanished: true }; throw error; }
+}
+const gpuCleanupIO = {
+  process: gpuCleanupProcess,
+  lease: lease => read(path.join(lease.lockPath, 'owner.json')),
+  compute: () => execFileSync('/usr/bin/nvidia-smi', ['--query-compute-apps=pid,process_name,used_memory', '--format=csv,noheader,nounits'], { encoding: 'utf8', timeout: 5000, maxBuffer: 65536 }),
+  api: async (route, body) => {
+    const response = await fetch('http://127.0.0.1:11434' + route, { ...(body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}), signal: AbortSignal.timeout(body ? 30000 : 5000) });
+    assert.equal(response.status, 200, 'cleanup provider HTTP status'); return response.json();
+  },
+  now: () => Date.now(), sleep: ms => new Promise(resolve => setTimeout(resolve, ms)),
+};
+export function captureGpuCleanupOwner(model, digest, version) {
+  assert.match(version, /^[\w.-]+$/); assert.match(model, /^[\w.-]+:[\w.-]+$/); assert.match(digest, /^[a-f0-9]{64}$/);
+  const pid = Number(execFileSync('/usr/bin/systemctl', ['show', 'ollama.service', '--property=MainPID', '--value'], { encoding: 'utf8', timeout: 5000 }).trim());
+  assert.ok(Number.isSafeInteger(pid) && pid > 1);
+  const daemon = gpuCleanupProcess(pid), prefix = `/opt/intentsmith/ollama/${version}`;
+  assert.deepEqual(daemon.argv, [prefix + '/bin/ollama', 'serve']); assert.ok(daemon.uid > 0 && daemon.ppid === 1);
+  const [name, tag] = model.split(':'), root = '/mnt/vi7000/ollama/models';
+  const bytes = fs.readFileSync(`${root}/manifests/registry.ollama.ai/library/${name}/${tag}`);
+  assert.equal(sha(bytes), digest, 'cleanup exact model manifest');
+  const blobs = JSON.parse(bytes).layers.filter(row => row.mediaType === 'application/vnd.ollama.image.model').map(row => { assert.match(row.digest, /^sha256:[a-f0-9]{64}$/); return root + '/blobs/' + row.digest.replace(':', '-'); });
+  assert.equal(blobs.length, 1, 'one exact model blob');
+  return { daemon, modelBlob: blobs[0], server: prefix + '/lib/ollama/llama-server', discovery: [prefix + '/bin/ollama', 'gpu-discover', '--lib-dir', prefix + '/lib/ollama', '--lib-dir', prefix + '/lib/ollama/cuda_v13'] };
+}
+export async function finishOwnedGpuCleanup({ lease, owner, model, digest, loaded, cleanupSettled, cleanupFiles = () => {} }, io = gpuCleanupIO) {
+  const receipt = { status: 'FAIL', leaseReleased: false, unloaded: false, observations: [], emptySamples: 0 };
+  if (!lease) return { ...receipt, status: 'NO_LEASE_ACQUIRED' };
+  const checkOwner = () => {
+    assert.equal(lease.lockPath, '/tmp/intentsmith-gpu-evaluation.lock', 'canonical GPU lease');
+    assert.equal(io.lease(lease).token, lease.owner.token, 'same owned GPU lease');
+    assert.ok(owner?.daemon, 'pre-load cleanup authority required');
+    assert.deepEqual(io.process(owner.daemon.pid), owner.daemon, 'same provider lifetime');
+  };
+  const workers = new Map();
+  const snapshot = async draining => {
+    checkOwner(); const row = { at: new Date(io.now()).toISOString(), draining }; receipt.observations.push(row);
+    row.ps = await io.api('/api/ps'); assert.ok(Array.isArray(row.ps.models), 'known provider resident models');
+    assert.ok(row.ps.models.length <= 1 && row.ps.models.every(m => m.name === model && m.digest === digest), 'foreign model prevents cleanup');
+    row.computeRaw = io.compute(); assert.equal(typeof row.computeRaw, 'string'); row.compute = [];
+    for (const line of row.computeRaw.trim().split('\n').filter(Boolean)) {
+      const match = /^(\d+)\s*,/.exec(line); assert.ok(match, 'known compute PID');
+      const pid = Number(match[1]); assert.ok(Number.isSafeInteger(pid) && pid > 1);
+      const identity = io.process(pid); row.compute.push(identity);
+      if (identity.vanished) {
+        assert.ok(draining, 'unknown process prevents unload'); continue; // UNKNOWN, never an empty/owned observation.
+      }
+      assert.equal(identity.ppid, owner.daemon.pid, 'foreign compute parent'); assert.equal(identity.uid, owner.daemon.uid, 'foreign compute UID');
+      if (identity.argv?.length === 0) { assert.ok(draining, 'unknown process prevents unload'); continue; }
+      if (identity.argv[1] === 'gpu-discover') {
+        assert.ok(draining, 'discovery prevents unload'); assert.deepEqual(identity.argv, owner.discovery, 'exact owned discovery command');
+      } else if (draining) assert.deepEqual(identity, workers.get(identity.pid), 'no new compute worker during drain');
+      else {
+        assert.equal(identity.argv[0], owner.server, 'exact owned model worker');
+        assert.equal(identity.argv.filter(arg => arg === '--model').length, 1);
+        assert.equal(identity.argv[identity.argv.indexOf('--model') + 1], owner.modelBlob, 'exact owned model blob');
+        workers.set(identity.pid, identity);
+      }
+    }
+    checkOwner(); return row;
+  };
+  try {
+    assert.equal(cleanupSettled, true, 'application/relay cleanup must settle first');
+    const before = await snapshot(false);
+    if (before.ps.models.length) {
+      assert.equal(loaded, true, 'no unload without this run forwarding a model request'); checkOwner();
+      receipt.unloadResponse = await io.api('/api/generate', { model, keep_alive: 0, stream: false });
+      assert.equal(receipt.unloadResponse.done, true, 'terminal unload response');
+      assert.equal(receipt.unloadResponse.done_reason, 'unload', 'explicit unload terminal'); receipt.unloaded = true;
+    }
+    const deadline = io.now() + 30000;
+    while (receipt.emptySamples < 3) {
+      assert.ok(io.now() < deadline, 'GPU cleanup drain timeout');
+      const row = await snapshot(true); assert.ok(io.now() < deadline, 'GPU cleanup drain timeout');
+      receipt.emptySamples = row.ps.models.length === 0 && row.compute.length === 0 ? receipt.emptySamples + 1 : 0;
+      if (receipt.emptySamples < 3) await io.sleep(1000);
+    }
+    cleanupFiles(); checkOwner(); receipt.leaseReleased = lease.release();
+    assert.equal(receipt.leaseReleased, true, 'owned lease release required'); receipt.status = 'PASS';
+  } catch (error) { receipt.error = { message: error.message, code: error.code ?? null }; }
+  return receipt;
+}
+
+
 export function validateRepairSelection(selection, { phase, failedLifecycleId, planDigest }, continuationMode = null) {
-  assert.ok(continuationMode === null || continuationMode === 'failed-core4-cli3');
+  assert.ok(continuationMode === null || continuationMode === 'failed-core4-cli3' || continuationMode === 'failed-core4-cli3-after-output-limit');
   if (continuationMode) assert.equal(phase, 'core');
   assert.ok(selection && Object.getPrototypeOf(selection) === Object.prototype && !Array.isArray(selection), 'selection must be a JSON record');
   assert.deepEqual(Object.keys(selection).sort(), ['failedLifecycleId', 'phase', 'planDigest', 'reason', 'targets']);
@@ -538,7 +694,8 @@ export function assertFailedResumeView(current, saved) {
   assert.equal(current.result.focusedTest.terminalStatus, 'failed'); assert.equal(current.result.rollback.status, 'succeeded');
 }
 export function prepareFanFailedResume(freeze, out) {
-  validateFailedResumePins(freeze); assert.equal(freeze.entryMode, 'manual'); assert.equal(freeze.maximumD1, 0); assert.equal(freeze.maximumCode, 11);
+  validateFailedResumePins(freeze); assert.equal(freeze.entryMode, 'manual'); assert.equal(freeze.maximumD1, 0); assert.equal(freeze.maximumCode, maximumCode(freeze));
+  const consumed = readFanConsumedAttempt(freeze);
   assert.equal(freeze.codeContext, 32768); assert.equal(path.dirname(out), ARTIFACTS);
   const packet = freeze.resumeFailed.packet; assert.notEqual(packet, out);
   const snapshot = snapshotFanPendingPacket(packet); assert.equal(sha(JSON.stringify(snapshot)), FAILED_FAN_SNAPSHOT);
@@ -552,7 +709,8 @@ export function prepareFanFailedResume(freeze, out) {
   assert.deepEqual(preview.view, phase.preview); assert.deepEqual(preview.view.diff, terminal.diff);
   assert.deepEqual(preview.submittedDraft, read(path.join(packet, 'core-initial-actual-composed-draft.json')));
   assert.deepEqual(freeze.manualDrafts, priorFreeze.manualDrafts);
-  for (const key of ['model', 'digest', 'providerVersion', 'entryMode', 'd1Context', 'maximumD1', 'maximumCode', 'inputs']) assert.deepEqual(freeze[key], priorFreeze[key]);
+  for (const key of ['model', 'digest', 'providerVersion', 'entryMode', 'd1Context', 'maximumD1', 'inputs']) assert.deepEqual(freeze[key], priorFreeze[key]);
+  assert.equal(priorFreeze.maximumCode, 11);
   for (const [relative, row] of Object.entries(freeze.operatorFiles)) assert.equal(row.sha256, priorFreeze.operatorFiles[relative].sha256, 'oracle is immutable:' + relative);
   const origin = terminal.plan.origin; assert.deepEqual(origin, { surface: 'studio', sessionId: journey.conversationId, conversationId: journey.conversationId, projectId: journey.projectId });
   assert.deepEqual(terminal.plan.project.canonicalRoot, journey.project);
@@ -561,11 +719,12 @@ export function prepareFanFailedResume(freeze, out) {
   const sourceRuntime = path.join(packet, 'runtime-resume'); assert.equal(sha(fs.readFileSync(path.join(sourceRuntime, 'm1.sqlite'))), FAILED_FAN_DATABASE);
   const requests = read(path.join(packet, 'provider-requests.json')), rows = requests.filter(row => row.admission);
   assert.equal(rows.length, 4); assert.ok(rows.every(row => row.role === 'CODE' && row.physicalIdentityComplete && row.admission.phase === 'core' && row.admission.kind === 'initial'));
-  createFanCallBudget({ d1Model: freeze.model, codeModel: freeze.model, entryMode: 'manual', historicalRows: rows.map(row => row.admission), continuationMode: 'failed-core4-cli3' });
+  if (consumed) assert.deepEqual(rows, consumed.initial, 'materialized historical calls match consumed-attempt ancestry');
+  createFanCallBudget({ d1Model: freeze.model, codeModel: freeze.model, entryMode: 'manual', historicalRows: rows.map(row => row.admission), consumedFailedRows: consumed?.rows ?? [], continuationMode: continuationMode(freeze) });
   assert.equal(assessFanModelToPreview(requests, journey).observedCode, 4);
   const selection = { phase: 'core', failedLifecycleId: terminal.lifecycleId, planDigest: terminal.planDigest,
     targets: [...TARGETS.core], reason: freeze.coreRepairDraft.instruction };
-  validateRepairSelection(selection, selection, 'failed-core4-cli3');
+  validateRepairSelection(selection, selection, continuationMode(freeze));
   makeManualRevision(preview.submittedDraft, terminal, selection, { phase: 'core', nodeBinary: freeze.nodeBinary, frozenCoreRepairDraft: freeze.coreRepairDraft });
   const copyRoot = path.join(out, 'runtime-resume'); fs.cpSync(sourceRuntime, copyRoot, { recursive: true, preserveTimestamps: true, errorOnExist: true, force: false });
   fs.chmodSync(copyRoot, fs.statSync(sourceRuntime).mode & 0o7777);
@@ -604,10 +763,11 @@ export function prepareFanFailedResume(freeze, out) {
   assert.deepEqual(snapshotFanPendingPacket(packet), snapshot, 'original failed packet immutable');
   const selectionPath = path.join(out, 'core-repair-selection.json'); assert.equal(fs.existsSync(selectionPath), false);
   save(out, 'core-repair-selection.json', selection);
-  const { selectionSha256 } = readRepairSelection(out, 'core', selection, 'failed-core4-cli3');
+  const { selectionSha256 } = readRepairSelection(out, 'core', selection, continuationMode(freeze));
   const boundSelection = { ...selection, selectionSha256 }; save(out, 'core-repair-selection-frozen.json', boundSelection);
   return { kind: 'failed', packet, snapshot, runtimeRoot, sourceRuntime, copyRoot, journey, preview, terminal,
-    selection: boundSelection, requests, frozen, originalModelCalls: 4, remainingModelCalls: 7 };
+    selection: boundSelection, requests, frozen, originalModelCalls: 4 + (consumed?.consumedCalls ?? 0), remainingModelCalls: 7,
+    ...(consumed ? { consumedFailedAttempt: { pins: consumed.pins, consumedCalls: 4, materialReuseAllowed: false } } : {}) };
 }
 
 async function inside(configPath) {
@@ -688,7 +848,8 @@ async function inside(configPath) {
     await start();
     if (cfg.resume) {
       projectId = cfg.resume.journey.projectId; conversationId = cfg.resume.journey.conversationId; frozen = cfg.resume.frozen;
-      evidence.resumedFrom = { packet: cfg.resume.packet, lifecycleId: cfg.resume.preview.view.lifecycleId, planDigest: cfg.resume.preview.view.planDigest, originalModelCalls: 4, remainingModelCalls: 7, kind: cfg.resume.kind ?? 'pending' };
+      evidence.resumedFrom = { packet: cfg.resume.packet, lifecycleId: cfg.resume.preview.view.lifecycleId, planDigest: cfg.resume.preview.view.planDigest, originalModelCalls: cfg.resume.originalModelCalls, remainingModelCalls: 7, kind: cfg.resume.kind ?? 'pending',
+        ...(cfg.resume.consumedFailedAttempt ? { consumedFailedAttempt: cfg.resume.consumedFailedAttempt } : {}) };
       if (cfg.resume.kind === 'failed') {
         const old = cfg.resume.terminal, origin = old.plan.origin;
         const route = '/api/m2/lifecycle/status?' + new URLSearchParams({ id: old.lifecycleId, surface: origin.surface, sessionId: origin.sessionId, conversationId: origin.conversationId, projectId: String(projectId) });
@@ -852,10 +1013,13 @@ async function parent(freezePath, freezeSha, out) {
   try {
     if (freeze.resumePending || freeze.resumeFailed) {
       resume = freeze.resumeFailed ? prepareFanFailedResume(freeze, out) : prepareFanPendingResume(freeze, out); requests.push(...JSON.parse(JSON.stringify(resume.requests)));
-      save(out, 'resume-provenance.json', { packet: resume.packet, snapshotSha256: (freeze.resumeFailed ?? freeze.resumePending).snapshotSha256, mainDatabaseSha256: (freeze.resumeFailed ?? freeze.resumePending).mainDatabaseSha256, originalModelCalls: 4, remainingModelCalls: 7, lifecycleId: resume.preview.view.lifecycleId, planDigest: resume.preview.view.planDigest });
+      save(out, 'resume-provenance.json', { packet: resume.packet, snapshotSha256: (freeze.resumeFailed ?? freeze.resumePending).snapshotSha256, mainDatabaseSha256: (freeze.resumeFailed ?? freeze.resumePending).mainDatabaseSha256, originalModelCalls: resume.originalModelCalls, remainingModelCalls: 7, lifecycleId: resume.preview.view.lifecycleId, planDigest: resume.preview.view.planDigest,
+        ...(resume.consumedFailedAttempt ? { consumedFailedAttempt: resume.consumedFailedAttempt } : {}) });
     }
+    evidence.modelCalls = summarizeFanCalls(requests, freeze);
     assert.equal(interrupted, null, 'interrupted before owned GPU operation');
     lease = acquireGpuEvaluationLock({ command: 'fan actual D1 Studio2 CODE two-increment qualification' });
+    evidence.cleanupOwner = captureGpuCleanupOwner(freeze.model, freeze.digest, freeze.providerVersion);
     const gpuPolicy = validateFanGpuAdmission(freeze);
     const gpuReadiness = { policy: gpuPolicy ?? 'LEGACY_FREE20000_UTIL30', leaseOwner: lease.owner, samples: [], identity: null };
     evidence.gpuReadiness = gpuReadiness;
@@ -879,7 +1043,7 @@ async function parent(freezePath, freezeSha, out) {
     save(out, 'gpu-readiness.json', gpuReadiness);
     assert.equal(gpuReadiness.identity.digest, freeze.digest); assert.equal(gpuReadiness.identity.providerVersion, freeze.providerVersion);
     socketRoot = fs.mkdtempSync('/tmp/is-fan-journey-'); fs.chmodSync(socketRoot, 0o700); const socketPath = path.join(socketRoot, 'provider.sock');
-    proxy = createFanProviderProxy({ freeze, out, requests, onModelCall: () => { loaded = true; } });
+    proxy = createFanProviderProxy({ freeze, out, requests, onModelCall: () => { loaded = true; evidence.modelCalls = summarizeFanCalls(requests, freeze); } });
     await new Promise(resolve => proxy.server.listen(socketPath, resolve)); fs.chmodSync(socketPath, 0o600);
     const runtimePaths = resume ? Object.fromEntries(Object.entries({ root: '', home: 'home', xdgConfig: 'xdg-config', xdgCache: 'xdg-cache', xdgData: 'xdg-data', xdgState: 'xdg-state', temp: 'tmp', npmCache: 'npm-cache', projects: 'home/projects', artifacts: 'artifacts', database: 'm1.sqlite' }).map(([key, relative]) => [key, path.join(resume.runtimeRoot, relative)])) : null;
     save(out, 'inside-configuration.json', { freeze, source, socketPath, ...(resume ? { resume: { ...resume, runtimePaths } } : {}) }); save(out, 'frozen-input.json', freeze);
@@ -893,14 +1057,16 @@ async function parent(freezePath, freezeSha, out) {
     const exit = await new Promise((resolve, reject) => { child.once('error', reject); child.once('close', (code, signal) => resolve({ code, signal })); });
     evidence.child = { ...exit, ...output }; assert.equal(exit.code, 0, output.stderr); assert.equal(exit.signal, null);
     const actual = requests.filter(row => row.admission);
-    evidence.modelCalls = { historical: resume ? 4 : 0, new: actual.length - (resume ? 4 : 0), total: actual.length, maximum: 11 };
-    assert.ok(actual.length <= 11); if (resume?.kind === 'failed') assert.equal(actual.length, 11, 'exact historical4+coreRepair4+CLI3 complete');
+    evidence.modelCalls = summarizeFanCalls(requests, freeze);
+    assert.ok(evidence.modelCalls.total <= maximumCode(freeze));
+    if (resume?.kind === 'failed') { assert.equal(actual.length, 11, 'exact four materialized historical plus seven new calls complete'); assert.equal(evidence.modelCalls.total, maximumCode(freeze)); }
     assert.ok(actual.length > 0 && actual.every(row => row.physicalIdentityComplete));
     assert.ok(actual.filter(row => row.role === 'CODE').length >= 7);
     if (freeze.entryMode === 'manual') assert.equal(actual.filter(row => row.role !== 'CODE').length, 0);
     else assert.ok(actual.filter(row => row.role === 'D1').length >= 2);
     const journey = read(path.join(out, 'fan-journey.json'));
     assert.equal(journey.status, 'PHYSICAL_PASS_REVIEW_PENDING');
+    readFanConsumedAttempt(freeze); // The old incomplete attempt remains pinned, never relabeled as preview evidence.
     evidence.modelToPreview = assessFanModelToPreview(requests, journey); evidence.status = 'PHYSICAL_PASS_REVIEW_PENDING';
   } catch (error) { evidence.status = 'FAIL'; evidence.error = { message: error.message, stack: error.stack }; }
   finally {
@@ -913,13 +1079,17 @@ async function parent(freezePath, freezeSha, out) {
     if (interrupted) { evidence.status = 'FAIL'; evidence.interruptedBy = interrupted; }
     let settled = proxy === null;
     try { if (proxy) { evidence.proxyCleanup = await proxy.close(); settled = true; } } catch (error) { evidence.status = 'FAIL'; evidence.proxyCleanupError = error.message; }
-    if (loaded && settled && childSettled) try {
-      const ps = await upstream('/api/ps'); assert.ok(ps.models.every(row => row.name === freeze.model && row.digest === freeze.digest), 'foreign model prevents unloading');
-      const response = await fetch('http://127.0.0.1:11434/api/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: freeze.model, keep_alive: 0 }), signal: AbortSignal.timeout(30000) }); assert.ok(response.ok); await response.text(); evidence.ownedModelUnloaded = true;
-    } catch (error) { evidence.status = 'FAIL'; evidence.unloadError = error.message; }
-    if (settled && childSettled) { if (socketRoot) fs.rmSync(socketRoot, { recursive: true, force: true }); if (lease) evidence.leaseReleased = lease.release(); }
-    else { evidence.status = 'FAIL'; evidence.leaseRetainedForUnsettledRequestsOrChild = lease !== null; }
+    let applicationCleanupSettled = !child;
+    if (childSettled && child) try {
+      const journey = read(path.join(out, 'fan-journey.json'));
+      applicationCleanupSettled = !journey.cleanupError && !journey.relayCleanupError && (journey.ownedStops || []).every(row => row.status === 'OWNED_STOP_PASS');
+    } catch (error) { evidence.applicationCleanupError = error.message; }
+    evidence.gpuCleanup = await finishOwnedGpuCleanup({ lease, owner: evidence.cleanupOwner, model: freeze.model, digest: freeze.digest, loaded,
+      cleanupSettled: settled && childSettled && applicationCleanupSettled && !evidence.childTermination?.killSent,
+      cleanupFiles: () => { if (socketRoot) fs.rmSync(socketRoot, { recursive: true, force: true }); } });
+    evidence.ownedModelUnloaded = evidence.gpuCleanup.unloaded && evidence.gpuCleanup.status === 'PASS';
+    evidence.leaseReleased = evidence.gpuCleanup.leaseReleased;
+    if (lease && evidence.gpuCleanup.status !== 'PASS') { evidence.status = 'FAIL'; evidence.leaseRetainedForUnsettledRequestsOrChild = !evidence.leaseReleased; }
     if (resume) {
       try { evidence.originalPacketUnchanged = JSON.stringify(snapshotFanPendingPacket(resume.packet)) === JSON.stringify(resume.snapshot); }
       catch (error) { evidence.originalPacketUnchanged = false; evidence.originalPacketError = error.message; }

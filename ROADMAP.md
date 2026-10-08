@@ -84,17 +84,20 @@ Nový oracle FAIL po7 HTTP: GET /items/1=400 místo200; modelová regrese ID seg
 Rollback2/2 obnovil všechny4 zdroje/Git1856920 clean; původních257 M2 řádků/46 immutable refs zachovaných, owned cleanup PASS.
 Closed FAIL review4279065c…4c6afa9/manifest51; app commit/persistence/supplement17 NOT_REACHED, aplikace NOT_ACCEPTED.
 Post helper CPU6 rozlišuje immutable evidence a inode atomicky nahrazených živých zdrojů. Další inference se nespouští.
-Doporučení: jeden genuine CODE repair routeru nad skutečným FAILED návrhem; budget12→13 vyžaduje nové rozhodnutí podle WP.
-Fan 8/11, oracle 8 PASS/6 FAIL; repair4+CLI3/cumulative15 čeká na samostatnou odpověď.
+Operátor 8. 10. schválil HTTP jeden, nejvýše dva další pokusy: genuine repair routeru
+12→13, případně podle výsledku nejvýše14; nové freeze a předchozí oracle zachované.
+Fan má schválenou jednu dávku historical8 +repair4+CLI3, cumulative15.
+Před inferencí se opraví prokázané budget/cleanup nedostatky existujících helperů.
 32k krátce změřené fullGPU/min free 2 512 MiB; celé okno ani kvalita aplikace tím nepřijaté.
 Classifier→D1 CPU 44 +parser 24/review PASS; živý přirozený vstup a fyzická ovladatelnost IDE/M2 otevřené.
 
-Nynější úkol: návaznost souborového požadavku podle C10 s negativními kontrolami
-pro cancel, nové zadání a jiný projekt. C9/C11/C12 CPU přejímka je uzavřená.
+Nynější úkol: kontrola GPU cleanup a autorizované HTTP/Fan pokračování.
+Navazuje souborový požadavek podle C10 s kontrolami cancel/nového zadání/jiného
+projektu; C9/C11/C12 CPU přejímka je uzavřená a není koncem produktové práce.
 C10 izoloval chybu modelové návaznosti a následnou ztrátu pending; další oprava
 nesmí ignorovat změnu zadání či cancel; C6 NO_GO a C7 živý FAIL zůstávají. C5 retry zastaven,
 před návratem jiná omezená strategie; C3/C4 přezkoumány,
-H1 čeká na custody/dešifrovací krok operátora. Další:
+H1 je podle operátora 8. 10. odložený do kontroly GPU cleanup. Další:
 HTTP/Fan v přijatých budgetech → IDE/BE/expertise/workers → M5/M6.
 M5 je 8/9/privacy changes required; retain_and_rotate zvolené, signed 8 categories+history chybí.
 CustodyA/B doložená; druhá operator offline kopie/reviewer recovery/13 signed/24h/throughput/Gate0/demo otevřené.

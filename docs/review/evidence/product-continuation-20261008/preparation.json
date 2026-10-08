@@ -1,0 +1,66 @@
+{
+  "kind": "C13ReviewedPreparation@1",
+  "baseSha": "04d04ff0c5a2772fcf890e589defa2e5450c0b6b",
+  "status": "SOURCE_AND_CPU_ACCEPTED_LIVE_NOT_RUN",
+  "release": "NOT_ACCEPTED",
+  "checks": {
+    "cleanup": 22,
+    "http": 38,
+    "fan": 16,
+    "artifactValidation": 160,
+    "registryPrograms": 596,
+    "moduleEdges": 1514,
+    "newModuleEdges": 0
+  },
+  "evidence": {
+    "gpu": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c13-authorized-product-continuation-20261008/gpu-independent-review/REVIEW.json",
+      "sha256": "b24f2a6c21248d20afd59dadee315442a54f3ae74d1138ecc9ef25b08f5db60d"
+    },
+    "http": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c13-authorized-product-continuation-20261008/http-independent-review/INTEGRATION-REVIEW.json",
+      "sha256": "8aabec25bd3fde7c64d82863da49e5b480e5ee716376ce77d5e9dee04d9fb55f"
+    },
+    "fan": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c13-authorized-product-continuation-20261008/fan-independent-review/INTEGRATED-REVIEW.json",
+      "sha256": "1f264ea4fa0fa3eccb262a39ba0739e81a8c25f79c3b31bafccf8fbe7f69a831"
+    },
+    "rootCleanup": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c13-authorized-product-continuation-20261008/root-cleanup-check/RESULT.json",
+      "sha256": "9d2e62881abc2b8afcbf5a3037983355fcd1c0776abfbcd202659a03ba17b825"
+    }
+  },
+  "source": {
+    "scripts/manual/run-http-items-journey.mjs": "4d24ba3fb7c922af8c2f821852364024446df9c4a5fef2ca5984908d0f25f563",
+    "scripts/manual/http-items-studio-controller.mjs": "5c1133d00fae50a53a2966046e6a99646acc4a4369a8721717ec2b72aee45b5b",
+    "scripts/manual/run-fan-monitor-journey.mjs": "3cb2b68b9c17de8266816f41962df8efe9ca13821545f2c57c576ab659335a00",
+    "scripts/manual/fan-monitor-studio2-controller.mjs": "4461859412877e47fb38372ec9f982b72b17e65db4b01150ef00f10a87e59075"
+  },
+  "additionalChecksEvidence": {
+    "authority": "ROOT-observed tool output",
+    "retainedRawLog": false,
+    "commands": [
+      {
+        "argv": [
+          "/home/belphareon/.nvm/versions/node/v24.21.0/bin/node",
+          "tests/artifact-validation.test.js"
+        ],
+        "exit": 0
+      },
+      {
+        "argv": [
+          "/home/belphareon/.nvm/versions/node/v24.21.0/bin/node",
+          "scripts/validate-test-registry.js"
+        ],
+        "exit": 0
+      },
+      {
+        "argv": [
+          "/home/belphareon/.nvm/versions/node/v24.21.0/bin/node",
+          "scripts/module-boundary-ratchet.mjs"
+        ],
+        "exit": 0
+      }
+    ]
+  }
+}

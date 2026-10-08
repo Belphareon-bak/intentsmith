@@ -1,6 +1,25 @@
 # Project collaboration and import completion
 
-## Current continuation authority — 4 October 2026
+## Current operator continuation — 8 October 2026
+
+Operator authorized “Fan — 15, one repair batch”. Current ROOT04d04ff0 may
+execute historical8 + one core repair4 + CLI3, at most15 CODE calls overall.
+The previous four5f6 calls count as spent even though no durable revision was
+created. Their in-memory outputs must not become material dependencies.
+Continue from a new exact copy of the original b1 FAILED runtime and bind the
+separate failed-attempt ledger. Preserve owner/origin/workspace, protected
+oracles, fresh exact approval, rollback and commit/restart evidence.
+
+Use the existing captured CODE32768 profile with repair/CLI output4096; this
+product behavior is already implemented. Only update the manual guards/freeze
+that still encode2048 and historical4/max11. No D1/classifier, extra repair or
+retry after a phase failure. A reviewed drain boundary must confirm empty
+resident models and compute before releasing the owned lease. CPU/source
+review is preparation; actual generated-app and cleanup review remain required.
+H1 stays deferred until the GPU cleanup control, per the same operator message.
+The dated max11 and2048 statements below describe prior runs, not this new cap.
+
+## Historical continuation authority — 4 October 2026
 
 Operator explicitly approved the completion plan and natural classifier → D1
 entry. ROOT now owns only that project-planning boundary in

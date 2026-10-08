@@ -8,6 +8,61 @@ a M6 patří témuž koordinátorovi. Hunt a druhý posudek jeho matice zůstáv
 CHAT checkout slouží následně jen jako vlastní sériový běhový checkout zmrazených kandidátů.
 **Release NOT_ACCEPTED. HTTP API FAIL. Fan FAIL. Mobil čeká na stabilní IDE/BE.**
 
+## Pokračování schválené operátorem 8. 10. 2026
+
+Operátor výslovně požaduje pokračovat za předchozí CPU checkpoint a rozhodl:
+„s H1 bych počkal, až bude kontrola úklidu GPU, HTTP bych dal jeden maximálně dva pokusy;
+fan — 15 jedna dávka oprav“. Tyto rozpočty již nečekají na další potvrzení.
+
+- H1: odloženo do přezkoumané kontroly GPU cleanup; žádné dešifrování ani sběr.
+  Prázdné compute/ps vzorky samy nepotvrzují schopnost uklidit další skutečný běh.
+- HTTP: první genuine CODE repair routeru nad skutečným FAILED návrhem, server
+  pouze exact reusePrevious. Historie12 → nejvýše13 v prvním pokusu. Druhý pokus
+  je rezerva podle konkrétního výsledku prvního, nejvýše14 celkem; žádný automatický
+  retry nebo reset účetnictví. Stejný owner/origin/workspace, chráněný oracle,
+  přesný M2 approval, primární70 +supplement17, commit/restart a nezávislé review.
+- Fan: jedna dávka historical8 +core repair4 +CLI3, strop15 CODE volání.
+  Čtyři spotřebované5f6 výstupy se započtou do budgetu, nesmějí se vydávat za
+  durable materiál. Existující exact CODE32k repair output4096 se sváže do nového
+  freeze; žádný nový D1/CLI repair/retry. Při selhání fáze rollback a stop této dávky.
+- ROOT pokračuje po přijatých cyklech další nezávislou prací; běžný CPU checkpoint
+  není konec dokončování produktu. H1 ani nevyčerpaná rozhodnutí jiného proudu
+  neblokují HTTP/Fan/CHAT a další již autorizované uživatelské cesty.
+
+Vstup tohoto pokračování je čistý publikovaný04d04ff0, produkt24f329c6;
+GitHub main838b8cee znovu ověřený. ROOT je jediný tracked writer. Tři workeři
+připravují oddělené privátní kandidáty: GPU cleanup hranice, HTTP single repair,
+Fan rozpočet/provenance. Před inferencí source/test review, relevantní CPU kontroly,
+publikovaný čistý kandidát, přesný freeze a sériové GPU okno. Žádné nové worktree.
+
+C13 příprava zjistila konkrétní překážky: historický Fan helper uvolňuje lease
+po unload chybě a neověřuje prázdné ps/compute; HTTP neověřuje compute po unloadu.
+Staré HTTP/Fan helpery navíc správně odmítají nový budget, pro který nebyly napsané.
+Opravují se pouze potřebné části existujících helperů; generované aplikační zdroje
+ROOT ručně neupravuje. Skutečnou schopnost cleanup ověří následný HTTP/Fan běh,
+nikoli zvláštní modelový smoke. CPU příprava sama aplikace nepřijímá.
+
+### C13 — schválené HTTP/Fan pokračování (SOURCE_AND_CPU_REVIEW_PASS; LIVE_NOT_RUN)
+
+BASE04d04ff0. Čtyři stávající manual helpers nyní přijímají přesně HTTP@6
+router1/server reusePrevious/cumulative13 a Fan historical8+repair4+CLI3/cumulative15.
+Výstupy failed5f6 se účtují odděleně od materiálů; model/oracle/M2 kritéria se nemění.
+Společný cleanup ověřuje vlastní provider/model/process lifetime pod stejnou lease,
+ukončení requestů/aplikace, terminální unload a tři následné prázdné ps/compute vzorky.
+Cizí proces nebo neukončený cleanup znamená FAIL a zachování lease; aplikační FAIL
+s úspěšným doloženým cleanup lze bezpečně uklidit, jeho výsledek zůstane FAIL.
+CPU22 cleanup,38 HTTP a16 Fan prošly; jiné workery přijaly source i integrované bytes.
+ROOT opakoval cleanup22; artifact160/registry596/module1514+0/diffcheck PASS.
+Doplňkové artifact/registry/module výsledky jsou ROOT observed tool output, bez samostatného raw logu.
+[Hashové předání](review/evidence/product-continuation-20261008/preparation.json).
+Lokální raw pakety jsou pod `.intentsmith-artifacts/c13-authorized-product-continuation-20261008/`;
+base→candidate diff je `git diff 04d04ff0 -- scripts/manual/`.
+Příkazy a očekávané exity jsou v jednotlivých receipt; CPU přezkoušení GPU nepotřebuje.
+Živé reviewerovo opakování rozhodujících kontrol má sériové okno až po ROOT cleanup,
+bez další inference nad vyčerpaným budgetem. H1/H2, `restricted/`, holdout a jejich raw logy
+jsou mimo všechny revize. Další krok je čistý publikovaný kandidát/CI/freeze a skutečné
+HTTP/Fan; žádný modelový běh ani přejímka aplikace z této CPU přípravy neplyne.
+
 ## Autonomní postup přijatý po revizi 7. 10. 2026
 
 Autorita: operátor opravil návrh v bodech 1–10 a výslovně povolil po jejich
@@ -64,7 +119,8 @@ Následující chatový krok musí oddělit rozhodnutí o návaznosti a save int
 na již exponovaných případech, nikoli přidat nedoložený prompt/regex. C2 již rozebral všech 36 neužitečných odpovědí a 22 zastavení
 z Gemma regrese podle rodiny a příčiny (aplikace/model/hodnocení, překryvy se nesčítají).
 H1 má naplánované jedno společné GPU okno pro oba pevné kandidáty, zatím
-WINDOW_NOT_OPEN; čeká na custody/dešifrování operátora. CPU vývoj pokračuje nezávisle. D1 nemá pořadovou závislost na sběru ani hodnocení H1.
+WINDOW_NOT_OPEN; rozhodnutím 8. 10. je odložené do kontroly GPU cleanup.
+Custody/dešifrování se nyní nevyžaduje; CPU vývoj a autorizované HTTP/Fan pokračují nezávisle. D1 nemá pořadovou závislost na sběru ani hodnocení H1.
 Stagnace se uplatňuje ihned; nové prompty ani regex opravy bez doložené příčiny.
 Po dvou cyklech bez posunu se strategie přehodnotí a problém oznámí, nezávislá
 práce může pokračovat. Historické různě hodnocené série nejsou samy kontrolované
@@ -470,15 +526,15 @@ Actual používá zdroj cache 0700; původní zdroj 0775 pokrývá CPU regrese, 
 | Oblast | Co chybí / nejbližší krok |
 | --- | --- |
 | HTTP CODE | Anchored@5 skutečně vyčerpal 12/12; nový router vrací GET /items/1=400, A3 neopravena; rollback obnovil retained zdroje |
-| HTTP strategie | Přesné M2 schválení/pending restart/rollback prošly; aplikace FAIL. Doporučený další krok: jeden skutečný repair routeru nad FAILED návrhem, rozpočet 13 vyžaduje rozhodnutí podle WP |
-| Fan | Frozen5f6: 8/11 volání, oracle 8 PASS /6 FAIL; repair4+CLI3 / cumulative15 čeká na samostatnou odpověď |
+| HTTP strategie | Aplikace FAIL. Operátor 8. 10. schválil první genuine repair13 a případně druhý pokus nejvýše14; nový freeze/helpers v přípravě, oracle/approval/rollback zachované |
+| Fan | Frozen5f6 spotřeboval8; oracle8 PASS/6 FAIL. Operátor 8. 10. schválil jednu dávku repair4+CLI3/cumulative15; helpers/freeze v přípravě |
 | Přirozené plánování | C5 v5 po opraveném ovladači odeslal vstup; GPU monitor FAIL před úplnou odpovědí, D1 NOT_REACHED. Stagnace: žádný další retry v tomto cyklu |
 | M1 outage | C1 `1f098912` source review a řízené HTTP/restart PASS; testovaný `b9cfc7c5` full410/CHAT7/CODE12/CI PASS; ROOT převzal e15264f1; C4 fresh5 b959a468 5PASS/review PASS |
 | Chatová kvalita | C6 úplné3×53/dva posudky NO_GO; C7 oprava context/restart CPU přijatá, živý save i cleanup první série FAIL; další2 NOT_RUN. Oddělit návaznost a save interpretaci |
 | Providerové chyby | C9 zdroj24f329c6: zbývající classifier404/binding/drift +projektové chyby terminal; řízené13HTTP/57project GREEN, source/test/evidence/integrace19/CI PASS. C12 celý profil410/CI18 přijat na678eead7; interní M7 status se nemění |
 | Mobil | Chybí conversation.create; implementace a device přejímka až po stabilním IDE/BE |
 | Hunt | Potřebujeme nový grading report/cestu a vlastníka pokračování; ROOT cizí hodnocení nepřebírá |
-| H1 custody | Čeká volba veřejného GPG fingerprintu pro zašifrované výstupy nebo privátní raw custody u operátora, poté dešifrování těsně před společným oknem; sběr NOT_RUN |
+| H1 custody | Operátor 8. 10. odložil rozhodnutí do kontroly GPU cleanup; sběr/dešifrování NOT_RUN. Dřívější custody varianty zůstávají připravené |
 
 [HTTP WP](wp/WP-M2-PRIVATE-HTTP-EXECUTION-20261004.md): linux-bwrap-private-loopback-v1 je zapojený, default offline V1 zachovaný.
 Retained@3 M2/oracle/Git1856920f/BE restart prošel; API SOURCE FAIL, [export](../examples/generated-apps/http-items-candidate/README.md) NOT_ACCEPTED.
@@ -506,7 +562,7 @@ To nedokládá zaplněné 32k okno. Output4096 platí jen pro vydaný exact CODE
    C6 známá regrese74,21%/15,09% NO_GO; C7/C8 produktové opravy přijaté v uvedeném rozsahu,
    první cílený živý save stále FAIL. C10 již oddělil příčinu ztráty návaznosti
    přesným CPU replayem; další změna potřebuje důkaz proti cancel/new-task kontrolám. Širší M6/release otevřený.
-2. HTTP: rozhodnout jeden genuine repair routeru nad skutečným FAILED M2 (12→13); poté frozen oracle +supplement17, commit/restart/persistence a review. Fan má samostatné rozhodnutí.
+2. Autorizované HTTP13 (případně14) a jedna Fan dávka do15 mají nyní přednost po kontrole GPU cleanup. Původní oracle, commit/restart/persistence a review se zachovají.
 3. Živý přirozený classifier→D1, fyzická ovladatelnost IDE/M2, file/web/export/skills a projektové A→B→A.
 4. Kvalita expertise/specialistů, worker souběh a delší stabilita; project/config/skills restore; společný profil a finální M5/M6.
 5. Mobil: historical CPU47, fyzická matice 13+7 NOT_RUN; device/APK/VPN/pair-revoke/M2/TalkBack.
@@ -521,8 +577,8 @@ Online zdroje se zachovají. Signed receipts 13, aktuální 24h soak/5min throug
 Hunt RO 6. 10., 12:18 UTC: canonical 107 JSON (106 batches +revision) +3 MD; poslední zápis 30. 9.,19:43 UTC.
 Poslední validované pokrytí 596/1173 responses,2324/3689 criteria; historický stop byl weekly API limit, dnešní quota tím nedoložená.
 Oddělený ROOT development draft 16/64 se nepřičítá. Nový worker progresspath vyžádaný; Gemma9591 poslední NO_GO, žádná aktivace.
-H1 plaintext odstraněn; sběr obou kandidátů připravuje tento ROOT, zaslepení
-a předání hodnotitelům provede operátor. Obsah ROOT nečetl.
+H1 plaintext odstraněn; rozhodnutí o sběru je od 8. 10. odložené do kontroly GPU cleanup.
+Zaslepení a předání hodnotitelům po případném sběru provede operátor. Obsah ROOT nečetl.
 [Datovaný archiv](https://github.com/Belphareon-bak/intentsmith/blob/0d86b68ef94bfd260dfb6f06d2231d14865dc9f1/docs/WORK-PROGRESS.md).
 
 ### Předání 7. 10. — převzetí ROOT a příprava H1
@@ -548,5 +604,5 @@ obnovení jejího novějšího lockfilu, nikoli předpoklad shodných závislost
 GPU okno není otevřené a žádná inference neproběhla. Raw evidence také obsahuje
 kopie H1; výběr jejího předání (šifrovaný balík / soukromě operátorovi) byl
 vyžádán před dešifrováním a zůstává PENDING. Fresh5/Studio má vlastní sériové GPU okno; na dosud neotevřené H1 okno
-časově nečeká a inference se nepřekrývají. HTTP 13. CODE volání a Fan rozšíření zůstávají mimo současné
-rozpočty; vyžadují konkrétní operátorské rozhodnutí před jejich spuštěním.
+časově nečeká a inference se nepřekrývají. Tehdy HTTP 13. CODE volání a Fan rozšíření
+čekaly na rozhodnutí; operátor je následně 8. 10. autorizoval v rozsahu uvedeném nahoře.
