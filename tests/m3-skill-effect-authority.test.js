@@ -1,9 +1,11 @@
 import { mkdirSync, existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
+import { Readable } from 'node:stream';
 
 import { isolatedTestRuntime } from './helpers/isolated-test-db.js';
 import { assert, assertEqual, suite, summary, test, testAsync } from './harness.js';
-import { db, projects } from '../src/db/database.js';
+import { db, projects, skillExecutions, skillSteps } from '../src/db/database.js';
+import { createSkillRoutes } from '../src/routes/skills.js';
 import { skillRegistry, validateGovernedSkillDefinition } from '../src/skills/registry.js';
 import {
   cancel,
@@ -191,6 +193,70 @@ await testAsync('cancelling a skill durably revokes authority and removes pendin
     WHERE effect_request_id = ?
   `).get(pendingEffectId).resultJson);
   assertEqual(toolResult.status, 'cancelled');
+});
+
+suite('Skill resume API request body and effect authority');
+
+await testAsync('three-argument route dispatch parses input/content and preserves the effect checkpoint', async () => {
+  for (const field of ['input', 'content']) {
+    const prepared = prepareExecution({ userMessageId: field === 'input' ? 104 : 105, targetPath: `API-${field}.md` });
+    await confirmAndExecute(prepared.executionId, caller);
+    let parseCalls = 0;
+    const routes = createSkillRoutes({
+      db: { skillExecutions, skillSteps },
+      parseBody: async req => {
+        parseCalls++;
+        let bytes = '';
+        for await (const chunk of req) bytes += chunk;
+        return JSON.parse(bytes);
+      },
+      sendJSON: (res, status, body) => Object.assign(res, { status, body }),
+      safeError: () => ({ error: 'Internal server error' }),
+      logger: { error() {} },
+    });
+    const handler = routes['POST /api/skills/executions/:id/resume'];
+    const request = body => Object.assign(Readable.from([JSON.stringify(body)]), caller);
+    const missing = {};
+    await handler(request({}), missing, { id: prepared.executionId });
+    assertEqual(missing.status, 400);
+    assertEqual(getStatus(prepared.executionId).state, 'AWAITING_INPUT');
+
+    const response = {};
+    await handler(request({ [field]: 'ano' }), response, { id: prepared.executionId });
+    assertEqual(parseCalls, 2);
+    assertEqual(response.status, 200);
+    assertEqual(response.body.result.stepType, 'write');
+    assertEqual(response.body.result.status, 'awaiting_input');
+    assertEqual(existsSync(path.join(PROJECT_ROOT, `API-${field}.md`)), false);
+    assertEqual(await cancel(prepared.executionId, caller), true);
+  }
+});
+
+await testAsync('resume parser failures reach the HTTP dispatcher without consuming the execution', async () => {
+  const prepared = prepareExecution({ userMessageId: 106, targetPath: 'API-INVALID.md' });
+  await confirmAndExecute(prepared.executionId, caller);
+  for (const message of ['Invalid JSON in request body', 'Request body too large (max 1MB)', 'Request stream interrupted']) {
+    const parseError = new Error(message);
+    let sent = false;
+    const routes = createSkillRoutes({
+      db: { skillExecutions, skillSteps },
+      parseBody: async () => { throw parseError; },
+      sendJSON: () => { sent = true; },
+      safeError: () => ({ error: 'Internal server error' }),
+      logger: { error() {} },
+    });
+    let observed;
+    try {
+      await routes['POST /api/skills/executions/:id/resume'](caller, {}, { id: prepared.executionId });
+    } catch (error) {
+      observed = error;
+    }
+    assertEqual(observed, parseError);
+    assertEqual(sent, false);
+    assertEqual(getStatus(prepared.executionId).state, 'AWAITING_INPUT');
+  }
+  assertEqual(existsSync(path.join(PROJECT_ROOT, 'API-INVALID.md')), false);
+  assertEqual(await cancel(prepared.executionId, caller), true);
 });
 
 suite('Legacy effect bypass containment');

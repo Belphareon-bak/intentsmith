@@ -30,6 +30,18 @@ a M6 WP; nemění jejich akceptační pravidla, kontrakty ani historické důkaz
 - Existující produktové webové, skill a worker cesty, aktuální build,
   soak/throughput a příprava release důkazů. Přijaté výsledky se neopakují
   bez nové změny nebo konkrétní pochybnosti.
+- Konkrétní reprodukovaná chyba obnovení skillu: dispatcher předává tři
+  argumenty, `src/routes/skills.js` očekával tělo ve čtvrtém a validní POST
+  vracel400. Handler použije existující `parseBody` až po404/409 kontrolách;
+  parserové chyby propadnou do stávajícího HTTP dispatcheru. Autentizace ani
+  exact effect approval se nemění. Regrese v existujícím
+  `tests/m3-skill-effect-authority.test.js` ověří skutečný izolovaný runner,
+  input/content, chybějící vstup a propagaci parserových chyb.
+- `scripts/package-studio2-ready.mjs`: metadata vyřadí chráněné soubory před
+  status/content/archive; balík vyžaduje skutečný AppImage build receipt na
+  přesném candidate source. Zabalený AppImage a jeho zdroje se znovu ověří
+  proti původnímu receipt před zveřejněním SOURCE a SHA256SUMS. Samotný
+  receipt není nezávislým přijetím sestavení ani podepsanou release autoritou.
 - GPU Hunt: vlastní nový DB/report a stávající standardní D2 sběr
   `--evaluate-installed --only=qwen3.5:27b --role=D2 --limit=1` na přesném
   artefaktu a připnutém provideru. Rozpočet nejvýše26 generací (placement1,
@@ -41,8 +53,22 @@ a M6 WP; nemění jejich akceptační pravidla, kontrakty ani historické důkaz
 
 Dokumentace: tento WP, aktuální stav v WORK-PROGRESS/ROADMAP/SYSTEM-MAP,
 versionované evidence metadata a review packet. Další změna produktového
-kódu mimo výše uvedené tři soubory vyžaduje konkrétní reprodukci, návrh a
+kódu mimo výše uvedené konkrétní soubory vyžaduje reprodukci, návrh a
 samostatnou revizi; autorizované ověřování může mezitím pokračovat.
+
+Nová implementace vzniká v samostatném vlastním clone
+`.intentsmith-artifacts/product-package-candidate-20261009/source`, který
+vyřadil chráněný holdout před prvním checkoutem. Původní čistý ROOT na
+`bc3471da` a jeho zmrazený Studio runtime zůstávají pro již připravené běhy.
+GPU Hunt i aktuální stability programy následně připnou nový čistý candidate;
+staré READY nejsou povolením ke spuštění změněného source.
+
+Obnova na `bc3471da` má skutečně potvrzených8/10 kroků, ale celý běh zůstává
+FAIL kvůli výše reprodukované400. Původní freeze, request a rozpočty jsou
+neměnné. Samostatné pokračování po opravě má nejvýše backend2/resume1,
+model0/retry0 a jeden cold restart po DONE nad bytecopy vlastní zavřené DB,
+konfigurace a fixture. Neopakuje backup/delete/reinstall, neotevírá původní
+produkční DB a nezpětně nepřeznačuje původní FAIL na PASS.
 
 Sdílený decoder přidává jediný přímý edge
 `src/marketplace/package-installer.js -> src/skills/registry.js`. Po nezávislé

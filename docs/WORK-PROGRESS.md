@@ -8,7 +8,35 @@ ptá a návrhy předkládá před implementací. Nový kvalitativní test až po
 ověření funkčnosti GPU Huntu; potřebné lidské hodnocení dostane lokální HTML.
 [Autorita rozhodnutí](../DIRECTION.md#3-rozhodnutí-o-produktu).
 
-**Přijatý funkční checkpoint 8. 10. 2026:** čistý `b19d5f19` má celý
+**Aktuální technický checkpoint 9. 10. 2026:** čistý `bc3471da` má přijatý
+celý offline/database profil411 PASS, main i work CI18 SUCCESS. Lokální
+same-version skill restore je integrován; produkční backend zůstává `c84b88cd`.
+Skutečná obnova archivu/config/skillu/projektu dosáhla8/10 kroků. Původní
+celý běh je FAIL: validní resume POST vrátil400, protože route očekávala
+nepředaný čtvrtý argument. Nový vlastní candidate opravuje parser požadavku;
+izolovaná skutečná API/runner regrese před opravou10 PASS/2 FAIL, po ní12 PASS.
+Source review, čistý celý profil, CI a skutečné pokračování ještě následují.
+Příprava balení nově váže AppImage ke skutečnému buildu přesného source;
+samotné sestavení ani balení zatím neproběhlo.
+
+M2 model0 skutečně schválilo změnu, provedlo test a vytvořilo Git commit.
+Read-only pokračování ověřilo dokončený backend a správný obsah DOM, ale
+snímek ukazuje načítací obrazovku: fyzická viditelnost není prokázaná.
+Historické C26/C28 funkční přijetí se zachovává ve svém omezeném rozsahu;
+bez snímků nevzniká nový důkaz viditelnosti celé aplikace. Webový vlastní
+průchod se zastavil na nedostatcích recorderu před user action/outbound;
+nová kvalifikace skutečného native hello, bootstrapu a fyzického ovládání
+je SOURCE příprava, nikoli funkční výsledek.
+
+GPU skutečný pokus skončil PARTIAL během startu vlastního provideru,
+bez dokončené generace nebo evaluation row. Vlastní stale lease zůstává
+zachovaný, cleanup není prokázaný. Nový start respektuje skutečný procesový
+strom bwrap → held Node lease owner → provider; nové source/READY teprve
+následují. Throughput5min a soak24h dosud NOT_RUN; poběží na finálním čistém
+candidate, nikoli jako další krátký náhradní test. Release NOT_ACCEPTED;
+HTTP CLOSED, Fan a kvalita chatu/H1/H2 DEFERRED podle operátora.
+
+**Historický funkční checkpoint 8. 10. 2026:** čistý `b19d5f19` má celý
 offline/database profil **411 PASS** (324+87) a nezávislou kontrolu všech logů.
 Work branch i main jsou publikované na tomto SHA, obě CI mají18 SUCCESS.
 Skutečné Studio uložení/readback → B → A → vlastní restart/cold reopen prošlo

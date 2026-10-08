@@ -7,7 +7,7 @@ export function createSkillRoutes(deps) {
   // Statements come from deps like every other route module, so importing this
   // file does not require INTENTSMITH_DB_PATH to be set.
   const { skillExecutions, skillSteps } = deps.db;
-  const { sendJSON, safeError, logger } = deps;
+  const { parseBody, sendJSON, safeError, logger } = deps;
 
   return {
     // GET /api/skills — list all registered skills
@@ -86,7 +86,8 @@ export function createSkillRoutes(deps) {
     },
 
     // POST /api/skills/executions/:id/resume — resume AWAITING_INPUT execution
-    'POST /api/skills/executions/:id/resume': async (req, res, params, body) => {
+    'POST /api/skills/executions/:id/resume': async (req, res, params) => {
+      let parsingBody = false;
       try {
         const exec = skillExecutions.findById.get(params.id);
         if (!exec) {
@@ -98,6 +99,9 @@ export function createSkillRoutes(deps) {
           return;
         }
 
+        parsingBody = true;
+        const body = await parseBody(req);
+        parsingBody = false;
         const userInput = body?.input || body?.content || '';
         if (!userInput) {
           sendJSON(res, 400, { error: 'Missing "input" field in request body' });
@@ -109,6 +113,7 @@ export function createSkillRoutes(deps) {
         });
         sendJSON(res, 200, { result });
       } catch (err) {
+        if (parsingBody) throw err;
         logger.error('Skills', `Resume error: ${err.message}`);
         sendJSON(res, 500, safeError(err));
       }
