@@ -14,7 +14,7 @@ export function createOwnedProviderRelay(handle) {
     const finish = () => {
       if (handlerDone && requestClosed && responseClosed) {
         exchanges.delete(exchange);
-        resolveSettled();
+        resolveSettled({ requestClosed, responseClosed, handlerDone, cancelled });
       }
     };
     const cancel = (error = new Error('downstream provider request closed')) => {
@@ -64,6 +64,7 @@ export function createOwnedProviderRelay(handle) {
       request.setTimeout(timeoutMs, () => request.destroy(new Error('bounded provider timeout')));
       if (payload === undefined) incoming.pipe(request);
       else request.end(payload);
+      return { settled }; // Non-thenable: legacy handlers may return forward() directly.
     };
     if (closing) cancel(new Error('provider relay is closing'));
     Promise.resolve().then(() => {
@@ -82,7 +83,7 @@ export function createOwnedProviderRelay(handle) {
     close() {
       if (closePromise) return closePromise;
       closing = true;
-      closePromise = (async () => {
+      closePromise = Promise.resolve().then(async () => {
         const serverClosed = new Promise((resolve, reject) => server.close(error => {
           if (error && error.code !== 'ERR_SERVER_NOT_RUNNING') reject(error);
           else resolve();
@@ -93,7 +94,7 @@ export function createOwnedProviderRelay(handle) {
         await Promise.all([...exchanges].map(exchange => exchange.settled));
         if (exchanges.size !== 0) throw new Error('owned provider requests did not settle');
         return { activeRequests: 0 };
-      })();
+      });
       return closePromise;
     },
   };

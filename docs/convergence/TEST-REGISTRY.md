@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 596
+- Runnable programs: 597
 - Explicit support-module exclusions: 35
-- Profiles: offline=323, database=87, server=64, model=86, soak=16, manual=20
-- States: ACTIVE=498, HISTORICAL=15, BLOCKED=83
+- Profiles: offline=324, database=87, server=64, model=86, soak=16, manual=20
+- States: ACTIVE=499, HISTORICAL=15, BLOCKED=83
 
 ## Execution profiles
 
@@ -511,6 +511,7 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-PRE082-UPGRADE-REGRESSION-TEST` | `tests/pre082-upgrade-regression.test.js` | `C3-010` | T1 | `database` | 30 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-PROJECT-APP-ACCEPTANCE-TEST` | `tests/project-app-acceptance.test.js` | `C3-011` | T1 | `offline` | 10 s | 2 min | network:none, temp-db, toolchain:bwrap, toolchain:git, toolchain:prlimit | yes | `ACTIVE` | — | WP-PROJECT-APP-REGISTRATION-20261001 |
 | `IS-T1-TESTS-PROJECT-APP-M2-FUNCTIONAL-TEST` | `tests/project-app-m2-functional.test.js` | `C3-011` | T1 | `database` | 15 s | 2 min | network:loopback, temp-db, toolchain:bwrap, toolchain:git, toolchain:prlimit | yes | `ACTIVE` | — | WP-PROJECT-APP-REGISTRATION-20261001 |
+| `IS-T1-TESTS-PROJECT-APP-PROVIDER-RELAY-TEST` | `tests/project-app-provider-relay.test.js` | `C3-011` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-AUTONOMOUS-COMPLETION-20261007-C22 |
 | `IS-T1-TESTS-PROJECT-COLLABORATION-TEST` | `tests/project-collaboration.test.js` | `C3-005` | T3 | `server` | 5 s | 1 min | network:loopback, temp-db, toolchain:git | yes | `ACTIVE` | — | WP-PROJECT-FLOW-20260918 |
 | `IS-T3-TESTS-PROJECT-CONVERSATION-E2E-P5P7-TEST` | `tests/project-conversation-e2e-p5p7.test.js` | `C3-005` | T3 | `model` | 10 min | 15 min | network:loopback, temp-db, ollama | yes | `ACTIVE` | — | primary implementer |
 | `IS-T3-TESTS-PROJECT-CONVERSATION-E2E-V2-TEST` | `tests/project-conversation-e2e-v2.test.js` | `C3-005` | T3 | `model` | 45 min | 60 min | network:loopback, temp-db, ollama, gpu | yes | `ACTIVE` | — | primary implementer |

@@ -18176,6 +18176,36 @@
       },
       "flakeCount": 0,
       "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-PROJECT-APP-PROVIDER-RELAY-TEST",
+      "path": "tests/project-app-provider-relay.test.js",
+      "argv": [
+        "node",
+        "tests/project-app-provider-relay.test.js"
+      ],
+      "capabilityId": "C3-011",
+      "tier": "T1",
+      "fixture": "in-memory-provider-streams-and-owned-cleanup-io",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-AUTONOMOUS-COMPLETION-20261007-C22",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
     }
   ]
 }

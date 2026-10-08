@@ -1,38 +1,33 @@
 # IntentSmith
 
-**Aktuální vývojový checkpoint 1. 10. 2026:** [stav dokončování, měřené
-výsledky a otevřené brány](docs/review/2026-09-30-COMPLETION-TRACKER.md).
-[Průběžný pracovní report](docs/WORK-PROGRESS.md) se aktualizuje po milníku,
-nejpozději po třech hodinách aktivní práce.
-Publikovaný callback zdroj `f557fb1a` má GitHub CI SUCCESS a registrovaných
-**9/9 PASS / SOURCE_REVIEW_PASS**. Ledger, TaskFlow a řízený packaged IDE ledger
-mají skutečnou funkční přejímku; jejich
-[přesné generované zdroje](examples/generated-apps/README.md) jsou v Gitu.
-M3 code-review specialista má ověřený skutečný ProjectContext, provenance,
-odmítnutí zastaralého snapshotu a oddělení projektů; jde o deterministická
-pravidla, modelová kvalita expertíz zůstává otevřená.
-[SQLite scénář](docs/wp/WP-PROJECT-SQLITE-CATALOG-FUNCTIONAL-20261001.md)
-zatím nemá přijatou skutečnou aplikaci. Původní funkční PASS následně
-dostal CONTRACT_CHANGES_REQUIRED kvůli mezeře oracle. Opravený oracle
-Qwen3.8 správně odmítl s rollbackem; Qwen3.6 skončil na kontextové bráně.
-Jedna modelová revize `a27e4470` opravila schema dependency, ale aplikace
-selhala na transaction callback. Upřesněný kontrakt `f557fb1a` nedošel za
-čtvrtou generaci: pátý prompt 8811 B >8736 B; REJECTION_EVIDENCE_REVIEW_PASS,
-žádný M2 efekt. Obecné řešení kontextu je otevřené, frozen budgety nezměněné.
-Původní nevyhovující důkazy zůstávají uchované.
-GPU panel V7 má přijatý skutečný readonly průchod: sedm pointer kliků,
-14 modelů, správné size/digest/GiB, nezměřené známky, 24 GiB kapacita a
-úplný namespace cleanup. Instalovaný Hunt ani kvalita scoringu tím přijaty nejsou.
-[Přijaté zdroje GPU sondy](materials/ide2-hunt-readonly-dom-v7-20261001/README.md)
-obsahují 19 přesných MJS souborů bez soukromých runtime dat.
-[Obecné řešení CODE kontextu](docs/wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md)
-má připravený DRAFT; implementace a testy zatím NOT_RUN.
-[Skutečné HTTP projekty](docs/wp/WP-M2-PRIVATE-HTTP-QUALIFICATION-PROPOSAL-20261001.md)
-mají připravený návrh změny oprávnění, který čeká na rozhodnutí operátora.
-Hunt posledním strukturálním čtením 18:34 UTC zůstává 596/1173 / NO_GO;
-mobilní 13+7 fyzická matice čeká. CHAT má samostatného workera.
-Celý release není přijatý; čtení backendu 14:02 UTC potvrzuje `c84b88cd`.
-Historické instalace a checkpointy níže zůstávají důkazem svého období.
+**Aktuální vývojový checkpoint 8. 10. 2026:** autoritativní průběžný stav,
+vlastnictví, výsledky cyklů a otevřené brány jsou v
+[docs/WORK-PROGRESS.md](docs/WORK-PROGRESS.md) na integrační větvi
+`work/real-chat-journeys-20260930`. COMPLETION-TRACKER je historický.
+
+Ledger, TaskFlow a SQLite katalog mají přijaté ohraničené funkční scénáře.
+HTTP aplikace prošla opravou v rámci celkových 14 volání: 70 hlavních kontrol
+a 17 doplňkových HTTP požadavků; tento rozpočet je uzavřený. Přesné zdroje
+jsou v [generovaných aplikacích](examples/generated-apps/README.md).
+Fan zůstává na 12/15 voláních a čeká na rozhodnutí o chráněném importním oracle;
+připravené opětovné předložení původních souborů zatím neproběhlo.
+
+Chat má přijaté ohraničené opravy výpadků poskytovatele a návaznosti ukládání.
+Poslední známé celkové měření C6 však zůstává **74,21 % užitečných odpovědí /
+15,09 % zbytečných zastavení / NO_GO**. H1 má nezávislé READY a čeká na
+operátorské dešifrování těsně před během; sběr je **NOT_RUN**.
+
+C21 na čistém `7b7e1f9d` má nezávisle přijatý celý profil **410 PASS / 0 FAIL**
+a CI 18/18. Rozšířil zálohu o bezpečné vytažení archivních konfigurací a skillů
+do nové neaktivní složky; úplnou obnovu instalace tím neprokazuje.
+Navazující C22 má nezávisle přijatou přípravu přechodu modelů pro Studio → D1
+(57 CPU kontrol, z toho 9 nových trvalých testů). Celý profil 411 programů,
+nové zmrazení a živý průchod C22 zatím čekají.
+
+**Release je NOT_ACCEPTED.** Produkční backend zůstává `c84b88cd`; tento
+vývoj jej nenasazuje. Kvalita expertíz, dlouhodobá stabilita, zbývající
+uživatelské cesty, úplná obnova a finální přejímka zůstávají otevřené.
+Historické instalace a checkpointy níže dokládají pouze své období.
 
 **Sjednocený základ z 28. 9. 2026:** `main` sjednocuje vývoj vycházející
 z C3 a zdroj právě používaného **IDE 2.0**. Základ `04f2be71` obsahuje backend
@@ -71,10 +66,10 @@ autoritativní IntentSmith Studio runtime už neobsahuje implicitní Google Font
 Studio používá Theia runtime s motivy a ovládáním IntentSmithu.
 
 **Verze:** 136.1.0, vývojový kandidát 1.0. Počty registru pro
-`eb482aca` jsou odvozené z [generovaného registru](docs/convergence/TEST-REGISTRY.md)
+pracovní C22 nad `3aed95e6` jsou odvozené z [generovaného registru](docs/convergence/TEST-REGISTRY.md)
 a při další změně registrace se znovu přeměří:
-**596 registrovaných testovacích programů**
-(`498 ACTIVE`, `83 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
+**597 registrovaných testovacích programů**
+(`499 ACTIVE`, `83 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).
 
 **Navazující M5 review, 2026-09-17:** historický inventář doplněn o zveřejněný
 TLS testovací klíč a certifikát: 15 známých objektů. Pár je trvale vyřazený;
@@ -474,14 +469,14 @@ intentsmith/
 │   ├── report-gen.json           #   Generování reportů
 │   └── summarizer.json           #   Sumarizace textu
 │
-├── tests/                        # Testy a kanonický registr 594 programů
+├── tests/                        # Testy a kanonický registr 597 programů
 │   ├── harness.js                #   Custom ESM test harness
 │   ├── cre-*.test.js             #   CRE testy (401+)
 │   ├── lifecycle-*.test.js       #   Lifecycle testy (103+)
 │   ├── code-intel-*.test.js      #   Code Intelligence testy (339+)
 │   ├── execution-loop.test.js    #   Execution Engine testy (597+)
 │   ├── upgrade-*.test.js         #   Model Upgrade testy
-│   └── registry.json             #   Kanonický registr 594 programů
+│   └── registry.json             #   Kanonický registr 597 programů
 │
 ├── docs/                         # Aktivní dokumentace + archiv
 │   ├── ARCHITECTURE.md           #   Kompletní architektura

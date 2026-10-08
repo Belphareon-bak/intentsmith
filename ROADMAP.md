@@ -16,6 +16,13 @@ Deterministický profil neprokazuje živou kvalitu ani release přejímku.
 C21 má source/CPU/integrační i celý profil review PASS: explicitní offline
 vyzvednutí config/skill JSON do nové neaktivní složky, bez aktivace a DB výměny.
 [Implementace a meze C21](docs/review/evidence/product-continuation-20261008/c21-archival-extraction.json).
+C22 přidává řízený přechod modelů pod stejnou lease a opravu reentrantního
+ukončování relay. Source/CPU review PASS (57 kontrol), nová trvalá sada 9 testů
+je registrovaná offline: 597 programů celkem, budoucí celý profil 411.
+Integrovaná nová sada 9, artifact 160, module 1516 +0 a registry 597 prošly.
+Nezávislá integrační revize, CI a nový freeze/živý Studio pokus čekají; C21 profil 410
+tento následný kvalifikační helper a novou testovou sadu nepokrývá.
+[Příprava C22 a meze](docs/review/evidence/product-continuation-20261008/c22-studio-transition.json).
 Historický C12 profil na `678eead707a59df568c7353a8b2dd7ad6c175b23`
 měl produktový zdroj C9 `24f329c6` a obsahoval C11/C12 opravy testů.
 C9: classifier13 HTTP/restart, context55, project57 a integrace19 PASS;
@@ -53,7 +60,7 @@ Actual v5 na cd3b8f02 odeslal vstup,1classifier request/0úplných odpovědí/0D
 GPU monitor a cleanup FAIL, samostatná own-lease recovery přezkoumaná.
 Stagnace: další C5 retry v tomto cyklu zastaven, Studio→D1 nepřijaté. [Paket C5](docs/review/2026-10-07-STUDIO-D1-ENTRY.md).
 Historický ROOT offline/database profil `86dbca40`: 410 PASS /0 FAIL /BLOCKED /TIMEOUT; netestoval následnou cache opravu.
-Registry 596/35; C19 module graph má 1 516 hran, 3 cykly /28 členů.
+Registry 597/35; C19 module graph má 1 516 hran, 3 cykly /28 členů.
 Dvě nové ASK_USER importní hrany nezávisle schválené; standardní baseline na `d3dbc897`, ratchet PASS.
 C1 context27/M1 74/project44 nezávisle opakované. Nový CHAT checkpoint `b9cfc7c5`:
 full offline/database410 PASS/0 FAIL/BLOCKED/TIMEOUT, CHAT7/CODE12 PASS;

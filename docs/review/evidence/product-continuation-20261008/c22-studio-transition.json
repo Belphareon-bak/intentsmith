@@ -1,0 +1,143 @@
+{
+  "kind": "C22StudioTransitionPreparation@2",
+  "status": "SOURCE_CPU_AND_INTEGRATION_PASS_INDEPENDENT_INTEGRATION_REVIEW_PENDING_NOT_LIVE_READY",
+  "baseSha": "3aed95e6d6d813ead2a2312c76fcbf9817ca1af1",
+  "scope": "Bounded C5 Studio/D1 qualification transport and shared GPU drain. Original input, policy, oracle, models and no-effect scope retained.",
+  "cpu": {
+    "authorPass": 57,
+    "independentPass": 57,
+    "fail": 0,
+    "permanent": 9,
+    "previousPrivate": 48
+  },
+  "registry": {
+    "programs": 597,
+    "offline": 324,
+    "database": 87,
+    "futureFullProfile": 411,
+    "fingerprint": "0ce9d57a7fa983f4fe1c8ce26e5a56576ca13cd8a1e94ab3d5b57ca845cd9b8a"
+  },
+  "reentry": {
+    "v1": {
+      "serverCloseCalls": 2,
+      "distinctPromises": 2,
+      "remainingActive": 0
+    },
+    "v2": {
+      "serverCloseCalls": 1,
+      "distinctPromises": 1,
+      "remainingActive": 0
+    },
+    "oldFailPreserved": true
+  },
+  "bounds": {
+    "classifierMax": 1,
+    "d1Max": 2,
+    "codeMax": 0,
+    "effects": 0,
+    "contextWindow": 4096,
+    "activeDeadlineMs": 600000
+  },
+  "limits": [
+    "No real GPU, provider generation or Studio journey executed by this preparation.",
+    "The C21 full410 on 7b7e1f9d predates this helper/test/registry change; a new full411 is pending.",
+    "Transition requires completed uncancelled exchange and retains lease; final cleanup additionally requires settled application/relay before release.",
+    "UNKNOWN never receives signal/unload authority or counts as an empty sample. Post-unload transient handling resets the empty sequence as in the accepted existing drain.",
+    "A new exact freeze, independent READY and serial GPU admission remain necessary; old C5 claim is spent.",
+    "Fan resubmission V2 remains a separate unadopted candidate and needs explicit integration with this shared-helper change.",
+    "H1 c7/959 frozen candidates are unchanged and remain NOT_RUN pending operator JIT."
+  ],
+  "refs": [
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/MANIFEST.json",
+      "bytes": 27646,
+      "sha256": "0c96b84e2c175f9f08ca43840be9e10010900d2fb8a12054b4a803a3e9218155"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/v2/MANIFEST.json",
+      "bytes": 8322,
+      "sha256": "2441c3513870c9538388f3ad8cafc3f8d9ee57f95ebeffb6c7ce3bd881b1fd97"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/v2/RESULT.json",
+      "bytes": 5358,
+      "sha256": "46e1f83a1a4e82abcf36b77e07f32d6468b3b5d12c0764f34085f8612aa30c2f"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/v2/SOURCE.patch",
+      "bytes": 20785,
+      "sha256": "ab182b61cfd784b13103a3941436b89e770b635c817511ddf226cc4163f2dd40"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/RUNNER.patch",
+      "bytes": 14110,
+      "sha256": "e26d0f31bd974850e52f2e62659058df025622d6a72825571394fa4a576fd6cf"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/RELAY.patch",
+      "bytes": 6030,
+      "sha256": "aa004d3bbadfadfc594256ec5f61b82ee9ad8be7d323ac4d1d08e8251b7fbd14"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/independent-review/REVIEW-v1.json",
+      "bytes": 7440,
+      "sha256": "c50b5d2050260fbb3cb50618a7084d61c22800e83df8e1524d61dfcc70e96ab5"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/independent-review/REVIEW-v2.json",
+      "bytes": 11061,
+      "sha256": "38fc65d1f90410559e07945389581921674ae5d2155d0a4072d4c0af3fafc93d"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/ROOT-ORACLE-ADOPTION.json",
+      "bytes": 2538,
+      "sha256": "e9252d9e718669eabe9a09e6df217917c28f6332e88adc01746f8b989483b12d"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/ROOT-CENSUS.json",
+      "bytes": 113,
+      "sha256": "be300a610ae8bf5616bc655c08376773c98ed05c22c13cf292228884c02e4a46"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/v2/candidate/tests/project-app-provider-relay.test.js",
+      "bytes": 9193,
+      "sha256": "97b5b68e3bda8074a4500ec75101bf521cf11be5ceff7257d16ff937f36454b9"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/run-c22.mjs",
+      "bytes": 22168,
+      "sha256": "e37f106e9f2d919ec972bd19c1460508a5cc0f290bb5418819be9e7f2c3398d3"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/transition.mjs",
+      "bytes": 5327,
+      "sha256": "e4101291c88d90e6f4470036fae67c442d93b2b6732ab1c5883ab9bf4f4b9e67"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/relay-handler.mjs",
+      "bytes": 3829,
+      "sha256": "17d566371ef723f347fcd7cd3bbfb63b12dc6a7c46b1da13b1a41343eca3c0a0"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/root-integrated/RESULT.json",
+      "bytes": 867,
+      "sha256": "25a968d980b5000f32849d79161d7b1f2613c8d9e1ececf6b77bf8efd7184947"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/root-docs-recheck/RESULT.json",
+      "bytes": 225,
+      "sha256": "7d2d0085c049a079a948dde534f0d1f37da9b6abd92ffba8bcc1844f4060ab92"
+    }
+  ],
+  "integration": {
+    "providerRelayPass": 9,
+    "artifactValidationPass": 160,
+    "moduleEdges": 1516,
+    "newEdges": 0,
+    "cycles": 3,
+    "cycleMembers": 28,
+    "registryPrograms": 597,
+    "readmeCountFailurePreserved": true,
+    "full411": "NOT_RUN"
+  }
+}

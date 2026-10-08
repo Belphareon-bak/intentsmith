@@ -440,8 +440,12 @@ const gpuCleanupIO = {
   process: gpuCleanupProcess,
   lease: lease => read(path.join(lease.lockPath, 'owner.json')),
   compute: () => execFileSync('/usr/bin/nvidia-smi', ['--query-compute-apps=pid,process_name,used_memory', '--format=csv,noheader,nounits'], { encoding: 'utf8', timeout: 5000, maxBuffer: 65536 }),
-  api: async (route, body) => {
-    const response = await fetch('http://127.0.0.1:11434' + route, { ...(body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}), signal: AbortSignal.timeout(body ? 30000 : 5000) });
+  api: async (route, body, control = null) => {
+    const timeout = AbortSignal.timeout(body ? 30000 : 5000);
+    const signal = control ? AbortSignal.any([timeout, control.signal, AbortSignal.timeout(Math.max(1, Math.ceil(control.deadlineAt - Date.now())))]) : timeout;
+    const options = { ...(body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {}), signal };
+    control?.check(); // Last check before the management request, including unload.
+    const response = await fetch('http://127.0.0.1:11434' + route, options);
     assert.equal(response.status, 200, 'cleanup provider HTTP status'); return response.json();
   },
   now: () => Date.now(), sleep: ms => new Promise(resolve => setTimeout(resolve, ms)),
@@ -459,10 +463,30 @@ export function captureGpuCleanupOwner(model, digest, version) {
   assert.equal(blobs.length, 1, 'one exact model blob');
   return { daemon, modelBlob: blobs[0], server: prefix + '/lib/ollama/llama-server', discovery: [prefix + '/bin/ollama', 'gpu-discover', '--lib-dir', prefix + '/lib/ollama', '--lib-dir', prefix + '/lib/ollama/cuda_v13'] };
 }
-export async function finishOwnedGpuCleanup({ lease, owner, model, digest, loaded, cleanupSettled, cleanupFiles = () => {} }, io = gpuCleanupIO) {
+export async function finishOwnedGpuCleanup(options, io = gpuCleanupIO) {
+  return drainOwnedGpu({ ...options, transition: null }, io);
+}
+// A completed provider exchange is a narrower boundary than application shutdown.
+// This operation never releases the lease or performs filesystem cleanup.
+export async function drainOwnedGpuForTransition(options, io = gpuCleanupIO) {
+  const { exchangeSettled, signal, deadlineAt } = options;
+  assert.ok(exchangeSettled && typeof exchangeSettled.then === 'function');
+  assert.ok(signal instanceof AbortSignal && Number.isFinite(deadlineAt));
+  signal.throwIfAborted(); assert.ok(io.now() < deadlineAt, 'GPU transition deadline');
+  const waiting = AbortSignal.any([signal, AbortSignal.timeout(Math.max(1, Math.ceil(deadlineAt - io.now())))]);
+  let onAbort;
+  const aborted = new Promise((_, reject) => { onAbort = () => reject(waiting.reason); waiting.addEventListener('abort', onAbort, { once: true }); });
+  let closed; try { closed = await Promise.race([exchangeSettled, aborted]); } finally { waiting.removeEventListener('abort', onAbort); }
+  assert.deepEqual(closed, { requestClosed: true, responseClosed: true, handlerDone: true, cancelled: false }, 'completed provider exchange required');
+  return drainOwnedGpu({ ...options, transition: { signal, deadlineAt } }, io);
+}
+async function drainOwnedGpu({ lease, owner, model, digest, loaded, cleanupSettled, cleanupFiles = () => {}, transition }, io) {
   const receipt = { status: 'FAIL', leaseReleased: false, unloaded: false, observations: [], emptySamples: 0 };
   if (!lease) return { ...receipt, status: 'NO_LEASE_ACQUIRED' };
+  const checkContinue = () => { if (transition) { transition.signal.throwIfAborted(); assert.ok(io.now() < transition.deadlineAt, 'GPU transition deadline'); } };
+  const api = async (route, body) => { checkContinue(); const result = await io.api(route, body, transition ? { ...transition, check: checkContinue } : null); checkContinue(); return result; };
   const checkOwner = () => {
+    checkContinue();
     assert.equal(lease.lockPath, '/tmp/intentsmith-gpu-evaluation.lock', 'canonical GPU lease');
     assert.equal(io.lease(lease).token, lease.owner.token, 'same owned GPU lease');
     assert.ok(owner?.daemon, 'pre-load cleanup authority required');
@@ -471,7 +495,7 @@ export async function finishOwnedGpuCleanup({ lease, owner, model, digest, loade
   const workers = new Map();
   const snapshot = async draining => {
     checkOwner(); const row = { at: new Date(io.now()).toISOString(), draining }; receipt.observations.push(row);
-    row.ps = await io.api('/api/ps'); assert.ok(Array.isArray(row.ps.models), 'known provider resident models');
+    row.ps = await api('/api/ps'); assert.ok(Array.isArray(row.ps.models), 'known provider resident models');
     assert.ok(row.ps.models.length <= 1 && row.ps.models.every(m => m.name === model && m.digest === digest), 'foreign model prevents cleanup');
     row.computeRaw = io.compute(); assert.equal(typeof row.computeRaw, 'string'); row.compute = [];
     for (const line of row.computeRaw.trim().split('\n').filter(Boolean)) {
@@ -496,11 +520,11 @@ export async function finishOwnedGpuCleanup({ lease, owner, model, digest, loade
     checkOwner(); return row;
   };
   try {
-    assert.equal(cleanupSettled, true, 'application/relay cleanup must settle first');
+    if (!transition) assert.equal(cleanupSettled, true, 'application/relay cleanup must settle first');
     const before = await snapshot(false);
     if (before.ps.models.length) {
       assert.equal(loaded, true, 'no unload without this run forwarding a model request'); checkOwner();
-      receipt.unloadResponse = await io.api('/api/generate', { model, keep_alive: 0, stream: false });
+      receipt.unloadResponse = await api('/api/generate', { model, keep_alive: 0, stream: false });
       assert.equal(receipt.unloadResponse.done, true, 'terminal unload response');
       assert.equal(receipt.unloadResponse.done_reason, 'unload', 'explicit unload terminal'); receipt.unloaded = true;
     }
@@ -511,8 +535,9 @@ export async function finishOwnedGpuCleanup({ lease, owner, model, digest, loade
       receipt.emptySamples = row.ps.models.length === 0 && row.compute.length === 0 ? receipt.emptySamples + 1 : 0;
       if (receipt.emptySamples < 3) await io.sleep(1000);
     }
-    cleanupFiles(); checkOwner(); receipt.leaseReleased = lease.release();
-    assert.equal(receipt.leaseReleased, true, 'owned lease release required'); receipt.status = 'PASS';
+    if (transition) { checkOwner(); receipt.leaseRetained = true; receipt.scope = 'SETTLED_PROVIDER_EXCHANGE_TRANSITION'; }
+    else { cleanupFiles(); checkOwner(); receipt.leaseReleased = lease.release(); assert.equal(receipt.leaseReleased, true, 'owned lease release required'); }
+    receipt.status = 'PASS';
   } catch (error) { receipt.error = { message: error.message, code: error.code ?? null }; }
   return receipt;
 }
