@@ -1,7 +1,7 @@
 {
   "kind": "C25ProjectEditableTestInstruction@1",
   "baseSha": "ca3776ae4147518717ec0eaa67b3481e9673c566",
-  "status": "SOURCE_CPU_REVIEW_PASS_INTEGRATION_58_PASS",
+  "status": "SOURCE_CPU_INTEGRATION_DOCS_REVIEW_PASS_CI18_SUCCESS",
   "behavior": "Default retains existing tests; an explicit current request may edit a named editable test without weakening assertions or altering protected tests/oracles. Approval and context budgets remain unchanged.",
   "sourceFiles": [
     "src/chat/handlers/project-collaboration.js",
@@ -96,11 +96,71 @@
       "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c25-project-test-instruction-20261008/root-integration/artifact-validation-v2/test.log",
       "bytes": 13425,
       "sha256": "f52f3b750d7cd8d7f751d21f040b6e178db02e7090f12d6ed38b3f50e3b68476"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c25-project-test-instruction-20261008/root-integration/INTEGRATION-REVIEW.json",
+      "bytes": 7345,
+      "sha256": "5dea949aa3f6283bc7488e65a4facb2435424c715232f9c036980c74b7a0c701"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c25-project-test-instruction-20261008/publication/SOURCE.json",
+      "bytes": 249,
+      "sha256": "cf2254a51f60568d14ad8dc851cffcf35680388822fa15471c4bfb9c51509ce7"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c25-project-test-instruction-20261008/publication/REMOTE.json",
+      "bytes": 237,
+      "sha256": "0ae8b4c244d15876f95de266910198b8013ba5c71c4e58848d4c8ed3b6103f13"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c25-project-test-instruction-20261008/CI.json",
+      "bytes": 1046,
+      "sha256": "ce3493c5cfc4463e8fc491890693995c826e049ad7004b238c7098325ab17b94"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c25-project-test-instruction-20261008/CI-RUN-raw.json",
+      "bytes": 14280,
+      "sha256": "e86ba51abd611e1e6652bdb2d156693ae06dc9723475c3954a4d01756dd3f2f7"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c25-project-test-instruction-20261008/CI-JOBS-raw.json",
+      "bytes": 6010,
+      "sha256": "8a3156868436127274bf5a2fd30d742b87f468179338b89bb228751d92c431b8"
     }
   ],
   "artifactValidation": {
     "pass": 160,
     "fail": 0,
     "initialAttempt": "Harness stopped before tests because TMPDIR was not private; preserved, corrected to private0700 in a fresh directory."
+  },
+  "publishedSourceSha": "ba85a77f40f767c8895a6057c29f555f2b16b359",
+  "ci": {
+    "sourceSha": "ba85a77f40f767c8895a6057c29f555f2b16b359",
+    "status": "SUCCESS",
+    "steps": 18,
+    "runId": 37815033072,
+    "jobId": 113441355120,
+    "url": "https://github.com/Belphareon-bak/intentsmith/actions/runs/37815033072",
+    "completedAt": "2026-10-08T17:18:27Z",
+    "stepNames": [
+      "Set up job",
+      "Run actions/checkout@v5",
+      "Run actions/setup-node@v5",
+      "Install locked backend dependencies",
+      "Install locked Studio workspace dependencies",
+      "Validate registry and module boundaries",
+      "Verify generated Studio view",
+      "Verify privacy at the HTTP boundary",
+      "Install chat and M2 isolation tools",
+      "Prepare Ubuntu namespace policy for M2 sandbox tests",
+      "Verify chat context and approved effects (offline)",
+      "Verify functional M2 application controls (offline)",
+      "Preserve chat and M2 audit reports",
+      "Verify Studio 2 stores, rendering and authority adapters",
+      "Verify source hygiene",
+      "Post Run actions/setup-node@v5",
+      "Post Run actions/checkout@v5",
+      "Complete job"
+    ]
   }
 }

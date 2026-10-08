@@ -27,19 +27,29 @@ C23: skutečné Markdown export API má nezávisle přijatých původních 10 ko
 Own DB kopie, žádný zbývající projekt/konverzace ani M2 efekt a čisté ukončení ověřené.
 Jde o development-loopback API, ne produkční auth ani Studio; registry BLOCKED se nemění.
 [Přesné důkazy C23](docs/review/evidence/product-continuation-20261008/c23-export-api.json).
-C24 přidává skutečnou nabídku exportu otevřené konverzace ve Studiu; source/CPU106
-má nezávislé review, build a CI 18 na `ca3776ae` prošly. Integrované frontend106 /
-artifact160 / module1516 +0 / registry597 prošly. První actual skončil před Studiem:
-testovací složka byla registrovaná už při startu, jiné požadované jméno správně
-vyvolalo 409. Exportů 0, modelů 0; cleanup a AFTER prošly. Opravený adapter čeká
-na samostatnou revizi a nový průchod.
-Nová frontend změna není pokrytá předchozím celým profilem C22.
-[Paket C24](docs/review/evidence/product-continuation-20261008/c24-studio-export.json).
+C24 nabídka exportu ve Studiu má source/CPU 106, build a CI 18. Skutečné kliknutí
+na `ba85a77f` stáhlo jeden Markdown 176 B přesně shodný s backendovým artefaktem;
+nezávislé review potvrzuje obsah, vazby DB i úklid. **Původní oracle zůstává FAIL**:
+CDP záznam těla GET má 0 B, příčina z uložených důkazů není určená. V1 setup 409
+je rovněž zachovaný. Žádný další pokus v tomto cyklu.
+[Přesná měření a meze C24](docs/review/evidence/product-continuation-20261008/c24-studio-export.json).
 C25 doplnil výjimku pro výslovně jmenovaný editovatelný test k původnímu pokynu
-„Keep old tests; use a new test for a new module“.
-Chráněný oracle a assertions zůstávají chráněné; původních57 a nová4K regrese mají
-autorské, nezávislé i integrované58 PASS. C22 modelový FAIL zůstává.
-[Přesný rozsah C25](docs/review/evidence/product-continuation-20261008/c25-project-test-instruction.json).
+„Keep old tests; use a new test for a new module“. Chráněný oracle a assertions
+zůstávají chráněné; původních 57 a nová 4K regrese mají třikrát 58 PASS (autor,
+revizor, integrace). Publikovaný `ba85a77f` má CI 18 SUCCESS; C22 modelový FAIL zůstává.
+[Paket C25](docs/review/evidence/product-continuation-20261008/c25-project-test-instruction.json).
+C26 skutečně prošel projektovou navigací A → B → A a nezávislou revizí:
+3 správné kontexty, oddělené historie/README, návrat do stejné relace A z cache,
+41 GET bez WS příkazů, nezměněné 4 soubory a pět nulových efektových tabulek.
+Devět scoped odpovědí je200; patnáct SCM 400 u non-Git fixture není kvalifikace SCM.
+Jde o dva známé projekty bez efektů, nikoli obecný audit izolace/oprávnění.
+[Paket C26](docs/review/evidence/product-continuation-20261008/c26-project-context-aba.json).
+Celý profil 411 na `e4156946` předchází následným změnám C24/C25.
+C27 přijal diagnózu všech 20 generovaných C6 FAIL. Kontext ani výstupní limit
+nebyl doložen jako příčina; nejbližší hypotéza je rozpor classifier none+calendar.
+Další krok je řízený replay a konzistence schématu se zachováním negace/grounding;
+žádná nová inference, změna bindingu ani zvýšení skóre z diagnózy neplyne.
+[Paket C27](docs/review/evidence/product-continuation-20261008/c27-answer-diagnosis.json).
 Deterministické výsledky nenahrazují živou kvalitu ani release přejímku.
 Historický C12 profil na `678eead707a59df568c7353a8b2dd7ad6c175b23`
 měl produktový zdroj C9 `24f329c6` a obsahoval C11/C12 opravy testů.

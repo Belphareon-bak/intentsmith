@@ -24,10 +24,12 @@ Studio → D1 už skutečně prošlo až k návrhu, ten ale porušil zadanou ces
 a inkluzivní časovou hranici. **Plán je nepřijatý**, projekt se nezměnil,
 GPU cleanup prošel. Původní FAIL zůstává.
 Markdown export API prošel 10 původními kontrolami i nezávislou revizí.
-C24 doplňuje jeho nabídku ve Studiu; source/CPU 106 a build prošly,
-první živý test zastavila chyba přípravy fixture před Studiem (exportů0).
-C25 opravuje rozporný pokyn k editovatelným testům; integrace58 PASS.
-Celý profil C22 tyto následné změny nepokrývá.
+C24 nabídka ve Studiu skutečně stáhla správný 176 B Markdown; nezávislá revize
+potvrdila shodu s backendem. Původní celý oracle zůstává FAIL kvůli prázdnému
+CDP záznamu těla GET. C25 opravuje rozporný pokyn k editovatelným testům;
+integrace 58 PASS a CI 18 na `ba85a77f`. C26 má skutečné projektové A → B → A
+s oddělenými historiemi/soubory a nezávislým přijetím.
+Celý profil C22 následné zdrojové změny C24/C25 nepokrývá.
 
 **Release je NOT_ACCEPTED.** Produkční backend zůstává `c84b88cd`; tento
 vývoj jej nenasazuje. Kvalita expertíz, dlouhodobá stabilita, zbývající

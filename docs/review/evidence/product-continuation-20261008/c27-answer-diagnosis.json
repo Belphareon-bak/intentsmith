@@ -1,0 +1,115 @@
+{
+  "kind": "C27GeneratedAnswerFailureDiagnosis@1",
+  "status": "DIAGNOSIS_REVIEW_PASS",
+  "historicalSourceSha": "7ef8efbad9cb4ac78e60c0b29fc2f6f5e565e94c",
+  "currentSourceSha": "ba85a77f40f767c8895a6057c29f555f2b16b359",
+  "scope": "Všech 20 již přijatých C6 FAIL v answer_generation; 21 save_interpretation se znovu nehodnotí. Tři další F20 PASS slouží pouze jako kontrola kontraktního rozporu.",
+  "breakdown": [
+    {
+      "family": "F02",
+      "count": 4,
+      "finding": "Tři odpovědi umisťují cache mezi RAM a disk; čtvrtá zobecňuje magnetické ukládání na polovodičové obvody a současně mluví o HDD/SSD."
+    },
+    {
+      "family": "F03",
+      "count": 6,
+      "finding": "Tři lokální kontroly nerozlišují připojení k Wi-Fi a dostupnost upstream internetu. final-3/wifi-plain navíc zavádí termín letní režim."
+    },
+    {
+      "family": "F05",
+      "count": 1,
+      "finding": "Disk označen jako netrvalná paměť a hned poté popsán jako přetrvávající po vypnutí."
+    },
+    {
+      "family": "F14",
+      "count": 6,
+      "finding": "Nepodložené rozkládání značky Qwen na složky/generace nebo odvozování schopností; v jednotlivých odpovědích také odmítnutí existence vydání, desetinná interpretace či 12 označené za desátou podverzi. Označení Pythonu jako SemVer je vedlejší součást již uzamčeného posudku, nikoli jediný důvod této skupiny."
+    },
+    {
+      "family": "F20",
+      "count": 3,
+      "finding": "Chybí přímo použitelný ruční návrh se známým názvem, zítřkem a 10:00. Nabídka hledat nástroj či teprve vytvořit detaily zbytečně odkládá pokračování."
+    }
+  ],
+  "mechanicalFindings": {
+    "selection20Complete": true,
+    "providerContentEqualsUserVisibleContent": 20,
+    "completeHttp200DoneStop": 20,
+    "emptyIncomingHistoryAndExactCurrentUser": 20,
+    "promptTokensMinMax": [
+      414,
+      556
+    ],
+    "contextWindow": 4096,
+    "outputTokensMinMax": [
+      55,
+      356
+    ],
+    "allOutputTokenCountsBelowAllowance": true,
+    "answerRetries": 0,
+    "traceAndFileSnapshotDeltas": 0,
+    "currentGenerationReruns": 0,
+    "sourceOrPromptMutations": 0,
+    "originalDatabasesOpened": 0
+  },
+  "causeAccounting": {
+    "factualOrUnsupportedExplanation": 11,
+    "rubricSensitiveDiagnosticCoverage": 6,
+    "manualAlternativeWithUpstreamContractContradiction": 3,
+    "note": "Tyto tři skupiny tvoří 20. MODEL_OUTPUT je místo pozorované chyby všech 20, ne důkaz izolované neschopnosti modelu. F03 zahrnuje jeden další chybný termín; F20 zahrnuje modelový rozpor a doloženou bezpečnou aplikační reakci. Žádná chyba aktuálního renderování nebo ztráta historie nebyla doložena."
+  },
+  "priorityHypothesis": {
+    "id": "F20_CONTRADICTORY_CLASSIFIER_FIELDS_BYPASS_MANUAL_DRAFT_PATH",
+    "hypothesis": "Rozporná klasifikace none + kalendářový plán brání využití existující aplikací sestavené read-only odpovědi a nechává dodání ručních údajů na obecné generaci. Ověření této hranice má vyšší informační hodnotu než další plošná promptová etapa.",
+    "proven": "Rozpor 6/6, vynulování plánu a obecná větev; chybějící údaje 3/6. Čas a celý požadavek se neztratily.",
+    "notProven": "Že samotné dosažení větve other zlepší užitečnost. I tato větev může od modelu dostat nevhodný koncept. Nejde o prokázané vysvětlení vnitřní modelové chyby.",
+    "nextCpuExperiment": [
+      "Přidat malý soukromý replay do existující context fixture; vložit přesné uložené české/anglické classifier JSON přes stub llmGateway.call. Ověřit původní none→unavailableAction:null→obecný generátor na skutečném CRE a handleru.",
+      "Jako výslovně syntetický kontrafakt změnit pouze requestedOperation na other při stejném uzemněném request. Zachytit celý předaný návrhový vstup, stav not_executed/adapter_unavailable, canExecute:false a žádný toolExecutor call. Toto je test větvení, ne nová skutečná klasifikace.",
+      "Použít také původní neúspěšný generovaný text jako stub: očekávat, že pouhý přechod do other nezaručí detaily. Samostatný správný deterministický návrh ověří jen zachování názvu/času/zdroje a sestavení odpovědi.",
+      "Zachovat negativní none u negace, konceptu a citovaného příkazu i při navrženém payloadu; neukotvený/změněný úsek odmítnout; FILE_WRITE nesmí tato větev převzít. Žádný regex podle slova kalendář a žádné povýšení na efekt.",
+      "Pokud replay potvrdí přesnou mezeru, nový cyklus může samostatně navrhnout kontraktní konzistenci a její nezávislou revizi. Generační zlepšení pak vyžaduje předem zmrazené malé ověření celé F20 rodiny včetně současných PASS a negativů; žádný automatický model retry v C27."
+    ],
+    "stoppingRule": "Pokud nejde rozpor zpracovat bez porušení negace/konceptu nebo CPU ukáže jen jiné obalení stejného neužitečného textu, neintegrovat deklarovanou quality opravu. Zaznamenat NEEDS_DESIGN a konkrétní zbývající kontrakt.",
+    "acceptanceLimit": "CPU může přijmout pouze zdrojové větvení, provenance a nulové efekty. Užitečnost, 95 %, model preference a release zůstávají nepřijaté."
+  },
+  "limits": [
+    "Jedná se o známý exponovaný korpus. Historické heldOut příznaky zde nejsou H1/H2.",
+    "Nečteny H1/H2/restricted/plain/cipher, žádný model/provider/web dotaz, žádná SQLite databáze ani runtime.",
+    "Neprovádí se nový celý 423-ref audit; přeměřených šest přesných raw JSON souborů je svázáno s původním manifestem.",
+    "Dvacet případů je výběr selhání, nikoli vzorek pro odhad celkové kvality nebo hranice schopností modelu."
+  ],
+  "reviewedNextDesign": "Consider a conditional structured JSON Schema over the existing format passthrough: non-null unavailableAction implies CONVERSATIONAL and requestedOperation other. Preserve none/null, other/null and all semantic grounding/negation guards. Never promote none from payload. Requires CPU/wire/negative tests plus separate real provider dialect and256token completion check; no change implemented or inference run.",
+  "refs": [
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c27-generated-answer-diagnosis-20261008/DIAGNOSIS.json",
+      "bytes": 12960,
+      "sha256": "0eb5dca5d2e488411a38655cd6cc08cc1d31a4ab367e6a1641646a3e1bc4ee45"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c27-generated-answer-diagnosis-20261008/MANIFEST.json",
+      "bytes": 7708,
+      "sha256": "a5861adee5d7aa7eb9ddf9beab9749a005958b97e0c6100d4459b99da84de02c"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c27-generated-answer-diagnosis-20261008/ROWS.json",
+      "bytes": 149648,
+      "sha256": "944c116b8461877ef8ef3f669f301ce8bad97e94d562d6d13ff4d88eae545f16"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c27-generated-answer-diagnosis-20261008/F20-CONTRACT.json",
+      "bytes": 17438,
+      "sha256": "ff22d05c305bb2e8b12908f6236adbc71eedd70455ebf8f55ea11746721b3a30"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c27-generated-answer-diagnosis-20261008/SOURCE-BINDING.json",
+      "bytes": 4109,
+      "sha256": "d45e69dde6e927fc9ba123e24d34107b95a67fa53dc0272a7f4753fc495b6e91"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c27-generated-answer-diagnosis-20261008/independent-review/REVIEW.json",
+      "bytes": 12466,
+      "sha256": "a5a8744325151125e8a0c6a5470162188b16042cf7020f8a3d026b10b4f51dc5"
+    }
+  ]
+}

@@ -1,0 +1,126 @@
+{
+  "kind": "C26KnownProjectContextAba@1",
+  "sourceSha": "ba85a77f40f767c8895a6057c29f555f2b16b359",
+  "status": "KNOWN_PROJECT_CONTEXT_ABA_ACTUAL_REVIEW_PASS",
+  "execution": {
+    "startedAt": "2026-10-08T17:28:50.005816+00:00",
+    "finishedAt": "2026-10-08T17:28:59.445693+00:00",
+    "exitCode": 0,
+    "attempts": 1,
+    "fixedSequence": [
+      "A",
+      "B",
+      "A"
+    ],
+    "completedVerifiedSteps": 3
+  },
+  "verified": {
+    "domActions": 26,
+    "projectChildSelections": 3,
+    "filteredConversationSelections": 3,
+    "realSessionPickerSelections": 3,
+    "readmeClicks": 3,
+    "sameSessionIdentityOnReturnA": true,
+    "visibleProjectHistoryFileMatchEachFixture": true,
+    "noForeignMarkerInActiveHistoryOrFile": true,
+    "wireGetRowsSameOrigin": 41,
+    "recordedWsCommands": 0,
+    "scopedBodiesStatus200Finished": 9,
+    "filteredListGets": {
+      "A": 2,
+      "B": 1
+    },
+    "historyTreeReadmeGetsPerProject": 1,
+    "a2CachedSessionHistoryTreeEditor": true,
+    "ownDbCopiesIntegrity": "ok before and after",
+    "unchangedProjects": 2,
+    "unchangedConversations": 2,
+    "unchangedAssistantWelcomeMessages": 2,
+    "namedEffectApprovalTables": 5,
+    "allNamedCountsBeforeAfter": 0,
+    "unchangedProjectFiles": 4,
+    "artifactFiles": 0,
+    "downloadFiles": 0,
+    "closedBackendLifetimes": 2,
+    "closedStudioLifetimes": 1,
+    "ownedExitCodes": 0,
+    "ownedSignals": null,
+    "ownedCleanupFailures": 0,
+    "parentTimedOut": false,
+    "parentLeakDetected": false,
+    "parentCleanupTerminated": true,
+    "frozenBeforeAfterFiles": 40265,
+    "frozenBeforeAfterLinks": 305
+  },
+  "limits": [
+    "One known two-project development-loopback path. Setup imports/conversation creation were explicit fixture HTTP actions; those setup operations were not tested as UI journeys.",
+    "The other authorized project remains in the catalog; the accepted property is the correct active scoped conversation/history/files, not absence of every cross-project UI reference.",
+    "A2 demonstrates cached continuity, not a fresh backend read or behavior after concurrent/external modification, process restart, adversarial input, or changed permissions.",
+    "Five named effect tables and known project file invariants are checked. No edit/approval/execution or general cross-project authorization/isolation acceptance.",
+    "Fifteen recorded SCM GET400 responses belong to deliberately non-Git fixture folders; all nine scoped project/history/workspace responses are200. This is not SCM qualification.",
+    "Model-free scenario with provider127.0.0.1:9 in separate network namespace; no chat quality, 95-percent or release acceptance.",
+    "Independent reviewer performed no new actual, model/provider/GPU operation, signal, tracked/source/build mutation, protected-data access, or original SQLite open."
+  ],
+  "refs": [
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c26-project-context-preparation-20261008/MANIFEST.json",
+      "bytes": 6184,
+      "sha256": "2a811abb3d97d185250124cea0ed61d7c44e82865b9e8833da965c6482c1218c"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c26-project-context-preparation-20261008/RESULT.json",
+      "bytes": 2293,
+      "sha256": "f5cdf781e0cf46c816f50bf317a1395ff2d553ac41e0598281dcc9b3b8a8281c"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c26-project-context-preparation-20261008/independent-review/REVIEW.json",
+      "bytes": 10516,
+      "sha256": "17b0001b4ffea3c623876f60179dee06224ce68974c61339df94e06d8a083ad5"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c26-project-context-preparation-20261008/freeze-preparation/FROZEN.json",
+      "bytes": 10952875,
+      "sha256": "a001dd33e905cd4a723aa42ab7ca67568cbf9a23795eaf98f36aa52d5f4a5889"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c26-project-context-preparation-20261008/freeze-preparation/independent-review/READY.json",
+      "bytes": 658,
+      "sha256": "3faef96b4eec3785fde7d9573a982c43696b991b552cb072b6a60c27dc158483"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c26-project-context-preparation-20261008/actual-launch-v1/COMMAND.json",
+      "bytes": 1136,
+      "sha256": "5636ce0489a669b61260e79888fec952f609ca8d4aa2296d512613d60f8babe8"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c26-project-context-preparation-20261008/actual-launch-v1/EXIT.json",
+      "bytes": 666,
+      "sha256": "8f4c6d0594f447726a096ade02110cc62bce8e0170e62ee36727987655cd545e"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c26-project-context-preparation-20261008/actual-v1/RESULT.json",
+      "bytes": 359,
+      "sha256": "43163f70e32c90318ee1178f2cf9073c4044ba463ac713cd31e537f05fb1e37d"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c26-project-context-preparation-20261008/actual-v1/BEFORE.json",
+      "bytes": 151,
+      "sha256": "8ac807f80e552613275c3b2e751d1a471dc8ff80c22807448bcd7508442c237d"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c26-project-context-preparation-20261008/actual-v1/AFTER.json",
+      "bytes": 151,
+      "sha256": "d4d9540d23e2283bc9e29e89425fbe05fbfaa6bf2d2f406169520ddc293c05ba"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c26-project-context-preparation-20261008/actual-independent-review/REVIEW.json",
+      "bytes": 5870,
+      "sha256": "b4b65c4ce0b7ddf091fcf8d65a8ba2714d7fa57b1e30792b7e055eeb68b4d5da"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c26-project-context-preparation-20261008/actual-independent-review/RAW-INDEX.json",
+      "bytes": 9975,
+      "sha256": "f8c11465646bf8066615acbc2d9d13284c1eddab51690c08b838aa3f77016af1"
+    }
+  ]
+}

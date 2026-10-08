@@ -1,7 +1,7 @@
 {
   "kind": "C24StudioConversationExport@1",
   "baseSha": "e415694651652687f1cd13c51321f6f4aa2c349a",
-  "status": "SOURCE_CPU_BUILD_CI_PASS_ACTUAL_V1_SETUP_FAIL_REVIEWED",
+  "status": "PHYSICAL_DOWNLOAD_VERIFIED_ORIGINAL_MEASUREMENT_FAIL_REVIEWED",
   "sourceFiles": [
     "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/catalog-store.js",
     "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/view/live-model.js"
@@ -16,7 +16,7 @@
   },
   "apiPrerequisite": "C23_API_ACTUAL_EVIDENCE_REVIEW_PASS",
   "limits": [
-    "No Studio download acceptance yet.",
+    "One physical known-conversation Studio download independently verified; frozen complete oracle remains FAIL due to missing CDP response-body evidence.",
     "Success notice means prepared download, not OS save confirmation.",
     "Failed or cancelled download may leave backend export artifact; no automatic retry.",
     "C22 full411 precedes these frontend/test changes; no new complete profile claimed.",
@@ -172,6 +172,61 @@
       "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/actual-independent-review/REVIEW.json",
       "bytes": 13951,
       "sha256": "732e2d2ea998a426b125aa562dbf9a3a8fae01ade9f45e497c05ca79e114ad95"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/live-preparation-v2/independent-review/REVIEW.json",
+      "bytes": 9388,
+      "sha256": "5c71f3db8b69594a5e8af56895044d54e23ad90fa954a6c9e2788d5bdc94015b"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/freeze-preparation-v2/FROZEN.json",
+      "bytes": 10937722,
+      "sha256": "ca04507020844e8160d33c3fdb0c2a900528f39d60f42a28c92f00169be7e6f1"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/freeze-preparation-v2/independent-review/READY.json",
+      "bytes": 593,
+      "sha256": "04d4516d10e4083b6e96fd050cc123c2c976f3a0938ec2bcb9706ec6f148b0fb"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/actual-launch-v2/COMMAND.json",
+      "bytes": 1159,
+      "sha256": "70054fe699f5312a50f8f0bbd8fdc63142dbb8517e2ea4a585a9a977aaccea63"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/actual-launch-v2/EXIT.json",
+      "bytes": 666,
+      "sha256": "d6eef224c2117c587802eb4b533ca0593b16759966f61e82a689f596606ddcc9"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/live-preparation-v2/actual-v2/RESULT.json",
+      "bytes": 672,
+      "sha256": "24755146c010b7ca29c02baa3b0d9322f777723860998aadcfa58fe39333694d"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/live-preparation-v2/actual-v2/INSIDE-RESULT.json",
+      "bytes": 936,
+      "sha256": "7d6adfcdaf30147ef761a526abffce2f2457a4050e0a947da89960abab40779c"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/live-preparation-v2/actual-v2/BEFORE.json",
+      "bytes": 151,
+      "sha256": "c3506eaed2df050bc0d9753de627d4b2c06417117d90dcb773c569fac9a42bfc"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/live-preparation-v2/actual-v2/AFTER.json",
+      "bytes": 151,
+      "sha256": "41a72b85cc212116df8e79d5a50afba04c1f62d88de07baa63e95d88f3c2b53f"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/actual-v2-independent-review/LIFECYCLE-REVIEW.json",
+      "bytes": 8225,
+      "sha256": "c655631d019280172a7b8e8ad0dff15d5e91abe75f5a2f1dec957d769426d8eb"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/actual-v2-independent-review/REVIEW.json",
+      "bytes": 18609,
+      "sha256": "576438273e8327cc1bdadb6dccfb1687ca382c81a85737a67a420eb5d66cac23"
     }
   ],
   "integration": {
@@ -197,5 +252,20 @@
     "beforeAfter": "PASS40235refs305links",
     "budgetCaveat": "Original RESULT exports:1 is the planned upper bound, not observed activity; the original file is preserved.",
     "next": "Proposed V2 creates directory after backend readiness, preserves strict201 and records response before assertion; one fresh attempt after independent adapter review and new source/CI/freeze."
+  },
+  "actualV2": {
+    "sourceSha": "ba85a77f40f767c8895a6057c29f555f2b16b359",
+    "status": "ACTUAL_EVIDENCE_REVIEW_PASS_ORIGINAL_MEASUREMENT_FAIL",
+    "originalOracleExit": 1,
+    "observedExportPosts": 1,
+    "observedArtifactGets": 1,
+    "completedDownloads": 1,
+    "bytes": 176,
+    "downloadAndArtifactSha256": "4a2e78325a9c78f2a5b476bd08727c1ec61cb777f08cd83554336f15d5b0bd8b",
+    "verified": "Real Studio menu click, authenticated POST+GET200, completed Blob download byte-exact with own backend artifact; exact title and one expected assistant message.",
+    "measurementFailure": "Saved CDP GET response body has0bytes versus176; raw CDP result absent, cause not established. Original frozen oracle FAIL is preserved.",
+    "postHocAudit": "Reviewer-created copies of closed before/after own DBs: integrity OK, unchanged project/conversation/message,5named effect tables zero; project README unchanged. Runner after.json did not run because of prior assertion; this is independent post-hoc verification.",
+    "cleanup": "2backend+1Studio exit0; parent no timeout/leak; original BEFORE/AFTER40241refs305links PASS.",
+    "next": "No further actual in this cycle. Diagnose raw CDP measurement capture before a future full-oracle qualification. Physical download evidence does not rewrite measurement FAIL."
   }
 }

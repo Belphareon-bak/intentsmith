@@ -1,6 +1,17 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 8. 10. 2026. Celý profil na čistém `e4156946`: 411 PASS / 0 FAIL, CI18, nezávislé review. HTTP14 přijatý 70 + 17, rozpočet uzavřený. Fan 12/15 čeká na chráněný oracle. H1 READY, JIT operátora chybí, NOT_RUN. C21 archivní extrakce přijatá v omezeném rozsahu. C22 skutečně dosáhl D1, ale plán porušil cestu testu i inkluzivní hranici; ACTUAL_FAIL, nezávislý semantic/technical audit a cleanup PASS, žádné efekty/retry. C23 skutečné Markdown API 10 PASS / 15 požadavků / model0 má nezávislé přijetí. C24 nabídka exportu ve Studiu má source/CPU106 review, adoptovaný zdroj a build PASS; integrace106/160/1516/597 prošla, první actual skončil na fixture409 před Studiem, exportů0/modelů0, cleanup/AFTER PASS; oprava adapteru se reviduje. C25 prompt konflikt odstraněný, původních57+nová4K regrese: nezávislé i integrované58 PASS, bez nové modelové přejímky. C6 skóre 74,21 % / 15,09 % zůstává; release NOT_ACCEPTED. Staré FAILy ani přijaté ohraničené cykly se nepřepisují.
+**Aktualizováno:** 8. 10. 2026. Release **NOT_ACCEPTED**; chatové skóre C6 zůstává
+74,21 % užitečných /15,09 % zbytečných zastavení. HTTP14 přijatý 70+17, rozpočet
+uzavřený; Fan 12/15 čeká na chráněný oracle. H1 READY, bez JIT vstupu, NOT_RUN.
+Poslední přijatý celý profil je 411 PASS na `e4156946`; následné C24/C25 mají vlastní
+cílené testy a CI 18 na `ba85a77f`. C21 archivní extrakce přijatá v omezeném rozsahu.
+C22 skutečně dosáhl D1, plán ale porušil zadání; FAIL zůstává. C23 export API přijatý.
+C24 skutečně stáhl správný 176 B Markdown, což přijala nezávislá revize; původní
+celý oracle FAIL kvůli prázdnému CDP GET body je zachovaný. C25 opravuje doložený
+prompt konflikt, integrace 58 PASS; žádné nové modelové skóre. C26 skutečné A → B → A
+má nezávislé actual přijetí pro dva známé projekty, bez efektů. C27 přijal rozbor
+všech 20 zbývajících vad generované odpovědi a vymezil další kontraktní hypotézu. Staré FAILy ani
+rozsah jednotlivých přijetí se nepřepisují.
 **Vlastník integrace a CHAT:** tento koordinátor přebírá ROOT
 (`work/real-chat-journeys-20260930`) podle následného pokynu operátora.
 Jediný writer `cre-decision.js` i společných map je nyní ROOT; HTTP, Fan, fresh5
@@ -470,7 +481,7 @@ uzavřených DB, 7 nulových tabulek i messages0 a jediný157B Markdown přesně
 s GET. Registry BLOCKED se nemění. Development-loopback není production auth
 ani Studio evidence. [Důkazy a příkazy](review/evidence/product-continuation-20261008/c23-export-api.json).
 
-### C24 — export otevřené konverzace ve Studiu (SOURCE_CPU_REVIEW_PASS; LIVE_PENDING)
+### C24 — export otevřené konverzace ve Studiu (PHYSICAL_DOWNLOAD_VERIFIED; ORIGINAL_MEASUREMENT_FAIL)
 
 Menu Soubor nabízí Markdown export právě zvolené uložené konverzace.
 Pevná session/conversation/project identita, existující capability transport,
@@ -480,7 +491,7 @@ bez automatického retry. Dvě existující implementace a doplněná stávajíc
 Nezávislý source/CPU replay106 PASS (105 live-model +1 catalog file terminal),
 původní72 kontroly zachované. Baseline RED1 a autorova null/undefined fixture
 chyba28/1 zůstávají. Po přijetí skutečného C23 ROOT adoptoval přesný patch;
-build exit0; síť celého Theia buildu nebyla měřená. Integrované frontend106 / artifact160 / module1516 +0 / registry597 prošly; skutečný download čeká.
+build exit0; síť celého Theia buildu nebyla měřená. Integrované frontend 106 / artifact 160 / module 1516 +0 / registry 597 prošly. Následný skutečný download a meze původního oracle jsou uvedené níže.
 [Přesný patch, review a meze](review/evidence/product-continuation-20261008/c24-studio-export.json).
 
 ### Historický celý profil po C15 (FULL_PROFILE_REVIEW_PASS; před C18/C19)
@@ -1006,12 +1017,21 @@ ani export nevznikly; původní `RESULT.exports:1` je plánovaný strop, skuteč
 Vlastní DB kopie potvrzuje1 projekt,0 konverzací/zpráv a pět nulových efektových
 tabulek. Jediný backend se ukončil, parent bez timeout/leak, BEFORE/AFTER40 235
 refs/305links PASS. Nezávislé review732e2d2e přijalo tento uzavřený FAIL.
-Úzká oprava adapteru přesune mkdir až za readiness; strict201 zůstává.
+V2 přesunula mkdir až za readiness a zachovala strict 201; nezávislé 32 CPU PASS.
+Skutečný V2 průchod na `ba85a77f` 17:21 UTC provedl 1 POST a 1 GET 200 se správnou
+capability a dokončený Blob download. Soubor176 B odpovídá backendovému artefaktu
+i očekávané zprávě. Původní oracle přesto FAIL: CDP GET body má 0 B; raw CDP
+objekt chybí, příčina není určená. Nezávislé review `57643827` přijalo fyzické
+stažení a post-hoc vlastní closed DB kopie, nikoli původní oracle PASS. Vazby,
+zpráva a README stejné, 5 efektových tabulek 0,2 backendy+Studio řádně ukončené.
+Původní runner after.json po assertu nevznikl; samostatný AFTER freeze verifier
+ověřil40 241 refs /305 links. Žádný další actual v tomto cyklu.
 [Původní důkazy a revize](review/evidence/product-continuation-20261008/c24-studio-export.json).
 
 ### C25 — sjednocení pokynů pro editovatelný projektový test
 
-Nad čistým publikovaným `ca3776ae` je integrována jediná změna systémového
+Nad čistým publikovaným `ca3776ae` vznikl přijatý a publikovaný `ba85a77f`
+(CI37815033072, všech 18 SUCCESS). Obsahuje jedinou změnu systémového
 odstavce: výslovný aktuální požadavek smí upravit jmenovaný editovatelný test.
 Existující testy a assertions se zachovávají; chráněné testy/oracle se nemění.
 Žádné přepisování modelového plánu, změna approval, limitu kontextu nebo modelu.
@@ -1020,6 +1040,44 @@ autorské, nezávislé i ROOT integrační běhy mají58 PASS. Staré RED a nep�
 varianty promptu zůstávají v důkazech. C22 skutečný FAIL není opraveným modelem
 ani novým měřením: vliv rozporného pokynu nebyl izolován ablačním pokusem.
 [Přesný patch, revize, příkazy, exity a SHA-256](review/evidence/product-continuation-20261008/c25-project-test-instruction.json).
+
+### C26 — projektový kontext A → B → A (ACTUAL_REVIEW_PASS)
+
+Na čistém `ba85a77f` proběhl jediný skutečný běh 17:28:50–17:28:59 UTC, exit0.
+Tři volby projektu, filtrované konverzace a skutečný picker relace vedly ke
+správné historii, workspace a stejně pojmenovanému README. A2 obnovil přesně
+stejnou relaci/history/tree/editor z cache; nový byl filtrovaný seznam A.
+41 zaznamenaných GET bez WS příkazů,9 scoped 200;15 SCM 400 pro non-Git fixture
+je mimo rozsah SCM přejímky. Nezávislé own DB kopie mají integrity OK, 2 stejné
+projekty/konverzace/zprávy, 5 nulových efektových tabulek a 4 stejné soubory.
+Dva backendy+Studio exit0, parent bez timeout/leak, BEFORE/AFTER40 265 refs /305 links.
+Nezávislé review `b4b65c4c` přijímá pouze tuto známou čtecí cestu: ne změny, approval,
+restart, souběžné úpravy ani globální/adversarial izolaci. Modelová volání 0.
+[Příkazy, oracly, skutečné důkazy a SHA-256](review/evidence/product-continuation-20261008/c26-project-context-aba.json).
+
+### C27 — příčiny zbývajících generovaných odpovědí (DIAGNOSIS_REVIEW_PASS)
+
+Rozebráno všech 20 C6 selhání mimo 21 interpretačních save vad: paměť 4, Wi-Fi 6,
+RAM/disk 1, verze 6, kalendář 3. Původní adjudikace 118/159 se nemění. Všech20
+odpovědí je shodných s úplným provider výstupem, prompt 414–556 tokenů při 4K,
+output 55–356 pod limitem; žádná chybějící historie ani doložené truncation.
+Jde o 11 faktických/nepodložených tvrzení, 6 rubrikou citlivých diagnostických
+neúplností a 3 nedodané manuální alternativy. Nejde o nový odhad kvality modelu.
+
+Nejbližší konkrétní hypotéza: všech 6 kalendářových classifier výstupů (3 PASS,
+3 FAIL odpovědi) spojuje `requestedOperation:none` s kalendářovým plánem.
+Kontrakt výslovně požaduje `other`; parser plán při none bezpečně zahodí,
+takže návrh jde obecnou generační větví. Kauzální vliv na užitečnost není prokázán.
+Další ohraničený cyklus má ověřit větvení na uložených výstupech a konzistenci
+skutečně emitovaného strukturovaného schématu: plán vyžaduje CONVERSATIONAL/other,
+ale none se podle samotného payloadu nikdy nepovyšuje. Zachovat none/null,
+other/null, negaci/koncept/citaci, grounding i souborové approval hranice.
+Teprve samostatné malé předem fixované živé ověření může posoudit provider dialect,
+256-tokenové dokončení a užitečnost. Žádná další plošná promptová etapa, oslabení
+rubriky, změna modelu či opakování celého159 korpusu bez nové intervence.
+Autor i nezávislý revizor ověřili 28 refs, všech 20 odpovědí proti consensus a6F20
+kontrol; další modelová volání 0, produktové změny 0.
+[Přesné důkazy, alternativy a mez přijetí](review/evidence/product-continuation-20261008/c27-answer-diagnosis.json).
 
 ## Zbývající testy a pořadí dokončení
 
@@ -1044,14 +1102,16 @@ ani novým měřením: vliv rozporného pokynu nebyl izolován ablačním pokuse
    74,21 % užitečnosti /15,09 % zbytečných zastavení, NO_GO. Další práci řídit
    zbývajícími příčinami, zachovat nezměněných53 známých případů jako regresi.
    C17 NO_MODEL_PREFERENCE neopravňuje přepnutí modelu ani opakování týchž pokusů.
+   C27 přijatá diagnóza určuje nejbližší krok: řízený F20 replay a konzistence
+   classifier schématu, potom samostatné předem fixované malé živé ověření.
    C22 prokázal skutečný Studio→classifier→D1 přechod pod stejnou lease,
    ale plán porušil zadání; ACTUAL_FAIL zůstává. C25 opravuje konkrétní rozporný
-   systémový pokyn, nikoli modelový výsledek. C24 export má source/CPU/build/CI,
-   jeho první actual zastavila chyba fixture před Studiem; následuje opravený
-   adapter a jediný nový průchod po nezávislé revizi.
-5. **Zbývající produktové cesty:** C23 export API přijatý; C24 Studio download
-   otevřený. C26 připravuje skutečné projektové A→B→A se dvěma oddělenými
-   historiemi a stejně pojmenovanými soubory. Dále file/web/skills,
+   systémový pokyn, nikoli modelový výsledek. C24 fyzické stažení je doložené,
+   celý oracle zůstává FAIL kvůli chybějícímu CDP GET body; žádný další actual
+   bez konkrétní diagnózy měření.
+5. **Zbývající produktové cesty:** C23 export API přijatý; C24 má ověřený
+   fyzický Studio download s mezerou CDP měření. C26 známé čtecí A→B→A přijaté,
+   širší efektová/oprávňovací izolace otevřená. Dále file/web/skills,
    kvalita expertise/specialistů, worker souběh a delší stabilita. Potom společná
    M5/M6 evidence, 24h soak, propustnost, nový H2 a explicitní release gate/demo.
    Mobil má historical CPU47; fyzická matice13+7 NOT_RUN (device/APK/VPN,

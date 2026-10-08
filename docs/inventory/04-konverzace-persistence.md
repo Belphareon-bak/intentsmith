@@ -10,7 +10,9 @@ Původní inventura níže popisuje srpen. Aktuální C23 má skutečně přijat
 Markdown export/download API: 10 původních kontrol, 15 HTTP požadavků,
 model0, přesně jeden soubor shodný s downloadem a ověřené uzavřené DB kopie.
 C24 doplňuje menu Soubor → Exportovat otevřenou konverzaci (Markdown) ve Studiu;
-source/CPU106 a build PASS, živý download zatím čeká.
+source/CPU 106, build a CI prošly. Skutečný download 176 B z menu je nezávisle
+ověřený shodou s backendovým artefaktem a původní zprávou. Celý frozen oracle
+zůstává FAIL kvůli prázdnému CDP GET body; jeho příčina není prokázaná.
 [Příkazy a meze C23](../review/evidence/product-continuation-20261008/c23-export-api.json),
 [paket C24](../review/evidence/product-continuation-20261008/c24-studio-export.json).
 PDF/DOCX mají samostatné runtime prerekvizity; Markdown je nepotřebuje.

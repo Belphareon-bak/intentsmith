@@ -1,5 +1,12 @@
 # Inventura #10 — Project lifecycle
 
+**Aktualizace 8. 10. 2026, `ba85a77f`:** C26 ověřil skutečnou navigaci
+projekt A → B → A, filtrované konverzace, oddělené historie a pracovní soubory.
+Návrat do A obnovil stejnou relaci a její cache; čtyři soubory a vazby DB
+zůstaly stejné, pět efektových tabulek nula. Jediný běh i nezávislá revize PASS.
+Nejde o změny/approval, restart, souběžné úpravy nebo obecný audit oprávnění;
+non-Git SCM 400 zůstávají mimo rozsah. [Důkazy a meze C26](../review/evidence/product-continuation-20261008/c26-project-context-aba.json).
+
 **Aktualizace 2026-09-19, `9660d99b`:** skutečný asistovaný CODE/M2 průchod
 vytvořil a spustil tři různé utility a provedl jednu opravu v importovaném
 ShellSmithu. Přesné opravy úseků, syntax guard před plánem a kontext skutečného
