@@ -4,12 +4,14 @@
 Release `NOT_ACCEPTED`; BE `c84b88cd` / Studio `7bf62455…bfe24` nezměněné.
 Přijaté Ledger/TaskFlow/SQLite, omezený AST/GPU panel/cleanup, full109 DB roundtrip a M3 worker;
 opakovat pouze při nové změně nebo konkrétní pochybnosti. ROOT vlastní integraci i CHAT.
-Poslední celý offline/database profil patří čistému `44e4d96c`, před integrací C15:
-8.10.09:52:43–10:02:53UTC,410 PASS/0 FAIL/TIMEOUT/BLOCKED/SKIPPED, exit0.
-Nezávislý review93ce797d…4381840: všech410logů,323offline+87database,
-context74, původních239kontrol C12, scenario42,0retry/0owned-process-group leaks.
-CI37756055502/job113240758670 všech18 SUCCESS. [Hashové předání](docs/review/evidence/product-continuation-20261008/c14-full-profile.json).
-Jde o deterministický profil; žádná nová živá kvalita nebo release přejímka.
+Aktuální celý offline/database profil na čistém `d4304899` pokrývá produkt C15:
+8. 10. 11:25:55–11:36:37 UTC, 410 PASS / 0 FAIL/TIMEOUT/BLOCKED/SKIPPED, exit 0.
+Nezávislé review `84105069…29bc2b9` ověřilo všech 410 logů, 323 offline + 87 database,
+context 82, původních 239 kontrol C12 a scenario 42; žádný retry ani hlášený únik
+vlastní process group. Zdroj před/po čistý a stejný, CI 18 SUCCESS.
+[Aktuální celý profil a meze](docs/review/evidence/product-continuation-20261008/c17-full-profile.json).
+Předchozí `44e4d96c` je historický profil před C15; soukromý C18 tím přijatý není.
+Deterministický profil neprokazuje živou kvalitu ani release přejímku.
 Historický C12 profil na `678eead707a59df568c7353a8b2dd7ad6c175b23`
 měl produktový zdroj C9 `24f329c6` a obsahoval C11/C12 opravy testů.
 C9: classifier13 HTTP/restart, context55, project57 a integrace19 PASS;
@@ -97,7 +99,7 @@ Před inferencí se opraví prokázané budget/cleanup nedostatky existujících
 32k krátce změřené fullGPU/min free 2 512 MiB; celé okno ani kvalita aplikace tím nepřijaté.
 Classifier→D1 CPU 44 +parser 24/review PASS; živý přirozený vstup a fyzická ovladatelnost IDE/M2 otevřené.
 
-Nynější úkol: připravit C17 porovnání role ukládání po přijaté C15 cestě a omezené C16 diagnóze; HTTP14 testovaný rozsah je uzavřený.
+Nynější úkol: navrhnout další omezenou strategii interpretace podle uzavřeného C17 NO_MODEL_PREFERENCE; modely se automaticky nepřepínají. HTTP14 testovaný rozsah i jeho rozpočet jsou uzavřené.
 C13 source44567af7/CI18: dva HTTP admission FAIL před inferencí (nová0/historie12),
 Fan čtyři úplné nové výstupy (12/15), literal import FAIL před approval/oracle.
 Skutečný Qwen32k cleanup pod lease přijat; Fan chráněný oracle čeká na rozhodnutí.
@@ -123,14 +125,22 @@ vstupu, ne o celkové skóre chatu. Integrované context 82 / project 57 a sourc
 jsou PASS. Známá čtyřtahová cesta na `52d230c1` má nezávislé review PASS:
 7 úplných volání, jeden přesně schválený zápis původních 90 bajtů do `photo.md`,
 žádné předchozí efekty a cleanup PASS. [Aktuální výsledek a meze](docs/review/evidence/product-continuation-20261008/c15-user-path.json).
-C16: 13 CPU PASS pouze před M2 pro šest případů; C17 role comparison je NOT_RUN.
+C16: 13 CPU PASS pouze před M2 pro šest případů. C17 na `d4304899` uzavřel
+24 odpovědí: Gemma 1 ze 7 pozitivních / 4 z 5 negativních, Qwen 5 ze 7 / 3 z 5
+a jeden nebezpečný interpretační záměr. NO_MODEL_PREFERENCE; žádný efekt,
+změna bindingu ani retry. Oba cleanup a uvolnění GPU lease PASS, nezávislé posudky uzavřené.
+[C17 kritéria, výsledky a meze](docs/review/evidence/product-continuation-20261008/c17-role-comparison.json).
 C6 skóre, historické FAIL, Studio→D1 a release tím uzavřené nejsou.
 [Podrobnosti a přesné meze C15](docs/review/evidence/product-continuation-20261008/c15-input-ab.json).
 C10 izoloval chybu modelové návaznosti a následnou ztrátu pending; další oprava
 nesmí ignorovat změnu zadání či cancel; C6 NO_GO a C7 živý FAIL zůstávají. C5 retry zastaven,
 před návratem jiná omezená strategie; C3/C4 přezkoumány,
-H1 je podle operátora 8. 10. odložený do kontroly GPU cleanup. Další:
-HTTP/Fan v přijatých budgetech → IDE/BE/expertise/workers → M5/M6.
+Původní H1 podmínka kontroly cleanup je splněná. Sběr i soukromé předání operátorovi
+už jsou autorizované; zbývá vnější dohled, dvoumodelový úklid, bezpečná metadata
+a fresh freeze původních c7/959. Dešifrování operátorem až před připraveným oknem;
+H1 NOT_RUN. C18 je soukromá CPU práce s review pending, ne přijatá oprava.
+Další: omezená CHAT strategie z C17 a technická příprava H1 → IDE/BE/expertise/workers → M5/M6.
+Fan čeká na oracle rozhodnutí; HTTP14 rozpočet je uzavřený.
 M5 je 8/9/privacy changes required; retain_and_rotate zvolené, signed 8 categories+history chybí.
 CustodyA/B doložená; druhá operator offline kopie/reviewer recovery/13 signed/24h/throughput/Gate0/demo otevřené.
 Mobil 13+7/device/pair-revoke/M2/TalkBack po stabilním IDE/BE; conversation.create chybí.

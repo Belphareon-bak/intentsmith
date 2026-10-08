@@ -1,12 +1,12 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 8. 10. 2026. Celý offline/database profil 410 PASS patří zdroji `44e4d96c`, před C15. HTTP14 je přijatý v původním rozsahu 70 + 17 požadavků; rozpočet 14 CODE volání je uzavřený. C15 na `52d230c1` prošel jednou známou čtyřtahovou cestou až k přesně schválenému zápisu; C6 skóre a historický F11 FAIL se nepřepisují. C16 uzavřel omezenou CPU diagnózu dalších šesti souborových případů; C17 porovnání role se připravuje. Fan čeká na rozhodnutí o oracle. H1 NOT_RUN, release NOT_ACCEPTED.
+**Aktualizováno:** 8. 10. 2026. Celý offline/database profil na čistém `d4304899` s produktem C15 má 410 PASS a nezávislé review; starší profil `44e4d96c` zůstává historický. HTTP14 je přijatý v původním rozsahu 70 + 17 požadavků; rozpočet 14 CODE volání je uzavřený. C15 na `52d230c1` prošel jednou známou čtyřtahovou cestou až k přesně schválenému zápisu; C6 skóre a historický F11 FAIL se nepřepisují. C16 uzavřel omezenou CPU diagnózu dalších šesti souborových případů. C17 dokončil 24 odpovědí a nezávislé posudky: NO_MODEL_PREFERENCE; žádný binding ani retry. Fan čeká na rozhodnutí o oracle. H1 sběr i soukromé předání operátorovi jsou autorizované, zbývá technická příprava; H1 NOT_RUN, release NOT_ACCEPTED.
 **Vlastník integrace a CHAT:** tento koordinátor přebírá ROOT
 (`work/real-chat-journeys-20260930`) podle následného pokynu operátora.
 Jediný writer `cre-decision.js` i společných map je nyní ROOT; HTTP, Fan, fresh5
 a M6 patří témuž koordinátorovi. Hunt a druhý posudek jeho matice zůstávají oddělené.
 CHAT checkout slouží následně jen jako vlastní sériový běhový checkout zmrazených kandidátů.
-**Release NOT_ACCEPTED. HTTP14 PRIMARY70_SUPPLEMENT17_REVIEW_PASS. Fan FAIL. C15 známý save dialog PASS; historický F11 FAIL zachovaný. Mobil čeká na stabilní IDE/BE.**
+**Release NOT_ACCEPTED. HTTP14 PRIMARY70_SUPPLEMENT17_REVIEW_PASS. Fan FAIL. C15 známý save dialog PASS; C17 NO_MODEL_PREFERENCE. Historický F11 FAIL zachovaný. Mobil čeká na stabilní IDE/BE.**
 
 ## Pokračování schválené operátorem 8. 10. 2026
 
@@ -14,10 +14,12 @@ Operátor výslovně požaduje pokračovat za předchozí CPU checkpoint a rozho
 „s H1 bych počkal, až bude kontrola úklidu GPU, HTTP bych dal jeden maximálně dva pokusy;
 fan — 15 jedna dávka oprav“. Tyto rozpočty již nečekají na další potvrzení.
 
-- H1: původní odklad vyžadoval kontrolu GPU cleanup. Dnešní konkrétní Qwen32k
-  a Gemma4K běhy mají přezkoumaný skutečný unload a cleanup PASS. H1 zůstává
-  NOT_RUN bez plaintextu; jeho vlastní připravenost a předání raw evidence
-  operátorovi jsou samostatné otevřené podmínky, žádné dešifrování ani sběr.
+- H1: podmínka kontroly GPU cleanup je doložená přijatými konkrétními běhy.
+  Šest sérií i soukromé předání raw operátorovi pro zaslepení už jsou autorizované;
+  starý custody PENDING nevyžaduje nový souhlas. Zbývá bounded vnější dohled,
+  úklid dvou vlastněných modelů, bezpečný výstup pouze metadat a fresh freeze nad
+  původními `c7f03d56` / `9591ea1b`. Operátor dešifruje těsně před připraveným oknem;
+  zatím bez nového plaintextu či sběru, NOT_RUN. [Audit autority a technických mezí](review/evidence/product-continuation-20261008/c17-role-comparison.json).
 - HTTP: první genuine CODE repair routeru nad skutečným FAILED návrhem, server
   pouze exact reusePrevious. Historie12 → nejvýše13 v prvním pokusu. Druhý pokus
   je rezerva podle konkrétního výsledku prvního, nejvýše14 celkem; žádný automatický
@@ -82,7 +84,8 @@ má pevnou expiry08:47:55.357UTC (10:47:55 Praha); expiry ani návrh se nepřepi
 Source/raw/DB-copy/immutable packet audit PASS, 4raw→preview přesně, starý FAIL zachován.
 Skutečný own-model unload +3empty ps/compute pod lease +release přijat druhým workerem;
 tím je doložen cleanup tohoto Qwen32k běhu, nikoli kvalita aplikace ani H1 sběr.
-H1 zůstává bez plaintextu/sběru; jeho další provozní a custody podmínky jsou samostatné.
+H1 zůstává bez nového plaintextu/sběru; technické podmínky jsou samostatné.
+Pozdější audit potvrzuje již autorizované soukromé předání operátorovi, viz aktuální stav nahoře.
 
 Nezávislá diagnóza prokázala ekvivalentní import targets (M2 governance je přijala),
 parse-only3+16CPU PASS, žádné spuštění subjectu. Konkrétní privátní změna source-policy
@@ -258,8 +261,45 @@ CPU 13 PASS a nezávislé review potvrdily zachování šesti otázek a průchod
 syntetických platných plánů pouze k odmítající hranici před M2. F13 zachoval
 `file.create`; žádné efekty nebo změny projektových souborů. Modelový přínos ani
 provedení M2 tím doložené nejsou. [C16 důkazy a meze](review/evidence/product-continuation-20261008/c16-literal-save-cpu.json).
-Následuje příprava C17: nejvýše 24 volání, 12 na model, společný prompt/schema/options
-a předem přijaté pozitivní i negativní kontroly. Zatím NOT_RUN; žádné ladění po případech.
+
+### C17 — porovnání role ukládání (UZAVŘENO; NO_MODEL_PREFERENCE)
+
+Na čistém `d4304899` s CI 18 SUCCESS proběhly dva pevné bloky: Gemma a poté Qwen,
+každý 12 odpovědí, celkem 24 z 24 úplných, bez retry. Shodné vstupy, instrukce,
+schema a nastavení 4K se lišily pouze modelem. Sběr skončil 8. 10. 11:14:55 UTC;
+technický i významový posudek jsou uzavřené podle kritérií přijatých před inferencí.
+
+| Model | Správné pozitivní interpretace | Správné negativní kontroly | Nebezpečné interpretace |
+| --- | --- | --- | --- |
+| Gemma4:26b `08ae…12a68` | 1 ze 7 | 4 z 5 | 0 |
+| Qwen3.8 `2213…79643` | 5 ze 7 | 3 z 5 | 1 |
+
+Gemma dál zbytečně žádala upřesnění všech šesti doslovných zápisů a pokračovala
+v ukládání otázkou i po změně zadání. Qwen lépe zvládl jasné zdroje, ale znovu
+otevřel výslovný zákaz a svévolně vybral `photo.md` z dvojice možných cílů.
+U obou zadání se zákazem mazání jiného souboru obě varianty vrátily chybný
+režim `create` místo `replace`; příčinu vnitřního uvažování tím nedokazujeme.
+Jde o interpretační záměr, ne provedený efekt: adapter neotevíral DB ani M2.
+Vlastní unload, tři prázdné ps/compute vzorky a uvolnění GPU lease prošly u obou modelů;
+nezávislé technické review ověřilo 56 403 refs a 221 symlinků.
+
+Žádný model nesplnil podmínku všech pěti negativ, nulového nebezpečného záměru
+a vyššího počtu správných pozitivních interpretací. Binding se nemění a C17
+nemá další retry. Jde o známou omezenou roli, ne nové C6 skóre, 95% kvalitu,
+uživatelskou cestu nebo release přejímku. [Pevná kritéria, raw a oba posudky](review/evidence/product-continuation-20261008/c17-role-comparison.json).
+
+### Aktuální celý profil po C15 (FULL_PROFILE_REVIEW_PASS)
+
+Čistý publikovaný `d4304899` má stejné source/tests/scripts jako C15 `52d230c1`.
+Původní offline/database profil proběhl 8. 10. 11:25:55–11:36:37 UTC: 410 PASS,
+0 FAIL/TIMEOUT/BLOCKED/SKIPPED, exit 0, bez retry a bez hlášených úniků vlastních
+process groups. Nezávislé review `84105069…29bc2b9` ověřilo všech 410 logů,
+výběr 323 offline + 87 database, stejné fingerprints, context 82, původních 239
+kontrol C12 a scenario 42. Zdroj před/po je stejný a čistý; CI má 18 SUCCESS.
+Jde o současný produkt C15, ne soukromý kandidát C18. Dřívější `44e4d96c` zůstává
+historický. Počet programů není počet úplných uživatelských cest; omezení import
+smoke a crash probes, samostatný project 57 i hranice izolace zůstávají.
+[Přesné příkazy, logy a přejímka](review/evidence/product-continuation-20261008/c17-full-profile.json).
 
 ## Autonomní postup přijatý po revizi 7. 10. 2026
 
@@ -268,7 +308,8 @@ zapracování začít; následně potvrdil převzetí M1 opravy od neaktivního 
 Další pokyn v téže relaci přebírá celou ROOT koordinaci, ruší pořadovou
 podmínku D1 a určuje jeden H1 sběr: Qwen i Gemma, každý 3 série, poté odstranit
 plaintext. Pokud sběr nezačne hned, plaintext odstranit už před přípravou.
-Zaslepený balík pro hodnotitele po sběru sestaví operátor.
+Zaslepený balík pro hodnotitele po sběru sestaví operátor; soukromé uchování
+a předání raw témuž operátorovi je součást již udělené autorizace.
 Tento soubor je jediný aktuální deník. `COMPLETION-TRACKER` je historický od
 `2a479852`; chatový PROGRESS uchovává předchozí měření, není druhý společný plán.
 
@@ -320,13 +361,15 @@ odhalil clarify i při úplném vstupu a správném target/source. C15 dokončil
 obě varianty zachovaly všechny tři negativy. Integrované context 82 / project 57
 mají review PASS. Následná známá čtyřtahová cesta na `52d230c1` prošla včetně
 přesného schválení a zápisu; C16 odlišil dalších šest interpretačních případů
-od překážek před M2. Připravované C17 porovnání role je NOT_RUN.
+od překážek před M2. C17 je uzavřený s NO_MODEL_PREFERENCE: lepší počet pozitivních
+interpretací Qwenu nepřekonal vady negativních kontrol; binding se nemění.
 `understood:false` se nepovyšuje na zápis. Další rozhodnutí staví na těchto omezených důkazech,
 nikoli na novém nedoloženém promptu či regexu. C2 již rozebral všech 36 neužitečných odpovědí a 22 zastavení
 z Gemma regrese podle rodiny a příčiny (aplikace/model/hodnocení, překryvy se nesčítají).
-H1 má naplánované jedno společné GPU okno pro oba pevné kandidáty, zatím
-WINDOW_NOT_OPEN. Po původním odkladu jsou konkrétní Qwen32k a Gemma4K cleanup
-běhy přezkoumané; samostatná H1 připravenost a custody zůstávají otevřené.
+H1 má autorizované jedno společné GPU okno pro oba původní kandidáty a soukromé
+předání operátorovi; zatím WINDOW_NOT_OPEN. Konkrétní cleanup běhy jsou přezkoumané.
+Zbývá technická příprava vnějšího dohledu, dvoumodelového úklidu, bezpečné projekce
+metadat a fresh freeze. Nejde o nové rozhodnutí o custody.
 Nové dešifrování ani sběr neproběhly; další autorizovaná práce pokračuje nezávisle. D1 nemá pořadovou závislost na sběru ani hodnocení H1.
 Stagnace se uplatňuje ihned; nové prompty ani regex opravy bez doložené příčiny.
 Po dvou cyklech bez posunu se strategie přehodnotí a problém oznámí, nezávislá
@@ -737,11 +780,11 @@ Actual používá zdroj cache 0700; původní zdroj 0775 pokrývá CPU regrese, 
 | Fan | C13 dokončil4 další výstupy, celkem12/15; literal import guard/oracle změna čeká na operátora, původní FAIL zachovaný. Cleanup skutečného Qwen32k běhu přijat; další core inference nepovolena |
 | Přirozené plánování | C5 v5 po opraveném ovladači odeslal vstup; GPU monitor FAIL před úplnou odpovědí, D1 NOT_REACHED. Stagnace: žádný další retry v tomto cyklu |
 | M1 outage | C1 `1f098912` source review a řízené HTTP/restart PASS; testovaný `b9cfc7c5` full410/CHAT7/CODE12/CI PASS; ROOT převzal e15264f1; C4 fresh5 b959a468 5PASS/review PASS |
-| Chatová kvalita | C6 skóre 74,21 % / 15,09 % zůstává NO_GO. C15 na `52d230c1`: známý čtyřtahový dialog, přesný schválený zápis 90 B a cleanup mají nezávislé review PASS. Historické F11 FAIL zachované. C16: šest dalších zadání, CPU 13 PASS pouze před M2. C17 porovnání role NOT_RUN, nejvýše 24 volání |
-| Providerové chyby | C9 zdroj24f329c6: zbývající classifier404/binding/drift +projektové chyby terminal; řízené13HTTP/57project GREEN, source/test/evidence/integrace19/CI PASS. C12 celý profil410/CI18 historicky přijat na678eead7; aktuální C14 celý410/CI18 přijat na44e4d96c; interní M7 status se nemění |
+| Chatová kvalita | C6 skóre 74,21 % / 15,09 % zůstává NO_GO. C15 na `52d230c1`: známý čtyřtahový dialog, přesný schválený zápis 90 B a cleanup mají nezávislé review PASS. Historické F11 FAIL zachované. C16: šest dalších zadání, CPU 13 PASS pouze před M2. C17 uzavřeno: NO_MODEL_PREFERENCE, 24 odpovědí; žádný binding ani retry |
+| Providerové chyby | C9 zdroj24f329c6: zbývající classifier404/binding/drift +projektové chyby terminal; řízené13HTTP/57project GREEN, source/test/evidence/integrace19/CI PASS. C12 na678eead7 a C14 na44e4d96c jsou historické profily; aktuální d4304899 s produktem C15 má 410 PASS / CI 18 SUCCESS / nezávislé review; interní M7 status se nemění |
 | Mobil | Chybí conversation.create; implementace a device přejímka až po stabilním IDE/BE |
 | Hunt | Potřebujeme nový grading report/cestu a vlastníka pokračování; ROOT cizí hodnocení nepřebírá |
-| H1 custody | Cleanup uzavřených Qwen32k a Gemma4K běhů přezkoumaný; samostatné H1 okno/custody zůstávají nedořešené. Sběr/dešifrování NOT_RUN, bez plaintextu; dosavadní varianty připravené |
+| H1 připravenost | Sběr i soukromé předání operátorovi autorizované, cleanup doložený. Zbývá vnější dohled, dvoumodelový úklid, bezpečná metadata a fresh freeze pro c7/959; dešifrování operátorem až před připraveným oknem. H1 NOT_RUN |
 
 **Historická HTTP evidence do 7. 10.; aktuální HTTP13/14 je uvedené výše.**
 [HTTP WP](wp/WP-M2-PRIVATE-HTTP-EXECUTION-20261004.md): linux-bwrap-private-loopback-v1 je zapojený, default offline V1 zachovaný.
@@ -762,14 +805,18 @@ To nedokládá zaplněné 32k okno. Output4096 platí jen pro vydaný exact CODE
 
 ## Zbývající testy a pořadí dokončení
 
-1. Navázat C17 na přijatou diagnózu C16: porovnat roli interpretace ukládání
-   na dvou přesně připnutých modelech se stejným promptem, schema a nastavením.
-   Zatím NOT_RUN; nejvýše 24 volání, 12 na model, předem přijaté pozitivní
-   i negativní kontroly, bez efektů, změny bindingů nebo dodatečného retry.
+1. C17 je uzavřený s NO_MODEL_PREFERENCE; celý profil na `d4304899` s produktem
+   C15 má 410 PASS a nezávislou přejímku. C18 nyní v soukromém kandidátu prověřuje
+   odmítnutí nevyřešených alternativ před předložením efektového návrhu;
+   source/CPU review je pending, žádná integrace ani nový modelový přínos.
+   Před další inferencí nezávisle přijmout rozhodující kontrolu a negativy;
+   žádné automatické přepnutí modelu, per-case prompty, přepis clarify na write
+   ani další retry C17. H1 technická příprava může pokračovat pod již udělenou
+   autorizací; dešifrování až těsně před revidovaným oknem.
    C15 je publikovaný na `52d230c1`, CI 18 PASS; jeho jediný známý čtyřtahový
    průchod až k přesně schválenému souboru má nezávislou přejímku.
    C14 oprava návaznosti má source/CPU přejímku. C9/C11/C12 jsou uzavřené v uvedeném
-   CPU rozsahu; aktuální přijatý celý profil je44e4d96c,410PASS a CI18.
+   CPU rozsahu; aktuální přijatý celý profil je `d4304899`, 410 PASS a CI 18 SUCCESS.
    C4 původní fresh5 na b959a468: **5PASS/review PASS**. Historický90/3PASS2FAIL zachovaný.
    C5 uzavřít jako přezkoumaný FAIL; další strategie nesmí pokračovat řadou retry aparátu.
    C6 známá regrese74,21%/15,09% NO_GO; C7/C8 produktové opravy přijaté v uvedeném rozsahu,
@@ -791,9 +838,11 @@ Online zdroje se zachovají. Signed receipts 13, aktuální 24h soak/5min throug
 Hunt RO 6. 10., 12:18 UTC: canonical 107 JSON (106 batches +revision) +3 MD; poslední zápis 30. 9.,19:43 UTC.
 Poslední validované pokrytí 596/1173 responses,2324/3689 criteria; historický stop byl weekly API limit, dnešní quota tím nedoložená.
 Oddělený ROOT development draft 16/64 se nepřičítá. Nový worker progresspath vyžádaný; Gemma9591 poslední NO_GO, žádná aktivace.
-H1 plaintext odstraněn a sběr NOT_RUN. Po přezkoumaném cleanup konkrétních Qwen32k
-a Gemma4K běhů zbývá samostatná H1 připravenost a rozhodnutí o předání raw evidence.
-Zaslepení a předání hodnotitelům po případném sběru provede operátor. Obsah ROOT nečetl.
+H1 plaintext byl odstraněn, nový sběr NOT_RUN. Kampaň i soukromé předání raw témuž
+operátorovi jsou autorizované; nový souhlas s custody se nežádá. Po přijatém cleanup
+zbývá technická příprava vnějšího dohledu, dvoumodelového úklidu, bezpečné projekce
+metadat a fresh freeze. Operátor dešifruje těsně před připraveným oknem a následně
+vytvoří zaslepený balík. ROOT obsah nečetl; veřejné historické receipts se nemění.
 [Datovaný archiv](https://github.com/Belphareon-bak/intentsmith/blob/0d86b68ef94bfd260dfb6f06d2231d14865dc9f1/docs/WORK-PROGRESS.md).
 
 ### Předání 7. 10. — převzetí ROOT a příprava H1
@@ -817,7 +866,9 @@ CHAT checkout je čistý detached c7f03d56, závislosti patří frozen lockfilu;
 ROOT vývojový checkout tím není přepínán. Po sběru návrat na CHAT větev vyžaduje
 obnovení jejího novějšího lockfilu, nikoli předpoklad shodných závislostí.
 GPU okno není otevřené a žádná inference neproběhla. Raw evidence také obsahuje
-kopie H1; výběr jejího předání (šifrovaný balík / soukromě operátorovi) byl
-vyžádán před dešifrováním a zůstává PENDING. Fresh5/Studio má vlastní sériové GPU okno; na dosud neotevřené H1 okno
+kopie H1; výběr jejího předání (šifrovaný balík / soukromě operátorovi) byl tehdy
+zapsán PENDING. Pozdější audit autority výše potvrzuje, že soukromé předání operátorovi
+už vyplývá z jeho pokynu; tento historický PENDING není nový consent blocker.
+Fresh5/Studio má vlastní sériové GPU okno; na dosud neotevřené H1 okno
 časově nečeká a inference se nepřekrývají. Tehdy HTTP 13. CODE volání a Fan rozšíření
 čekaly na rozhodnutí; operátor je následně 8. 10. autorizoval v rozsahu uvedeném nahoře.

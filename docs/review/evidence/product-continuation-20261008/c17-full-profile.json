@@ -1,0 +1,160 @@
+{
+  "sourceRevision": "d43048990bbb5edf7fb644252d8cbcfbd43e3f34",
+  "productBase": "52d230c15bcd09ad5c4707de7cb18162ee0c7ce9",
+  "timing": {
+    "startedAt": "2026-10-08T11:25:55.080291+00:00",
+    "finishedAt": "2026-10-08T11:36:37.447481+00:00",
+    "reportStartedAt": "2026-10-08T11:25:55.202Z",
+    "reportEndedAt": "2026-10-08T11:36:37.433Z"
+  },
+  "command": [
+    "npm",
+    "run",
+    "test:deterministic",
+    "--",
+    "--run-id=chat-c17-full-20261008-d4304899",
+    "--concurrency=1",
+    "--allow-blocker=toolchain:python-pdf-runtime,toolchain:accountant-ocr-runtime,toolchain:git,toolchain:bwrap,toolchain:iproute2,toolchain:nftables,toolchain:prlimit,toolchain:bubblewrap,toolchain:systemd-analyze,toolchain:python3,toolchain:tar"
+  ],
+  "cwd": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930",
+  "envOverrides": {
+    "PATH": "/home/belphareon/.nvm/versions/node/v24.21.0/bin:/usr/bin:/bin",
+    "INTENTSMITH_PDF_PYTHON": "/home/belphareon/.local/share/intentsmith/python/pdf/bin/python",
+    "UCETNI_RUNTIME_DIR": "/home/belphareon/.local/share/ucetni"
+  },
+  "unsetEnv": [
+    "NODE_OPTIONS"
+  ],
+  "expectedExitCode": 0,
+  "actualExitCode": 0,
+  "counts": {
+    "programs": 410,
+    "offline": 323,
+    "database": 87,
+    "PASS": 410,
+    "FAIL": 0,
+    "TIMEOUT": 0,
+    "BLOCKED": 0,
+    "SKIPPED": 0,
+    "retries": 0,
+    "ownedProcessGroupLeaks": 0,
+    "contextAssertions": 82,
+    "sixC12Assertions": 239,
+    "scenarioAssertions": 42
+  },
+  "fingerprintsRecomputed": {
+    "inventoryFingerprint": "bd458c98749dc45f2b45fc91bbddd9e6bed1796db59fee13e1e0b990e9ac9662",
+    "optionsFingerprint": "aa583033a3469ab962a9380f894a1ffc951d13818e2cea89966faa37bddbf717",
+    "registryHash": "47acf12dbacd05883fcb79c0d06cc2653f7a5744e368b5ea17f2d4291e54e748"
+  },
+  "selectionMatchesGitRegistry": true,
+  "sourceBeforeAfterSameClean": true,
+  "allLogHashesVerified": 410,
+  "verifiedLogBytes": 1324495,
+  "separateCI": {
+    "sourceSha": "d43048990bbb5edf7fb644252d8cbcfbd43e3f34",
+    "run": 37767094666,
+    "job": 113277305881,
+    "successSteps": 18,
+    "status": "PASS",
+    "scope": "Retained completed source-specific API metadata; no network or new CI run."
+  },
+  "limits": [
+    "410 counts registered executable programs, not410 full user journeys or all individual assertions.",
+    "tests/output-gate.js is import/load smoke; five selected tests/soak programs assert crash-freedom only. Two Python programs report unittest8/5 OK.",
+    "Project-collaboration57 is outside offline/database selection; separately accepted focused/server evidence is not repeated or upgraded.",
+    "Per-suite HOME/XDG/temp/DB/project/env paths and owned-process-group checks are verified in retained evidence, not a blanket host-filesystem/network sandbox or universal process census.",
+    "No tests rerun, original SQLite opened, model/GPU/Studio/holdout/H1/H2 operation, tracked edits, deployment or release acceptance by reviewer.",
+    "Current profile covers accepted C15 product bytes. Historical44e and C12 results remain bound to their exact source; C18 private work is not part of this profile.",
+    "Existing negative/simulated FAIL markers were inspected against unchanged source; no new broad formal audit of every assertion design is claimed."
+  ],
+  "kind": "C17CurrentC15ProductFullProfile@1",
+  "status": "FULL_PROFILE_REVIEW_PASS",
+  "historicalProfile": "C14/44e full and all earlier failed/withdrawn receipts remain unchanged.",
+  "coversC15Product": true,
+  "coversPrivateC18": false,
+  "liveModelQualityAccepted": false,
+  "releaseAccepted": false,
+  "refs": [
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c17-save-role-comparison-20261008/full-profile/independent-review/REVIEW.json",
+      "bytes": 28451,
+      "sha256": "84105069896eda912ce04c68d88f5369f92a01e0dc76177ea270a79dd29bc2b9"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/test-runs/chat-c17-full-20261008-d4304899/report.json",
+      "bytes": 1678672,
+      "sha256": "c5c78eb3bc796a5a645494544b795d0eaaf587915466acdde79e58184f94d31c"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/test-runs/chat-c17-full-20261008-d4304899/inventory.json",
+      "bytes": 377104,
+      "sha256": "9befd0b420bcb37e084cc1f3745196e6c2e4b2ad5f7acef0e3205d76d553df5c"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/test-runs/chat-c17-full-20261008-d4304899/checkpoint.json",
+      "bytes": 1677285,
+      "sha256": "72dc1315dd0ab264af23b433eac57ecca6ef1fd244fa112ee5a066ceaf3e11e4"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c17-save-role-comparison-20261008/full-profile/FULL-command.json",
+      "bytes": 1067,
+      "sha256": "4f8fab6d2c6e91951f9c1ef2cc51d03859127f2879f108eacd6c3249c7db2c1c"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c17-save-role-comparison-20261008/full-profile/FULL-exit.json",
+      "bytes": 1300,
+      "sha256": "50295488972e40a6471eb112085ecf7d1d59464ad921eb0cb4613f8abf50be84"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c17-save-role-comparison-20261008/full-profile/FULL.log",
+      "bytes": 27414,
+      "sha256": "9a51f823c191f35463e638e07e0269b54f07a21420827fcfe65b94be327f18b1"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c17-save-role-comparison-20261008/full-profile/independent-review/verify_completed_full.py",
+      "bytes": 10735,
+      "sha256": "ff2c660db51ee566c1f79fbd03389dc84972e43d662e70b4f5ed6c5843c63522"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c17-save-role-comparison-20261008/full-profile/independent-review/PREPARATION.json",
+      "bytes": 1252,
+      "sha256": "f5e3b82df5afad460815cca41b2ec14a6c99413418cc57ee43c85f110fd08c91"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c17-save-role-comparison-20261008/full-profile/independent-review/FULL-VERIFICATION.json",
+      "bytes": 393721,
+      "sha256": "02f540d57c519f47c990789d68dfc6f4344985da96f4f5d960e3d99465035af4"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c17-save-role-comparison-20261008/full-profile/independent-review/FULL-TERMINALS.json",
+      "bytes": 716119,
+      "sha256": "6dcc39bcf66dcb439dd73d2dfacffc1108cdff677c9b0ad119ac8f3039ab0e64"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c17-save-role-comparison-20261008/private-review/SOURCE-d4304899-vs-52d230c1.json",
+      "bytes": 6064,
+      "sha256": "957419f0611f65ad46c5f6e460182267d909b31c72c2a16e18782c40e817eec4"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c17-save-role-comparison-20261008/CI.json",
+      "bytes": 899,
+      "sha256": "e7bdfd50d286a454d092e6aecbbf6c63b43daf8a6256ae001ef85706e812b857"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c17-save-role-comparison-20261008/CI-RUN-raw.json",
+      "bytes": 12970,
+      "sha256": "aca8a42d3cc7e2a989b170a9fb1e03d1d54a045d7492a63e9e91907cea9aa918"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c17-save-role-comparison-20261008/CI-JOBS-raw.json",
+      "bytes": 4161,
+      "sha256": "c5e3e0742ad46dcdf7cf6ae986b77c72b4cef364ee98f85ccb979978f1e2effb"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c14-save-continuation-20261008/full-profile/independent-review/REVIEW.json",
+      "bytes": 27898,
+      "sha256": "93ce797de5e4da29c2ab168d1d43d3ab642b1c3db76babb5486bd243f4381840"
+    }
+  ]
+}
