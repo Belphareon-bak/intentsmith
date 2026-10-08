@@ -1,0 +1,189 @@
+{
+  "kind": "C21ArchiveExtraction@2",
+  "status": "SOURCE_CPU_INTEGRATION_AND_DOCS_REVIEW_PASS",
+  "baseSha": "1b636b025425710889b34b38268a82f86c174f7c",
+  "scope": "Explicit offline extraction of three named config JSON paths and flat skills JSON into an exclusively created inactive directory outside installation/data roots. No installation, registration, activation, specialists extraction or DB replacement.",
+  "api": "extractStateBackupArchive",
+  "cli": [
+    "node",
+    "scripts/restore-state-backup.js",
+    "--data-dir",
+    "ABSOLUTE_DATA_DIR",
+    "--backup",
+    "EXACT_BACKUP_NAME",
+    "--extract-archive-to",
+    "ABSOLUTE_NEW_DIRECTORY"
+  ],
+  "validation": {
+    "author": {
+      "pass": 43,
+      "fail": 0,
+      "existing": 24,
+      "newIncludingParents": 19,
+      "exitCode": 0
+    },
+    "independent": {
+      "pass": 2,
+      "fail": 0,
+      "exitCode": 0,
+      "scope": "Original parent-symlink probe plus CLI extraction, incompatible-mode rejection and default DB restore"
+    },
+    "reviewFinding": {
+      "v1ExternalReads": 1,
+      "v2ExternalReads": 0,
+      "destinationCreated": false,
+      "status": "FIXED_WITH_ORIGINAL_RED_PRESERVED"
+    }
+  },
+  "limits": [
+    "Synthetic owned fixtures and isolated offline CLI; no production/user data or live server recovery.",
+    "Explicit offline precondition; this extraction mode does not provide server-liveness detection.",
+    "Ordinary write failures clean the identity-verified own destination; hard crash may leave partial inactive output.",
+    "Private same-user filesystem coordination assumed; no claim against a hostile concurrent same-UID actor.",
+    "No complete configuration/skill reinstall, external-project recovery, M5/M6 acceptance, GPU inference or quality-score change.",
+    "The previous 410-program full profile on e7f2dd92 covers C19 and does not cover C21."
+  ],
+  "refs": [
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/SOURCE-TEST-v2.patch",
+      "bytes": 20105,
+      "sha256": "6722e42e84483d4ffed6b3bf3e6056879ce9d1995fb41502bbd82b902e74a6af"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/MANIFEST-v2.json",
+      "bytes": 5397,
+      "sha256": "41ac3fc8cbac144b6b09c27f21a596c0c6ceca375269df8fd575b112030b8f4d"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/RESULT-v2.json",
+      "bytes": 3321,
+      "sha256": "4fa7671f3bb957a35da6ba96be1fcd0979b2e45f2f0297cfe316881dea2922b7"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/independent-review/REVIEW-v1.json",
+      "bytes": 5730,
+      "sha256": "cb5f698d4742fc151de3f1671b6b9d6cf9255f3c8fa11ad1675e6bc9765c4914"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/independent-review/REVIEW-v2.json",
+      "bytes": 8196,
+      "sha256": "4815262c4daa0c106eb1e01e8757fede5056d025dea3d8215d9c23c892b78e7b"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/ROOT-REGRESSION-ADOPTION.json",
+      "bytes": 2213,
+      "sha256": "c960b598c8aab760132683eb59743bbabaae119693e4e3fdced5c7a805bdeb5d"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/candidate-v2/src/core/db-backup.js",
+      "bytes": 36892,
+      "sha256": "afa6ec3623e3da6287cdfe48f2361465a4780871d27683a1116b7bb434454358"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/candidate-v2/scripts/restore-state-backup.js",
+      "bytes": 3414,
+      "sha256": "f7c4a45e14a30be6438cd2fdd3e5dbeda7c71732d8006b8560aa17f485d4bd06"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/candidate-v2/tests/m5-data-restore.test.js",
+      "bytes": 43796,
+      "sha256": "b8015fc23bdf6b6ad152e1a29762f4f9bf2ec59a56734786601b925d89e80ce1"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/run-integrated.py",
+      "bytes": 2233,
+      "sha256": "651ee86112f7e53e8a742a50d2bbedb1e6434b63c79b4deef1eaaf14a702b306"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/root-integrated/RESULT.json",
+      "bytes": 870,
+      "sha256": "82d6827671a0fbca0d96346dc3309d7ad361c85fdbd3662f1edb5b18e52f2b7c"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/root-integrated/m5-data-restore/COMMAND.json",
+      "bytes": 4501,
+      "sha256": "a15bf1978a6bd2ab90f2445bd636b22aeff632c34c3b312908461a25f0d052fa"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/root-integrated/m5-data-restore/EXIT.json",
+      "bytes": 203,
+      "sha256": "9fb2040d1148ad4825462b145f03e6c3cfb6d800d8d25c3d767bc982ae1140fb"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/root-integrated/m5-data-restore/test.log",
+      "bytes": 10358,
+      "sha256": "2e65654321f0a7b2ecc1d34b3701ca07f85dda970bf2c625b0af0ebbc79b2883"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/root-integrated/artifact-validation/COMMAND.json",
+      "bytes": 4555,
+      "sha256": "e7c9428303eca7f0def3f9f9113d3fa224a1df4b146b8a08713d05d6d46551e4"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/root-integrated/artifact-validation/EXIT.json",
+      "bytes": 207,
+      "sha256": "5072dd00084b6c13f7f1764dcf09236b7325b7c40adb68610fa1c41024f0e702"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/root-integrated/artifact-validation/test.log",
+      "bytes": 13425,
+      "sha256": "f52f3b750d7cd8d7f751d21f040b6e178db02e7090f12d6ed38b3f50e3b68476"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/root-integrated/module-boundaries/COMMAND.json",
+      "bytes": 4525,
+      "sha256": "10ebf92d7055f8563d2fb799a6be4f49bba52cac9a36fb8be145e15bf9b3c934"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/root-integrated/module-boundaries/EXIT.json",
+      "bytes": 203,
+      "sha256": "bc6d0f28ee4f9375c24ad509e5cafab82297813a3ebc01e2cfddb6ebc74e44dd"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/root-integrated/module-boundaries/test.log",
+      "bytes": 740,
+      "sha256": "0760df3759cc48b859050b136f980b1710c96de7336664a0d6b2cd6f420c208c"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/root-integrated/registry/COMMAND.json",
+      "bytes": 4393,
+      "sha256": "6f648b2844076be818c219e491abb591607bbce8c166d490cf6e5b7a75493a4b"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/root-integrated/registry/EXIT.json",
+      "bytes": 194,
+      "sha256": "0c3f1ded836b9447dce2c86b92ab2f10a5bff10dc870efbb2b569d4f1a8f752a"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/root-integrated/registry/test.log",
+      "bytes": 251,
+      "sha256": "24104f2c6a52eadd531a5b8e5a7072f3ec252df8c273b2ad0dced0ed89cd054b"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/integration-docs-independent-review/REVIEW.json",
+      "bytes": 28744,
+      "sha256": "9fe2a5ea3ee4d6e50615adc60cb39077adaf6a802ab67afd600b05005b8162ac"
+    }
+  ],
+  "integration": {
+    "executed": true,
+    "m5Pass": 43,
+    "artifactPass": 160,
+    "moduleBoundary": {
+      "pass": true,
+      "edges": 1516,
+      "added": 0,
+      "removed": 0,
+      "cycles": 3
+    },
+    "registry": {
+      "pass": true,
+      "programs": 596,
+      "supportExclusions": 35
+    },
+    "allExitCodes": 0,
+    "scope": "Adopted working tree above 1b636b02; net-off bwrap and private synthetic DB/files. Full profile pending.",
+    "review": "PASS",
+    "sourceBindingLimit": "ROOT checked exact adoption before the command; reviewer verified current files remain exact. Per-program exit records do not themselves include source before/after snapshots."
+  }
+}

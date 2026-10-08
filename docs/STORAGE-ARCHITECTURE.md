@@ -3,6 +3,7 @@
 **Verze:** v2.0 (2026-08-26)
 **Status:** M5 DATA IMPLEMENTATION-GREEN — operator review pending
 **Stav implementace overen:** 2026-08-26 — viz [Stav implementace](#stav-implementace)
+**Doplněk C21 (2026-10-08):** výslovné vyzvednutí archivních JSON; zdroj a CPU kontroly nezávisle přijaté. Nejde o přejímku M6.
 
 > Sekce [Stav implementace](#stav-implementace) je popis současného M5 DATA
 > řezu. Zbytek dokumentu zachovává širší návrh a není automaticky tvrzením o
@@ -24,6 +25,7 @@ revize a fresh-clone doklad jsou uvedené v M5 DATA execution reportu.
 | Retence 7 denních + 4 týdenní | **implementováno** | `pruneBackups()` |
 | Statistiky záloh | **implementováno** | `getBackupStats()` |
 | **State restore** | **implementováno, offline-only** | `restoreStateBackup()`, `scripts/restore-state-backup.js` |
+| Archivní config/skills JSON — vyzvednutí kopie | **implementováno C21, source/CPU review PASS, offline-only** | `extractStateBackupArchive()`, `--extract-archive-to` |
 | History restore | **NEIMPLEMENTOVANO** | — |
 | Daily drain | implementovano | `drainMessages()` |
 | Auto-clean | implementovano | `autoClean()` |
@@ -44,6 +46,57 @@ CLI ověří úplný manifest, SHA-256 každého souboru, SQLite `quick_check`, 
 kontrola a vlastněný restore lock odmítnou otevřenou DB nebo souběžný opener.
 Před atomickou výměnou vznikne jedinečná `pre-restore-*.db` bezpečnostní kopie.
 
+### Výslovné vyzvednutí archivních JSON — C21
+
+**SOURCE_AND_CPU_REVIEW_PASS.** Zdroj, 43 autorových CPU kontrol i nezávislá
+sonda symlinkové hranice a CLI/default DB round-trip jsou přijaté.
+[Důkazy a přesný rozsah](review/evidence/product-continuation-20261008/c21-archival-extraction.json).
+Dosavadní offline obnova databáze i formát V2 zůstávají stejné; tento doplněk
+neprokazuje hotovou obnovu celého produktu ani M6.
+
+Samostatný režim `--extract-archive-to` z ověřené V2 zálohy zkopíruje pouze
+přítomné soubory z tohoto seznamu:
+
+- `config/intentsmith-setup.json`, `config/c3-setup.json`,
+  `config/design-defaults.json`;
+- JSON soubory přímo v `skills/` (`skills/*.json`, bez podadresářů).
+
+Soubory zůstávají pod stejnými relativními cestami v novém neaktivním adresáři.
+Nejde o instalaci konfigurace ani registraci či aktivaci skills. Databáze se
+nevyměňuje a archiv `specialists/` se tímto režimem nevyzvedává. Není-li v záloze
+žádný podporovaný config/skill JSON, příkaz skončí chybou.
+
+Příklad se zastaveným serverem:
+
+```bash
+mkdir -m 700 "$HOME/intentsmith-archive-review"
+node scripts/restore-state-backup.js \
+  --data-dir /absolutni/cesta/k/data \
+  --backup intentsmith-state-YYYY-MM-DDTHH-MM-SS-sssZ.backup \
+  --extract-archive-to "$HOME/intentsmith-archive-review/obnova-2026-10-08"
+```
+
+Název zálohy nahraď skutečným názvem z `data/backups/`. Existující rodič cíle
+musí patřit spouštějícímu uživateli a být privátní; příklad vytváří nový rodič
+s právy `0700`. Cílový adresář ještě nesmí existovat a musí ležet mimo adresáře
+instalace i dat. Cesty nesmějí procházet symlinky. Přepínač nelze kombinovat
+s `--db-path`.
+
+Režim používá úplnou validaci V2 manifestu a SHA-256, SQLite `quick_check`
+na vlastní validační kopii databáze a kontrolu kompatibility identit migrací.
+Teprve potom vznikne nový cílový adresář. Vybrané bajty se znovu kontrolují proti
+manifestu při čtení a po zápisu; adresáře se vytvářejí s právy `0700` a soubory
+s `0600`. Úspěšný návrat má exit code `0` a JSON s `ok: true`,
+`activated: false`, `scope: ["config", "skills"]`, cílem, seznamem souborů
+s jejich hashi a fingerprintem zálohy. Tento režim nedědí zapisovací autoritu
+DB restore; jeho úspěch znamená pouze získání neaktivních kopií.
+
+Zápis celé extrakce není atomický. Při zachycené chybě se odstraňuje jen nově
+vytvořený vlastní cílový adresář s ověřenou identitou. Po pádu procesu nebo
+ztrátě této identity může zůstat částečný výstup; nelze jej považovat za úplnou
+extrakci. Příkaz existující cíl nepřepisuje ani v něm nepokračuje. Po kontrole
+zbytků zvol pro nový pokus jiný dosud neexistující cíl.
+
 ### Kde se implementace lisi od navrhu
 
 | Navrh rika | Skutecnost |
@@ -62,6 +115,8 @@ nejdřív vzniká privátní partial adresář, který se po fsync atomicky pře
 **Automatický restore vlastní pouze SQLite databázi.** `skills/`,
 `specialists/` a konfigurace zůstávají v backupu jako `archival_only`. Jsou
 kódotvorné nebo release-owned, takže je obnova dat nesmí tiše downgradovat.
+C21 výše přidává jen výslovné vyzvednutí vybraných archivních JSON
+do neaktivní složky; tuto hranici automatického restore nemění.
 Legacy V1 zálohy zůstávají listovatelné, ale bez přesného manifestu nejsou
 automaticky obnovitelné.
 

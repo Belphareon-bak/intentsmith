@@ -13,6 +13,11 @@ CI `37783220346` má 18 SUCCESS. Project57 je oddělená přijatá serverová in
 [Aktuální celý profil a meze](docs/review/evidence/product-continuation-20261008/c19-full-profile.json).
 Předchozí `d4304899` zůstává historický profil produktu C15, `44e4d96c` před C15.
 Deterministický profil neprokazuje živou kvalitu ani release přejímku.
+C21 nad `1b636b02` přidává explicitní offline vyzvednutí config/skill JSON do nové
+neaktivní složky: source/CPU review PASS, 43 autorových +2 nezávislé kontroly.
+ROOT integrace M5 43 /artifact160 /registry596 /module1516 i její review PASS;
+nový celý profil čeká. Předchozí profil C19 tuto změnu nepokrývá.
+[Implementace a meze C21](docs/review/evidence/product-continuation-20261008/c21-archival-extraction.json).
 Historický C12 profil na `678eead707a59df568c7353a8b2dd7ad6c175b23`
 měl produktový zdroj C9 `24f329c6` a obsahoval C11/C12 opravy testů.
 C9: classifier13 HTTP/restart, context55, project57 a integrace19 PASS;
@@ -900,14 +905,14 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 **REVIEW_PENDING** — [aktuální UI oprava a evidence](docs/review/2026-09-17-HUNT-MODEL-CONTROLS-FOLLOWUP.md).
 
 Následující LOC a registry census jsou přeměřené 8. 10. 2026 přímo na zdroji
-C19 pracovního kandidátu nad `21b25085` včetně tří HTTP/restart větví, přes stejný algoritmus jako `tests/artifact-validation.test.js`:
+C21 pracovního kandidátu nad `1b636b02` včetně archivní extrakce a tří HTTP/restart větví, přes stejný algoritmus jako `tests/artifact-validation.test.js`:
 počet skutečných `.js` souborů a počet znaků nového řádku v jejich bytech.
 Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
-| `src/**/*.js` | **237 348 ř.**, 688 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **271 751 ř.**, 604 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **237 486 ř.**, 688 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **271 926 ř.**, 604 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **596** (`498 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 109** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |

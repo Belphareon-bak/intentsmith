@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 8. 10. 2026. Celý offline/database profil na čistém `e7f2dd92` s produktem C19 má 410 PASS / CI 18 SUCCESS a nezávislé review; předchozí profily `d4304899` a `44e4d96c` zůstávají historické. HTTP14 je přijatý v původním rozsahu 70 + 17 požadavků; rozpočet 14 CODE volání je uzavřený. C15 na `52d230c1` prošel jednou známou čtyřtahovou cestou až k přesně schválenému zápisu; C6 skóre a historický F11 FAIL se nepřepisují. C16 uzavřel omezenou CPU diagnózu dalších šesti souborových případů. C17 dokončil 24 odpovědí a nezávislé posudky: NO_MODEL_PREFERENCE; žádný binding ani retry. C18 je publikovaný na `21b25085`, CI 18 SUCCESS. C19 doplňuje kontinuitu přes ASK_USER: source/CPU/HTTP i integrovaný context 143 / project 57 mají nezávislé review; source checkpoint `d3dbc897`, standardní baseline 1516 i celý profil na publikovaném `e7f2dd92` jsou přijaté. Fan čeká na rozhodnutí o oracle. H1 má celkové READY na exact freeze R2; čeká jen JIT dešifrování operátorem. H1 NOT_RUN, release NOT_ACCEPTED.
+**Aktualizováno:** 8. 10. 2026. Celý offline/database profil na čistém `e7f2dd92` s produktem C19 má 410 PASS / CI 18 SUCCESS a nezávislé review; předchozí profily `d4304899` a `44e4d96c` zůstávají historické. HTTP14 je přijatý v původním rozsahu 70 + 17 požadavků; rozpočet 14 CODE volání je uzavřený. C15 na `52d230c1` prošel jednou známou čtyřtahovou cestou až k přesně schválenému zápisu; C6 skóre a historický F11 FAIL se nepřepisují. C16 uzavřel omezenou CPU diagnózu dalších šesti souborových případů. C17 dokončil 24 odpovědí a nezávislé posudky: NO_MODEL_PREFERENCE; žádný binding ani retry. C18 je publikovaný na `21b25085`, CI 18 SUCCESS. C19 doplňuje kontinuitu přes ASK_USER: source/CPU/HTTP i integrovaný context 143 / project 57 mají nezávislé review; source checkpoint `d3dbc897`, standardní baseline 1516 i celý profil na publikovaném `e7f2dd92` jsou přijaté. Fan čeká na rozhodnutí o oracle. H1 má celkové READY na exact freeze R2; čeká jen JIT dešifrování operátorem. H1 NOT_RUN, release NOT_ACCEPTED. C21 archivní extrakce má source/CPU review; nový integrovaný profil čeká.
 **Vlastník integrace a CHAT:** tento koordinátor přebírá ROOT
 (`work/real-chat-journeys-20260930`) podle následného pokynu operátora.
 Jediný writer `cre-decision.js` i společných map je nyní ROOT; HTTP, Fan, fresh5
@@ -387,17 +387,26 @@ Tento READY není modelový výsledek, nové skóre ani release přejímka.
 [Exact argv, SHA-256, posudky a meze](review/evidence/product-continuation-20261008/c20-h1-readiness.json),
 [operátorské předání](review/2026-10-02-CHAT-HOLDOUT-HANDOFF.md).
 
-### C21 — obnova archivovaných souborů (PRIVATE_CANDIDATE_IN_PROGRESS)
+### C21 — vyzvednutí archivovaných souborů (SOURCE/CPU/INTEGRATION/DOCS_REVIEW_PASS)
 
-Další omezený M6 krok vychází z PRODUCT a aktuálního V2 backup/restore:
-DB obnova existuje, config/skills jsou pouze archivované, externí projektové
-soubory záloha neobsahuje. Připravuje se explicitní offline vyzvednutí přesných
-config/skills JSON do nové neaktivní složky přes ověřený V2 manifest. Výchozí
-DB restore i formát zůstávají; žádná registrace/aktivace skillu ani skutečná
-uživatelská data. Poškozený manifest, symlink, existující cíl a copy failure
-musí skončit bez přepsání aktivního stavu. Zatím soukromý kandidát, bez adopce
-nebo runtime přejímky; skutečné H1 okno má přednost. Project recovery a M6
-zůstávají otevřené.
+Na základě PRODUCT a aktuálního V2 backup/restore je implementován explicitní
+CLI režim `--extract-archive-to`: přesné archivované config/skills JSON vyzvedne
+do nové neaktivní složky mimo instalaci/data. Úplná validace V2, SQLite a migrací
+zůstává; formát i výchozí DB restore se nemění. Žádná registrace/aktivace skillu
+ani skutečná uživatelská data. [Provozní návod](STORAGE-ARCHITECTURE.md#výslovné-vyzvednutí-archivních-json--c21).
+
+Nezávislý V1 posudek zachytil čtení externího payloadu přes symlink adresáře
+před odmítnutím. V2 kontroluje celý strom metadaty před jakýmkoli payload čtením.
+Původní vlastní sonda revizora: externalReads1 →0, žádný výstup. Autorova sada
+43 PASS (24 původních +19 nových včetně parent), revizor2 PASS včetně skutečného
+izolovaného CLI/default DB round-tripu; ROOT zvlášť přijal převzatý regresní oracle.
+Poškození, symlinky, existující/aktivní cíl a běžná chyba zápisu nemění aktivní stav.
+Pád procesu může zanechat částečnou neaktivní složku; atomická publikace celé
+extrakce se netvrdí. Source adoptován nad `1b636b02`; ROOT integrace M5 43 /artifact160 /registry596
+a module1516 (+0/−0) má exit0. Integrační a dokumentační review PASS;
+nový celý profil čeká. Předchozí410 na `e7f2dd92` C21 nepokrývá.
+[Patch, příkazy, SHA-256, posudky a meze](review/evidence/product-continuation-20261008/c21-archival-extraction.json).
+Externí project recovery, reinstalace config/skills a M6 zůstávají otevřené.
 
 ### Historický celý profil po C15 (FULL_PROFILE_REVIEW_PASS; před C18/C19)
 
@@ -917,32 +926,37 @@ To nedokládá zaplněné 32k okno. Output4096 platí jen pro vydaný exact CODE
 
 ## Zbývající testy a pořadí dokončení
 
-1. C17 je uzavřený s NO_MODEL_PREFERENCE; celý profil na `d4304899` s produktem
-   C15 má 410 PASS, ale nepokrývá C18/C19. C18 je publikovaný na `21b25085` / CI 18 SUCCESS.
-   C19 source/CPU/HTTP i integrovaný context 143 / project 57 mají nezávislou přejímku.
-   Source checkpoint `d3dbc897` a standardní baseline přesně dvou přijatých hran
-   jsou hotové; publikovaný `e7f2dd92` má ratchet / celý profil 410 / CI 18 / review PASS.
-   Historický module FAIL +2 zůstává zachovaný. Kandidát neprokazuje nový modelový
-   přínos; C19 používá sdílený parser a nemění model, prompt ani schema.
-   Před další inferencí nezávisle přijmout rozhodující kontrolu a negativy;
-   žádné automatické přepnutí modelu, per-case prompty, přepis clarify na write
-   ani další retry C17. H1 technická příprava může pokračovat pod již udělenou
-   autorizací; C20 má nyní celkové READY, čeká pouze JIT dešifrování.
-   C15 je publikovaný na `52d230c1`, CI 18 PASS; jeho jediný známý čtyřtahový
-   průchod až k přesně schválenému souboru má nezávislou přejímku.
-   C14 oprava návaznosti má source/CPU přejímku. C9/C11/C12 jsou uzavřené v uvedeném
-   CPU rozsahu; aktuální přijatý celý profil je `e7f2dd92`, 410 PASS a CI 18 SUCCESS.
-   C4 původní fresh5 na b959a468: **5PASS/review PASS**. Historický90/3PASS2FAIL zachovaný.
-   C5 uzavřít jako přezkoumaný FAIL; další strategie nesmí pokračovat řadou retry aparátu.
-   C6 známá regrese74,21%/15,09% NO_GO; C7/C8 produktové opravy přijaté v uvedeném rozsahu,
-   první cílený živý save stále FAIL. C14 F11 také LIVE_FAIL, ale bez ztráty vstupu
-   a s cleanup PASS. Další změna potřebuje nezávisle přijatý důkaz včetně
-   cancel/new-task/cross-project/source negativ. Širší M6/release otevřený.
-2. HTTP14 primary70+supplement17 má uzavřený actual review PASS v testovaném rozsahu; další CODE0, úplná API shoda se netvrdí. HTTP13 primary PASS/supplement FAIL zůstává historicky zachovaný. Fan12/15 čeká na rozhodnutí o protected oracle; žádná nová core inference. Původní funkční oracle, commit/restart/persistence a review se zachovají.
-3. Živý přirozený classifier→D1, fyzická ovladatelnost IDE/M2, file/web/export/skills a projektové A→B→A.
-4. Kvalita expertise/specialistů, worker souběh a delší stabilita; project/config/skills restore; společný profil a finální M5/M6.
-5. Mobil: historical CPU47, fyzická matice 13+7 NOT_RUN; device/APK/VPN/pair-revoke/M2/TalkBack.
-6. Po přejímce bezpečný cleanup vlastněných zastaralých refs; foreign/UNKNOWN/evidence HOLD (poslední census 215 branches /72 worktrees).
+1. **H1:** C20 má celkové READY na přesný freeze R2. Po JIT dešifrování operátorem
+   spustit jediné sériové okno Qwen c7 ×3 → Gemma9591 ×3, ověřit vlastní úklid
+   a odstranit prokazatelně vlastní vstup. ROOT čte pouze technickou projekci;
+   operátor z raw vytvoří zaslepený balík. Žádný retry, ladění podle H1 ani
+   nové schvalování již povoleného sběru. H1 zůstává historickou přejímkou těchto
+   dvou kandidátů; pro finální současný produkt je nutný nový H2.
+2. **Fan:** 12/15 volání spotřebováno, další core inference 0, zbývá jediná
+   CLI dávka nejvýše3. Příprava nového M2 návrhu nad přesnými starými bajty má
+   source/CPU review PASS; [předání a meze](review/evidence/product-continuation-20261008/fan-resubmission-preparation.json).
+   Čeká rozhodnutí o chráněném oracle, adopce runneru a konečné freeze/CI.
+   Starý pending se ruší kanonicky; následuje nové přesné schválení, test,
+   commit/restart a CLI. Původní FAIL zůstává. **HTTP14 je uzavřený**:
+   primary70 +supplement17/review PASS, žádné další CODE volání.
+3. **Obnova dat C21:** dokončit explicitní vyzvednutí config/skill JSON do
+   neaktivní složky včetně nezávislé revize, CLI/regrese a integrovaného profilu.
+   Obnova externích projektů a skutečná reinstalace konfigurace/skillů zůstávají
+   samostatné otevřené cesty; archivní kopie je neprokazuje.
+4. **Chat a Studio:** C19 má přijatý celý profil410, ale známý C6 korpus stále
+   74,21 % užitečnosti /15,09 % zbytečných zastavení, NO_GO. Další práci řídit
+   zbývajícími příčinami, zachovat nezměněných53 známých případů jako regresi.
+   C17 NO_MODEL_PREFERENCE neopravňuje přepnutí modelu ani opakování týchž pokusů.
+   Živý přirozený classifier→D1 a fyzická ovladatelnost IDE/M2 potřebují další
+   odůvodněnou strategii po přijatém C5 FAIL, nikoli řadu retry aparátu.
+5. **Zbývající produktové cesty:** file/web/export/skills, projekt A→B→A,
+   kvalita expertise/specialistů, worker souběh a delší stabilita. Potom společná
+   M5/M6 evidence, 24h soak, propustnost, nový H2 a explicitní release gate/demo.
+   Mobil má historical CPU47; fyzická matice13+7 NOT_RUN (device/APK/VPN,
+   pair-revoke/M2/TalkBack), po stabilním IDE/backendu.
+6. **Úklid:** až po přejímce odstraňovat prokazatelně vlastní zastaralé refs;
+   foreign/UNKNOWN/evidence HOLD. Poslední census215 branches/72 worktrees je
+   historický, před konkrétním mazáním se ověří znovu.
 
 ## M5/M6 a Hunt: zbývající externí podmínky
 

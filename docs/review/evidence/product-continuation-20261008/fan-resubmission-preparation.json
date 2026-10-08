@@ -1,0 +1,64 @@
+{
+  "kind": "FanResubmissionPreparation@2",
+  "status": "SOURCE_CPU_REVIEW_PASS_NOT_LIVE_READY",
+  "baseSha": "1b636b025425710889b34b38268a82f86c174f7c",
+  "trackedAdoption": false,
+  "oracleAuthorization": "PENDING_OPERATOR_DECISION",
+  "liveStatus": "NOT_RUN",
+  "budget": {
+    "maximum": 15,
+    "historicalCallsIncludingFailures": 12,
+    "remainingCoreCalls": 0,
+    "remainingCliCalls": 3,
+    "additionalRepairOrRetry": false
+  },
+  "sequence": [
+    "Copy and verify owned historical runtime and DB; retain old immutable evidence",
+    "Canonically cancel old pending plan; no SQL or expiry rewriting",
+    "Apply separately approved oracle change and verify restart",
+    "Create a fresh M2 proposal with the exact four retained generated file bytes and current workspace; obtain fresh exact-digest approval",
+    "Complete core tests, commit and restart, then one CLI generation batch of at most three calls"
+  ],
+  "cpu": {
+    "authorV2": 46,
+    "independent": "Completed core accepted after consumed approval expiry; expired unapproved proposal and seven corrupted completed-core variants rejected; no inference"
+  },
+  "limits": [
+    "The protected oracle patch has not been applied or approved. Original FAIL remains.",
+    "This source/CPU review does not accept the generated Fan application, copied native DB/Studio execution or final executable freeze.",
+    "No new core inference or manual rewriting of generated implementation is allowed.",
+    "Actual run also requires adopted source, CI, exact freeze, serial GPU admission and independent execution review."
+  ],
+  "refs": [
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c13-authorized-product-continuation-20261008/fan-resubmission-preparation/v2/MANIFEST.json",
+      "bytes": 6868,
+      "sha256": "69eff66befa7442bc9be786815e76d30be96763fb000153607c3b5336bf3ccf7"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c13-authorized-product-continuation-20261008/fan-resubmission-preparation/v2/PREPARATION.json",
+      "bytes": 4274,
+      "sha256": "57275cd64ef88e65ace8b4706ca3a4cd91e7c4767e035d0f7749a717646692f9"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c13-authorized-product-continuation-20261008/fan-resubmission-preparation/v2/SOURCE.patch",
+      "bytes": 42808,
+      "sha256": "b07ee922c5bd5753dd166789bc71867fa25f27f821235ed6e2830bd244fa5371"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c13-authorized-product-continuation-20261008/fan-resubmission-preparation/root-independent-review-v2/REVIEW.json",
+      "bytes": 19765,
+      "sha256": "92f37ec4719a532629a70b4d0e2cd92a7f727c27da8e33969acc19008dd834b6"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c13-authorized-product-continuation-20261008/fan-resubmission-preparation/root-independent-review/FINDING.json",
+      "bytes": 1503,
+      "sha256": "b3f859bd8cc29d036c96ac44c7830227fb3dfe67dc8fb95c2af91567b636f96f"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c13-authorized-product-continuation-20261008/fan-import-diagnosis/PROPOSED-IMPORT-NORMALIZATION.patch",
+      "bytes": 4033,
+      "sha256": "3e1dd6b7e650bfaf010b36de18b3e24cb29c0728658247b46f86241e07a99873"
+    }
+  ]
+}

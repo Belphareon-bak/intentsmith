@@ -794,3 +794,141 @@ export function restoreStateBackup(dataDir, backupName, opts = {}) {
     }
   }
 }
+
+// Explicit retrieval only: never installs configuration, registers skills or
+// replaces a live database. The caller chooses a fresh inactive destination.
+export function extractStateBackupArchive(dataDir, backupName, destination, opts = {}) {
+  const reject = (code, message) => { throw new StateBackupError(code, message); };
+  if (opts.offline !== true) {
+    reject('BACKUP_EXTRACT_REQUIRES_OFFLINE', 'Archive extraction requires explicit offline invocation');
+  }
+  if (typeof destination !== 'string' || !path.isAbsolute(destination)) {
+    reject('BACKUP_EXTRACT_TARGET_INVALID', 'Extraction destination must be an absolute path');
+  }
+  const target = path.resolve(destination);
+  const parent = path.dirname(target);
+  const resolvedDataDir = path.resolve(dataDir);
+  const projectRoot = path.resolve(opts.projectRoot || path.dirname(resolvedDataDir));
+  const canonicalDirectory = directory => {
+    const stat = fs.lstatSync(directory);
+    if (!stat.isDirectory() || stat.isSymbolicLink() || fs.realpathSync(directory) !== directory) {
+      reject('BACKUP_EXTRACT_BOUNDARY_INVALID', 'Extraction paths must not traverse symbolic links');
+    }
+    return stat;
+  };
+  canonicalDirectory(resolvedDataDir);
+  canonicalDirectory(projectRoot);
+  const parentStat = canonicalDirectory(parent);
+  if (parentStat.uid !== process.getuid() || (parentStat.mode & 0o077) !== 0) {
+    reject('BACKUP_EXTRACT_PARENT_INVALID', 'Destination parent must be a private directory owned by this user');
+  }
+  for (const liveRoot of [resolvedDataDir, projectRoot]) {
+    if (target === liveRoot || target.startsWith(`${liveRoot}${path.sep}`)) {
+      reject('BACKUP_EXTRACT_TARGET_ACTIVE', 'Extraction destination must be outside installation and data roots');
+    }
+  }
+  try {
+    fs.lstatSync(target);
+    reject('BACKUP_EXTRACT_TARGET_EXISTS', 'Extraction destination already exists');
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
+  // Check metadata and ancestor boundaries before the existing complete V2
+  // validator reads the archive. SQLite validation uses its own private copy.
+  if (typeof backupName !== 'string' || !BACKUP_NAME_PATTERN.test(backupName)) {
+    reject('BACKUP_NAME_INVALID', 'Backup name is invalid');
+  }
+  canonicalDirectory(path.join(resolvedDataDir, 'backups'));
+  const backupPath = path.join(resolvedDataDir, 'backups', backupName);
+  canonicalDirectory(backupPath);
+  const metadataStat = fs.lstatSync(path.join(backupPath, 'metadata.json'));
+  if (!metadataStat.isFile() || metadataStat.isSymbolicLink()) {
+    reject('BACKUP_METADATA_INVALID', 'Backup metadata must be a regular non-symlink file');
+  }
+  // The existing DB validator hashes declared paths before enumerating the
+  // tree. Refuse every symlink/non-regular entry using metadata first, so an
+  // archived parent cannot redirect even a validation read outside the root.
+  const inspectArchiveTree = directory => {
+    canonicalDirectory(directory);
+    for (const name of fs.readdirSync(directory)) {
+      const entry = path.join(directory, name);
+      const stat = fs.lstatSync(entry);
+      if (stat.isSymbolicLink()) {
+        reject('BACKUP_PAYLOAD_SYMLINK', 'Archive extraction refuses symbolic links before reading payloads');
+      }
+      if (stat.isDirectory()) inspectArchiveTree(entry);
+      else if (!stat.isFile()) {
+        reject('BACKUP_PAYLOAD_NOT_REGULAR', 'Archive extraction requires regular payload files');
+      }
+    }
+  };
+  inspectArchiveTree(backupPath);
+  const validated = validateStateBackup(resolvedDataDir, backupName, opts);
+  if (JSON.stringify(validated.metadata.archival_only) !== JSON.stringify(['config', 'skills', 'specialists'])) {
+    reject('BACKUP_EXTRACT_SCOPE_INVALID', 'Backup does not declare the expected archival-only scope');
+  }
+  const selected = validated.metadata.content_manifest.filter(item => (
+    /^config\/(?:intentsmith-setup|c3-setup|design-defaults)\.json$/.test(item.path)
+    || /^skills\/[^/]+\.json$/.test(item.path)
+  ));
+  if (selected.length === 0) reject('BACKUP_EXTRACT_EMPTY', 'Backup has no supported config or skill JSON payloads');
+
+  // mkdir is exclusive: unlike rename over an empty directory it cannot
+  // replace a destination created by another process after validation.
+  let owned;
+  try {
+    fs.mkdirSync(target, { mode: 0o700 });
+    owned = fs.lstatSync(target);
+    for (const item of selected) {
+      const source = path.join(backupPath, item.path);
+      if (fs.realpathSync(source) !== source) {
+        reject('BACKUP_EXTRACT_BOUNDARY_INVALID', 'Archive payload traverses a symbolic link');
+      }
+      const sourceFd = fs.openSync(source, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+      let bytes;
+      try {
+        const stat = fs.fstatSync(sourceFd);
+        if (!stat.isFile() || stat.size !== item.bytes) {
+          reject('BACKUP_CONTENT_MISMATCH', 'Archive payload changed after validation');
+        }
+        bytes = fs.readFileSync(sourceFd);
+        if (bytes.length !== item.bytes || sha256Bytes(bytes) !== item.sha256) {
+          reject('BACKUP_CONTENT_MISMATCH', 'Archive payload changed after validation');
+        }
+      } finally { fs.closeSync(sourceFd); }
+      const output = path.join(target, item.path);
+      fs.mkdirSync(path.dirname(output), { recursive: true, mode: 0o700 });
+      const outputFd = fs.openSync(output, 'wx', 0o600);
+      try {
+        fs.writeFileSync(outputFd, bytes);
+        fs.fsyncSync(outputFd);
+      } finally { fs.closeSync(outputFd); }
+      if (fs.statSync(output).size !== item.bytes || sha256File(output) !== item.sha256) {
+        reject('BACKUP_CONTENT_MISMATCH', 'Extracted payload does not match the archive');
+      }
+    }
+    for (const directory of new Set(selected.map(item => path.dirname(path.join(target, item.path))))) {
+      fsyncDirectory(directory);
+    }
+    fsyncDirectory(target);
+    fsyncDirectory(parent);
+    return Object.freeze({
+      ok: true,
+      backupName,
+      destination: target,
+      scope: Object.freeze(['config', 'skills']),
+      activated: false,
+      contentFingerprint: validated.metadata.content_fingerprint,
+      files: Object.freeze(selected.map(item => Object.freeze({ ...item }))),
+    });
+  } catch (error) {
+    if (owned) {
+      const current = fs.lstatSync(target);
+      if (!current.isDirectory() || current.isSymbolicLink() || current.dev !== owned.dev || current.ino !== owned.ino) {
+        reject('BACKUP_EXTRACT_CLEANUP_OWNERSHIP_LOST', 'Extraction directory identity changed; partial output preserved');
+      }
+      fs.rmSync(target, { recursive: true });
+    }
+    throw error;
+  }
+}

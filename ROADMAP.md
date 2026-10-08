@@ -13,6 +13,11 @@ CI `37783220346` má 18 SUCCESS. Project57 je oddělená přijatá serverová in
 [Aktuální celý profil a meze](docs/review/evidence/product-continuation-20261008/c19-full-profile.json).
 Předchozí `d4304899` zůstává historický profil produktu C15, `44e4d96c` před C15.
 Deterministický profil neprokazuje živou kvalitu ani release přejímku.
+C21 nad `1b636b02` přidává explicitní offline vyzvednutí config/skill JSON do nové
+neaktivní složky: source/CPU review PASS, 43 autorových +2 nezávislé kontroly.
+ROOT integrace M5 43 /artifact160 /registry596 /module1516 i její review PASS;
+nový celý profil čeká. Předchozí profil C19 tuto změnu nepokrývá.
+[Implementace a meze C21](docs/review/evidence/product-continuation-20261008/c21-archival-extraction.json).
 Historický C12 profil na `678eead707a59df568c7353a8b2dd7ad6c175b23`
 měl produktový zdroj C9 `24f329c6` a obsahoval C11/C12 opravy testů.
 C9: classifier13 HTTP/restart, context55, project57 a integrace19 PASS;

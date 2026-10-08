@@ -838,3 +838,178 @@ test('validation copy preparation failures are not database corruption and clean
     } finally { fs[method] = original; cleanup(state); }
   }
 });
+
+// C21: retrieving archived bytes does not install or activate those bytes.
+import * as archiveApi from '../src/core/db-backup.js';
+
+function archiveFixture() {
+  const state = fixture();
+  const outputParent = fs.mkdtempSync('/tmp/intentsmith-m5-extract-');
+  fs.chmodSync(outputParent, 0o700);
+  const configBytes = Buffer.from('{"localCanary":"synthetic-only"}\n');
+  const skillBytes = Buffer.from(JSON.stringify({ name: 'inert-synthetic', enabled: true, code: 'throw new Error("NEVER_EXECUTE")' }) + '\n');
+  fs.writeFileSync(path.join(state.dataDir, 'intentsmith-setup.json'), configBytes);
+  fs.writeFileSync(path.join(state.projectRoot, 'skills/custom.json'), skillBytes);
+  const created = backup(state);
+  state.db.close(); state.db = null;
+  const destination = path.join(outputParent, 'recovered');
+  const options = { offline: true, projectRoot: state.projectRoot, supportedMigrationVersions: [knownMigration] };
+  return { ...state, created, configBytes, skillBytes, outputParent, destination, options };
+}
+
+function extractFixture(state, destination = state.destination, options = state.options) {
+  assert.equal(typeof archiveApi.extractStateBackupArchive, 'function', 'missing explicit inert archival extraction capability');
+  return archiveApi.extractStateBackupArchive(state.dataDir, state.created.name, destination, options);
+}
+
+function cleanupArchiveFixture(state) {
+  cleanup(state);
+  fs.rmSync(state.outputParent, { recursive: true, force: true });
+}
+
+function archiveSnapshot(directory) {
+  const result = {};
+  const visit = (current, prefix = '') => {
+    for (const name of fs.readdirSync(current).sort()) {
+      const file = path.join(current, name), relative = `${prefix}${name}`;
+      const stat = fs.lstatSync(file);
+      if (stat.isDirectory()) visit(file, `${relative}/`);
+      else result[relative] = stat.isSymbolicLink() ? `link:${fs.readlinkSync(file)}` : digest(file);
+    }
+  };
+  visit(directory);
+  return result;
+}
+
+test('archive extraction recovers exact lost synthetic config/skill bytes without activation or DB replacement', () => {
+  const state = archiveFixture();
+  try {
+    const archiveBefore = archiveSnapshot(state.created.path);
+    fs.unlinkSync(path.join(state.dataDir, 'intentsmith-setup.json'));
+    fs.unlinkSync(path.join(state.projectRoot, 'skills/custom.json'));
+    const activeBefore = archiveSnapshot(state.projectRoot);
+    const result = extractFixture(state);
+    assert.equal(result.ok, true);
+    assert.equal(result.activated, false);
+    assert.deepEqual(result.scope, ['config', 'skills']);
+    assert.deepEqual(result.files.map(item => item.path), ['config/intentsmith-setup.json', 'skills/custom.json']);
+    assert.deepEqual(fs.readFileSync(path.join(state.destination, 'config/intentsmith-setup.json')), state.configBytes);
+    assert.deepEqual(fs.readFileSync(path.join(state.destination, 'skills/custom.json')), state.skillBytes);
+    assert.equal(fs.lstatSync(state.destination).mode & 0o777, 0o700);
+    for (const item of result.files) assert.equal(fs.statSync(path.join(state.destination, item.path)).mode & 0o777, 0o600);
+    assert.deepEqual(archiveSnapshot(state.projectRoot), activeBefore);
+    assert.deepEqual(archiveSnapshot(state.created.path), archiveBefore);
+    assert.equal(fs.existsSync(path.join(state.destination, 'specialists')), false);
+    assert.equal(fs.existsSync(path.join(state.destination, 'intentsmith.db')), false);
+  } finally { cleanupArchiveFixture(state); }
+});
+
+test('archive extraction CLI is explicit and preserves its default database restore mode', () => {
+  const state = archiveFixture();
+  try {
+    const before = archiveSnapshot(state.projectRoot);
+    const output = execFileSync(process.execPath, [path.join(root, 'scripts/restore-state-backup.js'),
+      '--data-dir', state.dataDir, '--backup', state.created.name, '--extract-archive-to', state.destination],
+    { encoding: 'utf8', timeout: 15_000 });
+    const result = JSON.parse(output.trim());
+    assert.equal(result.ok, true); assert.equal(result.activated, false);
+    assert.deepEqual(fs.readFileSync(path.join(state.destination, 'skills/custom.json')), state.skillBytes);
+    assert.deepEqual(archiveSnapshot(state.projectRoot), before);
+    assert.throws(() => execFileSync(process.execPath, [path.join(root, 'scripts/restore-state-backup.js'),
+      '--data-dir', state.dataDir, '--backup', state.created.name, '--db-path', state.dbPath,
+      '--extract-archive-to', path.join(state.outputParent, 'other')], { stdio: 'pipe', timeout: 15_000 }),
+    error => error.status === 1 && /cannot be combined/.test(error.stderr.toString()));
+    assert.equal(fs.existsSync(path.join(state.outputParent, 'other')), false);
+    fs.writeFileSync(state.dbPath, 'damaged synthetic DB');
+    const restored = JSON.parse(execFileSync(process.execPath, [path.join(root, 'scripts/restore-state-backup.js'),
+      '--data-dir', state.dataDir, '--backup', state.created.name], { encoding: 'utf8', timeout: 15_000 }).trim());
+    assert.equal(restored.ok, true); assert.ok(restored.safetyBackup);
+    assert.equal(digest(state.dbPath), digest(path.join(state.created.path, 'intentsmith.db')));
+  } finally { cleanupArchiveFixture(state); }
+});
+
+test('archive extraction refuses corrupted manifests/payloads and unsafe boundaries before publication', async t => {
+  const cases = [
+    ['offline missing', s => { s.options.offline = false; }, 'BACKUP_EXTRACT_REQUIRES_OFFLINE'],
+    ['invalid metadata', s => fs.writeFileSync(path.join(s.created.path, 'metadata.json'), '{'), 'BACKUP_METADATA_INVALID'],
+    ['corrupted skill', s => fs.writeFileSync(path.join(s.created.path, 'skills/custom.json'), 'bad'), 'BACKUP_CONTENT_MISMATCH'],
+    ['missing config', s => fs.unlinkSync(path.join(s.created.path, 'config/intentsmith-setup.json')), 'BACKUP_CONTENT_MISSING'],
+    ['corrupted excluded DB', s => fs.writeFileSync(path.join(s.created.path, 'intentsmith.db'), 'bad'), 'BACKUP_CONTENT_MISMATCH'],
+    ['manifest traversal', s => {
+      const p = path.join(s.created.path, 'metadata.json'), m = JSON.parse(fs.readFileSync(p));
+      m.content_manifest[0].path = '../outside.json'; fs.writeFileSync(p, JSON.stringify(m));
+    }, 'BACKUP_MANIFEST_PATH_INVALID'],
+    ['metadata symlink', s => {
+      const p = path.join(s.created.path, 'metadata.json'); fs.copyFileSync(p, path.join(s.outputParent, 'metadata-copy')); fs.unlinkSync(p);
+      fs.symlinkSync(path.join(s.outputParent, 'metadata-copy'), p);
+    }, 'BACKUP_METADATA_INVALID'],
+    ['payload symlink', s => {
+      const p = path.join(s.created.path, 'skills/custom.json'); fs.unlinkSync(p);
+      fs.symlinkSync(path.join(s.projectRoot, 'skills/custom.json'), p);
+    }, 'BACKUP_PAYLOAD_SYMLINK'],
+    ['existing destination', s => fs.mkdirSync(s.destination), 'BACKUP_EXTRACT_TARGET_EXISTS'],
+    ['dangling destination symlink', s => fs.symlinkSync(path.join(s.outputParent, 'absent'), s.destination), 'BACKUP_EXTRACT_TARGET_EXISTS'],
+    ['active skill destination', s => { s.destination = path.join(s.projectRoot, 'skills/recovered'); fs.chmodSync(path.dirname(s.destination), 0o700); }, 'BACKUP_EXTRACT_TARGET_ACTIVE'],
+    ['active data destination', s => { s.destination = path.join(s.dataDir, 'recovered'); fs.chmodSync(s.dataDir, 0o700); }, 'BACKUP_EXTRACT_TARGET_ACTIVE'],
+    ['public parent', s => fs.chmodSync(s.outputParent, 0o755), 'BACKUP_EXTRACT_PARENT_INVALID'],
+    ['symlink parent', s => { fs.symlinkSync(s.outputParent, path.join(s.projectRoot, 'alias')); s.destination = path.join(s.projectRoot, 'alias/recovered'); }, 'BACKUP_EXTRACT_BOUNDARY_INVALID'],
+  ];
+  for (const [name, change, code] of cases) await t.test(name, () => {
+    const state = archiveFixture();
+    try {
+      change(state);
+      const activeBefore = archiveSnapshot(state.projectRoot);
+      const outputBefore = archiveSnapshot(state.outputParent);
+      assert.throws(() => extractFixture(state), error => error.code === code);
+      assert.deepEqual(archiveSnapshot(state.projectRoot), activeBefore);
+      assert.deepEqual(archiveSnapshot(state.outputParent), outputBefore);
+    } finally { cleanupArchiveFixture(state); }
+  });
+});
+
+test('archive extraction cleans its partial inactive output on a mid-copy write failure', t => {
+  const state = archiveFixture();
+  try {
+    const before = archiveSnapshot(state.projectRoot);
+    const original = fs.writeFileSync;
+    let writes = 0;
+    t.mock.method(fs, 'writeFileSync', (...args) => {
+      if (typeof args[0] === 'number' && ++writes === 2) throw Object.assign(new Error('synthetic ENOSPC'), { code: 'ENOSPC' });
+      return original(...args);
+    });
+    assert.throws(() => extractFixture(state), error => error.code === 'ENOSPC');
+    assert.equal(writes, 2);
+    assert.equal(fs.existsSync(state.destination), false);
+    assert.deepEqual(archiveSnapshot(state.projectRoot), before);
+  } finally { t.mock.restoreAll(); cleanupArchiveFixture(state); }
+});
+
+// Regression adapted from the independent V1 review; same zero-read oracle.
+test('C21 independent archive parent symlink must not read an external payload', t => {
+  const state = archiveFixture();
+  try {
+    const archiveDir = path.join(state.created.path, 'skills');
+    const externalDir = path.join(state.outputParent, 'external-skills');
+    fs.mkdirSync(externalDir, { mode: 0o700 });
+    const externalFile = path.join(externalDir, 'custom.json');
+    fs.copyFileSync(path.join(archiveDir, 'custom.json'), externalFile);
+    fs.rmSync(archiveDir, { recursive: true });
+    fs.symlinkSync(externalDir, archiveDir);
+    const originalRead = fs.readFileSync;
+    let externalReads = 0;
+    t.mock.method(fs, 'readFileSync', (...args) => {
+      if (typeof args[0] === 'string') {
+        try { if (fs.realpathSync(args[0]) === externalFile) externalReads++; } catch {}
+      }
+      return originalRead(...args);
+    });
+    let actualError;
+    try { extractFixture(state); } catch (error) { actualError = error.code; }
+    t.mock.restoreAll();
+    const observed = { actualError, externalReads, destinationExists: fs.existsSync(state.destination), syntheticOnly: true };
+    if (process.env.C21_REVIEW_OBSERVATION) fs.writeFileSync(process.env.C21_REVIEW_OBSERVATION, JSON.stringify(observed, null, 2) + '\n', { flag: 'wx', mode: 0o600 });
+    assert.equal(actualError, 'BACKUP_PAYLOAD_SYMLINK');
+    assert.equal(fs.existsSync(state.destination), false);
+    assert.equal(externalReads, 0, 'archive validation read payload outside the archive through a symlink parent');
+  } finally { t.mock.restoreAll(); cleanupArchiveFixture(state); }
+});

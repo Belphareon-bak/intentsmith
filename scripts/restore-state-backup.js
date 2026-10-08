@@ -6,15 +6,21 @@ import { fileURLToPath } from 'node:url';
 import {
   discoverSupportedMigrationVersions,
   restoreStateBackup,
+  extractStateBackupArchive,
 } from '../src/core/db-backup.js';
 
 function usage() {
   return [
     'Usage: node scripts/restore-state-backup.js --data-dir ABSOLUTE_PATH --backup BACKUP_NAME [--db-path ABSOLUTE_PATH]',
+    '       node scripts/restore-state-backup.js --data-dir ABSOLUTE_PATH --backup BACKUP_NAME --extract-archive-to ABSOLUTE_NEW_DIRECTORY',
     '',
     'The IntentSmith server must be stopped. The command validates the complete',
     'V2 manifest, SQLite quick_check and migration compatibility before replacing',
     'the configured database. A pre-restore safety copy is retained.',
+    'The explicit --extract-archive-to mode instead retrieves only archived config',
+    'and skill JSON bytes into a fresh inactive directory outside installation/data.',
+    'Its existing parent must be private (0700), owned by you, without symlinks.',
+    'This mode never restores the DB, installs config, or activates skills.',
   ].join('\n');
 }
 
@@ -23,7 +29,7 @@ function parse(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const key = argv[index];
     if (key === '--help' || key === '-h') return { help: true };
-    if (!['--data-dir', '--backup', '--db-path'].includes(key)) {
+    if (!['--data-dir', '--backup', '--db-path', '--extract-archive-to'].includes(key)) {
       throw new Error(`Unknown argument: ${key}`);
     }
     const value = argv[index + 1];
@@ -49,6 +55,16 @@ try {
   }
 
   const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+  if (options['extract-archive-to']) {
+    if (options['db-path']) throw new Error('--db-path cannot be combined with --extract-archive-to');
+    const extracted = extractStateBackupArchive(options['data-dir'], options.backup, options['extract-archive-to'], {
+      offline: true,
+      projectRoot,
+      supportedMigrationVersions: discoverSupportedMigrationVersions(projectRoot),
+    });
+    process.stdout.write(`${JSON.stringify(extracted)}\n`);
+    process.exit(0);
+  }
   const result = restoreStateBackup(options['data-dir'], options.backup, {
     offline: true,
     silent: true,
