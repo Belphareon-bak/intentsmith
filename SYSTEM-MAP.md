@@ -10,7 +10,7 @@ Nezávislé review `84105069…29bc2b9` ověřilo všech 410 logů, 323 offline 
 context 82, původních 239 kontrol C12 a scenario 42; žádný retry ani hlášený únik
 vlastní process group. Zdroj před/po čistý a stejný, CI 18 SUCCESS.
 [Aktuální celý profil a meze](docs/review/evidence/product-continuation-20261008/c17-full-profile.json).
-Předchozí `44e4d96c` je historický profil před C15; soukromý C18 tím přijatý není.
+Předchozí `44e4d96c` je historický profil před C15; profil d430 nepokrývá C18/C19.
 Deterministický profil neprokazuje živou kvalitu ani release přejímku.
 Historický C12 profil na `678eead707a59df568c7353a8b2dd7ad6c175b23`
 měl produktový zdroj C9 `24f329c6` a obsahoval C11/C12 opravy testů.
@@ -156,20 +156,29 @@ H1 NOT_RUN. C18 má source/CPU review PASS, cílených 85 = 41 vybraných existu
 + 44 nových kontrol včetně rodičů. Samostatný řízený HTTP/restart má review PASS:
 dvě DB, každá tři restarty; po přesném výběru pouze návrh, žádný grant ani zápis.
 ROOT integrovaný celý context129/project57, artifact160/registry596/module1514+0
-prošly a mají nezávislý integrační posudek; publikace/CI ještě čekají.
+prošly a mají nezávislý integrační posudek; C18 publikovaný `21b25085` má CI 18 SUCCESS.
 Nový negativní guard se provede až po dispatch do FILE_WRITE resolveru
 (file.save.interpret), jen pro známou odpověď a typed targetRequired marker.
 Dvojici názvů nebo/or uchová i přes interpreter clarify/source:null; „ano“ nevybere
-cíl. Toto clarify není classifier AMBIGUOUS→ASK_USER. Ten má známý otevřený
-HTTP RED: nová dvojice se nezapíše, po dvou restartech FILE_WRITE „ano“ navrhne
+cíl. Toto clarify není classifier AMBIGUOUS→ASK_USER. Na samotném C18 má tato větev
+zachovaný HTTP RED: nová dvojice se nezapíše, po dvou restartech FILE_WRITE „ano“ navrhne
 photo.md; 1 tool/M2 request, 0 grantů/resultů/cílových souborů. Interpreter se
 na původním tahu s dvojicí nevolal. Test AMBIGUOUS „ano“ po již uložené dvojici
-tuto mezeru nepokrývá; navazuje samostatný C19 continuity fix a jeho review.
+tuto mezeru nepokrývá; samostatný C19 nyní má source/CPU/HTTP i integrační review.
 Následný celý filename atom musí odpovídat modelovému cíli; obecná věta nestačí.
 Legacy bez markeru, literal/generated source a obecná NLP/95% kvalita jsou mimo.
-Model, prompt a approval se nemění. C17 profil 410 nad C15 nepokrývá C18.
+Model, prompt a approval se nemění. C17 profil 410 nad C15 nepokrývá C18/C19.
 [Source, CPU, historie CHANGES_REQUIRED a meze](docs/review/evidence/product-continuation-20261008/c18-file-choice.json).
-Další: publikace/CI C18 a celý profil; před další GPU chat strategií C19 oprava známé AMBIGUOUS→ASK_USER mezery s nezávislým source/test/HTTP review. Souběžně technická příprava H1 → IDE/BE/expertise/workers → M5/M6.
+C19 nad `21b25085` zachovává dvojici také přes ASK_USER při stejném canonical pending,
+typed targetRequired a known-answer source/project; sdílený parser, žádná volba cíle.
+Nezávisle přijaté CPU 23 = 10 existujících + 13 nových, HTTP 4 = 3 větve + rodič,
+celý context 143 / project 57, artifact 160 / registry 596. Po třech restartech v každé
+ze tří DB vznikne až po shodném výběru jeden návrh; celkem 3, grant/result/soubor 0.
+Module zůstává FAIL / exit 1: 1514 → 1516, přesně 2 přijaté importy; 3 cykly / 28 souborů stejné.
+[Posudky, raw a meze C19](docs/review/evidence/product-continuation-20261008/c19-ask-user-continuity.json).
+Další: čistý C19 source checkpoint → standardní zápis přijatých 2 hran baseline
+→ ratchet a finální čistý checkpoint → celý profil 410. Baseline/full čekají;
+žádná nová modelová nebo 95% přejímka. Souběžně technická příprava H1 → IDE/BE/expertise/workers → M5/M6.
 Fan čeká na oracle rozhodnutí; HTTP14 rozpočet je uzavřený.
 M5 je 8/9/privacy changes required; retain_and_rotate zvolené, signed 8 categories+history chybí.
 CustodyA/B doložená; druhá operator offline kopie/reviewer recovery/13 signed/24h/throughput/Gate0/demo otevřené.
@@ -887,14 +896,14 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 **REVIEW_PENDING** — [aktuální UI oprava a evidence](docs/review/2026-09-17-HUNT-MODEL-CONTROLS-FOLLOWUP.md).
 
 Následující LOC a registry census jsou přeměřené 8. 10. 2026 přímo na zdroji
-C18 pracovního kandidátu nad `c8b0f772` včetně HTTP/restart regrese, přes stejný algoritmus jako `tests/artifact-validation.test.js`:
+C19 pracovního kandidátu nad `21b25085` včetně tří HTTP/restart větví, přes stejný algoritmus jako `tests/artifact-validation.test.js`:
 počet skutečných `.js` souborů a počet znaků nového řádku v jejich bytech.
 Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
-| `src/**/*.js` | **237 336 ř.**, 688 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **271 667 ř.**, 604 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **237 348 ř.**, 688 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **271 751 ř.**, 604 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **596** (`498 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 109** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |

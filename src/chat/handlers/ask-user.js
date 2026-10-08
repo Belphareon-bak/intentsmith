@@ -5,6 +5,8 @@
 
 import { ResponseTag, TaggedResponse, ResponseSpeaker, ChatMode } from '../controller.js';
 import { logger } from '../../core/logger.js';
+import { pendingConversationQuestion } from '../conversation-context.js';
+import { explicitSaveTargetChoice } from '../file-save-plan.js';
 
 /**
  * Handle ASK_USER decision - need clarification
@@ -29,6 +31,16 @@ export function handleAskUserDecision(input, decision, context) {
     ? sessionState.pendingDecision?.metadata?.fileSaveClarification : null;
   const inheritedSave = pendingSave?.projectId === Number(context.project?.id ?? context.projectId)
     ? { ...pendingSave } : null;
+  // A classifier question still records an unresolved target pair. This is
+  // negative continuity only: the file resolver rechecks source and exact target
+  // before it can propose any effect, and approval remains a separate boundary.
+  if (inheritedSave?.targetRequired === true
+    && Number.isSafeInteger(inheritedSave.projectId) && inheritedSave.projectId > 0
+    && Number.isSafeInteger(inheritedSave.sourceMessageId) && inheritedSave.sourceMessageId > 0
+    && ['write', 'create'].includes(pendingConversationQuestion(context)?.requestedOperation)) {
+    const choices = explicitSaveTargetChoice(input);
+    if (choices) inheritedSave.targetChoices = choices;
+  }
   const pendingMetadata = { ...decision.metadata, contextualInterpretation: true,
     originalRequest, clarificationQuestion: content,
     ...(originalRequestedOperation ? { originalRequestedOperation } : {}) };

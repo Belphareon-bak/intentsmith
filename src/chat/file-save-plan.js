@@ -172,7 +172,7 @@ function saveTargetAtom(value) {
 // Negative-only grammar: the entire reply is two distinct relative filename
 // atoms joined by Czech "nebo" or English "or". Quoted atoms may contain spaces.
 // It neither counts names in prose nor selects a target from the pair.
-function explicitSaveTargetChoice(input) {
+export function explicitSaveTargetChoice(input) {
   if (input.length > 8192) return null;
   const atom = String.raw`(?:"[^"\r\n]+"|'[^'\r\n]+'|[^\s"']+)`;
   const match = new RegExp(`^(${atom})[ \\t]+(?:nebo|or)[ \\t]+(${atom})$`, 'iu').exec(input.trim());

@@ -2153,8 +2153,8 @@ test('C18 review repeated clarify with unknown source retains unresolved target 
 
 // C18: real M1 HTTP and durable restart, with controlled provider responses.
 // No approval command is sent. The final valid choice may only propose an effect.
-test('C18 HTTP restart retains unresolved target choices for write and clarify model replies', async t => {
-  for (const pairAction of ['write', 'clarify']) await t.test(pairAction, async () => {
+test('C18 HTTP restart retains unresolved target choices for write clarify and classifier ASK_USER replies', async t => {
+  for (const pairAction of ['write', 'clarify', 'ask-user']) await t.test(pairAction, async () => {
     const owned = createOwnedJourneyRuntime(isolatedTestRuntime);
     const model = 'fixture:1b', digest = 'a'.repeat(64);
     const answer = 'Fotografie dokáže zachytit neopakovatelný okamžik a proměnit ho v trvalou vzpomínku.';
@@ -2185,11 +2185,11 @@ test('C18 HTTP restart retains unresolved target choices for write and clarify m
             source: { kind: 'answer', messageId: parsed.answers[0]?.messageId },
             transformation: 'none', writeMode: 'replace', understood: !clarify, unsupported: [] });
         } else if (system.includes('Klasifikuj')) {
-          const ambiguous = stage === 'ambiguous-yes';
+          const ambiguous = stage === 'ambiguous-yes' || (pairAction === 'ask-user' && stage === 'pair');
           content = JSON.stringify({ intent: ambiguous ? 'AMBIGUOUS' : stage === 'answer' ? 'CONVERSATIONAL' : 'FILE_WRITE',
             confidence: ambiguous ? 0.5 : 0.95,
             fileTarget: ['stale-selection', 'selected'].includes(stage) ? 'archive.md' : null,
-            question: ambiguous ? parsed.pending.question : null,
+            question: ambiguous ? stage === 'pair' ? 'Do photo.md, nebo archive.md?' : parsed.pending.question : null,
             continuesPending: ['stale-selection', 'selected'].includes(stage) ? false : Boolean(parsed.pending),
             requestedOperation: stage === 'answer' ? 'none' : 'write', responseScope: 'conversation' });
         } else if (parsed?.input || parsed?.userInput || system.includes('"reply"')) content = JSON.stringify({ reply: answer, plan: null });
@@ -2288,5 +2288,89 @@ test('C18 HTTP restart retains unresolved target choices for write and clarify m
       for (const suffix of ['', '-wal', '-shm']) if (existsSync(owned.database + suffix)) copyFileSync(owned.database + suffix, path.join(copy, 'c3.db' + suffix));
       audit('cleanup.json', { stops, providerClosed: !provider.listening, databaseCopy: copy, ownedRoot: owned.root, originalDatabase: owned.database, liveInference: 0, approvalsSent: 0 });
     }
+  });
+});
+
+
+// C19: a classifier question cannot forget an unresolved target pair.
+function c19AskPair(input, context, metadata = {}) {
+  const decision = creDecisionEngine.overrideDecision({ type: DecisionType.ASK_USER,
+    intent: IntentType.AMBIGUOUS, confidence: 0.5, slots: ['intent_clarification'],
+    source: 'controlled-c19-continuation', reason: 'Filename choice is unresolved',
+    metadata: { contextualInterpretation: true, continuesPending: true,
+      requestedOperation: 'write', clarificationQuestion: 'Vyber prosím jeden soubor.', ...metadata } });
+  return handleAskUserDecision(input, decision, context);
+}
+
+test('C19 ASK_USER fresh pair stays unresolved after restore and exact choice keeps original conditions', async () => {
+  const original = 'Ulož původní odpověď do photo.md nebo archive.md; nic nepřepisuj.';
+  const context = await c18OpenTargetQuestion(original);
+  const before = structuredClone(context.sessionState.pendingDecision.metadata);
+  const response = c19AskPair('photo.md nebo archive.md', context);
+  const afterAsk = structuredClone(context.sessionState.pendingDecision.metadata);
+  context.sessionState = SessionState.fromJSON(JSON.parse(JSON.stringify(context.sessionState.toJSON())));
+  const yes = await c18Handle('ano', context, { ...c18RecordedWrite, writeMode: 'create' });
+  writeFileSync(path.join(isolatedTestRuntime.artifacts, 'c19-ask-pair.json'),
+    JSON.stringify({ before, afterAsk, response: { content: response.content, canExecute: response.canExecute }, yes }, null, 2) + '\n');
+  assert.equal(yes.admissions.length, 0, 'classifier ASK_USER must keep the new unresolved pair before a later yes');
+  assert.equal(response.content, 'Vyber prosím jeden soubor.');
+  assert.equal(response.canExecute, false);
+  assert.deepEqual(afterAsk.fileSaveClarification, { ...before.fileSaveClarification,
+    targetChoices: ['photo.md', 'archive.md'] });
+  assert.equal(afterAsk.originalRequest, original);
+  const mismatch = await c18Handle('archive.md', context, { ...c18RecordedWrite, writeMode: 'create' });
+  assert.equal(mismatch.admissions.length, 0);
+  const matching = await c18Handle('archive.md', context, { ...c18RecordedWrite,
+    target: 'archive.md', writeMode: 'create' });
+  assert.deepEqual(matching.admissions, [{ toolId: 'file.create', input: { path: 'archive.md', content: 'Původní úplný podklad.' } }]);
+  assert.equal(matching.response.metadata.error, 'C18_NO_M2');
+  assert(!existsSync(path.join(context.project.path, 'archive.md')));
+});
+
+test('C19 ASK_USER pair retention has no authority outside its canonical continuation', async t => {
+  for (const label of ['new task', 'cancel', 'other project', 'legacy without marker', 'unknown source', 'read operation', 'forged provenance']) await t.test(label, async () => {
+    const context = await c18OpenTargetQuestion('Ulož odpověď do photo.md nebo archive.md.');
+    const metadata = {};
+    if (label === 'new task') metadata.continuesPending = false;
+    if (label === 'cancel') {
+      const { clearSupersededFileSaveQuestion } = await import('../src/chat/handlers/file.js');
+      clearSupersededFileSaveQuestion(context, { type: 'ANSWER', intent: 'CONVERSATIONAL',
+        metadata: { contextualInterpretation: true, continuesPending: false } });
+      assert.equal(context.sessionState.pendingDecision, null);
+    }
+    if (label === 'other project') context.project = { ...context.project, id: 2 };
+    if (label === 'legacy without marker') delete context.sessionState.pendingDecision.metadata.fileSaveClarification.targetRequired;
+    if (label === 'unknown source') context.sessionState.pendingDecision.metadata.fileSaveClarification.sourceMessageId = null;
+    if (label === 'read operation') context.sessionState.pendingDecision.metadata.originalRequestedOperation = 'read';
+    if (label === 'forged provenance') {
+      metadata.fileSaveClarification = structuredClone(context.sessionState.pendingDecision.metadata.fileSaveClarification);
+      delete context.sessionState.pendingDecision.metadata.fileSaveClarification;
+    }
+    const response = c19AskPair('photo.md nebo archive.md', context, metadata);
+    assert.equal(response.content, 'Vyber prosím jeden soubor.');
+    assert.equal(response.canExecute, false);
+    assert.equal(context.sessionState.pendingDecision.metadata.fileSaveClarification?.targetChoices, undefined);
+    if (['new task', 'cancel', 'other project', 'forged provenance'].includes(label)) {
+      assert.equal(context.sessionState.pendingDecision.metadata.fileSaveClarification, undefined);
+    }
+  });
+});
+
+test('C19 ASK_USER retains only negative choices and later resolver still rejects a changed source', async () => {
+  const context = await c18OpenTargetQuestion('Ulož odpověď do photo.md nebo archive.md.');
+  context.history = [];
+  c19AskPair('photo.md nebo archive.md', context);
+  assert.equal(context.sessionState.pendingDecision.metadata.fileSaveClarification.sourceMessageId, 2);
+  const result = await c18Handle('archive.md', context, { ...c18RecordedWrite, target: 'archive.md' });
+  assert.equal(result.admissions.length, 0);
+  assert.equal(result.response.metadata.error, 'file_write_source_changed');
+});
+
+test('C19 ASK_USER does not interpret quoted filename data or prose as a new pair', async t => {
+  for (const input of ['"photo.md nebo archive.md"', 'Ulož do photo.md, ale archive.md nemaž.']) await t.test(input, async () => {
+    const context = await c18OpenTargetQuestion();
+    const before = structuredClone(context.sessionState.pendingDecision.metadata.fileSaveClarification);
+    c19AskPair(input, context);
+    assert.deepEqual(context.sessionState.pendingDecision.metadata.fileSaveClarification, before);
   });
 });

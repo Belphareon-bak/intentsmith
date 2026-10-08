@@ -1,10 +1,10 @@
 {
   "kind": "C18UnresolvedSaveTargetCheckpoint@1",
-  "status": "SOURCE_CPU_HTTP_INTEGRATION_REVIEW_PASS_PUBLICATION_PENDING",
+  "status": "PUBLISHED_SOURCE_CPU_HTTP_INTEGRATION_CI_PASS_WITH_LIMITS",
   "baseSource": "d43048990bbb5edf7fb644252d8cbcfbd43e3f34",
   "preparationHead": "c8b0f772786de2bd8ce8bfea53e1d2759a6e621c",
-  "publicationSha": null,
-  "sourceIntegration": "APPLIED_WORKING_CANDIDATE_NOT_YET_PUBLISHED",
+  "publicationSha": "21b250857a7d0d5bac2e3ddb66284732f7cc769f",
+  "sourceIntegration": "PUBLISHED_21b25085",
   "sourceReview": {
     "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/independent-review/REVIEW-v2.json",
     "bytes": 9640,
@@ -95,7 +95,7 @@
   },
   "remainingGates": {
     "independentIntegratedExecutionReview": "PASS",
-    "publicationAndCI": "PENDING",
+    "publicationAndCI": "PASS_18_SUCCESS",
     "newFullProfile": "NOT_RUN_FOR_C18",
     "liveModel": "NOT_RUN_NOT_REQUIRED_FOR_THIS_CPU_GUARD",
     "release": "NOT_ACCEPTED"
@@ -107,11 +107,11 @@
     "coversC18": false
   },
   "limits": [
-    "Known open gap: a fresh pair classified AMBIGUOUS and routed to ASK_USER bypasses the FILE_WRITE resolver and loses targetChoices. Controlled HTTP RED reproduces a later unilateral photo.md proposal after two restarts, with no grant/result/file effect. C18 acceptance remains restricted to the resolver branch; C19 is separate pending work.",
+    "Known open gap: a fresh pair classified AMBIGUOUS and routed to ASK_USER bypasses the FILE_WRITE resolver and loses targetChoices. Controlled HTTP RED reproduces a later unilateral photo.md proposal after two restarts, with no grant/result/file effect. C18 acceptance remains restricted to the resolver branch; C19 is a separate source/CPU/HTTP/integration-reviewed follow-up; this historical C18 result is unchanged.",
     "Only core targetRequired state with a known eligible answer source; legacy markerless, literal and generated source continuations are outside this new guard.",
     "Selected CPU replay is not general semantic understanding, full safety coverage, live model quality, new C6 score or 95% acceptance.",
     "No prompt/model binding change, retry, holdout access or new approval authority.",
-    "Census includes accepted CPU test plus HTTP append: src688/237336 newline bytes, tests604/271667; publication/CI and a full410 run on C18 remain separate."
+    "Census includes accepted CPU test plus HTTP append: src688/237336 newline bytes, tests604/271667; publication21b25085/CI18 are complete; no full410 run covers C18/C19 yet."
   ],
   "historicalC6": {
     "useful": 118,
@@ -419,7 +419,7 @@
     "sha256": "e7bc9667f33812c9ab703e6a1c8e0a3ddb33f709869f3ab0c83916763e69307a"
   },
   "classifierAskUserBranch": {
-    "status": "KNOWN_OPEN_GAP_HTTP_RED",
+    "status": "HISTORICAL_C18_GAP_HTTP_RED_FOLLOWUP_C19_REVIEW_PASS",
     "trigger": "Fresh explicit pair first classified AMBIGUOUS and routed to ASK_USER; file.save.interpret is not reached for that pair.",
     "acceptedByCurrentC18Evidence": false,
     "observed": {
@@ -446,6 +446,24 @@
       "bytes": 4823,
       "sha256": "2b5ba69be0a3e074244ec7ebb990e9dd57dbd7ebe3b13216eed9da18035f1be3"
     },
-    "nextStep": "Bounded private C19 continuity correction in ASK_USER with shared narrow filename parser and independent source/test/HTTP review before another GPU chat strategy. No model/prompt/schema change."
+    "nextStep": "C19 source/CPU/HTTP/integration review accepted the bounded ASK_USER continuity correction. C19 clean source checkpoint, reviewed module baseline update and full profile remain pending; C18 RED is preserved.",
+    "followUpIndex": "c19-ask-user-continuity.json"
+  },
+  "publicationCI": {
+    "receipt": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/CI-21b25085.json",
+      "bytes": 313,
+      "sha256": "a5660a6dfcbd1e02d35c8d3d34548c4f5c601d94782cf452b4f79d2cb70b2ba7"
+    },
+    "run": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/CI-21b25085-RUN-raw.json",
+      "bytes": 14310,
+      "sha256": "e85e0ba94bdfe6ea740893a312d97e94290769c575d00e49d315d752b92848b0"
+    },
+    "jobs": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c18-unresolved-save-target-20261008/CI-21b25085-JOBS-raw.json",
+      "bytes": 6010,
+      "sha256": "ef4cc85be48f913c2255b91e9adf89430f76271b4a17ec96bb13b43ad4b2c495"
+    }
   }
 }
