@@ -72,7 +72,7 @@ suite('E2E harness private-root containment');
 
 test('rejects an artifact root outside .intentsmith-artifacts', () => {
   const unsafeArtifactRoot = path.join(
-    path.dirname(repoRoot),
+    path.parse(repoRoot).root,
     'intentsmith-e2e-public-artifacts',
   );
   const result = runChild(

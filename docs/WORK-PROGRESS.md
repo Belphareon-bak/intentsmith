@@ -15,7 +15,12 @@ Skutečná obnova archivu/config/skillu/projektu dosáhla8/10 kroků. Původní
 celý běh je FAIL: validní resume POST vrátil400, protože route očekávala
 nepředaný čtvrtý argument. Nový vlastní candidate opravuje parser požadavku;
 izolovaná skutečná API/runner regrese před opravou10 PASS/2 FAIL, po ní12 PASS.
-Source review, čistý celý profil, CI a skutečné pokračování ještě následují.
+Oprava parseru i balení mají nezávislé SOURCE PASS. Celý profil na `8b607988`
+skončil409 PASS/2 FAIL: stale LOC tabulka a fixture nesprávně pokládající
+sourozence checkoutu za cestu mimo `.intentsmith-artifacts`. Následná oprava
+mění pouze census dokumentace a konstrukci jedné testovací cesty;
+assertions ani produkční containment se nemění. Nový celý profil, CI
+a skutečné pokračování teprve následují.
 Příprava balení nově váže AppImage ke skutečnému buildu přesného source;
 samotné sestavení ani balení zatím neproběhlo.
 

@@ -50,6 +50,13 @@ a M6 WP; nemění jejich akceptační pravidla, kontrakty ani historické důkaz
   Následný přímý reuse/refusal nad vlastní DB je bez generování.
 - Offline HTML pro uživatelské hodnocení s poznámkami a JSON exportem.
   Hodnocení je zpětná vazba, nikoli podepsaná přejímka nebo automatický PASS.
+- Dvě konkrétní regresní kontroly po opravě resume: přeměření LOC tabulky
+  v `SYSTEM-MAP.md` přímo existujícím algoritmem artifact validátoru a oprava
+  cesty jedné fixture v `tests/e2e-harness-isolation.test.js`. Odmítaný veřejný
+  artifact root musí být mimo `.intentsmith-artifacts` i při checkoutu uvnitř
+  tohoto adresáře; cesta se pouze předá odmítací kontrole, nevytváří ani nemaže.
+  Produkční containment ani assertions se nemění. Původní409 PASS/2 FAIL
+  na `8b607988` zůstává uložený; následný celý profil ověří nový source.
 
 Dokumentace: tento WP, aktuální stav v WORK-PROGRESS/ROADMAP/SYSTEM-MAP,
 versionované evidence metadata a review packet. Další změna produktového
