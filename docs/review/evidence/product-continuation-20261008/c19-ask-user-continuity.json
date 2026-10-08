@@ -1,6 +1,6 @@
 {
   "kind": "C19AskUserSaveContinuityCheckpoint@1",
-  "status": "SOURCE_CPU_HTTP_INTEGRATION_REVIEW_PASS_MODULE_BASELINE_PENDING",
+  "status": "SOURCE_CPU_HTTP_INTEGRATION_REVIEW_PASS_MODULE_BASELINE_PASS",
   "sourceBase": "21b250857a7d0d5bac2e3ddb66284732f7cc769f",
   "publicationSha": null,
   "scope": "Negative continuity only: a fresh unresolved pair routed to ASK_USER is stored using the unchanged C18 parser only during canonical continuation with targetRequired, a positive source/project identity and requested write/create. It does not choose a target, alter the question or invoke an effect. The original resolver later rechecks source and exact target before a separately approved proposal.",
@@ -87,7 +87,7 @@
       "module": 1
     },
     "module": {
-      "status": "FAIL_PRESERVED_REVIEWED_BASELINE_UPDATE_PENDING",
+      "status": "INITIAL_FAIL_PRESERVED_STANDARD_BASELINE_NOW_PASS",
       "oldEdges": 1514,
       "edges": 1516,
       "added": [
@@ -102,9 +102,9 @@
     "artifactScope": "Before this documentation patch; ROOT performs required docs gate after applying."
   },
   "remainingGates": {
-    "cleanSourceCheckpoint": "PENDING",
-    "standardModuleBaselineWriter": "PENDING_AFTER_CLEAN_SOURCE_CHECKPOINT",
-    "moduleRecheck": "PENDING",
+    "cleanSourceCheckpoint": "d3dbc8979fac677ffd836b03771409060ec630da",
+    "standardModuleBaselineWriter": "PASS_EXACT_TWO_REVIEWED_EDGES",
+    "moduleRecheck": "PASS_1516_EDGES_ZERO_DRIFT_CYCLES_3_MEMBERS_28",
     "publicationCI": "PENDING_FOR_C19",
     "full410": "NOT_RUN_FOR_C19",
     "release": "NOT_ACCEPTED"
@@ -181,6 +181,45 @@
       "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c19-ask-user-save-continuity-20261008/CENSUS-integrated.json",
       "bytes": 297,
       "sha256": "2c870b334ced8f7ddffde4e90baa7cd99095ae4634f5909001d86abbda436d6f"
+    },
+    "baselineWriterCommand": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c19-ask-user-save-continuity-20261008/baseline-adoption/COMMAND.json",
+      "bytes": 723,
+      "sha256": "43b241081effe8abe7bbb61bd2cbd1902e443d9b88844e4c96342e8e811acea0"
+    },
+    "baselineWriterExit": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c19-ask-user-save-continuity-20261008/baseline-adoption/EXIT.json",
+      "bytes": 152,
+      "sha256": "ba1cd84b251404d017b8e44a142cd55b627fca32c051562c8296516867af6ed9"
+    },
+    "baselineWriterLog": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c19-ask-user-save-continuity-20261008/baseline-adoption/writer.log",
+      "bytes": 408,
+      "sha256": "4551087b383def10f079efabc092f52f55f1b6ac149cc5b757827deb5f68b549"
+    },
+    "baselineRecheck": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c19-ask-user-save-continuity-20261008/baseline-adoption/RECHECK.json",
+      "bytes": 288,
+      "sha256": "d62554b6d4fdff61b99bb1ba6996a041ac434cbeb1b213682c1e44d997dc7aa8"
+    },
+    "baselineRecheckLog": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c19-ask-user-save-continuity-20261008/baseline-adoption/recheck.log",
+      "bytes": 740,
+      "sha256": "01f52768d7968eae02532b29cce5ff5d7b7cee650616ddf39075af9231562308"
+    },
+    "sourceCheckpoint": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c19-ask-user-save-continuity-20261008/SOURCE-CHECKPOINT.json",
+      "bytes": 426,
+      "sha256": "3f01a25e2a30c2ed8b70ddbc7e168710520e4488ba589c5354ffa7abc3cff748"
     }
+  },
+  "sourceCheckpoint": "d3dbc8979fac677ffd836b03771409060ec630da",
+  "baseline": {
+    "sourceRevision": "d3dbc8979fac677ffd836b03771409060ec630da",
+    "file": "tests/fixtures/module-boundary/baseline.json",
+    "sha256": "cc25a143c9cae2715a67dc9cc284b37f3221df61c99911747cca41547cea4cec",
+    "edges": 1516,
+    "cycles": 3,
+    "filesInCycles": 28
   }
 }

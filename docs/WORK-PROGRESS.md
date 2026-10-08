@@ -1,12 +1,12 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 8. 10. 2026. Celý offline/database profil na čistém `d4304899` s produktem C15 má 410 PASS a nezávislé review; starší profil `44e4d96c` zůstává historický. HTTP14 je přijatý v původním rozsahu 70 + 17 požadavků; rozpočet 14 CODE volání je uzavřený. C15 na `52d230c1` prošel jednou známou čtyřtahovou cestou až k přesně schválenému zápisu; C6 skóre a historický F11 FAIL se nepřepisují. C16 uzavřel omezenou CPU diagnózu dalších šesti souborových případů. C17 dokončil 24 odpovědí a nezávislé posudky: NO_MODEL_PREFERENCE; žádný binding ani retry. C18 je publikovaný na `21b25085`, CI 18 SUCCESS. C19 doplňuje kontinuitu přes ASK_USER: source/CPU/HTTP i integrovaný context 143 / project 57 mají nezávislé review; přijaté dvě importní hrany čekají na standardní aktualizaci baseline a nový celý profil. Fan čeká na rozhodnutí o oracle. H1 sběr i soukromé předání operátorovi jsou autorizované, zbývá technická příprava; H1 NOT_RUN, release NOT_ACCEPTED.
+**Aktualizováno:** 8. 10. 2026. Celý offline/database profil na čistém `d4304899` s produktem C15 má 410 PASS a nezávislé review; starší profil `44e4d96c` zůstává historický. HTTP14 je přijatý v původním rozsahu 70 + 17 požadavků; rozpočet 14 CODE volání je uzavřený. C15 na `52d230c1` prošel jednou známou čtyřtahovou cestou až k přesně schválenému zápisu; C6 skóre a historický F11 FAIL se nepřepisují. C16 uzavřel omezenou CPU diagnózu dalších šesti souborových případů. C17 dokončil 24 odpovědí a nezávislé posudky: NO_MODEL_PREFERENCE; žádný binding ani retry. C18 je publikovaný na `21b25085`, CI 18 SUCCESS. C19 doplňuje kontinuitu přes ASK_USER: source/CPU/HTTP i integrovaný context 143 / project 57 mají nezávislé review; source checkpoint `d3dbc897`, standardní baseline 1516 a následný ratchet mají exit 0; nový celý profil čeká. Fan čeká na rozhodnutí o oracle. H1 sběr i soukromé předání operátorovi jsou autorizované, zbývá technická příprava; H1 NOT_RUN, release NOT_ACCEPTED.
 **Vlastník integrace a CHAT:** tento koordinátor přebírá ROOT
 (`work/real-chat-journeys-20260930`) podle následného pokynu operátora.
 Jediný writer `cre-decision.js` i společných map je nyní ROOT; HTTP, Fan, fresh5
 a M6 patří témuž koordinátorovi. Hunt a druhý posudek jeho matice zůstávají oddělené.
 CHAT checkout slouží následně jen jako vlastní sériový běhový checkout zmrazených kandidátů.
-**Release NOT_ACCEPTED. HTTP14 PRIMARY70_SUPPLEMENT17_REVIEW_PASS. Fan FAIL. C15 známý save dialog PASS; C17 NO_MODEL_PREFERENCE. C18 publikovaný / CI 18 SUCCESS. C19 SOURCE/CPU/HTTP/INTEGRATION_REVIEW_PASS, MODULE_BASELINE_PENDING. Historický F11 FAIL zachovaný. Mobil čeká na stabilní IDE/BE.**
+**Release NOT_ACCEPTED. HTTP14 PRIMARY70_SUPPLEMENT17_REVIEW_PASS. Fan FAIL. C15 známý save dialog PASS; C17 NO_MODEL_PREFERENCE. C18 publikovaný / CI 18 SUCCESS. C19 SOURCE/CPU/HTTP/INTEGRATION_REVIEW_PASS, MODULE_BASELINE_PASS. Historický F11 FAIL zachovaný. Mobil čeká na stabilní IDE/BE.**
 
 ## Pokračování schválené operátorem 8. 10. 2026
 
@@ -341,7 +341,7 @@ Nezávislý integrační audit `e7bc9667…e69307a` je PASS. C18 je publikovaný
 `d4304899` pokrývá předchozí produkt C15, nikoli C18 nebo C19.
 [Source, přesné CPU příkazy, historie revizí a meze](review/evidence/product-continuation-20261008/c18-file-choice.json).
 
-### C19 — zachování nerozhodnuté dvojice přes ASK_USER (SOURCE/CPU/HTTP/INTEGRATION_REVIEW_PASS; MODULE_BASELINE_PENDING)
+### C19 — zachování nerozhodnuté dvojice přes ASK_USER (SOURCE/CPU/HTTP/INTEGRATION_REVIEW_PASS; MODULE_BASELINE_PASS)
 
 C19 nad `21b25085` ukládá tutéž úzkou dvojici i při pokračování přes
 `AMBIGUOUS → ASK_USER`: musí existovat canonical pending, typed `targetRequired`,
@@ -357,9 +357,9 @@ resultů a cílových souborů. Jde o řízený provider, nikoli nové modelové
 Integrovaný celý context 143, project 57, artifact 160 a registry 596 mají exit 0
 a nezávislé review `2f2bc63d…6592e10`. Module ratchet správně skončil FAIL/exit 1:
 1514 → 1516 hran, přesně dva přijaté importy z ASK_USER, 3 cykly / 28 souborů beze
-změny. Po čistém source checkpointu následuje standardní zápis této baseline,
-jeho kontrola a nový čistý checkpoint / celý profil; nyní baseline ani full 410
-nejsou PASS. Legacy/literal/generated a obecná NLP/95% kvalita zůstávají mimo.
+změny. Standardní writer nad čistým source checkpointem `d3dbc897` přijal pouze
+tyto dvě hrany. Následný ratchet má exit 0: 1516 hran, 0 nových/odstraněných,
+3 cykly / 28 souborů a ověřený původ baseline. Nový celý profil 410 ještě neběžel. Legacy/literal/generated a obecná NLP/95% kvalita zůstávají mimo.
 [Krátký index zdroje, RED/GREEN, posudků a zbývajících kroků](review/evidence/product-continuation-20261008/c19-ask-user-continuity.json).
 
 ### Poslední celý profil po C15 (FULL_PROFILE_REVIEW_PASS; před C18/C19)
@@ -855,7 +855,7 @@ Actual používá zdroj cache 0700; původní zdroj 0775 pokrývá CPU regrese, 
 | Přirozené plánování | C5 v5 po opraveném ovladači odeslal vstup; GPU monitor FAIL před úplnou odpovědí, D1 NOT_REACHED. Stagnace: žádný další retry v tomto cyklu |
 | M1 outage | C1 `1f098912` source review a řízené HTTP/restart PASS; testovaný `b9cfc7c5` full410/CHAT7/CODE12/CI PASS; ROOT převzal e15264f1; C4 fresh5 b959a468 5PASS/review PASS |
 | Chatová kvalita | C6 skóre 74,21 % / 15,09 % zůstává NO_GO. C15 na `52d230c1`: známý čtyřtahový dialog, přesný schválený zápis 90 B a cleanup mají nezávislé review PASS. Historické F11 FAIL zachované. C16: šest dalších zadání, CPU 13 PASS pouze před M2. C17 uzavřeno: NO_MODEL_PREFERENCE, 24 odpovědí; žádný binding ani retry |
-| C18/C19 volba cíle | C18 publikovaný `21b25085` / CI 18 SUCCESS. C19 source / CPU 23 / HTTP 4 i integrace context 143 / project 57 mají nezávislé review; sdílený parser zachovává choices i přes ASK_USER. Jen known-answer + typed marker; legacy/literal/generated mimo. Module FAIL +2 přijaté hrany: baseline a nový celý profil čekají. Žádná modelová nebo release přejímka |
+| C18/C19 volba cíle | C18 publikovaný `21b25085` / CI 18 SUCCESS. C19 source / CPU 23 / HTTP 4 i integrace context 143 / project 57 mají nezávislé review; sdílený parser zachovává choices i přes ASK_USER. Jen known-answer + typed marker; legacy/literal/generated mimo. Původní module FAIL +2 zachovaný; baseline na `d3dbc897` a následný ratchet PASS, nový celý profil čeká. Žádná modelová nebo release přejímka |
 | Providerové chyby | C9 zdroj24f329c6: zbývající classifier404/binding/drift +projektové chyby terminal; řízené13HTTP/57project GREEN, source/test/evidence/integrace19/CI PASS. C12 na678eead7 a C14 na44e4d96c jsou historické profily; poslední celý profil d4304899 s produktem C15 má 410 PASS / CI 18 SUCCESS / nezávislé review, ale předchází C18/C19; interní M7 status se nemění |
 | Mobil | Chybí conversation.create; implementace a device přejímka až po stabilním IDE/BE |
 | Hunt | Potřebujeme nový grading report/cestu a vlastníka pokračování; ROOT cizí hodnocení nepřebírá |
@@ -883,8 +883,8 @@ To nedokládá zaplněné 32k okno. Output4096 platí jen pro vydaný exact CODE
 1. C17 je uzavřený s NO_MODEL_PREFERENCE; celý profil na `d4304899` s produktem
    C15 má 410 PASS, ale nepokrývá C18/C19. C18 je publikovaný na `21b25085` / CI 18 SUCCESS.
    C19 source/CPU/HTTP i integrovaný context 143 / project 57 mají nezávislou přejímku.
-   Dokončit čistý source checkpoint, standardně zapsat přesně dvě přijaté importní
-   hrany do baseline, ověřit ratchet a po finálním čistém checkpointu celý profil.
+   Source checkpoint `d3dbc897` a standardní baseline přesně dvou přijatých hran
+   jsou hotové; ratchet PASS. Publikovat checkpoint a spustit nový celý profil.
    Historický module FAIL +2 zůstává zachovaný. Kandidát neprokazuje nový modelový
    přínos; C19 používá sdílený parser a nemění model, prompt ani schema.
    Před další inferencí nezávisle přijmout rozhodující kontrolu a negativy;

@@ -49,8 +49,8 @@ Actual v5 na cd3b8f02 odeslal vstup,1classifier request/0úplných odpovědí/0D
 GPU monitor a cleanup FAIL, samostatná own-lease recovery přezkoumaná.
 Stagnace: další C5 retry v tomto cyklu zastaven, Studio→D1 nepřijaté. [Paket C5](docs/review/2026-10-07-STUDIO-D1-ENTRY.md).
 Historický ROOT offline/database profil `86dbca40`: 410 PASS /0 FAIL /BLOCKED /TIMEOUT; netestoval následnou cache opravu.
-Registry 596/35; C9 module graph má 1 514 hran, 3 cykly /28 členů.
-Dvě nové project→core error/abort hrany nezávisle schválené; baseline připnutý na `24f329c6`.
+Registry 596/35; C19 module graph má 1 516 hran, 3 cykly /28 členů.
+Dvě nové ASK_USER importní hrany nezávisle schválené; standardní baseline na `d3dbc897`, ratchet PASS.
 C1 context27/M1 74/project44 nezávisle opakované. Nový CHAT checkpoint `b9cfc7c5`:
 full offline/database410 PASS/0 FAIL/BLOCKED/TIMEOUT, CHAT7/CODE12 PASS;
 CI37644166375 všech18 SUCCESS; FINAL_EVIDENCE_REVIEW_PASS.
@@ -99,7 +99,7 @@ Před inferencí se opraví prokázané budget/cleanup nedostatky existujících
 32k krátce změřené fullGPU/min free 2 512 MiB; celé okno ani kvalita aplikace tím nepřijaté.
 Classifier→D1 CPU 44 +parser 24/review PASS; živý přirozený vstup a fyzická ovladatelnost IDE/M2 otevřené.
 
-Nynější úkol: C19 source checkpoint, standardní aktualizace přesně dvou přijatých importních hran a nový celý profil. C18 je publikovaný `21b25085` / CI 18 SUCCESS; C17 NO_MODEL_PREFERENCE nemění bindingy. HTTP14 testovaný rozsah i rozpočet jsou uzavřené.
+Nynější úkol: publikace C19 source `d3dbc897` a přijaté baseline 1516, potom nový celý profil. C18 je publikovaný `21b25085` / CI 18 SUCCESS; C17 NO_MODEL_PREFERENCE nemění bindingy. HTTP14 testovaný rozsah i rozpočet jsou uzavřené.
 C13 source44567af7/CI18: dva HTTP admission FAIL před inferencí (nová0/historie12),
 Fan čtyři úplné nové výstupy (12/15), literal import FAIL před approval/oracle.
 Skutečný Qwen32k cleanup pod lease přijat; Fan chráněný oracle čeká na rozhodnutí.
@@ -160,10 +160,11 @@ typed targetRequired a known-answer source/project; sdílený parser, žádná v
 Nezávisle přijaté CPU 23 = 10 existujících + 13 nových, HTTP 4 = 3 větve + rodič,
 celý context 143 / project 57, artifact 160 / registry 596. Po třech restartech v každé
 ze tří DB vznikne až po shodném výběru jeden návrh; celkem 3, grant/result/soubor 0.
-Module zůstává FAIL / exit 1: 1514 → 1516, přesně 2 přijaté importy; 3 cykly / 28 souborů stejné.
+Původní module FAIL / exit 1 (1514 → 1516) zachovaný. Standardní writer nad čistým
+`d3dbc897` přijal přesně 2 importy; následný ratchet PASS, 0 nových hran, 3 cykly / 28 souborů.
 [Posudky, raw a meze C19](docs/review/evidence/product-continuation-20261008/c19-ask-user-continuity.json).
-Další: čistý C19 source checkpoint → standardní zápis přijatých 2 hran baseline
-→ ratchet a finální čistý checkpoint → celý profil 410. Baseline/full čekají;
+Další: publikace C19 source/baseline checkpointu → nový celý profil 410.
+Source, standardní baseline a následný ratchet jsou hotové; celý profil čeká;
 žádná nová modelová nebo 95% přejímka. Souběžně technická příprava H1 → IDE/BE/expertise/workers → M5/M6.
 Fan čeká na oracle rozhodnutí; HTTP14 rozpočet je uzavřený.
 M5 je 8/9/privacy changes required; retain_and_rotate zvolené, signed 8 categories+history chybí.
