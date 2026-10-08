@@ -1,6 +1,13 @@
 # IntentSmith — mapa systému
 
-**Aktuální checkpoint 8. 10. 2026:** [stav, implementační mezery a zbývající testy](docs/WORK-PROGRESS.md).
+**Aktuální priorita operátora 8. 10. 2026:** funkční Studio, projektové plánování,
+souborové/webové/skill cesty, obnova, stabilita a GPU Hunt s nezávislou revizí.
+HTTP je uzavřený; Fan a kvalitativní kampaně chatu včetně H1/H2 jsou odložené
+do testování po releasu. Historické FAIL/NO_GO a funkční či bezpečnostní mezery
+zůstávají evidované. [Rozhodnutí](DIRECTION.md#3-rozhodnutí-o-produktu)
+a [aktuální pracovní fronta](docs/WORK-PROGRESS.md#aktuální-funkční-fronta).
+
+**Naměřený checkpoint 8. 10. 2026:** [stav, implementační mezery a zbývající testy](docs/WORK-PROGRESS.md).
 Release `NOT_ACCEPTED`; BE `c84b88cd` / Studio `7bf62455…bfe24` nezměněné.
 Přijaté Ledger/TaskFlow/SQLite, omezený AST/GPU panel/cleanup, full109 DB roundtrip a M3 worker;
 opakovat pouze při nové změně nebo konkrétní pochybnosti. ROOT vlastní integraci i CHAT.
@@ -219,9 +226,9 @@ Původní module FAIL / exit 1 (1514 → 1516) zachovaný. Standardní writer na
 C19 je publikovaný na `e7f2dd92`; celý profil 410 a CI 18 mají nezávislé review PASS.
 C20 má celkové READY na freeze R2 `871fb7f5` / posudek `796e5e75`; 38 CPU PASS.
 [H1 exact příkaz, identity, rozpočet a hranice](docs/review/evidence/product-continuation-20261008/c20-h1-readiness.json).
-Další: JIT dešifrování operátorem → ROOT provede šest původních sérií;
-žádná nová modelová nebo 95% přejímka. Souběžně technická příprava H1 → IDE/BE/expertise/workers → M5/M6.
-Fan čeká na oracle rozhodnutí; HTTP14 rozpočet je uzavřený.
+Další: Studio/projektové funkce → obnova a ostatní produktové cesty → funkčnost
+GPU Huntu → stabilita a M5/M6. H1/H2 a Fan jsou nyní DEFERRED; dešifrování ani
+rozhodnutí o Fan oracle se v této frontě nevyžaduje. HTTP14 rozpočet je uzavřený.
 M5 je 8/9/privacy changes required; retain_and_rotate zvolené, signed 8 categories+history chybí.
 CustodyA/B doložená; druhá operator offline kopie/reviewer recovery/13 signed/24h/throughput/Gate0/demo otevřené.
 Mobil 13+7/device/pair-revoke/M2/TalkBack po stabilním IDE/BE; conversation.create chybí.
@@ -1440,6 +1447,7 @@ aktuální stav je samostatný řádek `Model failover opt-in surface`.
 
 | Co | Stav |
 |---|---|
+| Fan a kvalitativní kampaně chatu včetně H1/H2 | **DEFERRED do testování po releasu** podle přímého pokynu operátora 8. 10. 2026. Historické FAIL/NO_GO a rozpočty zachované; konkrétní funkční nebo bezpečnostní vady se nadále řeší. HTTP14 **CLOSED**. Viz [rozhodnutí](DIRECTION.md#3-rozhodnutí-o-produktu). |
 | Bezpečnost, credentials, privacy incident `P-001`..`P-003` | Odloženo do odladění základu (rozhodnutí operátora) |
 | Chybí globální auth guard; `validateApiToken()` je napsaná a nezapojená | Součást téhož balíku. Změřeno 2026-08-07: 251 unikátních route, per-route kontrolu má 7; middleware chain neexistuje (server je `http.createServer` + jedna route tabulka), takže guard má právě jedno možné místo. Most k agent route navíc zahazuje hlavičky. `docs/review/2026-08-07-AUTH-MATRIX.md` |
 | WS terminal channel přijímá `exec` po handshaku bez tokenu | Neškodné na loopbacku (invariant 10). Totéž platí pro `control/edit_approve`, který po handshaku **zapisuje soubor**, a pro `chat`. Terminal má capability guard (`shell-security.js` whitelist), ne auth guard |

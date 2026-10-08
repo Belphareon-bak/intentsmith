@@ -1,6 +1,14 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 8. 10. 2026. Release **NOT_ACCEPTED**; chatové skóre C6 zůstává
+**Aktuální pokyn operátora, 8. 10. 2026:** HTTP uzavřený; Fan a kvalitativní
+kampaně chatu včetně H1/H2 odložené do testování po releasu. Nyní dokončit
+funkční Studio/plánování, ostatní produktové cesty, obnovu, stabilitu a GPU Hunt.
+ROOT pokračuje autonomně s pravidelnou nezávislou revizí; při nízké jistotě se
+ptá a návrhy předkládá před implementací. Nový kvalitativní test až po finálním
+ověření funkčnosti GPU Huntu; potřebné lidské hodnocení dostane lokální HTML.
+[Autorita rozhodnutí](../DIRECTION.md#3-rozhodnutí-o-produktu).
+
+**Poslední naměřený checkpoint:** 8. 10. 2026. Release **NOT_ACCEPTED**; chatové skóre C6 zůstává
 74,21 % užitečných /15,09 % zbytečných zastavení. HTTP14 přijatý 70+17, rozpočet
 uzavřený; Fan 12/15 čeká na chráněný oracle. H1 READY, bez JIT vstupu, NOT_RUN.
 Poslední přijatý celý profil je 411 PASS na `e4156946`; následné C24/C25 mají vlastní
@@ -19,7 +27,7 @@ a M6 patří témuž koordinátorovi. Hunt a druhý posudek jeho matice zůstáv
 CHAT checkout slouží následně jen jako vlastní sériový běhový checkout zmrazených kandidátů.
 **Release NOT_ACCEPTED. HTTP14 PRIMARY70_SUPPLEMENT17_REVIEW_PASS. Fan FAIL. C15 známý save dialog PASS; C17 NO_MODEL_PREFERENCE. C18 publikovaný / CI 18 SUCCESS. C19 SOURCE/CPU/HTTP/INTEGRATION/BASELINE/FULL_PROFILE_REVIEW_PASS, CI 18 SUCCESS. Historický F11 FAIL zachovaný. Mobil čeká na stabilní IDE/BE.**
 
-## Pokračování schválené operátorem 8. 10. 2026
+## Historické pokračování před změnou priorit 8. 10. 2026
 
 Operátor výslovně požaduje pokračovat za předchozí CPU checkpoint a rozhodl:
 „s H1 bych počkal, až bude kontrola úklidu GPU, HTTP bych dal jeden maximálně dva pokusy;
@@ -1079,7 +1087,33 @@ Autor i nezávislý revizor ověřili 28 refs, všech 20 odpovědí proti consen
 kontrol; další modelová volání 0, produktové změny 0.
 [Přesné důkazy, alternativy a mez přijetí](review/evidence/product-continuation-20261008/c27-answer-diagnosis.json).
 
-## Zbývající testy a pořadí dokončení
+## Aktuální funkční fronta
+
+1. **Společný zdroj a revize:** zachovat čistý checkout a cizí práci; ověřit
+   současný offline/database profil, každou dokončenou dávku nezávisle přezkoumat
+   a schválený milestone commitnout, pushnout a ověřit na GitHubu.
+2. **Studio a projekty:** rozšířit přijaté čtecí A → B → A o skutečné uložení
+   souboru, readback a návrat po restartu vlastního backendu/Studia. U exportu
+   rozlišovat doložený správný download a otevřenou mezeru CDP měření.
+   Ověřit funkční plánování; konkrétní vady opravit bez nové kvalitativní kampaně.
+3. **Obnova a ostatní funkce:** dokončit izolované funkční cesty config/skill
+   reinstalace, externích projektů, webu, skillů a workerů. Existující přijaté
+   výsledky neopakovat bez nové změny nebo konkrétní pochybnosti.
+4. **GPU Hunt:** ověřit produktové řízení, sběr/uložení/reuse a následně omezenou
+   skutečnou GPU cestu. Vlastnictví nových dávek druhého posudku se vyjasňuje;
+   cizí grading nepřebírat ani nespouštět duplicitně. Own-fixture PASS není
+   přijetím hodnotitele, uvolněním automation holdu ani změnou modelových vazeb.
+5. **Stabilita a release:** připravit aktuální soak/throughput, obnovu a
+   integrační kandidát; M5 fyzické klíče/podpisy, release gate a operátorskou
+   demonstraci doložit skutečně. Potřebné lidské posouzení předložit v lokálním
+   HTML s exportem hodnocení. Release zůstává NOT_ACCEPTED do splnění podmínek.
+
+**DEFERRED:** Fan, kvalitativní ladění a skórování chatu, H1 a nový H2.
+HTTP14 je CLOSED. Staré FAIL/NO_GO, Fan 12/15 a všechny původní rozpočty i chráněné
+oracle zůstávají beze změny. Níže je archiv předchozího pořadí, nikoli aktuální
+pokyn k inferenci nebo dešifrování. Mobil je samostatný release po stabilním IDE/BE.
+
+## Historická fronta před změnou priorit
 
 1. **H1:** C20 má celkové READY na přesný freeze R2. Po JIT dešifrování operátorem
    spustit jediné sériové okno Qwen c7 ×3 → Gemma9591 ×3, ověřit vlastní úklid
