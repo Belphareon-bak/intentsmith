@@ -1,0 +1,95 @@
+{
+  "kind": "C22StudioD1Actual@1",
+  "sourceSha": "e415694651652687f1cd13c51321f6f4aa2c349a",
+  "status": "D1_REACHED_PLAN_REJECTED_ACTUAL_FAIL",
+  "actualExit": 1,
+  "startedAt": "2026-10-08T16:18:14.073016+00:00",
+  "endedAt": "2026-10-08T16:19:21.677366+00:00",
+  "generations": {
+    "classifier": 1,
+    "D1": 1,
+    "CODE": 0,
+    "structuralRepair": 0
+  },
+  "metadataForwards": 7,
+  "modelContext": 4096,
+  "m2ToolTables": 36,
+  "m2ToolRows": 0,
+  "unchangedProjectFiles": 8,
+  "knownProcessIdentitiesAbsent": 17,
+  "cleanup": "Same-lease completed exchange, transition3empty, final3empty and lease release independently verified",
+  "findings": [
+    "Raw D1 substitutes test/core.test.mjs for explicitly requested test/acceptance.test.mjs.",
+    "Raw D1 uses nowMs-windowMs+1, violating requested inclusive one-hour boundary.",
+    "Production keep-old-tests/new-test guidance conflicts with explicit named editable-test request; causal contribution not proven."
+  ],
+  "limits": [
+    "Original FAIL and assertion remain; no retry or oracle relaxation.",
+    "Actual controller passed terminal/user/proposal equality guards then rejected target list. Subsequent capture oracle clauses did not execute.",
+    "No captured.json/durable.json after exception; exact user/reply persists in own DB, full plan does not.",
+    "Reaching D1 is distinct from plan acceptance, effect authorization and product/release acceptance."
+  ],
+  "refs": [
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/frozen-e4156946-c22-r2/FROZEN.json",
+      "bytes": 19949033,
+      "sha256": "3c7496d724d51f8baa79597dd8155514eee4959cae51a68f285543fac193b4b9"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/final-freeze-independent-review/READY.json",
+      "bytes": 2062,
+      "sha256": "6bba66c8b8708cf1a10085405a0f4f149ec35d7ebfee0f52b57851c67b421a4d"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/actual-launch/COMMAND.json",
+      "bytes": 1488,
+      "sha256": "4f5b70244f3df9a88c92b3cf44451cca97dd0627f74355c4863f0dfe0db7f97d"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/actual-launch/EXIT.json",
+      "bytes": 292,
+      "sha256": "a23cb871a2dc54567538d766896391d6b9808cf6e0ab77a8897ac7264d744ef7"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/actual-e4156946-c22/result.json",
+      "bytes": 12243,
+      "sha256": "61cf86b899fd716ce660e5e403602742f6d4df841e956e026f2ba9f7ec3d4624"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/actual-e4156946-c22/inside-result.json",
+      "bytes": 5673,
+      "sha256": "aaaa7ffc80add7f8fbbd3a468d822eee6ea0bd00637b443ed0d9c5b4be0767b6"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/technical-actual-independent-review/REVIEW.json",
+      "bytes": 6339,
+      "sha256": "196fbfe2e707a2f2421170b8c737984f9d8113227e38e08d46f708f8ca69d9cb"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/independent-semantic-actual-review/REVIEW.json",
+      "bytes": 12105,
+      "sha256": "fe32f3ffaf620e7b7ac6c16d5861ecbc8de93a9d6a219d6d076e955a185f430e"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/independent-semantic-actual-review/PRODUCTION-PROMPT-ORIGIN.json",
+      "bytes": 739,
+      "sha256": "4fca912ef87de633d8fee365abde96d02b3eb55bd45c1cfaea2d8d370345a3a0"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/VERIFY-c22-before-20261008T181805126255.json",
+      "bytes": 345,
+      "sha256": "4c8aba5c50e924af5ccdb22a268971a71ebb86fbae9ddbd40b4978b05cffdd94"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/VERIFY-c22-after-20261008T181958999181.json",
+      "bytes": 344,
+      "sha256": "44f750a981047cff33f446e951b9d8e77d5cca46e7b0e825bae21e54d6236fe7"
+    }
+  ],
+  "doNotRead": [
+    "H1/H2",
+    "restricted/",
+    "holdout and its raw/DB/provider traces"
+  ],
+  "replay": "Single actual claim spent; CPU and immutable known development evidence may be reviewed. No automatic model rerun."
+}

@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 8. 10. 2026. Celý offline/database profil na čistém `7b7e1f9d` s produktem C21 má 410 PASS / CI 18 SUCCESS a nezávislé review; předchozí profil C19 `e7f2dd92` i starší zůstávají historické. HTTP14 je přijatý v původním rozsahu 70 + 17 požadavků; rozpočet 14 CODE volání je uzavřený. C15 na `52d230c1` prošel jednou známou čtyřtahovou cestou až k přesně schválenému zápisu; C6 skóre a historický F11 FAIL se nepřepisují. C16 uzavřel omezenou CPU diagnózu dalších šesti souborových případů. C17 dokončil 24 odpovědí a nezávislé posudky: NO_MODEL_PREFERENCE; žádný binding ani retry. C18 je publikovaný na `21b25085`, CI 18 SUCCESS. C19 doplňuje kontinuitu přes ASK_USER: source/CPU/HTTP i integrovaný context 143 / project 57 mají nezávislé review; source checkpoint `d3dbc897`, standardní baseline 1516 i celý profil na publikovaném `e7f2dd92` jsou přijaté. Fan čeká na rozhodnutí o oracle. H1 má celkové READY na exact freeze R2; čeká jen JIT dešifrování operátorem. H1 NOT_RUN, release NOT_ACCEPTED. C21 archivní extrakce má source/CPU/integration/full review PASS. C22 má source/CPU review přechodu Studio→D1 a novou trvalou sadu; integrovaná sada 9, artifact 160, module 1516 +0 a registry 597 prošly včetně review a CI18 na692dae2c. Jeho celý profil410PASS/1FAIL zachytil chybějící izolaci nové sady; dvousouborová oprava má nezávislé review, nový celý profil/CI/freeze čekají, žádný nový live pokus.
+**Aktualizováno:** 8. 10. 2026. Celý profil na čistém `e4156946`: 411 PASS / 0 FAIL, CI18, nezávislé review. HTTP14 přijatý 70 + 17, rozpočet uzavřený. Fan 12/15 čeká na chráněný oracle. H1 READY, JIT operátora chybí, NOT_RUN. C21 archivní extrakce přijatá v omezeném rozsahu. C22 skutečně dosáhl D1, ale plán porušil cestu testu i inkluzivní hranici; ACTUAL_FAIL, nezávislý semantic/technical audit a cleanup PASS, žádné efekty/retry. C23 skutečné Markdown API 10 PASS / 15 požadavků / model0 má nezávislé přijetí. C24 nabídka exportu ve Studiu má source/CPU106 review, adoptovaný zdroj a build PASS; integrace106/160/1516/597 prošla, živý download čeká. C6 skóre 74,21 % / 15,09 % zůstává; release NOT_ACCEPTED. Staré FAILy ani přijaté ohraničené cykly se nepřepisují.
 **Vlastník integrace a CHAT:** tento koordinátor přebírá ROOT
 (`work/real-chat-journeys-20260930`) podle následného pokynu operátora.
 Jediný writer `cre-decision.js` i společných map je nyní ROOT; HTTP, Fan, fresh5
@@ -412,7 +412,7 @@ Předchozí profil 410 na `e7f2dd92` zůstává historickým profilem C19.
 [Patch, příkazy, SHA-256, posudky a meze](review/evidence/product-continuation-20261008/c21-archival-extraction.json).
 Externí project recovery, reinstalace config/skills a M6 zůstávají otevřené.
 
-### C22 — přechod Studio → classifier → D1 (SOURCE_AND_CPU_REVIEW_PASS; LIVE_NOT_READY)
+### C22 — přechod Studio → classifier → D1 (FULL411_PASS; D1_REACHED_PLAN_REJECTED)
 
 C5 v5 již odeslal skutečný vstup, ale dohled přerušil generování při zániku
 GPU procesu. C22 mění pouze omezený transport/dohled této kvalifikace. Sdílený
@@ -438,7 +438,7 @@ zdůvodněnou inventuru144. Nezávislý replay 1181 modulů potvrdil144/0 nechr�
 bez nové sady143/0. Samotný count bez importu RED; úplný meta-test i relay9 GREEN.
 Graf má dynamickou DB hranu, nikoli důkaz otevření provozní DB. Zachován je i
 první diagnostický FAIL příliš silného očekávání čistě statické cesty.
-Nový celý411 čeká; přijatý C21 410 stále platí pouze pro svůj source.
+Nový celý profil na čistém `e4156946` prošel 411/0 a CI18; nezávisle ověřeno všech 411 logů. [Příkazy a meze](review/evidence/product-continuation-20261008/c22-full-profile.json). Přijatý C21 410 nadále patří svému source.
 
 Původní vstup, policy, oracle i 7 658 B inside Studio části jsou byte-identické.
 Modely zůstávají Gemma4 classifier / Qwen3.5 D1, oba 4K; nejvýše 1 classifier
@@ -446,10 +446,42 @@ Modely zůstávají Gemma4 classifier / Qwen3.5 D1, oba 4K; nejvýše 1 classifi
 ROOT integrace: nová sada 9, artifact 160, module 1516 +0 a registry 597 PASS.
 První artifact běh měl 159 PASS / 1 FAIL kvůli starému počtu v README;
 původní důkaz zůstává, opravená aktuální dokumentace prošla novou kontrolou.
-Nezávislá integrace V2 a source/CPU review opravy izolace prošly. Nový
-čistý source, celý profil, CI a freeze/READY čekají; žádný další skutečný
-pokus neproběhl.
+Nezávislá integrace V2 a oprava izolace prošly. Přijatý source `e4156946`,
+celý411, CI18 a přesný freeze/READY umožnily jediný skutečný pokus
+16:18:14–16:19:21 UTC. Classifier1 + D1 1 dokončeny, CODE0; Studio zachytilo
+modelový návrh, původní controller jej odmítl pro test/core místo acceptance.
+Nezávislá sémantika navíc prokázala neinkluzivní hranici již v raw D1.
+Celé zadání k modelu dorazilo; produkční keep-old-tests instrukce s ním byla
+v konfliktu, její kauzální vliv bez ablace neprokázán. Žádné změkčení oracle/retry.
+Technická revize: 36 prázdných authority tabulek, 8 nezměněných projektových
+souborů/Git, 17 známých procesů absent; same-lease transition + final3empty/release.
+Captured/durable JSON kvůli assertion nevznikly; DB drží user/reply, ne celý plán.
+Pozdější části capture oracle se nevykonaly. [Actual a obě revize](review/evidence/product-continuation-20261008/c22-actual.json).
 [Přesné patche, příkazy, SHA-256 a meze](review/evidence/product-continuation-20261008/c22-studio-transition.json).
+
+### C23 — Markdown export API (API_ACTUAL_EVIDENCE_REVIEW_PASS)
+
+Na čistém e415 proběhl jednou původní test `tests/e2e/17-export.e2e.js` beze změny:
+16:24:15–16:24:18 UTC, 10 PASS/0 FAIL, 15 HTTP požadavků (1 health +14), model0.
+Export/download, chybějící/nonexistent/empty/unsupported vstup a dva log endpoints
+prošly. Dvě vlastní serverové lifetime řádně skončily; síť/PID oddělené,
+root RO a pouze vlastní output writable. Revizor ověřil 6494 refs, vlastní kopie
+uzavřených DB, 7 nulových tabulek i messages0 a jediný157B Markdown přesně shodný
+s GET. Registry BLOCKED se nemění. Development-loopback není production auth
+ani Studio evidence. [Důkazy a příkazy](review/evidence/product-continuation-20261008/c23-export-api.json).
+
+### C24 — export otevřené konverzace ve Studiu (SOURCE_CPU_REVIEW_PASS; LIVE_PENDING)
+
+Menu Soubor nabízí Markdown export právě zvolené uložené konverzace.
+Pevná session/conversation/project identita, existující capability transport,
+stejný backendový artifact, chyby a abort při změně identity; Blob URL cleanup.
+Úspěch hlásí připravení ke stažení. Neúspěch může zanechat export na serveru;
+bez automatického retry. Dvě existující implementace a doplněná stávající sada.
+Nezávislý source/CPU replay106 PASS (105 live-model +1 catalog file terminal),
+původní72 kontroly zachované. Baseline RED1 a autorova null/undefined fixture
+chyba28/1 zůstávají. Po přijetí skutečného C23 ROOT adoptoval přesný patch;
+build exit0; síť celého Theia buildu nebyla měřená. Integrované frontend106 / artifact160 / module1516 +0 / registry597 prošly; skutečný download čeká.
+[Přesný patch, review a meze](review/evidence/product-continuation-20261008/c24-studio-export.json).
 
 ### Historický celý profil po C15 (FULL_PROFILE_REVIEW_PASS; před C18/C19)
 

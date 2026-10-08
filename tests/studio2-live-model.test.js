@@ -2203,3 +2203,153 @@ test('project detail carries real creation and activity dates and keeps unknown 
   assert.equal(unknown.props.find(p => p.k === 'Poslední aktivita').v, '—');
   model.componentWillUnmount();
 });
+
+// C24: DOM is synthetic; the real catalog request logic uses in-memory Responses.
+function c24ExportFixture(t, { response, handler, project = null, clickThrows = false } = {}) {
+  const calls = [], clicked = [], blobs = [], revoked = [];
+  const text = '# Český rozhovor\n\nPříliš žluťoučký kůň.\n';
+  const payload = { filename: 'český-rozhovor-123.md', download_url: '/api/artifacts/český-rozhovor-123.md',
+    format: 'md', scope: 'conversation', turn_count: 1, size: Buffer.byteLength(text), ...response };
+  let base = 'http://127.0.0.1:33117';
+  const catalog = new CatalogStore({ backendUrl: () => base, fetchImpl: async (url, options) => {
+    calls.push({ url, options });
+    if (handler) return handler(url, options, payload, text);
+    return options.method === 'POST' ? Response.json(payload) : new Response(text);
+  } });
+  const { model, store } = setup({ catalog });
+  const session = store.focusedSession(); session._convId = 'chat-one'; session._projectId = project;
+  const previous = Object.getOwnPropertyDescriptor(globalThis, 'document');
+  Object.defineProperty(globalThis, 'document', { configurable: true, value: { createElement: type => {
+    assert.equal(type, 'a'); return { click() { if (clickThrows) throw Error('download denied'); clicked.push({href:this.href,download:this.download}); } };
+  } } });
+  t.mock.method(URL, 'createObjectURL', blob => { blobs.push(blob); return 'blob:c24-' + blobs.length; });
+  t.mock.method(URL, 'revokeObjectURL', url => revoked.push(url));
+  t.after(() => { model.componentWillUnmount(); if (previous) Object.defineProperty(globalThis,'document',previous); else delete globalThis.document; });
+  const item = () => model.menusVM(model.st(),session.id).find(menu=>menu.label==='Soubor').items
+    .find(row=>row.t==='Exportovat otevřenou konverzaci (Markdown)' || row.t==='Připravuji export konverzace…');
+  return { model,store,session,catalog,calls,clicked,blobs,revoked,text,payload,item,setBase:value=>{base=value;} };
+}
+
+test('C24 menu exports the explicitly clicked chat after focus moves, with exact UTF-8 bytes and URL cleanup',async t=>{
+  const f=c24ExportFixture(t); const menu=f.item(); assert.ok(menu,'actual Soubor menu contains conversation export'); assert.equal(menu.cls,'');
+  const other=f.store.addSession({});other._convId='project-two';other._projectId='7';f.store.focusTab(other.id);
+  assert.equal(await menu.go(),true);
+  assert.deepEqual(JSON.parse(f.calls[0].options.body),{conversation_id:'chat-one',format:'md',scope:'conversation'});
+  assert.equal(f.calls[1].url,'http://127.0.0.1:33117/api/artifacts/%C4%8Desk%C3%BD-rozhovor-123.md');
+  assert.ok(f.calls.every(row=>row.options.credentials==='same-origin' && row.options.redirect==='error' && row.options.signal));
+  assert.equal(await f.blobs[0].text(),f.text);assert.deepEqual(f.clicked,[{href:'blob:c24-1',download:f.payload.filename}]);
+  assert.match(f.model.st().toast.t,/připravena ke stažení/);assert.equal(f.model.st().toast.t.includes('uložena na disk'),false);
+  assert.equal(f.session.chat._delivery,null);assert.equal(other.chat._delivery,null);
+  f.model.componentWillUnmount();assert.deepEqual(f.revoked,['blob:c24-1']);
+});
+
+test('C24 project-scoped session exports its conversation, never the project ID',async t=>{
+  const f=c24ExportFixture(t,{project:'27'});f.session._convId='project-conversation';
+  assert.equal(await f.item().go(),true);assert.equal(JSON.parse(f.calls[0].options.body).conversation_id,'project-conversation');assert.equal(f.calls.length,2);
+});
+
+for(const boundary of ['unsaved','closed','catalog','thinking','preparing','unknown-delivery'])test('C24 disabled menu boundary '+boundary,async t=>{
+  const f=c24ExportFixture(t);
+  if(boundary==='unsaved')f.session._convId=null;
+  if(boundary==='closed')f.session._closed=true;
+  if(boundary==='catalog')f.model.setState({mode:'section',section:'chats'});
+  if(boundary==='thinking')f.session.chat._thinking=true;
+  if(boundary==='preparing')f.session.chat._preparing=true;
+  if(boundary==='unknown-delivery')f.session.chat._delivery={status:'DELIVERY_UNKNOWN'};
+  const menu=f.item();assert.equal(menu.cls,'dis');assert.equal(await menu.go(),false);assert.equal(f.calls.length,0);
+});
+
+for(const boundary of ['conversation','project','closed'])test('C24 stale menu identity stops before request: '+boundary,async t=>{
+  const f=c24ExportFixture(t),menu=f.item();
+  if(boundary==='conversation')f.session._convId='replacement';
+  if(boundary==='project')f.session._projectId='other-project';
+  if(boundary==='closed')f.session._closed=true;
+  assert.equal(await menu.go(),false);assert.equal(f.calls.length,0);assert.equal(f.clicked.length,0);
+});
+
+test('C24 pending export disables duplicate submission; changed project cancels before GET',async t=>{
+  let resolve;const f=c24ExportFixture(t,{handler:()=>new Promise(r=>{resolve=r;})});
+  const first=f.item().go();assert.equal(f.item().cls,'dis');assert.equal(await f.item().go(),false);assert.equal(f.calls.length,1);
+  f.session._projectId='changed';f.store.changed();resolve(Response.json(f.payload));
+  assert.equal(await first,false);assert.equal(f.calls.length,1);assert.equal(f.clicked.length,0);assert.equal(f.model._conversationExport,null);
+  assert.equal(f.model.st().toast.tone,'warn');
+});
+
+test('C24 unmount cancels pending response without a DOM download or success notice',async t=>{
+  let resolve;const f=c24ExportFixture(t,{handler:()=>new Promise(r=>{resolve=r;})});const pending=f.item().go();
+  f.model.componentWillUnmount();resolve(Response.json(f.payload));assert.equal(await pending,false);assert.equal(f.calls.length,1);assert.equal(f.clicked.length,0);
+});
+
+for(const status of [400,404,409])test('C24 HTTP '+status+' is an honest error with no GET/download',async t=>{
+  const f=c24ExportFixture(t,{handler:()=>Response.json({error:'Original API error '+status},{status})});
+  assert.equal(await f.item().go(),false);assert.equal(f.calls.length,1);assert.equal(f.clicked.length,0);
+  assert.match(f.model.st().toast.t,new RegExp('Original API error '+status));assert.equal(f.model.st().toast.tone,'warn');
+});
+
+for(const [label,response] of [
+  ['external URL',{download_url:'https://example.com/x.md'}],['protocol-relative URL',{download_url:'//example.com/x.md'}],
+  ['wrong artifact',{download_url:'/api/artifacts/another.md'}],['path traversal',{filename:'../x.md',download_url:'/api/artifacts/../x.md'}],
+  ['encoded slash',{filename:'a%2fb.md',download_url:'/api/artifacts/a%2fb.md'}],['wrong scope',{scope:'summary'}],
+  ['wrong format',{format:'html'}],['unknown size',{size:null}],
+])test('C24 malformed export rejected before GET: '+label,async t=>{
+  const f=c24ExportFixture(t,{response});assert.equal(await f.item().go(),false);assert.equal(f.calls.length,1);assert.equal(f.clicked.length,0);
+});
+
+test('C24 changed backend between POST and GET stops rather than redirecting identity',async t=>{
+  let resolve;const f=c24ExportFixture(t,{handler:()=>new Promise(r=>{resolve=r;})});const pending=f.item().go();
+  f.setBase('http://127.0.0.1:33118');resolve(Response.json(f.payload));assert.equal(await pending,false);assert.equal(f.calls.length,1);
+});
+
+test('C24 unsuccessful artifact GET does not claim successful export',async t=>{
+  const f=c24ExportFixture(t,{handler:(url,options,payload)=>options.method==='POST'?Response.json(payload):new Response('missing',{status:404})});
+  assert.equal(await f.item().go(),false);assert.equal(f.calls.length,2);assert.equal(f.clicked.length,0);assert.match(f.model.st().toast.t,/HTTP 404/);
+});
+
+test('C24 mismatched downloaded byte length cannot become a browser download',async t=>{
+  const f=c24ExportFixture(t,{handler:(url,options,payload)=>options.method==='POST'?Response.json(payload):new Response('partial')});
+  assert.equal(await f.item().go(),false);assert.equal(f.clicked.length,0);assert.match(f.model.st().toast.t,/velikost/);
+});
+
+test('C24 DOM download error releases the object URL and reports failure',async t=>{
+  const f=c24ExportFixture(t,{clickThrows:true});assert.equal(await f.item().go(),false);assert.deepEqual(f.revoked,['blob:c24-1']);assert.equal(f.clicked.length,0);assert.match(f.model.st().toast.t,/download denied/);
+});
+
+test('C24 catalog reuses the actual local capability bootstrap on POST and GET',async()=>{
+  const {installLegacyLocalFetch}=require('../intentsmith-ide/applications/electron/intentsmith-local-http-bootstrap.js');
+  const calls=[],text='known bytes',access={backendUrl:'http://127.0.0.1:33117',localCapability:'a'.repeat(43)};
+  const scope={Request,Headers,electronIntentSmith:{getLocalAccess:()=>access},fetch:async request=>{
+    calls.push(request);assert.equal(request.headers.get('X-IntentSmith-Local-Capability'),access.localCapability);assert.equal(request.redirect,'error');
+    return request.method==='POST'?Response.json({filename:'known.md',download_url:'/api/artifacts/known.md',format:'md',scope:'conversation',turn_count:1,size:Buffer.byteLength(text)}):new Response(text);
+  }};
+  installLegacyLocalFetch(scope);
+  const catalog=new CatalogStore({backendUrl:()=>access.backendUrl,fetchImpl:scope.fetch});
+  const result=await catalog.exportConversation('exact-conversation');assert.equal(await result.blob.text(),text);assert.equal(calls.length,2);
+  assert.deepEqual(await calls[0].json(),{conversation_id:'exact-conversation',format:'md',scope:'conversation'});
+});
+
+test('C24 download URL is revoked by the existing bounded delay and not twice on unmount',async t=>{
+  const f=c24ExportFixture(t),timers=[];
+  t.mock.method(globalThis,'setTimeout',(fn,ms)=>{timers.push({fn,ms});return {unref(){}};});
+  assert.equal(await f.item().go(),true);assert.equal(f.revoked.length,0);
+  const timer=timers.find(row=>row.ms===30000);assert.ok(timer);timer.fn();assert.deepEqual(f.revoked,['blob:c24-1']);
+  f.model.componentWillUnmount();assert.deepEqual(f.revoked,['blob:c24-1']);
+});
+
+test('C24 already cancelled export never calls the catalog transport',async()=>{
+  let calls=0;const controller=new AbortController();controller.abort();
+  const catalog=new CatalogStore({backendUrl:()=> 'http://127.0.0.1:33117',fetchImpl:()=>{calls++;throw Error('must not call');}});
+  await assert.rejects(catalog.exportConversation('chat-one',{signal:controller.signal}));assert.equal(calls,0);
+});
+
+test('C24 malformed successful response is reported as invalid export without leaking implementation error',async t=>{
+  const f=c24ExportFixture(t,{handler:()=>Response.json(null)});assert.equal(await f.item().go(),false);assert.equal(f.calls.length,1);
+  assert.match(f.model.st().toast.t,/platný Markdown export/);assert.equal(f.clicked.length,0);
+});
+
+test('C24 changed conversation while artifact body is pending suppresses the stale browser download',async t=>{
+  let resolveDownload;const f=c24ExportFixture(t,{handler:(url,options,payload)=> options.method==='POST'
+    ? Response.json(payload) : new Promise(resolve=>{resolveDownload=resolve;})});
+  const pending=f.item().go();await tick();assert.equal(f.calls.length,2);
+  f.session._convId='new-conversation';f.store.changed();resolveDownload(new Response(f.text));
+  assert.equal(await pending,false);assert.equal(f.blobs.length,0);assert.equal(f.clicked.length,0);
+});

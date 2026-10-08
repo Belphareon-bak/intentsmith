@@ -4,28 +4,34 @@
 Release `NOT_ACCEPTED`; BE `c84b88cd` / Studio `7bf62455…bfe24` nezměněné.
 Přijaté Ledger/TaskFlow/SQLite, omezený AST/GPU panel/cleanup, full109 DB roundtrip a M3 worker;
 opakovat pouze při nové změně nebo konkrétní pochybnosti. ROOT vlastní integraci i CHAT.
-Aktuální celý offline/database profil na čistém `7b7e1f9d` pokrývá produkt C21:
-8. 10. 14:22:04–14:32:25 UTC, 410 PASS / 0 FAIL/TIMEOUT/BLOCKED/SKIPPED, exit 0.
-Nezávislé review `6efd90eb…b1c4227` ověřilo všech 410 logů / 1 333 128 B,
-323 offline + 87 database, M5 43, context 143, C12 239 a scenario 42; žádný retry
-ani hlášený únik vlastněných procesů. Zdroj před/po čistý a stejný,
-CI `37791877259` má 18 SUCCESS. Project 57 je oddělená přijatá C19 serverová integrace.
-[Aktuální celý profil a meze](docs/review/evidence/product-continuation-20261008/c21-full-profile.json).
-Předchozí `e7f2dd92` zůstává přijatý historický profil C19; `d4304899` pokrývá C15.
-Deterministický profil neprokazuje živou kvalitu ani release přejímku.
-C21 má source/CPU/integrační i celý profil review PASS: explicitní offline
-vyzvednutí config/skill JSON do nové neaktivní složky, bez aktivace a DB výměny.
-[Implementace a meze C21](docs/review/evidence/product-continuation-20261008/c21-archival-extraction.json).
-C22 přidává řízený přechod modelů pod stejnou lease a opravu reentrantního
-ukončování relay. Source/CPU review PASS (57 kontrol), nová trvalá sada 9 testů
-je registrovaná offline: 597 programů celkem, budoucí celý profil 411.
-Integrovaná nová sada 9, artifact 160, module 1516 +0 a registry 597 prošly.
-Nezávislá integrační revize a CI18 prošly na `692dae2c`. Jeho celý profil
-411 však skončil 410 PASS / 1 FAIL na DB bootstrap inventuře. Přijatá oprava
-doplňuje první izolační import nové sady a doložených 144 chráněných rootů;
-samotný count bez importu správně selže. Nový celý profil, CI a freeze/živý
-Studio pokus čekají; C21 profil tuto následnou změnu nepokrývá.
-[Příprava C22 a meze](docs/review/evidence/product-continuation-20261008/c22-studio-transition.json).
+Aktuální přijatý celý offline/database profil na čistém `e4156946` má
+8. 10. 15:43:31–15:54:07 UTC **411 PASS / 0 FAIL/TIMEOUT/BLOCKED/SKIPPED**, exit 0.
+Nezávislé review ověřilo všech 411 logů / 1 334 434 B a přesný výběr
+324 offline + 87 database; CI `37803095558` má 18 SUCCESS.
+Žádný retry ani hlášený únik vlastněných procesů; source před/po stejný a čistý.
+[Celý profil a meze](docs/review/evidence/product-continuation-20261008/c22-full-profile.json).
+Předchozí C21 `7b7e1f9d` 410/0 a první C22 `692dae2c` 410/1 zůstávají historické.
+C21 bezpečně vyzvedne archivní config/skills do neaktivní složky; úplná obnova otevřená.
+
+C22 po přijaté opravě relay/testové izolace skutečně prošel Studio → classifier → D1.
+Jeden classifier a jeden D1, oba 4K; CODE 0. Původní oracle však odmítl návrh:
+`test/core.test.mjs` místo výslovně zadaného `test/acceptance.test.mjs` a další
+sémantický audit našel neinkluzivní hodinovou hranici. **D1 dosaženo, plán nepřijat.**
+Obě nezávislé revize přijaly nulové M2/tool efekty, nezměněný projekt a GPU cleanup
+se stejnou lease, třemi prázdnými vzorky a uvolněním. Původní FAIL bez retry zůstává.
+[Příprava](docs/review/evidence/product-continuation-20261008/c22-studio-transition.json),
+[skutečný průchod a jeho meze](docs/review/evidence/product-continuation-20261008/c22-actual.json).
+
+C23: skutečné Markdown export API má nezávisle přijatých původních 10 kontrol,
+15 HTTP požadavků, žádný model a jediný 157B soubor shodný se staženými bajty.
+Own DB kopie, žádný zbývající projekt/konverzace ani M2 efekt a čisté ukončení ověřené.
+Jde o development-loopback API, ne produkční auth ani Studio; registry BLOCKED se nemění.
+[Přesné důkazy C23](docs/review/evidence/product-continuation-20261008/c23-export-api.json).
+C24 přidává skutečnou nabídku exportu otevřené konverzace ve Studiu; source/CPU106
+má nezávislé review a build prošel. Integrované frontend106 / artifact160 / module1516 +0 / registry597 prošly; živé stažení čeká.
+Nová frontend změna není pokrytá předchozím celým profilem C22.
+[Paket C24](docs/review/evidence/product-continuation-20261008/c24-studio-export.json).
+Deterministické výsledky nenahrazují živou kvalitu ani release přejímku.
 Historický C12 profil na `678eead707a59df568c7353a8b2dd7ad6c175b23`
 měl produktový zdroj C9 `24f329c6` a obsahoval C11/C12 opravy testů.
 C9: classifier13 HTTP/restart, context55, project57 a integrace19 PASS;

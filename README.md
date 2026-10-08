@@ -17,14 +17,15 @@ Poslední známé celkové měření C6 však zůstává **74,21 % užitečných
 15,09 % zbytečných zastavení / NO_GO**. H1 má nezávislé READY a čeká na
 operátorské dešifrování těsně před během; sběr je **NOT_RUN**.
 
-C21 na čistém `7b7e1f9d` má nezávisle přijatý celý profil **410 PASS / 0 FAIL**
-a CI 18/18. Rozšířil zálohu o bezpečné vytažení archivních konfigurací a skillů
-do nové neaktivní složky; úplnou obnovu instalace tím neprokazuje.
-Navazující C22 má nezávisle přijatou přípravu přechodu modelů pro Studio → D1
-(57 CPU kontrol, z toho 9 nových trvalých testů). CI18 na `692dae2c` prošlo,
-celý profil však skončil 410 PASS / 1 FAIL. Přijatá oprava přidává chybějící
-izolaci nové testové sady a doloženou inventuru 144 chráněných rootů; původní
-FAIL zůstává. Nový celý profil 411, zmrazení a živý průchod C22 zatím čekají.
+Celý profil na čistém `e4156946` má nezávisle přijatých **411 PASS / 0 FAIL**
+a CI 18/18. C21 rozšířil zálohu o vytažení archivních konfigurací a skillů
+do neaktivní složky; úplná obnova instalace zůstává otevřená.
+Studio → D1 už skutečně prošlo až k návrhu, ten ale porušil zadanou cestu testu
+a inkluzivní časovou hranici. **Plán je nepřijatý**, projekt se nezměnil,
+GPU cleanup prošel. Původní FAIL zůstává.
+Markdown export API prošel 10 původními kontrolami i nezávislou revizí.
+C24 doplňuje jeho nabídku ve Studiu; source/CPU 106 a build prošly,
+skutečné stažení ještě čeká. Celý profil C22 tuto následnou změnu nepokrývá.
 
 **Release je NOT_ACCEPTED.** Produkční backend zůstává `c84b88cd`; tento
 vývoj jej nenasazuje. Kvalita expertíz, dlouhodobá stabilita, zbývající
@@ -68,7 +69,7 @@ autoritativní IntentSmith Studio runtime už neobsahuje implicitní Google Font
 Studio používá Theia runtime s motivy a ovládáním IntentSmithu.
 
 **Verze:** 136.1.0, vývojový kandidát 1.0. Počty registru pro
-pracovní C22 nad `692dae2c` jsou odvozené z [generovaného registru](docs/convergence/TEST-REGISTRY.md)
+pracovní C24 nad `e4156946` jsou odvozené z [generovaného registru](docs/convergence/TEST-REGISTRY.md)
 a při další změně registrace se znovu přeměří:
 **597 registrovaných testovacích programů**
 (`499 ACTIVE`, `83 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).

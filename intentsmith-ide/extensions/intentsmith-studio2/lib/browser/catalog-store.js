@@ -67,6 +67,43 @@ class CatalogStore {
     if (!response.ok) throw new Error(`Načtení selhalo (HTTP ${response.status}).`);
     return response.json();
   }
+  async exportConversation(conversationId, { signal } = {}) {
+    if (typeof conversationId !== 'string' || !conversationId.trim())
+      throw new Error('Konverzace není uložená.');
+    const base = this.backendUrl(), backend = new URL(base);
+    if (!['http:', 'https:'].includes(backend.protocol) || backend.username || backend.password
+      || backend.pathname !== '/' || backend.search || backend.hash)
+      throw new Error('Backend není dostupný.');
+    const boundedSignal = AbortSignal.any([AbortSignal.timeout(30_000), ...(signal ? [signal] : [])]);
+    boundedSignal.throwIfAborted();
+    const options = { credentials: 'same-origin', redirect: 'error', signal: boundedSignal };
+    const response = await this.fetchImpl(backend.origin + '/api/export', { ...options,
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ conversation_id: conversationId, format: 'md', scope: 'conversation' }) });
+    let result = {};
+    try { result = await response.json(); } catch { /* HTTP status and the exact envelope remain required. */ }
+    if (!result || typeof result !== 'object' || Array.isArray(result)) result = {};
+    if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : `Export selhal (HTTP ${response.status}).`);
+    const filename = result.filename;
+    if (result.format !== 'md' || result.scope !== 'conversation'
+      || !Number.isSafeInteger(result.turn_count) || result.turn_count < 1
+      || !Number.isSafeInteger(result.size) || result.size < 1
+      || typeof filename !== 'string' || filename.length > 255 || !filename.endsWith('.md')
+      || /[\\/%?#\x00-\x1f\x7f]/.test(filename) || filename === '.md'
+      || result.download_url !== '/api/artifacts/' + filename)
+      throw new Error('Backend nevrátil platný Markdown export.');
+    const download = new URL(result.download_url, backend.origin);
+    if (download.origin !== backend.origin || download.search || download.hash)
+      throw new Error('Export nemá platný místní odkaz.');
+    boundedSignal.throwIfAborted();
+    if (this.backendUrl() !== base) throw new Error('Backend se během exportu změnil.');
+    const artifact = await this.fetchImpl(download.href, { ...options, method: 'GET' });
+    if (!artifact.ok) throw new Error(`Stažení exportu selhalo (HTTP ${artifact.status}).`);
+    const blob = await artifact.blob();
+    boundedSignal.throwIfAborted();
+    if (blob.size !== result.size) throw new Error('Stažený export nemá očekávanou velikost.');
+    return { filename, blob };
+  }
   async mutate(path, method, body = null, timeoutMs = 30000) {
     const workerPath = method === 'POST'
       && /^\/api\/agent-extensions\/instances\/[A-Za-z0-9._-]+\/(run|enable|disable)$/.test(path);

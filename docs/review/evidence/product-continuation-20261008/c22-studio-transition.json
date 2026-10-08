@@ -1,6 +1,6 @@
 {
   "kind": "C22StudioTransitionPreparation@2",
-  "status": "SOURCE_CPU_AND_ISOLATION_REVIEW_PASS_NEW_FULL411_PENDING_NOT_LIVE_READY",
+  "status": "SOURCE_CPU_ISOLATION_FULL411_REVIEW_PASS_LIVE_PLAN_FAIL",
   "baseSha": "3aed95e6d6d813ead2a2312c76fcbf9817ca1af1",
   "scope": "Bounded C5 Studio/D1 qualification transport and shared GPU drain. Original input, policy, oracle, models and no-effect scope retained.",
   "cpu": {
@@ -39,13 +39,11 @@
     "activeDeadlineMs": 600000
   },
   "limits": [
-    "No real GPU, provider generation or Studio journey executed by this preparation.",
-    "C21 full410 predates C22; original C22 full411 on692dae2c is410PASS1FAIL and retained; new isolation-fixed whole411 pending.",
-    "Transition requires completed uncancelled exchange and retains lease; final cleanup additionally requires settled application/relay before release.",
-    "UNKNOWN never receives signal/unload authority or counts as an empty sample. Post-unload transient handling resets the empty sequence as in the accepted existing drain.",
-    "A new exact freeze, independent READY and serial GPU admission remain necessary; old C5 claim is spent.",
-    "Fan resubmission V2 remains a separate unadopted candidate and needs explicit integration with this shared-helper change.",
-    "H1 c7/959 frozen candidates are unchanged and remain NOT_RUN pending operator JIT."
+    "Preparation itself is source/CPU only; separate actual C22 reached D1 and failed original plan oracle.",
+    "Exact e415 full411 and CI18 independently accepted; later C24 source is outside that full profile.",
+    "UNKNOWN never grants ownership or counts empty; actual same-lease transition and final cleanup independently reviewed.",
+    "Fan V3 privately rebases resubmission on current shared helper; protected oracle change still awaits operator.",
+    "H1 c7/959 fixed candidates unchanged and NOT_RUN pending operator JIT."
   ],
   "refs": [
     {
@@ -167,6 +165,21 @@
       "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/ROOT-CENSUS-v3.json",
       "bytes": 113,
       "sha256": "5fa059dbe040bcd032bb58ec369aa8c5837ddaeb72a3e1b509c4e34ff54ee714"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/full-profile-v2-root-review/REVIEW.json",
+      "bytes": 6470,
+      "sha256": "7a18e38cc89ca53ae200ecfeee17cca88530df996e0cad1c315de66d606bcb2f"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/technical-actual-independent-review/REVIEW.json",
+      "bytes": 6339,
+      "sha256": "196fbfe2e707a2f2421170b8c737984f9d8113227e38e08d46f708f8ca69d9cb"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/independent-semantic-actual-review/REVIEW.json",
+      "bytes": 12105,
+      "sha256": "fe32f3ffaf620e7b7ac6c16d5861ecbc8de93a9d6a219d6d076e955a185f430e"
     }
   ],
   "integration": {
@@ -178,7 +191,7 @@
     "cycleMembers": 28,
     "registryPrograms": 597,
     "readmeCountFailurePreserved": true,
-    "full411": "ORIGINAL_FAIL_RETAINED_NEW_CANDIDATE_NOT_RUN",
+    "full411": "411_PASS_0_FAIL_ON_E415_INDEPENDENTLY_REVIEWED",
     "independentIntegrationReview": "PASS_FOR_ORIGINAL_V2"
   },
   "sourceCheckpoint": "692dae2c3ccb38b9860097efd186312aa82106db",
@@ -213,5 +226,6 @@
     "correctedRelayPass": 9,
     "independentGraphModules": 1181,
     "limit": "Transitive graph includes dynamic DB edge; no claim of actual DB opening."
-  }
+  },
+  "currentSourceCheckpoint": "e415694651652687f1cd13c51321f6f4aa2c349a"
 }

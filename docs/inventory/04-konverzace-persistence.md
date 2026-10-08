@@ -4,6 +4,17 @@
 
 > `CONTRACT.md` §3 krok 1. Popisuje stav, nerozhoduje.
 
+## Aktualizace 8. 10. 2026
+
+Původní inventura níže popisuje srpen. Aktuální C23 má skutečně přijatý
+Markdown export/download API: 10 původních kontrol, 15 HTTP požadavků,
+model0, přesně jeden soubor shodný s downloadem a ověřené uzavřené DB kopie.
+C24 doplňuje menu Soubor → Exportovat otevřenou konverzaci (Markdown) ve Studiu;
+source/CPU106 a build PASS, živý download zatím čeká.
+[Příkazy a meze C23](../review/evidence/product-continuation-20261008/c23-export-api.json),
+[paket C24](../review/evidence/product-continuation-20261008/c24-studio-export.json).
+PDF/DOCX mají samostatné runtime prerekvizity; Markdown je nepotřebuje.
+
 ## 1. Rozsah
 
 | Soubor | Řádků | Role |

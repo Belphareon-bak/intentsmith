@@ -1,7 +1,7 @@
 {
-  "kind": "FanResubmissionPreparation@2",
+  "kind": "FanResubmissionPreparation@3",
   "status": "SOURCE_CPU_REVIEW_PASS_NOT_LIVE_READY",
-  "baseSha": "1b636b025425710889b34b38268a82f86c174f7c",
+  "baseSha": "692dae2c3ccb38b9860097efd186312aa82106db",
   "trackedAdoption": false,
   "oracleAuthorization": "PENDING_OPERATOR_DECISION",
   "liveStatus": "NOT_RUN",
@@ -59,6 +59,28 @@
       "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c13-authorized-product-continuation-20261008/fan-import-diagnosis/PROPOSED-IMPORT-NORMALIZATION.patch",
       "bytes": 4033,
       "sha256": "3e1dd6b7e650bfaf010b36de18b3e24cb29c0728658247b46f86241e07a99873"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c13-authorized-product-continuation-20261008/fan-resubmission-preparation/v3-c22-integration/MANIFEST.json",
+      "bytes": 31248,
+      "sha256": "f700f5da52928eab3a6d324f1e77c574a591c666a11e7e5edf3ec3d58b2f6159"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c13-authorized-product-continuation-20261008/fan-resubmission-preparation/v3-c22-integration/RESULT.json",
+      "bytes": 7929,
+      "sha256": "9f7136e88986622dac9c2ad51dcd84f3a489793b41ae781cb0d647613abddee3"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c13-authorized-product-continuation-20261008/fan-resubmission-preparation/v3-c22-integration/SOURCE.patch",
+      "bytes": 43149,
+      "sha256": "57747802d85ec4191473455fa3d16c2d9e50f41aec9b20919fd965fb0b01210f"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c13-authorized-product-continuation-20261008/fan-resubmission-preparation/v3-c22-integration/independent-review/REVIEW.json",
+      "bytes": 10182,
+      "sha256": "9459b8fbcb65318024096d31dff0e67afc7a270698b2864123a8e73ef89e100d"
     }
-  ]
+  ],
+  "historicalBaseSha": "1b636b025425710889b34b38268a82f86c174f7c",
+  "composition": "Exact accepted C22 shared cleanup composed with accepted V2 resubmission; controller/helpers/fixtures otherwise byte-identical. Current e415 has the same shared helper."
 }

@@ -188,6 +188,9 @@ class LiveModel extends Component {
     this._specialistFilePreview = new Map();
     this._specialistFileShare = new Map();
     this._mediaNotices = new Map();
+    this._conversationExport = null;
+    this._conversationExportUrls = new Map();
+    this._conversationExportAlive = true;
     this._mediaEnvironment = { status: 'idle', available: false, models: [], error: '' };
     this._mediaSubmitting = false;
     this._mediaSubmitNotice = '';
@@ -287,6 +290,9 @@ class LiveModel extends Component {
   }
 
   componentWillUnmount() {
+    this._conversationExportAlive = false;
+    this._conversationExport?.controller.abort();
+    for (const url of this._conversationExportUrls.keys()) this.releaseConversationExportUrl(url);
     this._chatModelRequest = null;
     this._pairingAlive = false;
     if (this._pairingTimer) clearTimeout(this._pairingTimer);
@@ -3453,10 +3459,73 @@ class LiveModel extends Component {
     return vm;
   }
 
+  canExportConversation(session) {
+    return this._conversationExportAlive && !this._conversationExport && this.st().mode === 'sessions'
+      && !!session && this.widget.store.find(session.id) === session && !session._closed
+      && typeof session._convId === 'string' && !!session._convId.trim()
+      && !session.chat._thinking && !session.chat._preparing
+      && session.chat._delivery?.status !== 'DELIVERY_UNKNOWN'
+      && !this.widget.transport?.hasActiveM1Turn?.(session);
+  }
+
+  releaseConversationExportUrl(url) {
+    const timer = this._conversationExportUrls.get(url);
+    if (timer) clearTimeout(timer);
+    this._conversationExportUrls.delete(url);
+    URL.revokeObjectURL(url);
+  }
+
+  async exportConversation(session, binding) {
+    const same = () => this._conversationExportAlive && this.widget.store.find(binding.sessionId) === session
+      && !session._closed && session._convId === binding.conversationId && session._projectId === binding.projectId;
+    if (!this.canExportConversation(session) || !same()) return false;
+    const controller = new AbortController(), name = sessionTitle(session);
+    this._conversationExport = { controller, conversationId: binding.conversationId };
+    this.setState({ menu: null, ctx: null });
+    const unlisten = this.widget.store.subscribe(() => { if (!same()) controller.abort(); });
+    try {
+      const { filename, blob } = await this.widget.catalog.exportConversation(binding.conversationId, { signal: controller.signal });
+      controller.signal.throwIfAborted();
+      if (!same()) throw new Error('Konverzace se během exportu změnila.');
+      const url = URL.createObjectURL(blob);
+      this._conversationExportUrls.set(url, null);
+      try {
+        const anchor = document.createElement('a');
+        anchor.href = url; anchor.download = filename; anchor.click();
+        const timer = setTimeout(() => this.releaseConversationExportUrl(url), 30_000);
+        timer?.unref?.(); this._conversationExportUrls.set(url, timer);
+      } catch (error) { this.releaseConversationExportUrl(url); throw error; }
+      const toast = { id: 'export-' + Date.now(), tone: 'info', t: `Konverzace „${name}“ byla připravena ke stažení jako ${filename}.` };
+      this.setState({ toast }); this.armToast({ toast });
+      return true;
+    } catch (error) {
+      if (this._conversationExportAlive) {
+        const toast = { id: 'export-' + Date.now(), tone: 'warn',
+          t: `Konverzaci „${name}“ se nepodařilo stáhnout. Na serveru mohl vzniknout export. ${error?.message || 'Export selhal.'}` };
+        this.setState({ toast }); this.armToast({ toast });
+      }
+      return false;
+    } finally {
+      unlisten(); this._conversationExport = null;
+      if (this._conversationExportAlive) this.forceUpdate();
+    }
+  }
+
   menusVM(s, fsid) {
     const menus = super.menusVM(s, fsid);
     const disabled = new Set(['Importovat konverzaci…', 'Exportovat projekt…']);
     const session = fsid && this.widget.store.find(fsid);
+    const fileMenu = menus.find(menu => menu.label === 'Soubor');
+    if (fileMenu) {
+      const binding = session && { sessionId: session.id, conversationId: session._convId, projectId: session._projectId };
+      const enabled = this.canExportConversation(session);
+      fileMenu.items.splice(fileMenu.items.findIndex(item => item.t === 'Exportovat projekt…'), 0, {
+        t: this._conversationExport ? 'Připravuji export konverzace…' : 'Exportovat otevřenou konverzaci (Markdown)',
+        k: '', isItem: true, isSep: false, isHead: false, cls: enabled ? '' : 'dis',
+        hasIcon: true, icon: this.data().I.download,
+        go: enabled ? () => this.exportConversation(session, binding) : () => false,
+      });
+    }
     for (const menu of menus) for (const item of menu.items) {
       if (disabled.has(item.t)) { item.cls = 'dis'; item.go = () => {}; }
       if (item.t === 'Ukončit') item.go = () => this.pCloseWindow();

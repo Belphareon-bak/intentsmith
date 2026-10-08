@@ -1,0 +1,134 @@
+{
+  "kind": "C24StudioConversationExport@1",
+  "baseSha": "e415694651652687f1cd13c51321f6f4aa2c349a",
+  "status": "SOURCE_CPU_REVIEW_PASS_INTEGRATION_BUILD_PASS_LIVE_PENDING",
+  "sourceFiles": [
+    "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/catalog-store.js",
+    "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/view/live-model.js"
+  ],
+  "behavior": "File menu exports the captured open conversation to Markdown via existing authenticated transport; exact session/project identity, errors, cancellation and Blob cleanup.",
+  "cpu": {
+    "pass": 106,
+    "fail": 0,
+    "existingLiveModel": 72,
+    "newLiveModel": 33,
+    "catalogFileTerminal": 1
+  },
+  "apiPrerequisite": "C23_API_ACTUAL_EVIDENCE_REVIEW_PASS",
+  "limits": [
+    "No Studio download acceptance yet.",
+    "Success notice means prepared download, not OS save confirmation.",
+    "Failed or cancelled download may leave backend export artifact; no automatic retry.",
+    "C22 full411 precedes these frontend/test changes; no new complete profile claimed.",
+    "COREPACK_ENABLE_NETWORK=0 applies to Corepack; complete Theia build was not network-isolated or network-measured. Its ffmpeg replacement log does not prove an actual network download or cache-only use."
+  ],
+  "refs": [
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/newpatch/C24.patch",
+      "bytes": 19845,
+      "sha256": "2458d0de2fcb3b1203aee4e3fe92edf4e3f7a91b1b92a8fdb966b027ad99ab2b"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/newpatch/MANIFEST.json",
+      "bytes": 14077,
+      "sha256": "cdff45283092aa8cc1ba68022d1a69b72f896db0b79692162fcf8db1ad50005c"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/newpatch/RESULT.json",
+      "bytes": 6140,
+      "sha256": "876fe907df64e70e4037bee705ea42088319e82ca4c63af517925699953e8472"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/newpatch/independent-review/REVIEW.json",
+      "bytes": 10535,
+      "sha256": "a8c495f8457158838eaa48fd21ddb01ce550e03b029f7298e7dc9dde1d025296"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/root-integration/ADOPTION.json",
+      "bytes": 1243,
+      "sha256": "c346feeee5ec521da1169eb479578750b13d1e78ef9377108ac858305a0f164e"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/build/COMMAND.json",
+      "bytes": 746,
+      "sha256": "1578bb2d5e9f00ab2a93e1d202002190d50fd3cee9fca8571893e741b397244e"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/build/EXIT.json",
+      "bytes": 203,
+      "sha256": "723c4a5a505dd5dea527d0531def42dd39dd4468d179ffa91f26e351a9cfd1ea"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/build/build.log",
+      "bytes": 2495,
+      "sha256": "343bc9f7c03ec96172e1119e90ef076578ce3112d3deaa4d4ffe2be174b9ec16"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/root-integration/frontend/COMMAND.json",
+      "bytes": 4611,
+      "sha256": "f6cf02f32d7bd56877686e18e71ac85f53aacfd1dddcb1448f7f9fe2598610ff"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/root-integration/frontend/EXIT.json",
+      "bytes": 196,
+      "sha256": "630b12e02f1663d1038fa4ad1aab95a454c80e157d9e7618dc84edb9fa5004aa"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/root-integration/frontend/test.log",
+      "bytes": 10395,
+      "sha256": "562c501da896139038f953a32e35576e582be762b0e1b03e0d4fde4aa81e653b"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/root-integration/artifact-validation/COMMAND.json",
+      "bytes": 4731,
+      "sha256": "f4fd2749c3448c91062acd63fa0529880e53ba1d56374d65dc2ac17d9f6f3a78"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/root-integration/artifact-validation/EXIT.json",
+      "bytes": 207,
+      "sha256": "3d1e12fed017c53877c4f75e64c859a909ac0282474faefba54207d5c95cc892"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/root-integration/artifact-validation/test.log",
+      "bytes": 13425,
+      "sha256": "f52f3b750d7cd8d7f751d21f040b6e178db02e7090f12d6ed38b3f50e3b68476"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/root-integration/module-boundaries/COMMAND.json",
+      "bytes": 4701,
+      "sha256": "a8f71ab14e035f60b7f92d1f3bb487edcffcce9f543720af89f6181a798f66a6"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/root-integration/module-boundaries/EXIT.json",
+      "bytes": 203,
+      "sha256": "cc6c5e244ee97e3b8c81b4032e53c86a5bc1105e589b88e1b5016b8f8740e837"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/root-integration/module-boundaries/test.log",
+      "bytes": 740,
+      "sha256": "dca41e601e9a6f303a857e1d242e17f7aca4e291ceef04ec12ba994cf5ac8168"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/root-integration/registry/COMMAND.json",
+      "bytes": 4569,
+      "sha256": "02a47db42050b419ca74a0868145c7608fd9a94167aa784e076494cfd1500d08"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/root-integration/registry/EXIT.json",
+      "bytes": 194,
+      "sha256": "2ab5f2fb7beb828ecebdfcc3ceb7932107c17fb2ce34a0fbe96ce8c53ff2fb73"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/root-integration/registry/test.log",
+      "bytes": 251,
+      "sha256": "066ab8c6d77ce53ce647b11f006d5d1fce8460d24dc1c4fbe442dbf1230e7ab6"
+    }
+  ],
+  "integration": {
+    "frontendPass": 106,
+    "artifactPass": 160,
+    "moduleEdges": 1516,
+    "newEdges": 0,
+    "registryPrograms": 597
+  }
+}

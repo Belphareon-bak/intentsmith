@@ -1,0 +1,107 @@
+{
+  "kind": "C22FullProfileAccepted@1",
+  "reviewer": "/root",
+  "sourceAuthors": [
+    "/root/chat_quality_grader",
+    "/root/workflow_review"
+  ],
+  "at": "2026-10-08T15:55:51.764947+00:00",
+  "verdict": "FULL_PROFILE_AND_CI_REVIEW_PASS_NOT_RELEASE_ACCEPTANCE",
+  "sourceSha": "e415694651652687f1cd13c51321f6f4aa2c349a",
+  "runId": "studio-c22-full-v2-20261008-e4156946",
+  "pass": 411,
+  "fail": 0,
+  "timeout": 0,
+  "blocked": 0,
+  "skipped": 0,
+  "retries": 0,
+  "reportedOwnedProcessLeaks": 0,
+  "profiles": {
+    "offline": 324,
+    "database": 87
+  },
+  "verifiedLogs": 411,
+  "verifiedLogBytes": 1334434,
+  "ci": {
+    "sourceSha": "e415694651652687f1cd13c51321f6f4aa2c349a",
+    "runId": 37803095558,
+    "status": "SUCCESS",
+    "steps": 18,
+    "jobId": 113400156188,
+    "url": "https://github.com/Belphareon-bak/intentsmith/actions/runs/37803095558"
+  },
+  "manualMarkerReview": [
+    {
+      "program": "tests/lifecycle-conversation-e2e.test.js",
+      "finding": "Known intentional scope rejection and INFO checks rendered as cross symbols; terminal58passed0failed and failure-controlled exit. Source unchanged since independently acceptedC21."
+    },
+    {
+      "program": "tests/telemetry-soak.test.js",
+      "finding": "Seeded synthetic tool failures/retries intentionally exercise telemetry; terminal14assertionspassed0failed and failure-controlled exit. No real24hsoak or realweb quality evidence."
+    },
+    {
+      "program": "tests/code-prose-reconciliation.test.py; tests/code-prose-review.test.py",
+      "finding": "unittest8 and5 tests, OK, exit0."
+    },
+    {
+      "program": "tests/output-gate.js",
+      "finding": "Existing import-only helper smoke, no functional assertion claim."
+    },
+    {
+      "program": "tests/soak/* five probes",
+      "finding": "Existing zero-crash smoke limits retained; no semantic-quality or24hstability claim."
+    }
+  ],
+  "limits": [
+    "Deterministic offline/database selection only. Server project57 belongs to separate accepted integration.",
+    "No new chat score, GPU/model user-path acceptance, full installation recovery or release acceptance.",
+    "Cleanup receipts prove reported owned process-group checks, not host-wide absence.",
+    "Original692whole410PASS1FAIL retained and verified; passing CI18 alone did not override it."
+  ],
+  "refs": [
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/full-profile-v2/FULL-command.json",
+      "bytes": 1118,
+      "sha256": "ef6882e57004f1f30a03d706a12648b8b36b2a9477e6bb533c0a8382457593f6"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/full-profile-v2/FULL-exit.json",
+      "bytes": 438,
+      "sha256": "f53ea1cad0a4140a475b6467d36cee0df481ddafbe62c3d30400460a7252488f"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/full-profile-v2/FULL.log",
+      "bytes": 27492,
+      "sha256": "ad246773558474d9e5fe0ba2e1426d05304190d2725414263111606436b5f5c2"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/full-profile-v2-root-review/REVIEW.json",
+      "bytes": 6470,
+      "sha256": "7a18e38cc89ca53ae200ecfeee17cca88530df996e0cad1c315de66d606bcb2f"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/full-profile-v2-auditor-candidate/FULL-VERIFICATION.json",
+      "bytes": 398929,
+      "sha256": "a02fb254f44916ddf9bdc0f5e4c24a4f0bc4325d9a55cec736692f6e039da30c"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/CI.json",
+      "bytes": 232,
+      "sha256": "b9c65cbc0b4a5bde1bdd07bb9e7ab6a67bb410cb9a90d43cd3b5bfc9da0acfce"
+    }
+  ],
+  "publicScope": "Development offline/database profile on exact e415; later C24 source is not covered",
+  "doNotRead": [
+    "H1/H2",
+    "restricted/",
+    "holdout",
+    "holdout raw/provider traces/DB"
+  ],
+  "commands": [
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c22-studio-d1-transition-20261008/full-profile-v2/FULL-command.json",
+      "bytes": 1118,
+      "sha256": "ef6882e57004f1f30a03d706a12648b8b36b2a9477e6bb533c0a8382457593f6"
+    }
+  ]
+}

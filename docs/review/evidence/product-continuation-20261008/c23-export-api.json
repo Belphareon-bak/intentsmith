@@ -1,0 +1,173 @@
+{
+  "kind": "C23ExportApiAccepted@1",
+  "reviewer": "/root/m1_outage_review",
+  "at": "2026-10-08T16:32:08.084466+00:00",
+  "verdict": "API_ACTUAL_EVIDENCE_REVIEW_PASS",
+  "sourceSha": "e415694651652687f1cd13c51321f6f4aa2c349a",
+  "actualStatus": "API_ORACLE_PASS",
+  "originalChecks": 10,
+  "expectedExit": 0,
+  "actualExit": 0,
+  "scope": "One original API Markdown conversation export/download qualification, specified API failures and two log endpoint checks, development loopback authorization only. Supports separately reviewed C24 adoption; no registry status change here.",
+  "checks": [
+    "Original unchanged E2E oracle and exact runner/protocol/READY pins verified; all6494 frozen refs freshly rehashed (318532267bytes), source still clean e415.",
+    "Exactly15 captured fetches: one health +14 declared operations; all response byte lengths/SHA256 and expected HTTP statuses verified. No additional model/generation API path. Provider points to denied loopback port9 in independent network namespace.",
+    "Original test summary10PASS/0FAIL/0SKIP and exit0, no timeout/leak/spawn error; parent namespace exit0. Two distinct owned server lifetimes18/44 stopped exit0 before copying DB. Recorded PID namespace differs from host; these are namespace PIDs, no mistaken host PID inspection.",
+    "Fresh reviewer copies of both stopped snapshot DBs have integrity OK, seven declared authority/conversation/project tables0 and messages0; author copied DB hashes unchanged. Original runtime DB never opened.",
+    "Exactly one private157B Markdown artifact, SHA6c432695198dfa85420d7974e7ecc25e7e68c474fe44ccbc3aff8579254f3e50; byte-identical to GET download with original marker. No project file exists.",
+    "bwrap rootRO/privateoutputwrite and distinct net/PID namespaces recorded; original test uses development-loopback authorization. Before/after6494pin PASS preserved."
+  ],
+  "limits": [
+    "No Studio export/UI acceptance, real production auth proof, release acceptance, general logs content correctness or new model quality claim.",
+    "Logs endpoint returns array; log download was empty text/plain, permitted by unchanged oracle.",
+    "No new actual, server, GPU/provider or native original DB operation by reviewer. API run only; registry BLOCKED unchanged."
+  ],
+  "findings": [],
+  "references": [
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/FROZEN.json",
+      "bytes": 1621099,
+      "sha256": "3e6ea9d1acdb5712241822b87a3ba3f7dc0893ff1fd4c46d9d6b00e5a8e17805"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/final-freeze-independent-review/READY.json",
+      "bytes": 955,
+      "sha256": "50cf3eea5a3ab5044fabf11ed5d57fd4dcdc21de0c28538d34e1e115bd3ec762"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/run.mjs",
+      "bytes": 10134,
+      "sha256": "96e598173c1c379d50a60e5925aaea5f59307f4fa24555f7937f50d5a3f7051f"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/protocol.mjs",
+      "bytes": 7114,
+      "sha256": "c5f3bbea325b6ea97ca73d6ce83f510132cfae0ddfdc28a1574744ae2e500054"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/capture.mjs",
+      "bytes": 847,
+      "sha256": "b717f6e5e23dbe4aa347501027202ecf6ab4f212c4afaf9e40be5bad04ac0874"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/tests/e2e/17-export.e2e.js",
+      "bytes": 4873,
+      "sha256": "6d000671207226a739e3a0e763209525ad9cd4b022a48c682faba5ef6d826a94"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/actual-v1/RESULT.json",
+      "bytes": 267,
+      "sha256": "62ef5abce41b6e1280361e9e55d68eb16774c51da11053039e13981f9cc26336"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/actual-v1/INSIDE-RESULT.json",
+      "bytes": 1976,
+      "sha256": "4f95430ee3ac8bd3072c5224ea927217d9fcbf0c834070e4eabeb85a67445ca6"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/actual-v1/BEFORE.json",
+      "bytes": 134,
+      "sha256": "6529ff48d252dac1aed679fb14d86358afe21adf6cc7bc06e88e7765c79b8e8c"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/actual-v1/AFTER.json",
+      "bytes": 134,
+      "sha256": "548f74fe5cafb4fd4d0e58bd28ae07076372b2244c968bd361ad358cf6043046"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/actual-v1/before.json",
+      "bytes": 750,
+      "sha256": "3c55fdbf36722854ca4adc10c489c6c56ebc608fddc2e8ce491adb3a7bcf5179"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/actual-v1/after.json",
+      "bytes": 927,
+      "sha256": "0aeed85a6c6bdd4b44b8996188251cb91d3824b65a6e4b72440e5c6d63f051aa"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/actual-v1/wire.jsonl",
+      "bytes": 5952,
+      "sha256": "d2c893ea711633b866618d695cf4e1628abcd033fdb6941a53fc27b22023ec93"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/actual-v1/wire.jsonl.complete.json",
+      "bytes": 32,
+      "sha256": "bb8ca8a3b2946b134bcea350f2b9958743ea0c6883066d462c484b6e75e1ddaa"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/actual-v1/COMMAND.json",
+      "bytes": 1523,
+      "sha256": "2906b2fd5c4e3d07758b83ba6de4ee6917e382bce2d650427393dbb662f0878b"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/actual-v1/EXIT.json",
+      "bytes": 1433,
+      "sha256": "9933b63e3fbbe6a6e3615b6ea90367fc3c4173e379d4a99ca96f26d00f99cdf1"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/actual-v1/ORACLE-COMMAND.json",
+      "bytes": 4782,
+      "sha256": "06295e702e13b5cea578540a0ccc9af76fb23dfcad5155bd9f07bd07b07e88a7"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/actual-v1/ORACLE-EXIT.json",
+      "bytes": 1957,
+      "sha256": "600d1a6fd8aa24979b9743f504cf6fdedf0d495ad00f608fd6c8c0740f6b212d"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/actual-v1/oracle.log",
+      "bytes": 1861,
+      "sha256": "57e2777bf4f53be1e8c6a6915230df1fda5617472b7d9008fd024d60db14a43b"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/actual-v1/owned-processes.json",
+      "bytes": 165,
+      "sha256": "602b76099ac252e5d170a8cc4c3bdfeffc6c5114de983a596680e2f340b401f2"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/actual-v1/runtime.json",
+      "bytes": 2432,
+      "sha256": "35965546b1a1b382ac38f38a8ecbc8d9e4a752ad50a414c6ced5e9ca7c2c9f3d"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/actual-v1/baseline-spawn.json",
+      "bytes": 449,
+      "sha256": "bd62200d74a7fc7fbb583dd8561b136e0fcd905fe75cb7b1572e08d74f9d50f4"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/actual-v1/oracle-spawn.json",
+      "bytes": 448,
+      "sha256": "b6d3b9209b37f4bb1ce9bdfac49d3a8c6fa436cdfb8d830961a85f15bb0661ff"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/actual-launch/COMMAND.json",
+      "bytes": 1087,
+      "sha256": "3279ed3c8d7cf96de3ff61a35e548cc5b60b5a48acebbb2dd8568fef926fa607"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/actual-launch/EXIT.json",
+      "bytes": 292,
+      "sha256": "76beca5d80cbec2562bf974bfd51128bfec9b8ceab4ba89f9cf17177c9c9f495"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/actual-independent-review/VERIFICATION.json",
+      "bytes": 7330,
+      "sha256": "7222ea48f9ee607064c43115477bd2ad50e330cb16ac19f6aaa3ee421b26fa81"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/actual-independent-review/audit.py",
+      "bytes": 6829,
+      "sha256": "06d8e0ae5eed1cbc56d5394a660a552b992bdd8b58effd513f8f45059b2db29b"
+    }
+  ],
+  "doNotRead": [
+    "H1/H2",
+    "restricted/",
+    "holdout and its raw/DB/provider traces"
+  ],
+  "independentReview": {
+    "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c23-journey-preparation-20261008/actual-independent-review/REVIEW.json",
+    "bytes": 9853,
+    "sha256": "72a6e1d1b7fbbcce78a5dcbc2faa44b40a68a2ac22d01c8db3aa8e414e86efdd"
+  }
+}
