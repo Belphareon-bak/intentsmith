@@ -4,13 +4,14 @@
 Release `NOT_ACCEPTED`; BE `c84b88cd` / Studio `7bf62455…bfe24` nezměněné.
 Přijaté Ledger/TaskFlow/SQLite, omezený AST/GPU panel/cleanup, full109 DB roundtrip a M3 worker;
 opakovat pouze při nové změně nebo konkrétní pochybnosti. ROOT vlastní integraci i CHAT.
-Aktuální celý offline/database profil na čistém `d4304899` pokrývá produkt C15:
-8. 10. 11:25:55–11:36:37 UTC, 410 PASS / 0 FAIL/TIMEOUT/BLOCKED/SKIPPED, exit 0.
-Nezávislé review `84105069…29bc2b9` ověřilo všech 410 logů, 323 offline + 87 database,
-context 82, původních 239 kontrol C12 a scenario 42; žádný retry ani hlášený únik
-vlastní process group. Zdroj před/po čistý a stejný, CI 18 SUCCESS.
-[Aktuální celý profil a meze](docs/review/evidence/product-continuation-20261008/c17-full-profile.json).
-Předchozí `44e4d96c` je historický profil před C15; profil d430 nepokrývá C18/C19.
+Aktuální celý offline/database profil na čistém `e7f2dd92` pokrývá produkt C19 `d3dbc897`:
+8. 10. 13:17:46–13:27:59 UTC, 410 PASS / 0 FAIL/TIMEOUT/BLOCKED/SKIPPED, exit 0.
+Nezávislé review `1df3c4ec…8c56ab0` ověřilo všech 410 logů / 1 331 853 B,
+323 offline + 87 database, context 143, původních 239 kontrol C12 a scenario 42;
+žádný retry ani hlášený únik vlastní process group. Zdroj před/po čistý a stejný,
+CI `37783220346` má 18 SUCCESS. Project57 je oddělená přijatá serverová integrace.
+[Aktuální celý profil a meze](docs/review/evidence/product-continuation-20261008/c19-full-profile.json).
+Předchozí `d4304899` zůstává historický profil produktu C15, `44e4d96c` před C15.
 Deterministický profil neprokazuje živou kvalitu ani release přejímku.
 Historický C12 profil na `678eead707a59df568c7353a8b2dd7ad6c175b23`
 měl produktový zdroj C9 `24f329c6` a obsahoval C11/C12 opravy testů.
@@ -99,7 +100,7 @@ Před inferencí se opraví prokázané budget/cleanup nedostatky existujících
 32k krátce změřené fullGPU/min free 2 512 MiB; celé okno ani kvalita aplikace tím nepřijaté.
 Classifier→D1 CPU 44 +parser 24/review PASS; živý přirozený vstup a fyzická ovladatelnost IDE/M2 otevřené.
 
-Nynější úkol: publikace C19 source `d3dbc897` a přijaté baseline 1516, potom nový celý profil. C18 je publikovaný `21b25085` / CI 18 SUCCESS; C17 NO_MODEL_PREFERENCE nemění bindingy. HTTP14 testovaný rozsah i rozpočet jsou uzavřené.
+Nynější úkol: po JIT dešifrování provést již připravený H1 sběr (C20 READY); C19 je publikovaný na `e7f2dd92`, celý profil 410 / CI 18 a nezávislé review PASS. C18 je publikovaný `21b25085` / CI 18 SUCCESS; C17 NO_MODEL_PREFERENCE nemění bindingy. HTTP14 testovaný rozsah i rozpočet jsou uzavřené.
 C13 source44567af7/CI18: dva HTTP admission FAIL před inferencí (nová0/historie12),
 Fan čtyři úplné nové výstupy (12/15), literal import FAIL před approval/oracle.
 Skutečný Qwen32k cleanup pod lease přijat; Fan chráněný oracle čeká na rozhodnutí.
@@ -163,8 +164,10 @@ ze tří DB vznikne až po shodném výběru jeden návrh; celkem 3, grant/resul
 Původní module FAIL / exit 1 (1514 → 1516) zachovaný. Standardní writer nad čistým
 `d3dbc897` přijal přesně 2 importy; následný ratchet PASS, 0 nových hran, 3 cykly / 28 souborů.
 [Posudky, raw a meze C19](docs/review/evidence/product-continuation-20261008/c19-ask-user-continuity.json).
-Další: publikace C19 source/baseline checkpointu → nový celý profil 410.
-Source, standardní baseline a následný ratchet jsou hotové; celý profil čeká;
+C19 je publikovaný na `e7f2dd92`; celý profil 410 a CI 18 mají nezávislé review PASS.
+C20 má celkové READY na freeze R2 `871fb7f5` / posudek `796e5e75`; 38 CPU PASS.
+[H1 exact příkaz, identity, rozpočet a hranice](docs/review/evidence/product-continuation-20261008/c20-h1-readiness.json).
+Další: JIT dešifrování operátorem → ROOT provede šest původních sérií;
 žádná nová modelová nebo 95% přejímka. Souběžně technická příprava H1 → IDE/BE/expertise/workers → M5/M6.
 Fan čeká na oracle rozhodnutí; HTTP14 rozpočet je uzavřený.
 M5 je 8/9/privacy changes required; retain_and_rotate zvolené, signed 8 categories+history chybí.

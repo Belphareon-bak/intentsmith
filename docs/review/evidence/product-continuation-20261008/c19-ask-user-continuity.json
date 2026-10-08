@@ -1,8 +1,8 @@
 {
   "kind": "C19AskUserSaveContinuityCheckpoint@1",
-  "status": "SOURCE_CPU_HTTP_INTEGRATION_REVIEW_PASS_MODULE_BASELINE_PASS",
+  "status": "SOURCE_CPU_HTTP_INTEGRATION_BASELINE_FULL_PROFILE_REVIEW_PASS",
   "sourceBase": "21b250857a7d0d5bac2e3ddb66284732f7cc769f",
-  "publicationSha": null,
+  "publicationSha": "e7f2dd922134dd2347ab582cbeda9355694f90b4",
   "scope": "Negative continuity only: a fresh unresolved pair routed to ASK_USER is stored using the unchanged C18 parser only during canonical continuation with targetRequired, a positive source/project identity and requested write/create. It does not choose a target, alter the question or invoke an effect. The original resolver later rechecks source and exact target before a separately approved proposal.",
   "sourceRefs": [
     {
@@ -105,8 +105,8 @@
     "cleanSourceCheckpoint": "d3dbc8979fac677ffd836b03771409060ec630da",
     "standardModuleBaselineWriter": "PASS_EXACT_TWO_REVIEWED_EDGES",
     "moduleRecheck": "PASS_1516_EDGES_ZERO_DRIFT_CYCLES_3_MEMBERS_28",
-    "publicationCI": "PENDING_FOR_C19",
-    "full410": "NOT_RUN_FOR_C19",
+    "publicationCI": "18_SUCCESS_ON_E7F2DD92",
+    "full410": "410_PASS_INDEPENDENT_REVIEW_ON_E7F2DD92",
     "release": "NOT_ACCEPTED"
   },
   "limits": [
@@ -114,7 +114,7 @@
     "Legacy markerless and literal/generated source are outside the new guard; known-answer and existing canonical continuation boundaries remain.",
     "Grammar stays the closed C18 two-filename-atom grammar, not general NLP. Later selection requires one complete atom matching the validated model target.",
     "No claim of absence of every filesystem effect: the HTTP fixture checks authority rows and its photo/archive files; no approval sent.",
-    "Last full410 d4304899 covers C15 product52d230c1, not C18/C19. No new C6 score, 95% quality or general safety acceptance."
+    "Full410 on e7f2dd92 covers current C19 product d3dbc897 and prior C18/C15; d430 remains historical. No new C6 score, 95% quality or general safety acceptance."
   ],
   "refs": {
     "sourcePatch": {
@@ -211,6 +211,46 @@
       "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c19-ask-user-save-continuity-20261008/SOURCE-CHECKPOINT.json",
       "bytes": 426,
       "sha256": "3f01a25e2a30c2ed8b70ddbc7e168710520e4488ba589c5354ffa7abc3cff748"
+    },
+    "fullProfileReview": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c19-ask-user-save-continuity-20261008/full-profile/independent-review/REVIEW.json",
+      "bytes": 8530,
+      "sha256": "1df3c4ecf1eb335363811bbeff29ed567c7cc75f62ed8df635417526c8c56ab0"
+    },
+    "fullProfileCommand": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c19-ask-user-save-continuity-20261008/full-profile/FULL-command.json",
+      "bytes": 1108,
+      "sha256": "a716fe889c91f502953de47f8362f602de69f939d20e891ebf038d2dce57bb31"
+    },
+    "fullProfileExit": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c19-ask-user-save-continuity-20261008/full-profile/FULL-exit.json",
+      "bytes": 433,
+      "sha256": "d25da49b5d1ed8022a76ca8177c0660abbfa5ede42817918d7f280bf51faa3fe"
+    },
+    "publication": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c19-ask-user-save-continuity-20261008/PUBLICATION-e7f2dd92.json",
+      "bytes": 328,
+      "sha256": "cc53f194ddff27a6301096eb5e2acff61e0eaf431c70178f62faadbd0f00c0c0"
+    },
+    "ci": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c19-ask-user-save-continuity-20261008/CI.json",
+      "bytes": 381,
+      "sha256": "048bf0cb61fbe71f970e6d27626e7ed1910f4d6d1669c1b7e45ee901e758eba0"
+    },
+    "reproductionPacket": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c19-ask-user-save-continuity-20261008/review-packet/PACKET.json",
+      "bytes": 2068,
+      "sha256": "0b69775d8b47521c77c786ec2f87b31808d6edf477067bdf25c70260c9887669"
+    },
+    "diff": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c19-ask-user-save-continuity-20261008/review-packet/CHANGE.patch",
+      "bytes": 55970,
+      "sha256": "88ce58c2234b35540c67e523ff865deb24b7e138a61d1bd415d53bc0bb91caa4"
+    },
+    "baselineDocsReview": {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c19-ask-user-save-continuity-20261008/baseline-docs-independent-review/REVIEW.json",
+      "bytes": 10441,
+      "sha256": "b5770b783d431f21b055220fb5237cd0865738b402cc55275c964de0ccb35ed5"
     }
   },
   "sourceCheckpoint": "d3dbc8979fac677ffd836b03771409060ec630da",

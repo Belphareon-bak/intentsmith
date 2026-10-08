@@ -1,0 +1,154 @@
+{
+  "kind": "C20H1SixSeriesReadiness@1",
+  "status": "READY_TO_RUN_AWAITING_OPERATOR_JIT_DECRYPT",
+  "collection": "NOT_RUN",
+  "operatorAction": "Only decrypt the sealed H1 immediately before launch; never disclose passphrase to agents. ROOT executes all six series and cleanup.",
+  "authorization": "User authorized three series per exact frozen candidate in one serial window, input plaintext removal and private raw custody for the same operator to prepare a blinded evaluator packet. No renewed custody consent.",
+  "candidateRevisions": [
+    "c7f03d5687f65b1a2b50665f27b037e57b8516cd",
+    "9591ea1b07bc4b639a102bcc421f9d46b8f9906b"
+  ],
+  "controller": {
+    "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c20-h1-window-preparation-20261008/controller-v2.py",
+    "bytes": 33408,
+    "sha256": "5088a161f942ed1465e908dfcb23ecb9f0950ed9ed733f560ff1ec2a8ee01c95"
+  },
+  "freeze": {
+    "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c20-h1-window-preparation-20261008/freeze-candidate-v2/FREEZE-candidate.json",
+    "bytes": 2939213,
+    "sha256": "871fb7f563d48b231de3594a2bad7e71e4f21b094671fc11909dfcaa27436c6a"
+  },
+  "ready": {
+    "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c20-h1-window-preparation-20261008/independent-source-review/READY-R2.json",
+    "bytes": 9291,
+    "sha256": "796e5e7525e05a7a42bd74f84c29f3491e46c9390704275c5ce9f58eef6bb356"
+  },
+  "privacy": "Only fixed technical scalar projections enter agent context; no case IDs, text, families, raw responses, grading or H1 contents. Input unlink does not erase private raw copies.",
+  "sourceCpuReview": {
+    "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c20-h1-window-preparation-20261008/independent-source-review/REVIEW-v2.json",
+    "bytes": 19881,
+    "sha256": "71fb880cbe8bb1a9cfc663297420ce99b367ce433f1bef2afc526df4ebb5c636"
+  },
+  "closureVerification": {
+    "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c20-h1-window-preparation-20261008/independent-source-review/FREEZE-R2-VERIFICATION.json",
+    "bytes": 1893,
+    "sha256": "3b733270d460338784024917787cb75f129a44480a5e4581609043edfada5aa2"
+  },
+  "cpu": {
+    "tests": 38,
+    "pass": 38,
+    "exitCode": 0,
+    "scope": "Synthetic campaign and real owned-process lifecycle; no H1 input or model inference."
+  },
+  "closure": {
+    "commonRefs": 5724,
+    "candidateRefs": {
+      "9591ea1b07bc4b639a102bcc421f9d46b8f9906b": 1060,
+      "c7f03d5687f65b1a2b50665f27b037e57b8516cd": 1060
+    },
+    "dependencyFiles": 5518,
+    "links": 15,
+    "scope": {
+      "excluded": [
+        "kernel/driver/libc/shared OS library closure",
+        "weight-byte rehash",
+        "all H1/H2/restricted/plain/cipher/raw contents",
+        "production DB/config"
+      ],
+      "installedDependencies": "/home/belphareon/Projects/intentsmith-chat-quality-20261001/node_modules",
+      "installedDependencyFiles": 5518,
+      "python": "Exact executable plus loaded stdlib/native modules and their existing pyc; not complete OS",
+      "sourceMetadata": [
+        {
+          "gitSrcTree": "8dede3e2e2a20bcfacc77de67d6fed2265cf563d",
+          "method": "Git blob bytes; current Qwen tree additionally matched every file. Gemma is verified again after controller detached switch.",
+          "references": 1060,
+          "revision": "c7f03d5687f65b1a2b50665f27b037e57b8516cd"
+        },
+        {
+          "gitSrcTree": "8dede3e2e2a20bcfacc77de67d6fed2265cf563d",
+          "method": "Git blob bytes; current Qwen tree additionally matched every file. Gemma is verified again after controller detached switch.",
+          "references": 1060,
+          "revision": "9591ea1b07bc4b639a102bcc421f9d46b8f9906b"
+        }
+      ],
+      "trackedPaths": [
+        "src",
+        "scripts",
+        "skills",
+        "data",
+        "contracts",
+        "specialists",
+        "docs/mobile/contracts",
+        "package.json",
+        "package-lock.json"
+      ]
+    }
+  },
+  "budgets": {
+    "series": 6,
+    "order": "Qwen holdout 1,2,3 then Gemma holdout 1,2,3",
+    "perSeriesSeconds": 1800,
+    "activeCampaignSeconds": 16200,
+    "naturalExpirySeconds": 600,
+    "terminalExtraAllowance": "One separate bounded final natural-expiry wait up to 600 s plus TERM/KILL drain 3+3 s; not a strict 16200 s total wall-clock claim.",
+    "automaticRetries": 0
+  },
+  "launch": {
+    "argv": [
+      "/usr/bin/env",
+      "-i",
+      "PATH=/usr/bin:/bin",
+      "/usr/bin/python3",
+      "-I",
+      "-B",
+      "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c20-h1-window-preparation-20261008/controller-v2.py",
+      "--live",
+      "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c20-h1-window-preparation-20261008/freeze-candidate-v2/FREEZE-candidate.json",
+      "871fb7f563d48b231de3594a2bad7e71e4f21b094671fc11909dfcaa27436c6a",
+      "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c20-h1-window-preparation-20261008/independent-source-review/READY-R2.json",
+      "796e5e7525e05a7a42bd74f84c29f3491e46c9390704275c5ce9f58eef6bb356"
+    ],
+    "expectedExitCodes": {
+      "0": "COLLECTION_COMPLETE_UNASSESSED only after six complete unchanged series and terminal cleanup",
+      "1": "Campaign stopped/incomplete; no continuation or retry under this claim",
+      "2": "Pre-campaign admission rejected"
+    },
+    "outputCustody": "Caller creates private exclusive stdout/stderr receipts; frozen runners stdout/stderr and response artifacts remain under private rawRoot. Only accepted scalar metadata may be exposed."
+  },
+  "resolvedFindings": [
+    "V1 process first-lookup PID reuse race: V2 verifies parent lineage before signalling; two new zero-signal CPU negatives.",
+    "R1 freeze omitted runtime contracts; R2 adds exact111 files for each candidate. Earlier freezes and scoped receipts retained."
+  ],
+  "plaintextDescriptor": {
+    "mode": 384,
+    "path": "/mnt/vi7000/intentsmith/evidence/chat-holdout-window-20261008/input/holdout.json",
+    "sha256": "2431296e7a1583329fb4185a1dbbe6610749985385cd1afa2c6952428b63e9ff",
+    "uid": 1000
+  },
+  "rawRoot": "/home/belphareon/Projects/intentsmith-chat-quality-20261001/.intentsmith-artifacts/h1-six-series-c20-20261008",
+  "acceptance": "H1 measures historical fixed candidates. Operator builds blinded packet; future current-product final acceptance requires a new H2. No live quality or release acceptance here.",
+  "preconditions": [
+    "Operator supplies the sealed plaintext immediately before the reserved serial window; this reviewer neither reads nor decrypts it. Controller binds its new inode and rechecks exact seal, mode and owner.",
+    "Only this controller owns the six-series window; competing claimant, foreign/unknown compute or drift stops collection. No lease bypass or eviction by wrapper.",
+    "Use this READY-R2 with exact freeze R2 and controller v2 hashes, never the older scoped privacy READY by itself.",
+    "Mandatory runtime rechecks, per-series deadlines and natural expiry stay enabled; no model reload/unload commands, no tuning or application edits between series.",
+    "Once campaign claim exists, do not rerun or resume it. Preserve all partial/failure receipts. Operator builds the blinded packet from private raw under existing authorization."
+  ],
+  "limits": [
+    "Readiness is conditional technical permission for this exact future run, not H1 completion or quality acceptance. H1 is still NOT_RUN.",
+    "Qwen and Gemma frozen implementations differ, including Qwen weaker response-context verification; this is not a model-only comparison.",
+    "Weights were not rehashed: exact provider tag/manifest digest chain plus canonical weight path/size/inode/mtime and executable pin; whole OS/kernel/driver/shared-library closure excluded.",
+    "Provider snapshot is time-local metadata, not proof of exclusive lease or continuous residency. Actual admission and cleanup occur under canonical lease in the controller.",
+    "Installed dependency file hashes and package versions pinned; this does not independently reconstruct the dependency supply chain.",
+    "Process lineage/pidfd/subreaper checks tested on controlled cases; uninterruptible kernel processes and hostile same-UID filesystem races are not solved by this wrapper.",
+    "Input unlink after verified child drain is logical deletion only. Raw response copies remain private for operator handoff, not secure-erased.",
+    "No H1/H2/restricted/plain/cipher/raw payload, case IDs, answers or grades were opened by this review."
+  ],
+  "currentHostSnapshot": "Read-only 2026-10-08T13:28:31Z PS/compute empty; snapshot is not a lease. Controller repeats exact runtime/owner/three-empty checks for actual admission.",
+  "handoffDocsReview": {
+    "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c20-h1-window-preparation-20261008/docs-independent-review/REVIEW-v3.json",
+    "bytes": 3626,
+    "sha256": "bd8ff79edaeacbd0daf9c4b8c8d302ab781c855394b395ce761b4001a18b1ce7"
+  }
+}

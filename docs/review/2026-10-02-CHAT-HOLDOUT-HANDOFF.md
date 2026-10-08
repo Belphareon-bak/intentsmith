@@ -1,6 +1,8 @@
 # H1 — předání a sběr dvou zmrazených kandidátů
 
-**Aktualizace 7. 10. 2026: COLLECTION_NOT_RUN / PLAINTEXT_REMOVED.**
+**Aktualizace 8. 10. 2026: COLLECTION_NOT_RUN / C20 SOURCE_AND_CPU_REVIEW_PASS / FINAL_FREEZE_READY.**
+Původní plaintext je odstraněn; vznikly pouze nové privátní parent adresáře pro
+pozdější JIT dešifrování. Příprava C20 nečetla H1/H2, ciphertext ani H1 raw.
 Operátor v této relaci určil jeden společný sběr: tři série na Qwen `c7f03d56`
 a tři na Gemma `9591ea1b`, potom odstranit plaintext. Pokud sběr nezačne hned,
 plaintext odstranit již nyní; rozhodnutí o mazání delegoval koordinátorovi.
@@ -58,25 +60,110 @@ ani `CHAT_PROBE` není veřejný, protože obsahuje case ID.
 
 Runner zapisuje plaintext také do `initial-corpus.json`, `runs.json`, výsledků,
 trace a soukromé DB. Odstranění vstupního souboru tedy **neodstraní obsah z raw
-evidence**. Před dešifrováním se uzavře předání raw balíku operátorovi:
-šifrování celého balíku pro jím určený veřejný klíč, nebo jeho výslovná volba
-ponechat raw privátně pro sestavení zaslepeného balíku. Předání je nyní PENDING.
+evidence**. Následný výslovný pokyn uživatele ke třem sériím obou frozen
+kandidátů, odstranění vstupního plaintextu a vlastnímu sestavení zaslepeného
+balíku již opravňuje privátní lokální předání raw tomuto operátorovi. Staré
+custody PENDING ze 7. 10. je překonané; nový custody souhlas není podmínkou.
+Nejde o autorizaci externího zveřejnění nebo jiných příjemců.
 Evidence se nerediguje ani nemaže pod záminkou odstranění vstupu. Mode 0600
 není technické oddělení od procesů se stejným UID; jde o řízený přístup.
 
-## Readiness 7. 10.
+## Historický readiness snímek 7. 10.
 
 [Metadata a přesné příkazy/hashované logy](evidence/chat-holdout-window-20261007/readiness.json):
 oba frozen runner kontrakty PASS na syntetickém vstupu, 0 model calls.
 `npm ci` proběhlo na frozen lockfilu s vynecháním nepotřebného browser downloadu;
-Node v24.21.0/native SQLite po instalaci PASS. CHAT je nyní čistý detached c7f03d56.
+Node v24.21.0/native SQLite po instalaci PASS. CHAT byl při tomto měření čistý detached c7f03d56.
 [Inventura prostředí](evidence/chat-holdout-window-20261007/environment.json):
 oba správné modelové digesty, bwrap network namespace PASS, GPU compute 0,
 Ollama models 0, lease chybí. Je to časový snímek, ne rezervace; před živým
-startem se zopakuje. H1 nebyl použit ani inferován. Zbývá uzavření custody,
-nové dešifrování operátorem a skutečné otevření okna.
+startem se zopakuje. H1 nebyl použit ani inferován. Tehdejší zbývající custody
+otázku již vyřešil následný pokyn výše; stále chybí JIT dešifrování a skutečný sběr.
+Původní receipty ze 7. 10. zůstávají nezměněné a nejsou přeznačeny na dnešní měření.
 
-## Jedno okno, šest sérií
+## Aktuální jediná spouštěcí cesta C20
+
+ROOT připravuje prostředí, freeze a provede všech šest sérií podle již udělené
+autorizace. Operátor provede pouze JIT dešifrování do přesné cesty níže a později
+sestaví zaslepený balík; heslo agentovi nedává. Není požadováno, aby uživatel
+přebíral spouštění či testování. Žádná inference ani nový H1 sběr zatím neproběhly.
+
+Soukromý packet je `.intentsmith-artifacts/c20-h1-window-preparation-20261008/`:
+
+- `controller-v2.py` SHA `5088a161f942ed1465e908dfcb23ecb9f0950ed9ed733f560ff1ec2a8ee01c95`;
+  `MANIFEST-v2.json` SHA `19e201a5c88dc4d8e4ee71f3f7bbb70feb19c4d2747654bc8c6ca492d27fab39`.
+- Vlastní CPU-v5: **38 PASS / exit 0**, pouze syntetika a vlastní CPU procesy.
+  Source/CPU review `71fb880cbe8bb1a9cfc663297420ce99b367ce433f1bef2afc526df4ebb5c636`,
+  privacy/six-series review `6c7b4a19262ebd3e17e45bead5447a5e17d12271808bf5b289c7048f62bb6906`;
+  oba jsou **PASS_NOT_LIVE_READY**. Historický V1 lineage nález a starý CPU fixture
+  FAIL jsou zachované; nový subreaper guard ověřuje rodičovskou hranu před signálem.
+- Final freeze candidate `freeze-candidate-v2/FREEZE-candidate.json` SHA
+  `871fb7f563d48b231de3594a2bad7e71e4f21b094671fc11909dfcaa27436c6a`:
+  5724 společných runtime/dependency refs, 1060 frozen runtime refs každého
+  kandidáta a 15 symlink vazeb. Zahrnuje přímo používané M1/M2/M3 contracts,
+  specialists a docs/mobile/contracts. Starý candidate d279…9c06 zůstává
+  zachovaný; jeho omezený privacy READY není celkový READY nového freeze.
+  Finální nezávislé **READY_TO_RUN** nového freeze je uzavřené:
+  source/runtime closure `796e5e7525e05a7a42bd74f84c29f3491e46c9390704275c5ce9f58eef6bb356`,
+  privacy/six-series `94be45212fa660a2e863c8eb34267b9092949126337f0e261104a7c30d3ae0a0`.
+  Všech 170 installed package versions souhlasí s frozen lock. READY není
+  GPU lease ani výsledek H1; plaintext je stále nepřítomný a sběr NOT_RUN.
+
+Freeze připíná Node 24.21.0, Python, installed CHAT dependencies, oba historické
+source SHA, daemon PID/startTicks/UID/argv/boot, exact model manifesty i worker
+binary. Velké weight blobs nejsou znovu celé hashované: uvedená identita vychází
+z exact manifest/digest a canonical artifact path/size/inode. Nejde o úplnou
+OS/kernel/driver closure. Aktuální prázdný GPU snapshot není lease; controller
+provádí nové admission a kontroly mezi sériemi. Agregátní GPU utilization pouze
+zaznamenává, stejně jako původní runner. Před sérií se vyžaduje prázdné PS/compute;
+při následném natural-expiry smí známý vlastní rezidentní model čekat nejvýše
+600 s. Cizí/UNKNOWN stav či změna vlastníka znamenají okamžitý STOP, překročení
+limitu také STOP. Žádné automatické load/unload/eviction operace nepřidává.
+
+Přesný JIT descriptor je
+`/mnt/vi7000/intentsmith/evidence/chat-holdout-window-20261008/input/holdout.json`,
+SHA `2431296e7a1583329fb4185a1dbbe6610749985385cd1afa2c6952428b63e9ff`,
+mode 0600 a uid 1000, parent 0700. Budoucí inode se ve freeze nepředjímá;
+controller až po JIT dešifrování strojově ověří pečeť a sváže aktuální identitu
+regular souboru bez symlinků/hardlinků. Tu uloží do privátního runtime bindingu.
+Změna identity znamená UNKNOWN/preserve/STOP, nikoli smazání náhrady.
+
+ROOT po JIT dešifrování a uzavření souběžných ověřování otevře vlastní sériové
+okno a použije jediný sterilní outer příkaz s již přijatým exact READY.
+ROOT zachytí stdout/stderr do nových privátních exclusive logů; argumenty
+příkazu zůstávají přesně následující:
+
+```sh
+/usr/bin/env -i PATH=/usr/bin:/bin /usr/bin/python3 -I -B \
+  /home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c20-h1-window-preparation-20261008/controller-v2.py --live \
+  /home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c20-h1-window-preparation-20261008/freeze-candidate-v2/FREEZE-candidate.json \
+  871fb7f563d48b231de3594a2bad7e71e4f21b094671fc11909dfcaa27436c6a \
+  /home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c20-h1-window-preparation-20261008/independent-source-review/READY-R2.json \
+  796e5e7525e05a7a42bd74f84c29f3491e46c9390704275c5ce9f58eef6bb356
+```
+
+Pořadí zůstává Qwen 1→2→3 a Gemma 1→2→3, A i B a původní approval oracle,
+bez ladění či retry. Pevný provozní strop je 30 minut na sérii, 270 minut aktivní
+kampaně a nejvýše jediných dalších 10 minut terminal natural-expiry cleanup
+(+ TERM/KILL drain 3+3 s). Toto není změřená délka H1 ani garance šesti sérií.
+Po každé sérii přirozená expirace čeká nejvýše 10 minut pod vlastní lease;
+vyžadují se tři prázdné PS/compute vzorky a dostatečná VRAM/RAM/disk.
+
+Vnější Linux subreaper uzavírá vlastní potomky včetně double-fork/new-session;
+čistý drain dokládá kernelové ECHILD, nikoli jen vzorkovaný seznam PID. Teprve
+po prokázaném drain se v terminal finally odstraní přesný svázaný plaintext
+při preflight FAIL, STOP, SIGINT/SIGTERM nebo neúplné sérii, pokud již předtím
+úspěšně proběhlo strojové bind_plaintext. Odmítnutí v main nebo před bindingem
+nemá prokázanou identitu a unlink neslibuje. Cizí/nově
+nahrazené soubory ani procesy se nemažou/nezabíjí. Pád hostitele či SIGKILL nemají
+finally záruku; recovery zachová UNKNOWN do ověření identity a drain. Raw zůstává
+privátní pro operátora. Safe output obsahuje jen allowlist stavů, počtů a identit;
+žádné case IDs, chyby či texty odpovědí. COLLECTION_COMPLETE_UNASSESSED není skóre.
+
+## Historický manuální postup 7. 10. — nespouštět
+
+Následující původní příkazy a ruční kroky jsou zachovány pro audit. Nejsou druhou
+aktuální launch cestou; nahrazuje je výše uvedený přijatý C20 outer controller.
 
 Pořadí před sběrem: Qwen 1→2→3, poté Gemma 1→2→3. Žádné hodnocení ani ladění
 mezi sériemi/kandidáty. Každý má nový vlastní record; dummy a známá regrese
@@ -107,7 +194,7 @@ po vypršení limitu STOP, nikoli předpoklad, že je volno. Případný explici
 unload musí pod novým shared lease prokazatelně patřit právě ukončenému běhu.
 Cizí/UNKNOWN model, claimant nebo proces = STOP, nikdy automatická evikce.
 
-### Přesné příkazy (až po uzavření readiness)
+### Historické jednotlivé příkazy
 
 Neprovádět tento blok jako slepou smyčku: každá další série je podmíněna
 uzavřením předchozí a čistým GPU. `CHAT_HOLDOUT_FILE` je přesná operátorem
@@ -179,7 +266,7 @@ poté odstraní přesný vstupní plaintext ověřený při dešifrování a ov�
 Před unlinkem znovu kontroluje regular-file/nesymlink, SHA a device/inode;
 při změně identity nemaže neznámý soubor a eskaluje konkrétní rozpor správci.
 Potvrzení cleanupu obsahuje jen metadata; raw evidence zůstane zachována dle
-uzavřené custody volby. Nové okno znovu vyžaduje dešifrování těsně před startem.
+již udělené autorizace privátního lokálního předání operátorovi. Nové okno znovu vyžaduje dešifrování těsně před startem.
 Po pádu koordinátora je tento cleanup první recovery krok; nelze jej připsat
 runneru, který nemá garantovaný signal handler.
 
@@ -188,7 +275,7 @@ runneru, který nemá garantovaný signal handler.
 Po šesti dokončených sériích: ověřit neměnnost zdroje/digestů, ukončení vlastních
 procesů, čisté GPU a uvolněné lease; hashovat raw balík bez čtení do kontextu.
 Odstranit přesný znovu dešifrovaný vstup; ciphertext a raw důkazy předat dle
-uzavřené custody volby. Odpovědi i celý manifest zůstanou soukromé; veřejná
+již udělené autorizace privátního lokálního předání operátorovi. Odpovědi i celý manifest zůstanou soukromé; veřejná
 část má jen ověřené agregáty, cesty a SHA-256. Operátor vytvoří zaslepené X/Y,
 klíč odděleně; dva nezávislí hodnotitelé nevycházejí z vlastních známek autora.
 
