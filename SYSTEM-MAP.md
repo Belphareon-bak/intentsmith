@@ -28,9 +28,18 @@ Own DB kopie, žádný zbývající projekt/konverzace ani M2 efekt a čisté uk
 Jde o development-loopback API, ne produkční auth ani Studio; registry BLOCKED se nemění.
 [Přesné důkazy C23](docs/review/evidence/product-continuation-20261008/c23-export-api.json).
 C24 přidává skutečnou nabídku exportu otevřené konverzace ve Studiu; source/CPU106
-má nezávislé review a build prošel. Integrované frontend106 / artifact160 / module1516 +0 / registry597 prošly; živé stažení čeká.
+má nezávislé review, build a CI 18 na `ca3776ae` prošly. Integrované frontend106 /
+artifact160 / module1516 +0 / registry597 prošly. První actual skončil před Studiem:
+testovací složka byla registrovaná už při startu, jiné požadované jméno správně
+vyvolalo 409. Exportů 0, modelů 0; cleanup a AFTER prošly. Opravený adapter čeká
+na samostatnou revizi a nový průchod.
 Nová frontend změna není pokrytá předchozím celým profilem C22.
 [Paket C24](docs/review/evidence/product-continuation-20261008/c24-studio-export.json).
+C25 doplnil výjimku pro výslovně jmenovaný editovatelný test k původnímu pokynu
+„Keep old tests; use a new test for a new module“.
+Chráněný oracle a assertions zůstávají chráněné; původních57 a nová4K regrese mají
+autorské, nezávislé i integrované58 PASS. C22 modelový FAIL zůstává.
+[Přesný rozsah C25](docs/review/evidence/product-continuation-20261008/c25-project-test-instruction.json).
 Deterministické výsledky nenahrazují živou kvalitu ani release přejímku.
 Historický C12 profil na `678eead707a59df568c7353a8b2dd7ad6c175b23`
 měl produktový zdroj C9 `24f329c6` a obsahoval C11/C12 opravy testů.
@@ -919,14 +928,14 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 **REVIEW_PENDING** — [aktuální UI oprava a evidence](docs/review/2026-09-17-HUNT-MODEL-CONTROLS-FOLLOWUP.md).
 
 Následující LOC a registry census jsou přeměřené 8. 10. 2026 přímo na zdroji
-C24 pracovního kandidátu nad `e4156946` včetně nabídky exportu a nových frontend regresí, přes stejný algoritmus jako `tests/artifact-validation.test.js`:
+C25 pracovního kandidátu nad `ca3776ae` včetně exportu a opravy projektového pokynu, přes stejný algoritmus jako `tests/artifact-validation.test.js`:
 počet skutečných `.js` souborů a počet znaků nového řádku v jejich bytech.
 Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
 | `src/**/*.js` | **237 486 ř.**, 688 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **272 218 ř.**, 605 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **272 250 ř.**, 605 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **597** (`499 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 109** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |

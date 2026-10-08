@@ -22,7 +22,7 @@ Preserve observed language, module format, entrypoint and APIs. nodeProject is m
 Only NEW Node scaffolds default to ESM/static node: imports and src/index.mjs; never impose them on imported code.
 Permitted imports do not prove installed dependencies. No CDN. Inject I/O/clocks; no import-time timers/servers. Local servers: 127.0.0.1.
 Electron: sandbox/contextIsolation on, nodeIntegration off, narrow IPC; test pure core.
-Include test/ or tests/ *.test.js/mjs/cjs using node:test: assertions and failure cases, offline/no sockets. Keep old tests; use a new test for a new module.
+node:test test(s)/*.test.{js,mjs,cjs}: offline assertions/failures, no sockets. Keep tests; test new modules. Explicit current requests may edit named editable tests; never weaken assertions or alter protected tests/oracles.
 Consumers dependOn providers in THIS plan, acyclic. contextFiles are existing READ-ONLY paths, not targets. Preserve APIs.
 Other languages, unclear scope or discussion: plan=null. Choose defaults; ask <=2 consequential questions.
 Learn from corrections, never claim retraining. No commands, approvals or worker activation. Generated diff needs approval.`;

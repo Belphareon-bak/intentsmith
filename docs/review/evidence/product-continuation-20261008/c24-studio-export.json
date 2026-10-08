@@ -1,7 +1,7 @@
 {
   "kind": "C24StudioConversationExport@1",
   "baseSha": "e415694651652687f1cd13c51321f6f4aa2c349a",
-  "status": "SOURCE_CPU_REVIEW_PASS_INTEGRATION_BUILD_PASS_LIVE_PENDING",
+  "status": "SOURCE_CPU_BUILD_CI_PASS_ACTUAL_V1_SETUP_FAIL_REVIEWED",
   "sourceFiles": [
     "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/catalog-store.js",
     "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/view/live-model.js"
@@ -122,6 +122,56 @@
       "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/root-integration/registry/test.log",
       "bytes": 251,
       "sha256": "066ab8c6d77ce53ce647b11f006d5d1fce8460d24dc1c4fbe442dbf1230e7ab6"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/CI.json",
+      "bytes": 232,
+      "sha256": "6b61fe1013dbef7fb72e5ed7858931896376d6fb995cbcb5bbd277594cca390e"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/actual-launch/COMMAND.json",
+      "bytes": 1150,
+      "sha256": "816b625451d7d83890c6bb61f299bd14e9380318bcf1b3d4781dfd94abd0c6cf"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/actual-launch/EXIT.json",
+      "bytes": 658,
+      "sha256": "3e112ebc23c259bbbbe89c65e6a221e1a1d1d6230df8e3073e821a189333de73"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/live-preparation/actual-v1/BEFORE.json",
+      "bytes": 151,
+      "sha256": "e1fe46bc3102470a784f517b674b20115812349c4827595faba6388fb2ab1a0e"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/live-preparation/actual-v1/AFTER.json",
+      "bytes": 151,
+      "sha256": "1169592462edca9bf3c60fe402ece4ef39c1276e35c29d22696f54d02237b962"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/live-preparation/actual-v1/RESULT.json",
+      "bytes": 481,
+      "sha256": "2a491bb10ae84a43ee9d37ffea667001f514dfc276658769e1fd0b5a99d8cc6a"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/live-preparation/actual-v1/INSIDE-RESULT.json",
+      "bytes": 393,
+      "sha256": "5fe1a546b5358048c93a8ae795414686b93b845e0d579c118f81a87fdb8c5113"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/live-preparation/actual-v1/EXIT.json",
+      "bytes": 2201,
+      "sha256": "2b17157b4219668cdc9c654c2ef76a2b784875e5e28d6c843203bed0e8606714"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/live-preparation/actual-v1/owned-processes.json",
+      "bytes": 536,
+      "sha256": "92302b18cac15db910ef9a15abcfca5e5424bdbfe3d38299badd07b6fa682844"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c24-studio-conversation-export-20261008/actual-independent-review/REVIEW.json",
+      "bytes": 13951,
+      "sha256": "732e2d2ea998a426b125aa562dbf9a3a8fae01ade9f45e497c05ca79e114ad95"
     }
   ],
   "integration": {
@@ -130,5 +180,22 @@
     "moduleEdges": 1516,
     "newEdges": 0,
     "registryPrograms": 597
+  },
+  "publishedSourceSha": "ca3776ae4147518717ec0eaa67b3481e9673c566",
+  "actualV1": {
+    "sourceSha": "ca3776ae4147518717ec0eaa67b3481e9673c566",
+    "status": "ACTUAL_EVIDENCE_REVIEW_PASS_ACTUAL_FAIL",
+    "cause": "Fixture directory existed before startup discovery. Backend registered its basename; explicit different project name correctly required rename confirmation (409), before Studio or export.",
+    "observedExports": 0,
+    "modelCalls": 0,
+    "studioStarts": 0,
+    "backendStarts": 1,
+    "conversations": 0,
+    "messages": 0,
+    "effectTablesZero": 5,
+    "cleanup": "PASS",
+    "beforeAfter": "PASS40235refs305links",
+    "budgetCaveat": "Original RESULT exports:1 is the planned upper bound, not observed activity; the original file is preserved.",
+    "next": "Proposed V2 creates directory after backend readiness, preserves strict201 and records response before assertion; one fresh attempt after independent adapter review and new source/CI/freeze."
   }
 }

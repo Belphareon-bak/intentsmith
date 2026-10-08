@@ -25,7 +25,9 @@ a inkluzivní časovou hranici. **Plán je nepřijatý**, projekt se nezměnil,
 GPU cleanup prošel. Původní FAIL zůstává.
 Markdown export API prošel 10 původními kontrolami i nezávislou revizí.
 C24 doplňuje jeho nabídku ve Studiu; source/CPU 106 a build prošly,
-skutečné stažení ještě čeká. Celý profil C22 tuto následnou změnu nepokrývá.
+první živý test zastavila chyba přípravy fixture před Studiem (exportů0).
+C25 opravuje rozporný pokyn k editovatelným testům; integrace58 PASS.
+Celý profil C22 tyto následné změny nepokrývá.
 
 **Release je NOT_ACCEPTED.** Produkční backend zůstává `c84b88cd`; tento
 vývoj jej nenasazuje. Kvalita expertíz, dlouhodobá stabilita, zbývající
@@ -69,7 +71,7 @@ autoritativní IntentSmith Studio runtime už neobsahuje implicitní Google Font
 Studio používá Theia runtime s motivy a ovládáním IntentSmithu.
 
 **Verze:** 136.1.0, vývojový kandidát 1.0. Počty registru pro
-pracovní C24 nad `e4156946` jsou odvozené z [generovaného registru](docs/convergence/TEST-REGISTRY.md)
+pracovní C25 nad `ca3776ae` jsou odvozené z [generovaného registru](docs/convergence/TEST-REGISTRY.md)
 a při další změně registrace se znovu přeměří:
 **597 registrovaných testovacích programů**
 (`499 ACTIVE`, `83 BLOCKED`, `0 KNOWN_DEFECTIVE`, `15 HISTORICAL`).

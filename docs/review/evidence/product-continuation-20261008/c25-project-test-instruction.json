@@ -1,0 +1,106 @@
+{
+  "kind": "C25ProjectEditableTestInstruction@1",
+  "baseSha": "ca3776ae4147518717ec0eaa67b3481e9673c566",
+  "status": "SOURCE_CPU_REVIEW_PASS_INTEGRATION_58_PASS",
+  "behavior": "Default retains existing tests; an explicit current request may edit a named editable test without weakening assertions or altering protected tests/oracles. Approval and context budgets remain unchanged.",
+  "sourceFiles": [
+    "src/chat/handlers/project-collaboration.js",
+    "tests/project-collaboration.test.js"
+  ],
+  "tests": {
+    "existing": 57,
+    "added": 1,
+    "author": 58,
+    "independent": 58,
+    "integration": 58,
+    "fail": 0
+  },
+  "limits": [
+    "C22 original live plan remains rejected; no model-compliance or inclusive-hour-boundary improvement established.",
+    "The prompt conflict is demonstrated; causality of the prior model error is not isolated by ablation.",
+    "No live model retry, binding, approval, context-limit or protected-oracle change.",
+    "Last accepted complete profile411 belongs to e415; focused C25 tests do not extend that result to current source."
+  ],
+  "refs": [
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c25-project-test-instruction-20261008/SOURCE-TEST-v4.patch",
+      "bytes": 5221,
+      "sha256": "026779bdb4745bb4d0358264b576481aaddbacbf01deefabc940e3b3e5093ca4"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c25-project-test-instruction-20261008/MANIFEST.json",
+      "bytes": 12608,
+      "sha256": "d82982e14cc995ca1211c0f56cbd22d89e5bb2527fff85ff5944aa7626911435"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c25-project-test-instruction-20261008/RESULT.json",
+      "bytes": 13738,
+      "sha256": "218739b93529c7e1e3ef2ce1b84c5b831b6e20b9bf624df6b6dc2de1b483297d"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c25-project-test-instruction-20261008/independent-review/REVIEW.json",
+      "bytes": 9072,
+      "sha256": "feb12418fed509190fbff3a2e194fab1206790c72e9bc30fb881d188fbf909b3"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c25-project-test-instruction-20261008/root-integration/ADOPTION.json",
+      "bytes": 1479,
+      "sha256": "792f01983f0ed4a6c3a81f4a9afdeb5de1136cabb95b60e3212ff232530fa467"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c25-project-test-instruction-20261008/root-integration/project/COMMAND.json",
+      "bytes": 4092,
+      "sha256": "5476f8ecb07b7317f57c5b92d3a06ff715035872a1a2e27524546556910fa7b5"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c25-project-test-instruction-20261008/root-integration/project/EXIT.json",
+      "bytes": 362,
+      "sha256": "95ae5f425851d8bfe62145c89c86779467682c62e0e8329019e4649a4623f4b2"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c25-project-test-instruction-20261008/root-integration/project/test.log",
+      "bytes": 47758,
+      "sha256": "b38178962993b602daab1798ddf45ba35a216b8ef6e970a3baffc5c14748ac99"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c25-project-test-instruction-20261008/root-integration/CENSUS.json",
+      "bytes": 113,
+      "sha256": "b21cde044ad5d5c6de443ebd601bc42a441bbaa449e7eef912b1238b5ddb4aa3"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c25-project-test-instruction-20261008/root-integration/artifact-validation/COMMAND.json",
+      "bytes": 4699,
+      "sha256": "bac9793f19582b23079c4d493a77c841b1295eaf4b4f6828c28f7e9bee8ba71d"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c25-project-test-instruction-20261008/root-integration/artifact-validation/EXIT.json",
+      "bytes": 373,
+      "sha256": "a9257a3b35fe8552bec97a8ebfdaa8eb28e2773b6daa383afb791ccd31505868"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c25-project-test-instruction-20261008/root-integration/artifact-validation/test.log",
+      "bytes": 1034,
+      "sha256": "ea3be4f609f3ce82cce005553038a0352e28563902d487eb3251c0e857b914a5"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c25-project-test-instruction-20261008/root-integration/artifact-validation-v2/COMMAND.json",
+      "bytes": 4855,
+      "sha256": "30f41e0cf5f8f1ace4a97316f9bc42b8f5092e52969e1ef0b8beffd1a53d8060"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c25-project-test-instruction-20261008/root-integration/artifact-validation-v2/EXIT.json",
+      "bytes": 377,
+      "sha256": "a0fcef65db4989ebc15d633afd658e22dc21f5eee633692688dfdf0b38c3330a"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c25-project-test-instruction-20261008/root-integration/artifact-validation-v2/test.log",
+      "bytes": 13425,
+      "sha256": "f52f3b750d7cd8d7f751d21f040b6e178db02e7090f12d6ed38b3f50e3b68476"
+    }
+  ],
+  "artifactValidation": {
+    "pass": 160,
+    "fail": 0,
+    "initialAttempt": "Harness stopped before tests because TMPDIR was not private; preserved, corrected to private0700 in a fresh directory."
+  }
+}

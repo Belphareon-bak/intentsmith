@@ -1,6 +1,6 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 8. 10. 2026. Celý profil na čistém `e4156946`: 411 PASS / 0 FAIL, CI18, nezávislé review. HTTP14 přijatý 70 + 17, rozpočet uzavřený. Fan 12/15 čeká na chráněný oracle. H1 READY, JIT operátora chybí, NOT_RUN. C21 archivní extrakce přijatá v omezeném rozsahu. C22 skutečně dosáhl D1, ale plán porušil cestu testu i inkluzivní hranici; ACTUAL_FAIL, nezávislý semantic/technical audit a cleanup PASS, žádné efekty/retry. C23 skutečné Markdown API 10 PASS / 15 požadavků / model0 má nezávislé přijetí. C24 nabídka exportu ve Studiu má source/CPU106 review, adoptovaný zdroj a build PASS; integrace106/160/1516/597 prošla, živý download čeká. C6 skóre 74,21 % / 15,09 % zůstává; release NOT_ACCEPTED. Staré FAILy ani přijaté ohraničené cykly se nepřepisují.
+**Aktualizováno:** 8. 10. 2026. Celý profil na čistém `e4156946`: 411 PASS / 0 FAIL, CI18, nezávislé review. HTTP14 přijatý 70 + 17, rozpočet uzavřený. Fan 12/15 čeká na chráněný oracle. H1 READY, JIT operátora chybí, NOT_RUN. C21 archivní extrakce přijatá v omezeném rozsahu. C22 skutečně dosáhl D1, ale plán porušil cestu testu i inkluzivní hranici; ACTUAL_FAIL, nezávislý semantic/technical audit a cleanup PASS, žádné efekty/retry. C23 skutečné Markdown API 10 PASS / 15 požadavků / model0 má nezávislé přijetí. C24 nabídka exportu ve Studiu má source/CPU106 review, adoptovaný zdroj a build PASS; integrace106/160/1516/597 prošla, první actual skončil na fixture409 před Studiem, exportů0/modelů0, cleanup/AFTER PASS; oprava adapteru se reviduje. C25 prompt konflikt odstraněný, původních57+nová4K regrese: nezávislé i integrované58 PASS, bez nové modelové přejímky. C6 skóre 74,21 % / 15,09 % zůstává; release NOT_ACCEPTED. Staré FAILy ani přijaté ohraničené cykly se nepřepisují.
 **Vlastník integrace a CHAT:** tento koordinátor přebírá ROOT
 (`work/real-chat-journeys-20260930`) podle následného pokynu operátora.
 Jediný writer `cre-decision.js` i společných map je nyní ROOT; HTTP, Fan, fresh5
@@ -16,8 +16,8 @@ fan — 15 jedna dávka oprav“. Tyto rozpočty již nečekají na další potv
 
 - H1: podmínka kontroly GPU cleanup je doložená přijatými konkrétními běhy.
   Šest sérií i soukromé předání raw operátorovi pro zaslepení už jsou autorizované;
-  starý custody PENDING nevyžaduje nový souhlas. Zbývá bounded vnější dohled,
-  úklid dvou vlastněných modelů, bezpečný výstup pouze metadat a fresh freeze nad
+  starý custody PENDING nevyžaduje nový souhlas. C20 již přijal bounded vnější dohled,
+  úklid dvou vlastněných modelů, bezpečný výstup pouze metadat a přesný freeze nad
   původními `c7f03d56` / `9591ea1b`. Operátor dešifruje těsně před připraveným oknem;
   zatím bez nového plaintextu či sběru, NOT_RUN. [Audit autority a technických mezí](review/evidence/product-continuation-20261008/c17-role-comparison.json).
 - HTTP: první genuine CODE repair routeru nad skutečným FAILED návrhem, server
@@ -973,11 +973,11 @@ Actual používá zdroj cache 0700; původní zdroj 0775 pokrývá CPU regrese, 
 | HTTP CODE | HTTP14 nové1/celkem14, primary70+supplement17 actual review PASS; app0ae3bd8c, M2/restart/cleanup PASS. Omezení charset=utf8 zachované; historické HTTP13 a anchored@5 FAIL nepřeznačené |
 | HTTP strategie | HTTP14 zmrazený rozsah uzavřen posudkem9de65080; rozpočet14 vyčerpaný. Další CODE volání, úplná API shoda ani release přejímka z výsledku neplynou |
 | Fan | C13 dokončil4 další výstupy, celkem12/15; literal import guard/oracle změna čeká na operátora, původní FAIL zachovaný. Cleanup skutečného Qwen32k běhu přijat; další core inference nepovolena |
-| Přirozené plánování | C5 v5 po opraveném ovladači odeslal vstup; GPU monitor FAIL před úplnou odpovědí, D1 NOT_REACHED. Stagnace: žádný další retry v tomto cyklu |
+| Přirozené plánování | C22 skutečně Studio→classifier→D1, ale návrh porušil cestu testu a inkluzivní hranici; PLAN_REJECTED, cleanup přijatý. C25 odstraňuje doložený prompt konflikt, source/CPU58; žádný nový živý modelový pokus |
 | M1 outage | C1 `1f098912` source review a řízené HTTP/restart PASS; testovaný `b9cfc7c5` full410/CHAT7/CODE12/CI PASS; ROOT převzal e15264f1; C4 fresh5 b959a468 5PASS/review PASS |
 | Chatová kvalita | C6 skóre 74,21 % / 15,09 % zůstává NO_GO. C15 na `52d230c1`: známý čtyřtahový dialog, přesný schválený zápis 90 B a cleanup mají nezávislé review PASS. Historické F11 FAIL zachované. C16: šest dalších zadání, CPU 13 PASS pouze před M2. C17 uzavřeno: NO_MODEL_PREFERENCE, 24 odpovědí; žádný binding ani retry |
 | C18/C19 volba cíle | C18 publikovaný `21b25085` / CI 18 SUCCESS. C19 source / CPU 23 / HTTP 4 i integrace context 143 / project 57 mají nezávislé review; sdílený parser zachovává choices i přes ASK_USER. Jen known-answer + typed marker; legacy/literal/generated mimo. Původní module FAIL +2 zachovaný; baseline na `d3dbc897`, ratchet a tehdejší celý profil C19 na `e7f2dd92` 410 PASS / CI 18 / review PASS. Žádná modelová nebo release přejímka |
-| Providerové chyby | C9 zdroj24f329c6: zbývající classifier404/binding/drift +projektové chyby terminal; řízené13HTTP/57project GREEN, source/test/evidence/integrace19/CI PASS. C12 na678eead7 a C14 na44e4d96c jsou historické profily; aktuální celý profil 7b7e1f9d s produktem C21 má 410 PASS / CI 18 SUCCESS / nezávislé review; interní M7 status se nemění |
+| Providerové chyby | C9 zdroj24f329c6: zbývající classifier404/binding/drift +projektové chyby terminal; řízené13HTTP/57project GREEN, source/test/evidence/integrace19/CI PASS. C12 na678eead7 a C14 na44e4d96c jsou historické profily; poslední přijatý celý profil e4156946 má 411 PASS / CI 18 SUCCESS / nezávislé review; následné C24/C25 mají vlastní cílené kontroly; interní M7 status se nemění |
 | Mobil | Chybí conversation.create; implementace a device přejímka až po stabilním IDE/BE |
 | Hunt | Potřebujeme nový grading report/cestu a vlastníka pokračování; ROOT cizí hodnocení nepřebírá |
 | H1 připravenost | C20 R2 celkové READY: vnější dohled, cleanup, bezpečná projekce i exact freeze c7/959 přijaté; 38 CPU PASS. Zbývá JIT dešifrování operátorem a skutečný sběr šesti sérií. H1 NOT_RUN |
@@ -998,6 +998,28 @@ Genuine repair CPU feasibility9c0c6a3a: router1/server retain, prompt30 614 B, s
 Fan 32k byl nejdřív změřen: krátká alokace fullGPU/min free 2 512 MiB; actual dvě loaded samples 2 476 MiB.
 To nedokládá zaplněné 32k okno. Output4096 platí jen pro vydaný exact CODE32k profil; ostatní parametry zachované.
 [CODE WP](wp/WP-CODE-PEER-CONTEXT-BUDGET-20261001.md), [projektový WP](wp/WP-PROJECT-FLOW-20260918.md).
+
+C24 první actual na `ca3776ae` skončil 8. 10. v 17:00 UTC ještě při fixture:
+startup discovery zaregistrovalo předem vytvořenou složku; jiné explicitní jméno
+správně vyvolalo `PROJECT_RENAME_CONFIRMATION_REQUIRED` /409. Studio, konverzace
+ani export nevznikly; původní `RESULT.exports:1` je plánovaný strop, skutečnost0.
+Vlastní DB kopie potvrzuje1 projekt,0 konverzací/zpráv a pět nulových efektových
+tabulek. Jediný backend se ukončil, parent bez timeout/leak, BEFORE/AFTER40 235
+refs/305links PASS. Nezávislé review732e2d2e přijalo tento uzavřený FAIL.
+Úzká oprava adapteru přesune mkdir až za readiness; strict201 zůstává.
+[Původní důkazy a revize](review/evidence/product-continuation-20261008/c24-studio-export.json).
+
+### C25 — sjednocení pokynů pro editovatelný projektový test
+
+Nad čistým publikovaným `ca3776ae` je integrována jediná změna systémového
+odstavce: výslovný aktuální požadavek smí upravit jmenovaný editovatelný test.
+Existující testy a assertions se zachovávají; chráněné testy/oracle se nemění.
+Žádné přepisování modelového plánu, změna approval, limitu kontextu nebo modelu.
+Původních57 testů zůstalo, přibyla4K kontrola celého požadavku a chráněného oracle;
+autorské, nezávislé i ROOT integrační běhy mají58 PASS. Staré RED a nepřijaté
+varianty promptu zůstávají v důkazech. C22 skutečný FAIL není opraveným modelem
+ani novým měřením: vliv rozporného pokynu nebyl izolován ablačním pokusem.
+[Přesný patch, revize, příkazy, exity a SHA-256](review/evidence/product-continuation-20261008/c25-project-test-instruction.json).
 
 ## Zbývající testy a pořadí dokončení
 
@@ -1022,11 +1044,14 @@ To nedokládá zaplněné 32k okno. Output4096 platí jen pro vydaný exact CODE
    74,21 % užitečnosti /15,09 % zbytečných zastavení, NO_GO. Další práci řídit
    zbývajícími příčinami, zachovat nezměněných53 známých případů jako regresi.
    C17 NO_MODEL_PREFERENCE neopravňuje přepnutí modelu ani opakování týchž pokusů.
-   Živý přirozený classifier→D1 a fyzická ovladatelnost IDE/M2 potřebují další
-   odůvodněnou strategii po přijatém C5 FAIL. C22 nyní soukromě připravuje
-   serial Gemma→Qwen3.5 přechod pod stejnou lease; source/CPU review a nový
-   freeze teprve vznikají. Žádný další actual nebyl spuštěn.
-5. **Zbývající produktové cesty:** file/web/export/skills, projekt A→B→A,
+   C22 prokázal skutečný Studio→classifier→D1 přechod pod stejnou lease,
+   ale plán porušil zadání; ACTUAL_FAIL zůstává. C25 opravuje konkrétní rozporný
+   systémový pokyn, nikoli modelový výsledek. C24 export má source/CPU/build/CI,
+   jeho první actual zastavila chyba fixture před Studiem; následuje opravený
+   adapter a jediný nový průchod po nezávislé revizi.
+5. **Zbývající produktové cesty:** C23 export API přijatý; C24 Studio download
+   otevřený. C26 připravuje skutečné projektové A→B→A se dvěma oddělenými
+   historiemi a stejně pojmenovanými soubory. Dále file/web/skills,
    kvalita expertise/specialistů, worker souběh a delší stabilita. Potom společná
    M5/M6 evidence, 24h soak, propustnost, nový H2 a explicitní release gate/demo.
    Mobil má historical CPU47; fyzická matice13+7 NOT_RUN (device/APK/VPN,

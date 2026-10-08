@@ -796,7 +796,7 @@ test('natural project request crosses the actual semantic classifier and default
   assert.equal(llmGateway._concurrency.active, 0);
   assert.equal(llmGateway._concurrency.queue.length, 0);
   const project = await fixture(t);
-  const request = projectScopeRequests[1];
+  const request = projectScopeRequests[1] + ' Nahraď jmenovaný editovatelný test/acceptance.test.mjs funkčními assertions pro tento přírůstek; chráněný oracle ponech beze změny.';
   const priorRequest = 'První krok má připravit parser a jeho funkční test.';
   const priorReply = 'Připravíme návrh bez spuštění nebo změny souborů.';
   const goal = 'Monitor s paměťovou historií a samostatnými testy.';
@@ -894,6 +894,13 @@ test('natural project request crosses the actual semantic classifier and default
     assert.deepEqual(interpreted.history, [{ role: 'user', content: priorRequest }, { role: 'assistant', content: priorReply }]);
     assert.match(requests[0].messages.find(message => message.role === 'system').content, /responseScope/);
     assert.deepEqual(requests[1].format, PROJECT_DISCUSSION_SCHEMA);
+    // Check the actual gateway payload, not only the exported prompt constant.
+    const emittedSystem = requests[1].messages.find(message => message.role === 'system').content;
+    assert.match(emittedSystem, /Keep tests; test new modules/);
+    assert.match(emittedSystem, /Explicit current requests may edit named editable tests/);
+    assert.match(emittedSystem, /never weaken assertions or alter protected tests\/oracles/);
+    assert.match(emittedSystem, /Generated diff needs approval/);
+    assert.doesNotMatch(emittedSystem, /Keep old tests; use a new test for a new module/);
     const planned = JSON.parse(requests[1].messages.find(message => message.role === 'user').content);
     assert.equal(planned.request, request);
     assert.equal(planned.project.id, project.id);
@@ -1120,4 +1127,29 @@ test('M1 project planner terminal failures preserve HTTP status, user-only histo
         generatedByRealModel: false, fixtureViolations: violations });
     }
   });
+});
+
+
+// C25: prompt-contract regression only; controlled data cannot prove model quality.
+test('4K D1 packing preserves an explicit editable test target and protected-oracle constraint', () => {
+  const request = 'Uprav test/window.test.mjs: smysluplně ověř přesnou inkluzivní hranici jedné hodiny i starší vzorek. Zachovej existující assertions nesouvisející s touto změnou; chráněný oracle neměň. Jen návrh, žádné efekty.';
+  const original = 'import test from "node:test"; test("existing assertion", () => {});';
+  const input = { request, project: { id: 77, name: 'Window history', description: 'Retain bounded history with meaningful tests.' },
+    history: Array.from({ length: 8 }, (_, i) => ({ role: i % 2 ? 'assistant' : 'user', content: 'Old unrelated discussion. '.repeat(120) })),
+    analysis: { revision: 'wsr1:c25-fixture', fileCount: 2, files: ['src/window.mjs', 'test/window.test.mjs'],
+      setup: { policy: { roots: ['src', 'test'] } }, directories: ['src', 'test'],
+      excerpts: [{ path: 'test/window.test.mjs', text: original, truncated: false }] }, projectWorkEvidence: [] };
+  const before = JSON.stringify(input);
+  const fitted = fitProjectDiscussionPrompt(before, 4096);
+  const selected = JSON.parse(fitted.prompt);
+  assert.equal(fitted.numCtx, 4096);
+  assert.equal(selected.request, request, 'the current request, target and protected-oracle constraint remain verbatim');
+  assert.equal(selected.project.description, input.project.description);
+  assert.deepEqual(selected.analysis.excerpts.find(file => file.path === 'test/window.test.mjs'), input.analysis.excerpts[0]);
+  assert.equal(JSON.stringify(input), before);
+  assert.ok(Buffer.byteLength(fitted.systemPrompt + fitted.prompt) <= fitted.maxBytes);
+  assert.ok(fitted.maxTokens + fitted.maxBytes / 2 + 384 <= 4096);
+  assert.match(fitted.systemPrompt, /Explicit current requests may edit named editable tests/);
+  assert.match(fitted.systemPrompt, /never weaken assertions or alter protected tests\/oracles/);
+  assert.match(fitted.systemPrompt, /Generated diff needs approval/);
 });
