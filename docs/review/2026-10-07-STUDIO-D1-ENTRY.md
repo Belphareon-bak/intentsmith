@@ -65,7 +65,7 @@ se tím nezvyšují. Pro reviewerovo nové živé opakování je potřeba sério
 okno s vlastní lease a novými output cestami; přehrání uložených důkazů GPU nepotřebuje.
 Zakázané vstupy jsou H1/H2, `restricted/` a jejich odpovědi.
 
-**Release NOT_ACCEPTED; HTTP/Fan FAIL zůstávají.** C5 se zastavuje před CODE,
+**Historický stav při uzavření C5: release NOT_ACCEPTED; tehdy HTTP/Fan FAIL.** C5 se zastavuje před CODE,
 proto ani budoucí úspěšný proposal sám nepřijme vygenerovanou aplikaci.
 
 ## v5 — vstup odeslán, běh přerušen; D1 nepřijaté
@@ -113,3 +113,32 @@ HTTP/Fan budgety se nezvýšily, release zůstává NOT_ACCEPTED.
 [Přesný doplněk v5 s příkazy a SHA-256](evidence/studio-d1-entry-20261007/v5.json).
 Samostatný [C8](2026-10-07-CHAT-TRANSPORT-FAILURES.md) opravuje tři reprodukované
 providerové chyby; zpětně neidentifikuje nezachycenou výjimku C5.
+
+## Dodatek 8. 10. 2026 — důvod a hranice dalšího pokusu
+
+Původní C5 **LIVE_FAIL / D1_NOT_REACHED** platí. Společné věty o HTTP/Fan výše
+popisují tehdejší stav. Nyní je [HTTP14 nezávisle přijaté v původním rozsahu
+70 + 17 kontrol](evidence/product-continuation-20261008/http14-actual.json), včetně
+schválení M2, commitu, restartu a vlastního úklidu. Tento výsledek není přijetím
+přirozeného Studio → classifier → D1 vstupu, Fan ani celého release. Zůstávají
+výslovné meze aliasu `charset=utf8`, rozsahu persistence a vzorkované GPU provenance.
+
+Další krok navazuje na původní C5/D1 zadání. Oprava slotu 0 už ve v5 skutečně
+odeslala vstup. Pozdější C14/C15PATH a C17 doložily úklid s potvrzeným vlastním
+unload a třemi po sobě prázdnými vzorky; C17 však používal Qwen3.8, nikoli původní
+D1 Qwen3.5. Starý C5 runner stále obsahuje tutéž tvrdou kontrolu workeru během
+první generace, přepínání modelů i unloadu. Samotná výměna závěrečného úklidu
+proto neřeší doložený důvod jeho přerušení.
+
+Před jediným novým pokusem je nutný nezávisle přezkoumaný omezený transport a
+GPU přechod pod jednou lease, nový freeze/claim a ověření uzavření běhu. Dosud
+nejde o připravený adaptér ani povolení opakovat v5. Zachovává se původní vstup,
+modely a 4K profily, 1 classifier + nejvýše 2 D1 (druhý pouze stávající strukturální
+oprava), CODE 0 a žádné prepare/approval/execution. Očekává se tentýž skutečný
+ProjectWorkProposal v M1 terminálu a ve Studiu. UNKNOWN proces zůstává UNKNOWN;
+nesmí získat autoritu pro unload/signál ani být vydáván za prázdný vzorek.
+
+Podklad s přesnými zdrojovými řádky, SHA-256 a chybějícími důkazy:
+`.intentsmith-artifacts/studio-d1-smoke-preparation-20261007/next-step-review-20261008/NEXT-STEP.json`,
+SHA-256 `b9614b33787727c6a3a3d18e0818fa96c625000ba79ecfaa94883b9c2076d868`.
+Příprava byla pouze read-only; žádný nový test, runtime ani modelové volání.

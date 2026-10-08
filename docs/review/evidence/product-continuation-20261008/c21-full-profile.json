@@ -1,0 +1,144 @@
+{
+  "selection": {
+    "offline": 323,
+    "database": 87
+  },
+  "limits": [
+    "Offline/database deterministic scope only; no GPU or live model inference and no chat quality score update.",
+    "Not release acceptance, fresh5/Studio/H1 acceptance, complete arbitrary input coverage or proof of every potential custom-harness assertion.",
+    "C12 historical harness fixes preserved and measured; known output-gate import-only helper explicitly disclosed.",
+    "This review does not rerun any test program or open original DB files."
+  ],
+  "kind": "C21CurrentProductFullProfile@1",
+  "status": "FULL_PROFILE_EXECUTION_REVIEW_PASS",
+  "sourceSha": "7b7e1f9da6d0958f9667a9d5cdf92a63e1ee7329",
+  "command": [
+    "npm",
+    "run",
+    "test:deterministic",
+    "--",
+    "--run-id=archive-c21-full-20261008-7b7e1f9d",
+    "--concurrency=1",
+    "--allow-blocker=toolchain:python-pdf-runtime,toolchain:accountant-ocr-runtime,toolchain:git,toolchain:bwrap,toolchain:iproute2,toolchain:nftables,toolchain:prlimit,toolchain:bubblewrap,toolchain:systemd-analyze,toolchain:python3,toolchain:tar"
+  ],
+  "runId": "archive-c21-full-20261008-7b7e1f9d",
+  "expectedExitCode": 0,
+  "actualExitCode": 0,
+  "counts": {
+    "selected": 410,
+    "pass": 410,
+    "fail": 0,
+    "blocked": 0,
+    "timeout": 0,
+    "skipped": 0,
+    "retry": 0
+  },
+  "fingerprints": {
+    "inventoryFingerprint": "bd458c98749dc45f2b45fc91bbddd9e6bed1796db59fee13e1e0b990e9ac9662",
+    "optionsFingerprint": "aa583033a3469ab962a9380f894a1ffc951d13818e2cea89966faa37bddbf717",
+    "registryHash": "47acf12dbacd05883fcb79c0d06cc2653f7a5744e368b5ea17f2d4291e54e748"
+  },
+  "verifiedLogs": 410,
+  "verifiedLogBytes": 1333128,
+  "focusedCounts": {
+    "m5DataRestore": 43,
+    "context": 143,
+    "scenarioEngine": 42,
+    "sixPreviouslyFixedHarnesses": 239,
+    "projectCollaboration": "57 PASS in separate accepted C19 integration; not selected by this 410 registry profile"
+  },
+  "ci": {
+    "run": 37791877259,
+    "job": 113361124496,
+    "sourceSha": "7b7e1f9da6d0958f9667a9d5cdf92a63e1ee7329",
+    "conclusion": "success",
+    "successSteps": 18
+  },
+  "timing": {
+    "startedAt": "2026-10-08T14:22:04.363369+00:00",
+    "endedAt": "2026-10-08T14:32:25.542078+00:00"
+  },
+  "envOverrides": {
+    "PATH": "/home/belphareon/.nvm/versions/node/v24.21.0/bin:/usr/bin:/bin",
+    "INTENTSMITH_PDF_PYTHON": "/home/belphareon/.local/share/intentsmith/python/pdf/bin/python",
+    "UCETNI_RUNTIME_DIR": "/home/belphareon/.local/share/ucetni"
+  },
+  "unsetEnv": [
+    "NODE_OPTIONS"
+  ],
+  "isolationAndTermination": {
+    "all410RecordedPrivateRuntimePaths": true,
+    "all410SourceHeadClean": true,
+    "all410OwnedProcessCleanupCheckedNoLeaks": true,
+    "all410Exit0AndNoSignalTimeoutOrRetry": true,
+    "parentExit0AndFinalClean": true,
+    "limit": "Runner-owned process cleanup evidence; no independent global host process census or guarantee of no unrelated host processes."
+  },
+  "refs": [
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/full-profile/independent-review/REVIEW.json",
+      "bytes": 13021,
+      "sha256": "6efd90eb2f0f0bb5b73af57c0f592ee558ef436bf543f38a98e5f3a7db1c4227"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/full-profile/independent-review/FULL-VERIFICATION.json",
+      "bytes": 396117,
+      "sha256": "b1ec12600415fef335f6ed69b76d69c867ec0f6c83d42acffb949d833792b22d"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/full-profile/independent-review/verify_completed_full_c21.py",
+      "bytes": 12268,
+      "sha256": "c94f016a590f9b14e6fc1a162b983def5e9884223f9ed189d87307a9ea0dfdd7"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/full-profile/FULL-command.json",
+      "bytes": 1114,
+      "sha256": "c0dbf60a99891686215520984ba65d777add2f25669deeb680b702ce3af62353"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/full-profile/FULL-exit.json",
+      "bytes": 436,
+      "sha256": "0a7363b16aaee6046e6dc10edfb4e7e6899aba6fedc7e35e1970aaf20e7d7f93"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/full-profile/FULL.log",
+      "bytes": 27422,
+      "sha256": "339c9bd182411e914298a6b928659e86fc03170471df380bd35e27e5546aad59"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/run-full.py",
+      "bytes": 2238,
+      "sha256": "2712956a19d2997fbd5bd79199ccb39b63b45fa53970c3cec1ac2ca1c372609f"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/CI.json",
+      "bytes": 351,
+      "sha256": "329754acba94a2439f2f5cd0bfe8f928205e693a10b2e7f2da6106fa02295e22"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/CI-RUN-raw.json",
+      "bytes": 14314,
+      "sha256": "8b29d463bae6f8a0f197017388d56d5dff5a362f8abdb567510efd2e96c30fd0"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/CI-JOBS-raw.json",
+      "bytes": 6010,
+      "sha256": "f3df74ffea8ea5d1d0e102ca5a4a784260a721a6ddef731f0a71c9f06378daf8"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/test-runs/archive-c21-full-20261008-7b7e1f9d/report.json",
+      "bytes": 1693446,
+      "sha256": "1b1d058838e9fd08c0f74c289ef335db0fd45467a5ea6bc97a454f20ca8c0e0d"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/test-runs/archive-c21-full-20261008-7b7e1f9d/inventory.json",
+      "bytes": 377107,
+      "sha256": "7e628378cfd3db70a91275d0c55948fd244b38b015ea3ef16f718a4fc77c17e2"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/test-runs/archive-c21-full-20261008-7b7e1f9d/checkpoint.json",
+      "bytes": 1692047,
+      "sha256": "d81ed49af77145a3dc763457a4fe5950e658809ffe9af6fa2bb1f9e11d78976b"
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 {
   "kind": "C21ArchiveExtraction@2",
-  "status": "SOURCE_CPU_INTEGRATION_AND_DOCS_REVIEW_PASS",
+  "status": "SOURCE_CPU_INTEGRATION_DOCS_AND_FULL_PROFILE_REVIEW_PASS",
   "baseSha": "1b636b025425710889b34b38268a82f86c174f7c",
   "scope": "Explicit offline extraction of three named config JSON paths and flat skills JSON into an exclusively created inactive directory outside installation/data roots. No installation, registration, activation, specialists extraction or DB replacement.",
   "api": "extractStateBackupArchive",
@@ -40,8 +40,7 @@
     "Explicit offline precondition; this extraction mode does not provide server-liveness detection.",
     "Ordinary write failures clean the identity-verified own destination; hard crash may leave partial inactive output.",
     "Private same-user filesystem coordination assumed; no claim against a hostile concurrent same-UID actor.",
-    "No complete configuration/skill reinstall, external-project recovery, M5/M6 acceptance, GPU inference or quality-score change.",
-    "The previous 410-program full profile on e7f2dd92 covers C19 and does not cover C21."
+    "No complete configuration/skill reinstall, external-project recovery, M5/M6 acceptance, GPU inference or quality-score change."
   ],
   "refs": [
     {
@@ -163,6 +162,11 @@
       "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/integration-docs-independent-review/REVIEW.json",
       "bytes": 28744,
       "sha256": "9fe2a5ea3ee4d6e50615adc60cb39077adaf6a802ab67afd600b05005b8162ac"
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c21-archival-extract-20261008/full-profile/independent-review/REVIEW.json",
+      "bytes": 13021,
+      "sha256": "6efd90eb2f0f0bb5b73af57c0f592ee558ef436bf543f38a98e5f3a7db1c4227"
     }
   ],
   "integration": {
@@ -182,8 +186,16 @@
       "supportExclusions": 35
     },
     "allExitCodes": 0,
-    "scope": "Adopted working tree above 1b636b02; net-off bwrap and private synthetic DB/files. Full profile pending.",
+    "scope": "Adopted working tree above 1b636b02; net-off bwrap and private synthetic DB/files. Followed by full410 on clean published 7b7e1f9d.",
     "review": "PASS",
     "sourceBindingLimit": "ROOT checked exact adoption before the command; reviewer verified current files remain exact. Per-program exit records do not themselves include source before/after snapshots."
+  },
+  "sourceSha": "7b7e1f9da6d0958f9667a9d5cdf92a63e1ee7329",
+  "fullProfile": {
+    "sourceSha": "7b7e1f9da6d0958f9667a9d5cdf92a63e1ee7329",
+    "status": "FULL_PROFILE_EXECUTION_REVIEW_PASS",
+    "pass": 410,
+    "ciSuccessSteps": 18,
+    "index": "c21-full-profile.json"
   }
 }

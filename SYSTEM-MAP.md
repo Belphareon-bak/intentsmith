@@ -4,19 +4,17 @@
 Release `NOT_ACCEPTED`; BE `c84b88cd` / Studio `7bf62455…bfe24` nezměněné.
 Přijaté Ledger/TaskFlow/SQLite, omezený AST/GPU panel/cleanup, full109 DB roundtrip a M3 worker;
 opakovat pouze při nové změně nebo konkrétní pochybnosti. ROOT vlastní integraci i CHAT.
-Aktuální celý offline/database profil na čistém `e7f2dd92` pokrývá produkt C19 `d3dbc897`:
-8. 10. 13:17:46–13:27:59 UTC, 410 PASS / 0 FAIL/TIMEOUT/BLOCKED/SKIPPED, exit 0.
-Nezávislé review `1df3c4ec…8c56ab0` ověřilo všech 410 logů / 1 331 853 B,
-323 offline + 87 database, context 143, původních 239 kontrol C12 a scenario 42;
-žádný retry ani hlášený únik vlastní process group. Zdroj před/po čistý a stejný,
-CI `37783220346` má 18 SUCCESS. Project57 je oddělená přijatá serverová integrace.
-[Aktuální celý profil a meze](docs/review/evidence/product-continuation-20261008/c19-full-profile.json).
-Předchozí `d4304899` zůstává historický profil produktu C15, `44e4d96c` před C15.
+Aktuální celý offline/database profil na čistém `7b7e1f9d` pokrývá produkt C21:
+8. 10. 14:22:04–14:32:25 UTC, 410 PASS / 0 FAIL/TIMEOUT/BLOCKED/SKIPPED, exit 0.
+Nezávislé review `6efd90eb…b1c4227` ověřilo všech 410 logů / 1 333 128 B,
+323 offline + 87 database, M5 43, context 143, C12 239 a scenario 42; žádný retry
+ani hlášený únik vlastněných procesů. Zdroj před/po čistý a stejný,
+CI `37791877259` má 18 SUCCESS. Project 57 je oddělená přijatá C19 serverová integrace.
+[Aktuální celý profil a meze](docs/review/evidence/product-continuation-20261008/c21-full-profile.json).
+Předchozí `e7f2dd92` zůstává přijatý historický profil C19; `d4304899` pokrývá C15.
 Deterministický profil neprokazuje živou kvalitu ani release přejímku.
-C21 nad `1b636b02` přidává explicitní offline vyzvednutí config/skill JSON do nové
-neaktivní složky: source/CPU review PASS, 43 autorových +2 nezávislé kontroly.
-ROOT integrace M5 43 /artifact160 /registry596 /module1516 i její review PASS;
-nový celý profil čeká. Předchozí profil C19 tuto změnu nepokrývá.
+C21 má source/CPU/integrační i celý profil review PASS: explicitní offline
+vyzvednutí config/skill JSON do nové neaktivní složky, bez aktivace a DB výměny.
 [Implementace a meze C21](docs/review/evidence/product-continuation-20261008/c21-archival-extraction.json).
 Historický C12 profil na `678eead707a59df568c7353a8b2dd7ad6c175b23`
 měl produktový zdroj C9 `24f329c6` a obsahoval C11/C12 opravy testů.
