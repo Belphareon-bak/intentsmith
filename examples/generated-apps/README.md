@@ -66,10 +66,12 @@ source-copy/privacy review is **REVIEW_PASS**. The earlier 11 source files
 and their parent manifest remain unchanged. This adds no new execution
 or broader functional acceptance.
 
-## Separate unaccepted HTTP candidate
+## Separate HTTP qualification snapshot
 
-[HTTP Items](http-items-candidate/README.md) exports four exact generated
-modules, 26,139 bytes. Its physical oracle passed; source/API review found
-remaining defects. It is **NOT_ACCEPTED** and is excluded from the 24 accepted
-modules above. The original contract, failed history and eight-call budget
-are preserved.
+[HTTP Items](http-items-candidate/README.md) exports four exact generated modules
+from app commit `0ae3bd8c90ae7886ecc8470713413f7508ed2547`. The final cumulative14
+attempt passed the original 70-request oracle, the unchanged 17-request supplement,
+and independent M2/commit/restart/cleanup review. This bounded qualification is
+separate from the 24 accepted modules above; it is not natural D1 or release
+acceptance. Its README and manifest retain the historical FAIL and explicit
+source/API coverage limits. The model budget is closed at 14/14.

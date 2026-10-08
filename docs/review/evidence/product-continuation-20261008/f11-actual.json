@@ -1,7 +1,7 @@
 {
   "kind": "C14F11ActualCheckpoint@1",
   "sourceSha": "a7ef9239f5c73b55787ff03e33d034bd64127a2e",
-  "status": "LIVE_FAIL_REVIEW_PENDING",
+  "status": "LIVE_FAIL",
   "transportExit": 0,
   "modelCalls": 7,
   "model": "gemma4:26b",
@@ -62,6 +62,15 @@
       "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c14-f11-live-preparation-20261008/c14-f11-1-2c0dc21d/initial-provider-wire.json",
       "sha256": "a400182c479afc79c7309d11f3925389687824257d6fcc06630843a0e058040d",
       "bytes": 415347
+    },
+    {
+      "path": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/.intentsmith-artifacts/c14-f11-live-preparation-20261008/independent-actual-review/REVIEW.json",
+      "bytes": 15765,
+      "sha256": "446c6c48a8022457c4f9a3e85ed5e00c25cbe8123b30c8bbcf33e15c772b2056"
     }
-  ]
+  ],
+  "evidenceAudit": "PASS",
+  "acceptance": "NOT_ACCEPTED",
+  "restartAndApprovalScope": "No live restart, successful approval or file write in this series; HTTP/backend only, not Studio.",
+  "causalLimit": "Classifier continuesPending:true; C14 false-flag guard not exercised. Request19 returned clarify/understood:false despite available canonical target/source; no automatic effects."
 }

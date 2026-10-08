@@ -1,0 +1,382 @@
+{
+  "kind": "C15CombinedInputABCheckpoint@1",
+  "status": "AB_BENEFIT_REVIEW_PASS_USER_PATH_NOT_RUN",
+  "sourceBase": "44e4d96ceadde57eb67e81c6f67142b1143956f3",
+  "candidate": {
+    "sourcePath": "src/chat/file-save-plan.js",
+    "sourceSha256": "26044e977447ee0bdc5582e995a13513cef77c51cfc7ff032bea28aa8b836d02",
+    "testPath": "tests/chat-context-interpretation.test.js",
+    "testSha256": "454ead06754eed375e621f61be4c97516ef918964e35a8092e26c379b05630dd",
+    "changeScope": "Remove stale pending intent/slots from model evidence and add instruction separating original request, previous question and current reply. Original constraints, grounding, validators and exact effect approval unchanged.",
+    "sourceAndCPUReview": "PASS for exact private candidate and retained focused41 results",
+    "integratedState": "APPLIED_BY_ROOT_TO_WORKING_CANDIDATE",
+    "integratedCPUAndReview": "INTEGRATED_SOURCE_AND_TARGETED_CPU_REVIEW_PASS_NOT_LIVE_READY",
+    "integratedSourceBase": "44e4d96ceadde57eb67e81c6f67142b1143956f3",
+    "integratedCommit": null
+  },
+  "focusedCPU": {
+    "candidatePass": 41,
+    "candidateFail": 0,
+    "baselinePass": 40,
+    "baselineFail": 1,
+    "baselineMeaning": "Evidence shape assertion only; not a demonstrated model-quality RED."
+  },
+  "experiment": {
+    "planSha256": "201f23e61e5f1b7a3074a6200d8f21228f6d28a349ce445dbafc3761e3ed94cd",
+    "freezeSha256": "48544e33fa2ddd896bfa9f93662bba3dae3cbfd4a8e521d4a56994c199410ef3",
+    "collection": {
+      "startedAt": "2026-10-08T10:11:34.383Z",
+      "completedAt": "2026-10-08T10:12:22.579Z",
+      "exitCode": 0,
+      "model": "gemma4:26b",
+      "digest": "08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68",
+      "context": 4096,
+      "completePhysicalCalls": 12,
+      "retries": 0,
+      "effects": 0,
+      "databaseOpened": false
+    },
+    "maximumCalls": 12,
+    "maximumActiveSeconds": 600,
+    "fixedOrder": "A/B, B/A, A/B for one known complete input; A/B, B/A, A/B for prohibition, alternative targets, cancellation.",
+    "aggregate": {
+      "A": {
+        "completeUseful": 0,
+        "completeTotal": 3,
+        "negativeMeaningPreserved": 3,
+        "negativeTotal": 3,
+        "allUseful": 3,
+        "allTotal": 6,
+        "unsafe": 0
+      },
+      "B": {
+        "completeUseful": 3,
+        "completeTotal": 3,
+        "negativeMeaningPreserved": 3,
+        "negativeTotal": 3,
+        "allUseful": 6,
+        "allTotal": 6,
+        "unsafe": 0
+      }
+    },
+    "technicalVerdict": "TECHNICAL_EXECUTION_REVIEW_PASS",
+    "semanticVerdict": "COMBINED_INPUT_BENEFIT_DEMONSTRATED_USER_PATH_REQUIRED",
+    "directOnly": true,
+    "M1Invocations": 0,
+    "databaseOpened": false,
+    "effects": 0,
+    "retries": 0
+  },
+  "cleanup": {
+    "status": "PASS",
+    "leaseReleased": true,
+    "ownedModelUnloaded": true,
+    "lastThreeEmptyAt": [
+      "2026-10-08T10:12:16.039Z",
+      "2026-10-08T10:12:17.077Z",
+      "2026-10-08T10:12:18.119Z"
+    ],
+    "unknownPid": 3195641,
+    "unknownPolicy": "Unattributed, nonempty and streak reset; no signal."
+  },
+  "closure": {
+    "sourceAndDependencyFiles": 58918,
+    "namedRefPositions": 21,
+    "namedRefUniquePaths": 20,
+    "independentAfterAudit": "PASS by separate adapter technical reviewer"
+  },
+  "nextUserPath": {
+    "status": "NOT_RUN",
+    "scope": "New separately reviewed original four-turn user path on newly pinned integrated source and CI; exact original grounding and approval oracle.",
+    "maximumModelCalls": 12,
+    "maximumActiveSeconds": 600,
+    "retries": 0,
+    "automaticEffectsAllowed": false,
+    "sourceFreeze": "PENDING",
+    "readinessReview": "PENDING"
+  },
+  "fullProfileBoundary": {
+    "sourceSha": "44e4d96ceadde57eb67e81c6f67142b1143956f3",
+    "programsPass": 410,
+    "coversIntegratedC15": false,
+    "publicEvidence": "docs/review/evidence/product-continuation-20261008/c14-full-profile.json"
+  },
+  "postIntegrationCensus": {
+    "sourceFiles": 688,
+    "sourceLfLines": 237272,
+    "testFiles": 604,
+    "testLfLines": 271156
+  },
+  "rootIntegrationChecks": {
+    "registry": {
+      "actualExit": 0,
+      "expectedExit": 0,
+      "counts": {
+        "registered": 596
+      },
+      "executionAuthor": "ROOT",
+      "evidence": "Retained completed CPU exit and raw log; private bwrap network unshared/root RO."
+    },
+    "module": {
+      "actualExit": 0,
+      "expectedExit": 0,
+      "counts": {
+        "edges": 1514,
+        "added": 0,
+        "cycles": 3,
+        "members": 28
+      },
+      "executionAuthor": "ROOT",
+      "evidence": "Retained completed CPU exit and raw log; private bwrap network unshared/root RO."
+    }
+  },
+  "scopeLimits": [
+    "Three positives are repetitions of one exposed historical request19, not three independent user journeys or a hidden corpus.",
+    "Both serializer removal of stale pending intent/slots and added instruction paragraph change together. Cannot isolate either contribution or assert the model internal cause.",
+    "Same model/provider/options/schema; fixed AB/BA/AB order and provider cache observed. No randomized population inference,95% claim, or broad stability estimate.",
+    "Negative coverage is exactly prohibition,alternative filename andcancel. Broader constraints/source/project checks remain CPU evidence and still require integration/user-path review.",
+    "A alternative-target source:null remains acceptable because it asks the correct choice and does not write. No criterion changed after observing outputs.",
+    "Direct typed-payload replay invokes no M1/DB/effect/approval path; correct action:write is interpretation only, never automatic permission.",
+    "Cleanup ownership of transient empty-argv PID3195641 is UNKNOWN; it was counted nonempty and followed by three clean observations before release.",
+    "Residency is sampled after collection, not proof of continuous fullGPU residency.",
+    "Full58918 source/dependency rehash belongs to runner and separate adapter technical reviewer; this reviewer validates exact raw12 and named pin identities."
+  ],
+  "historicalEvidence": "F11 LIVE_FAIL, earlier C7/C13/HTTP13 FAIL and all raw original statuses remain unchanged.",
+  "chat95PercentAccepted": false,
+  "releaseAccepted": false,
+  "refs": [
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/AB-PLAN.json",
+      "bytes": 13445,
+      "sha256": "201f23e61e5f1b7a3074a6200d8f21228f6d28a349ce445dbafc3761e3ed94cd"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/independent-source-review/REVIEW.json",
+      "bytes": 8047,
+      "sha256": "1564a11f068332562db4f46c11cea40338845b3bb39a6f5ed80405d1c1cca40f"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/adapter/FROZEN.json",
+      "bytes": 8489,
+      "sha256": "48544e33fa2ddd896bfa9f93662bba3dae3cbfd4a8e521d4a56994c199410ef3"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/adapter-independent-review/READY.json",
+      "bytes": 3800,
+      "sha256": "319b88e5e75a9c7918a685a0db13136c4acf23165776edde90953e522453aec5"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/adapter-independent-review/REVIEW-v2.json",
+      "bytes": 4741,
+      "sha256": "37c2440dcbf0a15d7c79c0f6fae1d29702a7ac884dc7e862af05f7514fecbff0"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/adapter/run-ab-v2.mjs",
+      "bytes": 19722,
+      "sha256": "8515ebee08e57b5e7a6b8e390913ef816a6810183ba3d9b931f276f2e414a6c9"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/adapter/actual-v1/RESULT.json",
+      "bytes": 32554,
+      "sha256": "bcfae959c1fea840d66181755b800e3718ce04cffe2491d0ef429d5c5bf159a9"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/adapter/actual-v1/wire.json",
+      "bytes": 118113,
+      "sha256": "5d589603cb71f2ce466e1abc8cbb02db1f8c36fe18501f83b1ee5c2d5a1f6a40"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/adapter/actual-v1/initial-provider-raw.jsonl",
+      "bytes": 117533,
+      "sha256": "e66432bf659adc4d0ab0e4c05e5d703555ffec4a1e4a2a2ae2a5d9c35217fcb9"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/adapter/actual-v1/admissions.json",
+      "bytes": 2441,
+      "sha256": "233f7b985e6d2d1cd969a44ce1a51aae02d6345306380b26d3c0899e07b194cb"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/adapter/actual-v1/forward-reservations.json",
+      "bytes": 36,
+      "sha256": "4131523e80f7533c7a044293d5c33b97e6e7c63ee1811f2ca9dd16da641c78f2"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/adapter/actual-v1/forwarded.json",
+      "bytes": 36,
+      "sha256": "4131523e80f7533c7a044293d5c33b97e6e7c63ee1811f2ca9dd16da641c78f2"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/root-validation/AB-COMMAND.json",
+      "bytes": 745,
+      "sha256": "df7312db5a54ac484598bcaee4f623bfa6db0a96191b63843eab4cebb16cd8d4"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/root-validation/AB-EXIT.json",
+      "bytes": 1143,
+      "sha256": "223e0fdb936def63b25441ee614d138fbf4b57bd52e410cc0a8c7afaf3b35aff"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/root-validation/AB.log",
+      "bytes": 95,
+      "sha256": "bc4aeac809da58401485b2d6a74de6ed3c5d13d342a79e4a92612c298773341a"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/independent-actual-review/SEMANTIC-ROWS.json",
+      "bytes": 13719,
+      "sha256": "5cb56565b97d753424861cf18f67bc79155346bf56963b2fcac4735899ba1d7c"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/independent-actual-review/RAW-VERIFICATION.json",
+      "bytes": 6039,
+      "sha256": "30f818f3a821c63fb61bb8424b7069d6c17e0d8fd750a7016771e07131d0082e"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/ab-stimuli/known-complete-A.json",
+      "bytes": 6043,
+      "sha256": "50cd912a71ce660b5c9cd2d18daae26283d174c373d2f835b8373e8ac125345e"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/ab-stimuli/known-complete-B.json",
+      "bytes": 6335,
+      "sha256": "8d0149516328902e9da6cd68156deea4d93d502670431f227507a06412c0f612"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/ab-stimuli/save-prohibited-A.json",
+      "bytes": 6076,
+      "sha256": "6e5215f24c17848b1e6d96c28849e8bdf64b6aa3f00ec04968faea46d40418cb"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/ab-stimuli/save-prohibited-B.json",
+      "bytes": 6368,
+      "sha256": "cbdd3991d93de732eef7f9c82489aa4971317ee98a84d18df749d4178c541b5b"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/ab-stimuli/alternative-targets-A.json",
+      "bytes": 6059,
+      "sha256": "00bdc9ec4f7d5a644addb0228691cbf6df3adddf114bbba3e50a950ba947f62e"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/ab-stimuli/alternative-targets-B.json",
+      "bytes": 6351,
+      "sha256": "e46159126ff67349e9794d172aa01b49b537c1f8cc9896f2f79ffc5179fb63d6"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/ab-stimuli/cancel-A.json",
+      "bytes": 6069,
+      "sha256": "3776d8776ca66aed49c5e52dd33a5545ca1d974e37c0fb80a662561bb56d68f2"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/ab-stimuli/cancel-B.json",
+      "bytes": 6361,
+      "sha256": "a4e5cd2f41392f1b699f8e51ef9799e863de91aaa1196201ec3a5541379333b7"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/independent-actual-review/REVIEW.json",
+      "bytes": 9336,
+      "sha256": "0ae684dbee7975122e57678c23123cf231a2f9b5bd2d3703d0ca4aaf569cad49"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/independent-actual-review/CLOSURE-ADDENDUM.json",
+      "bytes": 2180,
+      "sha256": "14b5878032a783adba2178933ed87a9c780fa7c9c2ce845ade9482fa3c02a8d1"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/adapter-independent-review/ACTUAL-REVIEW.json",
+      "bytes": 14857,
+      "sha256": "557177a6633bc483d326cff54adbac27474521382cc73526bdcfdc1eda345044"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/RESULT.json",
+      "bytes": 8096,
+      "sha256": "799fcef1eb7ea2a6a4e6597aff187c833ff08eb445830fb5052c1fdbc1283a72"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/MANIFEST.json",
+      "bytes": 10898,
+      "sha256": "49d192681c9998e592477de0b197d620d34a8385889dc9f616712f59f5c11e86"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/source.patch",
+      "bytes": 7128,
+      "sha256": "eb003878962be933c9089622a84897ef544457c4b5f0503c4ce8f6fd4bd7c3cd"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/test-v2.patch",
+      "bytes": 7051,
+      "sha256": "0d391fcf815315781657a0dfff3a6f40de0bc8fd4a0d512c0b728dcb99f724c1"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/independent-actual-review/POST-INTEGRATION-CENSUS.json",
+      "bytes": 1289,
+      "sha256": "16c6025c5b562b78c7225d18ff43efe47c4363aa5d30d6a3ac87c18370c1aedc"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/root-integration/registry-EXIT.json",
+      "bytes": 4506,
+      "sha256": "5160d59cb8629f6a8c2aaf55346f77d310e9cefa754c05f1853ad04bcbca4cd5"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/root-integration/registry.log",
+      "bytes": 116,
+      "sha256": "1eefdafb45876a09d4b4621e755ad027499abf812965e5dc4d497d7940061145"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/root-integration/module-EXIT.json",
+      "bytes": 4508,
+      "sha256": "e806b3788c916c0b189da998423f5c06d33b2626768a6af519647f63bf3affcc"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/root-integration/module.log",
+      "bytes": 741,
+      "sha256": "8743dce9b75f9651ba3e6fe84d1eca8b7f3d05d0d5d78923878b418c4efb48aa"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/integrated-independent-review/REVIEW.json",
+      "bytes": 11606,
+      "sha256": "07358c1d426495591b44be8deb681f546e3e2061b4f1d0b629bdfd0d3820cd6a"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/integrated-independent-review/context/COMMAND.json",
+      "bytes": 8785,
+      "sha256": "8c24b3432daab2fa8d19c3a2ec67a87914925c52ef9f87882adfa83ee131d5f8"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/integrated-independent-review/context/EXIT.json",
+      "bytes": 900,
+      "sha256": "668837b0d636a6c2a3b1c9692be006e48b771feece5aba8c3943f3807d00f09e"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/integrated-independent-review/context/test.log",
+      "bytes": 103010,
+      "sha256": "d0e13df534b6e95c5906a06db76ab8d8e79501e7f66ec162896b2590cfc2d12f"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/integrated-independent-review/project/COMMAND.json",
+      "bytes": 8779,
+      "sha256": "529479cbd51dfdd882c2e72fa66e482d23159623e5c7b91d7761fb972d18bc4e"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/integrated-independent-review/project/EXIT.json",
+      "bytes": 899,
+      "sha256": "264c98670655bd672a3a4a72b04ff55a4d2aa49d4742c28eb1f7452fb329d45f"
+    },
+    {
+      "path": ".intentsmith-artifacts/c15-file-save-interpretation-20261008/integrated-independent-review/project/test.log",
+      "bytes": 47822,
+      "sha256": "646fe2cbbd8956ad9e88dcfde7575449f7248ac458217d8b37d015ac5b8ac8fb"
+    }
+  ],
+  "integratedTargetedCPU": {
+    "contextPass": 82,
+    "contextFail": 0,
+    "projectPass": 57,
+    "projectFail": 0,
+    "expectedExit": 0,
+    "actualExits": [
+      0,
+      0
+    ],
+    "isolation": "Two separate bwrap network namespaces,hostrootRO,only own fresh outputRW,complete private HOME/XDG/tmp/DB/project env; retained CPU fixture HTTP/DB only; host Ollama inaccessible.",
+    "newCleanSourceAndCI": "PENDING"
+  }
+}

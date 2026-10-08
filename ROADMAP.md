@@ -4,13 +4,19 @@
 Release `NOT_ACCEPTED`; BE `c84b88cd` / Studio `7bf62455…bfe24` nezměněné.
 Přijaté Ledger/TaskFlow/SQLite, omezený AST/GPU panel/cleanup, full109 DB roundtrip a M3 worker;
 opakovat pouze při nové změně nebo konkrétní pochybnosti. ROOT vlastní integraci i CHAT.
-Aktuální produktový zdroj C9 `24f329c6`; přijatý a publikovaný checkpoint
-`678eead707a59df568c7353a8b2dd7ad6c175b23` obsahuje také C11/C12 opravy testů.
+Poslední celý offline/database profil patří čistému `44e4d96c`, před integrací C15:
+8.10.09:52:43–10:02:53UTC,410 PASS/0 FAIL/TIMEOUT/BLOCKED/SKIPPED, exit0.
+Nezávislý review93ce797d…4381840: všech410logů,323offline+87database,
+context74, původních239kontrol C12, scenario42,0retry/0owned-process-group leaks.
+CI37756055502/job113240758670 všech18 SUCCESS. [Hashové předání](docs/review/evidence/product-continuation-20261008/c14-full-profile.json).
+Jde o deterministický profil; žádná nová živá kvalita nebo release přejímka.
+Historický C12 profil na `678eead707a59df568c7353a8b2dd7ad6c175b23`
+měl produktový zdroj C9 `24f329c6` a obsahoval C11/C12 opravy testů.
 C9: classifier13 HTTP/restart, context55, project57 a integrace19 PASS;
 nezávislé source/test/evidence/integration review. Modelové výpadky již
 nevytvářejí úspěšné assistant zprávy v klasifikátoru ani projektovém plánování.
 C12: šest harnessů na node:test, všech 239 původních kontrol zachováno,
-24 izolovaných sond nezávisle přijatých. Nový celý profil na678eead7:
+24 izolovaných sond nezávisle přijatých. Historický celý C12 profil na678eead7:
 410 PASS / 0 FAIL / BLOCKED / TIMEOUT / SKIPPED, 22:26:12–22:36:25 UTC 7. 10.,
 exit 0 a čistý strom. Review dc23d603…d631a ověřilo všech 410 logů, přesný výběr,
 239 C12 testů, scenario42 a context55. CI37696180485 má 1 job / 18 kroků SUCCESS,
@@ -91,23 +97,31 @@ Před inferencí se opraví prokázané budget/cleanup nedostatky existujících
 32k krátce změřené fullGPU/min free 2 512 MiB; celé okno ani kvalita aplikace tím nepřijaté.
 Classifier→D1 CPU 44 +parser 24/review PASS; živý přirozený vstup a fyzická ovladatelnost IDE/M2 otevřené.
 
-Nynější úkol: autorizované HTTP pokračování a skutečné CHAT ověření C14.
+Nynější úkol: nový source/CI pin přijaté integrace C15 a čtyřtahová uživatelská cesta; HTTP14 testovaný rozsah je uzavřený.
 C13 source44567af7/CI18: dva HTTP admission FAIL před inferencí (nová0/historie12),
 Fan čtyři úplné nové výstupy (12/15), literal import FAIL před approval/oracle.
 Skutečný Qwen32k cleanup pod lease přijat; Fan chráněný oracle čeká na rozhodnutí.
 HTTP @6 bounded admission23+38CPU/review PASS, prahy i budget beze změny.
-C14 source a M1/SQLite/restart fixture přijaté, context74PASS; živé skóre NOT_RUN.
+C14 source a M1/SQLite/restart fixture přijaté, context74PASS; nové53-korpusové skóre NOT_RUN.
 Publikovaný eb6effe6/CI18: první skutečný HTTP repair vykonal jedno CODE volání,
 celkem13; primární70 +M2/commit/restart/cleanup nezávisle přijaty.
 Původní supplement FAIL po16requests: charset= utf-8 vrací201 místo415.
-Druhý a poslední již schválený single-router pokus se připravuje, maximum14.
+Druhý a poslední již schválený single-router pokus HTTP14 níže vyčerpal maximum14.
 F11 helper V3 přijatý a publikovaný a7ef9239/CI18. Skutečná série4tahů/7Gemma4K
 volání znovu LIVE_FAIL; původní context se zachoval, ale interpreter vrací
 clarify i se správným target/source.0approval/efektů; cleanup+afterrefs PASS.
+Nezávislý posudek446c6c48…72b2056 uzavírá LIVE_FAIL/evidence+cleanup PASS;
+HTTP/backend bez Studio, živého restartu nebo úspěšného zápisu.
 Žádný F11 retry ani nové53skóre. HTTP14 normal router-only/helper42CPU+review
-PASS, zbývá poslední autorizovaný skutečný pokus a původní70+17 oracly.
-Navazuje souborový požadavek podle C10 s kontrolami cancel/nového zadání/jiného
-projektu; C9/C11/C12 CPU přejímka je uzavřená a není koncem produktové práce.
+PASS na publikovaném44e4d96c/CI18. Skutečný HTTP14 má primary70+supplement17
+actual review PASS9de65080, appcommit0ae3bd8c, M2/restart/cleanup PASS.
+Alias charset=utf8 zůstává statický netestovaný limit; úplná API/prompt shoda se netvrdí.
+Cumulative14 vyčerpané; další CODE0, přirozený Studio→D1/release přejímka nevzniká.
+C15 A/B přijato: u jednoho známého zadání A 0 ze 3, B 3 ze 3 správných opakování;
+obě varianty zachovaly význam všech tří negativních kontrol. Jde o společnou změnu
+vstupu, ne o celkové skóre chatu. Integrované context 82 / project 57 a source review
+jsou PASS; nová čtyřtahová cesta je NOT_RUN (nejvýše 12 volání / 600 s, bez retry).
+[Podrobnosti a přesné meze C15](docs/review/evidence/product-continuation-20261008/c15-input-ab.json).
 C10 izoloval chybu modelové návaznosti a následnou ztrátu pending; další oprava
 nesmí ignorovat změnu zadání či cancel; C6 NO_GO a C7 živý FAIL zůstávají. C5 retry zastaven,
 před návratem jiná omezená strategie; C3/C4 přezkoumány,

@@ -1685,3 +1685,97 @@ test('C14 preserved save still rejects removed source and respects its barrier',
     });
   } finally { llmGateway.call = original; }
 });
+
+// C15: known F11 request19. CPU tests establish evidence and safety only;
+// these controlled outputs cannot prove a change in model interpretation.
+test('C15 save interpretation retains complete dialog evidence without stale routing labels', async () => {
+  const request = 'Shrň původní odpověď a ulož ji do nového souboru; nic existujícího nepřepisuj.';
+  const context = c14SaveContext(request);
+  context.sessionState.pendingDecision.intent = 'AMBIGUOUS';
+  context.sessionState.pendingDecision.metadata.originalRequestedOperation = 'create';
+  context.sessionState.setPendingDecision(context.sessionState.pendingDecision, ['intent_clarification']);
+  const provenance = structuredClone(context.sessionState.pendingDecision.metadata.fileSaveClarification);
+  const plan = await resolveFileSavePlan('notes.md', context, { interpretSave: async prompt => {
+    const input = JSON.parse(prompt);
+    assert.deepEqual(input.pending, { request, question: 'Do kterého souboru?', requestedOperation: 'create' });
+    assert.equal(input.request, 'notes.md');
+    assert.deepEqual(input.answers.map(a => a.messageId), [2]);
+    return { content: JSON.stringify({ action: 'write', question: null, target: 'notes.md',
+      source: { kind: 'answer', messageId: 2 }, transformation: 'summarize',
+      writeMode: 'create', understood: true, unsupported: [] }) };
+  } });
+  assert.equal(plan.toolId, 'file.create');
+  assert.equal(plan.transformation, 'summarize');
+  assert.equal(plan.sourceMessageId, 2);
+  assert.equal(plan.content, 'Původní úplný podklad.');
+  assert.equal(plan.summaryRequest, `${request}\nDoplnění uživatele: notes.md`);
+  assert.deepEqual(context.sessionState.pendingDecision.metadata.fileSaveClarification, provenance);
+});
+
+test('C15 recorded contradictory clarify remains stopped despite a known target and source', async () => {
+  const { clearSupersededFileSaveQuestion, handleFileWriteDecision } = await import('../src/chat/handlers/file.js');
+  const original = llmGateway.call;
+  const context = c14SaveContext();
+  context.history = context.history.filter(a => a.messageId === 2);
+  context.history[0].response.content = 'Fotografie dokáže zachytit neopakovatelný okamžik a proměnit ho v trvalou vzpomínku.';
+  context.sessionState.pendingDecision.intent = 'AMBIGUOUS';
+  context.sessionState.pendingDecision.metadata.originalRequestedOperation = 'write';
+  context.sessionState.pendingDecision.metadata.clarificationQuestion = 'Prosím, uveďte název souboru, do kterého mám tuto větu uložit.';
+  context.sessionState.setPendingDecision(context.sessionState.pendingDecision, ['intent_clarification']);
+  const database = new Database(isolatedTestRuntime.database, { readonly: true });
+  const counts = () => Object.fromEntries(['tool_v1_requests', 'tool_v1_results', 'm2_effect_requests',
+    'm2_effect_results', 'm2_approval_grants'].map(table => [table, database.prepare(`SELECT count(*) AS n FROM ${table}`).get().n]));
+  const before = counts();
+  llmGateway.call = async () => ({ content: JSON.stringify({ ...c14RecordedClassifier, continuesPending: true }), finishReason: 'stop' });
+  try {
+    const decision = await creDecisionEngine.decide('photo.md', context);
+    assert.equal(decision.metadata.continuesPending, true);
+    assert(!decision.metadata.diag.overrides?.includes('pending_save_target_continuation'));
+    clearSupersededFileSaveQuestion(context, decision);
+    const response = await handleFileWriteDecision('photo.md', decision, context, {
+      interpretSave: async prompt => {
+        const input = JSON.parse(prompt);
+        assert.equal(input.request, 'photo.md');
+        assert.equal(input.pending.request, 'Ulož tu odpověď.');
+        assert.deepEqual(input.answers, [{ messageId: 2, content: context.history[0].response.content }]);
+        return { content: JSON.stringify({ action: 'clarify', question: 'Do jakého souboru mám tuto větu uložit?',
+          target: 'photo.md', source: { kind: 'answer', messageId: 2 }, transformation: 'none',
+          writeMode: 'replace', understood: false, unsupported: [] }), finishReason: 'stop' };
+      },
+    });
+    assert.equal(response.content, 'Do jakého souboru mám tuto větu uložit?');
+    assert.equal(response.canExecute, false);
+    assert.equal(response.metadata.approvalRequired, false);
+    assert.equal(response.metadata.error, 'file_write_plan_ambiguous');
+    assert.equal(context.sessionState.pendingDecision.metadata.originalRequest, 'Ulož tu odpověď.');
+    assert.deepEqual(context.sessionState.pendingDecision.metadata.fileSaveClarification,
+      { projectId: 1, sourceMessageId: 2, userMessageId: 3 });
+    assert.deepEqual(counts(), before);
+    assert(!existsSync(path.join(context.project.path, 'photo.md')));
+  } finally { llmGateway.call = original; database.close(); }
+});
+
+test('C15 input change preserves model refusal and unresolved meanings without inferring a write', async t => {
+  for (const item of [
+    { name: 'negated save', request: 'Neukládej odpověď, jen navrhni název souboru.', reply: 'notes.md', action: 'decline', question: 'Nic neukládám.' },
+    { name: 'two alternative targets', request: 'Ulož původní odpověď.', reply: 'notes.md nebo journal.md', action: 'clarify', question: 'Který z těchto dvou souborů chceš?' },
+    { name: 'cancel', request: 'Ulož původní odpověď.', reply: 'Zruš ukládání.', action: 'decline', question: 'Ukládání je zrušené.' },
+    { name: 'new task', request: 'Ulož původní odpověď.', reply: 'Místo toho vysvětli Git commit.', action: 'decline', question: 'Původní ukládání nepokračuje.' },
+    { name: 'unsupported condition', request: 'Ulož odpověď jen pokud mám volných 10 GB.', reply: 'notes.md', action: 'clarify', question: 'Mohu uložit bez kontroly volného místa?', unsupported: ['disk-space check'] },
+  ]) await t.test(item.name, async () => {
+    const context = c14SaveContext(item.request);
+    const before = structuredClone(context.sessionState.pendingDecision);
+    const plan = await resolveFileSavePlan(item.reply, context, { interpretSave: async prompt => {
+      const input = JSON.parse(prompt);
+      assert.equal(input.request, item.reply);
+      assert.equal(input.pending.request, item.request);
+      return { content: JSON.stringify({ action: item.action, question: item.question,
+        target: null, source: { kind: 'answer', messageId: 2 }, transformation: 'none',
+        writeMode: 'replace', understood: false, unsupported: item.unsupported || [] }) };
+    } });
+    assert.equal(plan.action, item.action);
+    assert.equal(plan.filePath, undefined);
+    assert.equal(plan.content, undefined);
+    assert.deepEqual(context.sessionState.pendingDecision, before);
+  });
+});

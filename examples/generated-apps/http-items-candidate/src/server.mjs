@@ -4,6 +4,7 @@
  */
 
 import { createServer } from 'node:http';
+import { pathToFileURL } from 'node:url';
 import { createStore } from './store.mjs';
 import { createRouter } from './router.mjs';
 
@@ -120,7 +121,6 @@ function main() {
 
 // Explicit CLI entry guard: only run main when executed directly as a script.
 if (process.argv[1]) {
-  const { pathToFileURL } = await import('node:url');
   if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     main();
   }

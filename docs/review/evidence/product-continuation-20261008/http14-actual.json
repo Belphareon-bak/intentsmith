@@ -1,0 +1,267 @@
+{
+  "kind": "HTTPActualContinuation@2",
+  "sourceSha": "44e4d96ceadde57eb67e81c6f67142b1143956f3",
+  "status": "PRIMARY70_SUPPLEMENT17_ACTUAL_REVIEW_PASS",
+  "appScopeAcceptance": "PASS for the original frozen primary70 plus supplemental17, exact M2 approval/commit/restart and owned cleanup; no exhaustive API/prompt or release acceptance",
+  "newCodeCalls": 1,
+  "cumulativeCodeCalls": 14,
+  "operatorMaximumCalls": 14,
+  "nextModelAttemptsMaximum": 0,
+  "modelBudgetClosed": true,
+  "releaseAccepted": false,
+  "naturalStudioClassifierD1Accepted": false,
+  "appCommit": "0ae3bd8c90ae7886ecc8470713413f7508ed2547",
+  "model": {
+    "tag": "qwen3.8:latest",
+    "digest": "22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643",
+    "context": 32768,
+    "outputCap": 4096,
+    "actualOutputTokens": 496
+  },
+  "primary": {
+    "requests": 70,
+    "status": "PASS",
+    "mainExit": 0,
+    "pendingRestart": true,
+    "durableRestartReplay": true
+  },
+  "supplement": {
+    "requests": 17,
+    "status": "PASS",
+    "exit": 0,
+    "modelCalls": 0,
+    "actualRuns": 1,
+    "processGroupEmpty": true
+  },
+  "cleanup": {
+    "status": "PASS",
+    "ownModelUnloaded": true,
+    "emptySamples": 3,
+    "leaseReleased": true,
+    "vanishedPidRetainedUnknown": [
+      3101363
+    ]
+  },
+  "postSourceAndHistory": {
+    "status": "PASS",
+    "sourceSha": "44e4d96ceadde57eb67e81c6f67142b1143956f3",
+    "clean": true,
+    "checkedAt": "2026-10-08T09:43:46.309166+00:00",
+    "closureFiles": 58918,
+    "symlinks": 220,
+    "immutableHistoricalAndPolicyRefs": 19,
+    "seconds": 6.160123068009852,
+    "noLiveGpuProviderCalls": true
+  },
+  "historicalStatusPreserved": "HTTP13 primary PASS/supplement FAIL and all earlier failures unchanged; raw HTTP14 PHYSICAL_PASS_REVIEW_PENDING is superseded only by the independent review.",
+  "scopeLimitations": [
+    {
+      "id": "HTTP14-UTF8-ALIAS",
+      "severity": "scope-limit",
+      "detail": "Static source still uses /^utf-?8$/ and permits charset=utf8. This differs from the stricter input instruction Only utf-8. Original API says optional UTF8 charset; unchanged protected70+17 do not probe the alias. No extra HTTP request or model retry was performed. Do not infer exhaustive instruction compliance from this PASS."
+    },
+    {
+      "id": "HTTP14-PERSISTENCE",
+      "detail": "Primary oracle proves server restart and same private /tmp DB inode within its one invocation. Supplement has a separate fresh /tmp DB and17requests; no cross-invocation DB persistence claim. M2 authority DB durability is separately proven by actual backend restarts and own closed-copy audit."
+    },
+    {
+      "id": "HTTP14-DRAIN-PID",
+      "detail": "Vanished post-unload PID3101363 remains UNKNOWN, retained in raw and counted nonempty; no ownership attribution or signal to it. Accepted cleanup then observed three empty samples before same-lease release."
+    },
+    {
+      "id": "HTTP14-RESIDENCY",
+      "detail": "Exact model/digest/context/output identity is tied to raw and one post-journey resident snapshot/full VRAM report; this does not prove continuous residency."
+    },
+    {
+      "id": "HTTP14-SCOPE",
+      "detail": "No Fan, CHAT/F11, H1, full release or whole-product acceptance transfer. Historical13 supplement FAIL and all previous failure evidence remain immutable."
+    }
+  ],
+  "refs": [
+    {
+      "path": ".intentsmith-artifacts/http-c14-router14-44e4d96c-live-20261008/FROZEN.json",
+      "bytes": 10015351,
+      "sha256": "9691c0b4591dedc9d322ed638a3cc4364a5a124d9ddd658a1a4c5f385f16acad"
+    },
+    {
+      "path": ".intentsmith-artifacts/http-c14-router14-44e4d96c-live-20261008/result.json",
+      "bytes": 10129675,
+      "sha256": "ba1c047914fc40d4ad8cbdb00c8c9f270f8aedafb2dbe4bf902fc97c425f055d"
+    },
+    {
+      "path": ".intentsmith-artifacts/http-c14-router14-44e4d96c-live-20261008/provider-requests.json",
+      "bytes": 1367007,
+      "sha256": "78fa79498b76e8cb7f47e079042ec75cb71b9dd0c7836486e54827e44d0b370a"
+    },
+    {
+      "path": ".intentsmith-artifacts/http-c14-router14-44e4d96c-live-20261008/admission.json",
+      "bytes": 54011,
+      "sha256": "352844e9074ee00ab67c41b2ae1f3cb437185d3734fbae297d1c9d9d8c82e9d8"
+    },
+    {
+      "path": ".intentsmith-artifacts/http-c14-router14-44e4d96c-live-20261008/modify-preview.json",
+      "bytes": 36412,
+      "sha256": "a6fa5586fdfb8d86ce1dfc79542458c8c035b973252ff121c794502210649038"
+    },
+    {
+      "path": ".intentsmith-artifacts/http-c14-router14-44e4d96c-live-20261008/modify-terminal.json",
+      "bytes": 49896,
+      "sha256": "fa7b7a7f922d8852d14eea0f310694b6d8fa36009e35145a2a3b912f68885c98"
+    },
+    {
+      "path": ".intentsmith-artifacts/http-c14-router14-44e4d96c-live-20261008/modify-completed.json",
+      "bytes": 130788,
+      "sha256": "02ce9671dc53dc9140a6339212354a9f003c6617d403ad5c1177367e6d9771cc"
+    },
+    {
+      "path": ".intentsmith-artifacts/http-c14-router14-44e4d96c-live-20261008/http-items-journey.json",
+      "bytes": 10285237,
+      "sha256": "e3a52b2dfee2d9873ab54c6bcbac7a68bc690e30258cf01ef66709639313169e"
+    },
+    {
+      "path": ".intentsmith-artifacts/http-c14-router14-44e4d96c-live-20261008/http-full-requests-responses.json",
+      "bytes": 456282,
+      "sha256": "172b571d2fd5728127e013047c29c7c42d49db9001ff0315378178140a70e78f"
+    },
+    {
+      "path": ".intentsmith-artifacts/http-c14-router14-44e4d96c-live-20261008/renderer-network.json",
+      "bytes": 8848,
+      "sha256": "86d3fa125301af4ad23cda6f888762b83c5bfacf3d6e46a86225ddf0e1341975"
+    },
+    {
+      "path": ".intentsmith-artifacts/http-c14-router14-44e4d96c-live-20261008/original-authority-rows-before.json",
+      "bytes": 69943,
+      "sha256": "4a18499db6dd9c268ca084cb2b9d4cb8edc8a4790801dafe6873190d59572517"
+    },
+    {
+      "path": ".intentsmith-artifacts/http-c14-router14-44e4d96c-live-20261008/original-authority-rows-after.json",
+      "bytes": 78999,
+      "sha256": "5cf2a0b2eacb3086f2eb032378d9a32d1e43d59e180ef3e43c954e2fe9cc784f"
+    },
+    {
+      "path": ".intentsmith-artifacts/http-c14-supplement17-router14-44e4d96c-live-20261008/FROZEN.json",
+      "bytes": 8369,
+      "sha256": "94a2e062031681283822c307dae5daed33f5dfec6825856743a3f1a3cfbf9b4f"
+    },
+    {
+      "path": ".intentsmith-artifacts/http-c14-supplement17-router14-44e4d96c-live-20261008/ROOT-SUPPLEMENTAL-RESULT.json",
+      "bytes": 1020,
+      "sha256": "dae7d0362f619c59d8325baf696323fbbb6b647613acd75c4f9ee51086f14b91"
+    },
+    {
+      "path": ".intentsmith-artifacts/http-c14-supplement17-router14-44e4d96c-live-20261008/ACTUAL-PROVIDER-RESULT.json",
+      "bytes": 4341,
+      "sha256": "52864bf0b8f09a86d2d039a55b79a520a2c97d096127c29409593112ed9d732c"
+    },
+    {
+      "path": ".intentsmith-artifacts/http-c14-supplement17-router14-44e4d96c-live-20261008/ACTUAL-PROVIDER.stdout.log",
+      "bytes": 2490,
+      "sha256": "7e15375ea5abffe3c562cbbefa55460830ce2f6d5d8c6cb50f46ad6cfc6859aa"
+    },
+    {
+      "path": ".intentsmith-artifacts/http-c14-supplement17-router14-44e4d96c-live-20261008/ACTUAL-PROVIDER.stderr.log",
+      "bytes": 252,
+      "sha256": "79f5b10e32e82b18eac211e2c14836f7153e7aed7237408ffecc6737c325b6ed"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http14-root-validation/HTTP14-LIVE-COMMAND.json",
+      "bytes": 720,
+      "sha256": "daa8e46bd6e0290ec0f5676d01231290c595186c9eb0fbb6da3c9a26c05aff16"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http14-root-validation/HTTP14-LIVE-EXIT.json",
+      "bytes": 1043,
+      "sha256": "f1999701606c6f1cc22ef193714a416dec51314b1d6a0857a62b52c0487bec2b"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http14-root-validation/HTTP14-LIVE.log",
+      "bytes": 197,
+      "sha256": "5ddb655fcc57ffd600d0e91f4943883b5429254e562a899610e3adde9fedba6e"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http14-root-validation/HTTP14-SUPPLEMENT-COMMAND.json",
+      "bytes": 621,
+      "sha256": "3fa02ea0078c90cb4a41b32c46bac6410ad297b0ef64529963f5897570f05cd4"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http14-root-validation/HTTP14-SUPPLEMENT-EXIT.json",
+      "bytes": 950,
+      "sha256": "e0c8e4bcdeca3ab4a37140f7ccc7596b7ce3eb0e626f5032eaf26bd2b72aa338"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http14-root-validation/HTTP14-SUPPLEMENT.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http14-actual-independent-review/verify.mjs",
+      "bytes": 14349,
+      "sha256": "7323e786267004b2e86c52391491b368d202979a85a34a6c25b6375bab1d2e51"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http14-actual-independent-review/VERIFY-COMMAND.json",
+      "bytes": 991,
+      "sha256": "fe62a9de217e58cd1e8095b9345903a528b89236958ab91ac4bc9a7a61de6655"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http14-actual-independent-review/VERIFY-EXIT.json",
+      "bytes": 86,
+      "sha256": "60e75bacba4fe0b3db64a5ec232c9ae911c6760b1971d53606a0a39c03071c3a"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http14-actual-independent-review/verify.log",
+      "bytes": 2767,
+      "sha256": "639d14d1dc5e8b7b671f98123263078b3f0ba65a6da3e6094cc2db53e7761a2e"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http14-actual-independent-review/ACTUAL-VERIFICATION.json",
+      "bytes": 3372,
+      "sha256": "b7ae7ad4459e24ec19bff731a207abc3e375732f9c55a8ffb128572a304def3e"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http14-actual-independent-review/DB-COPY.json",
+      "bytes": 1745,
+      "sha256": "2dd16b5958a3f56c50c78509e22e165053e64670d711cc17da3b91f91a963732"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http14-actual-independent-review/AFTER-SOURCE-HISTORY.json",
+      "bytes": 302,
+      "sha256": "986a84f9ac774073fb27fe4fa494974f4241cf5a188866f1e80eab1b93269d39"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http14-independent-review/READY-9691c0b4.json",
+      "bytes": 5883,
+      "sha256": "89eea1e2e6b8854d6a24fc45d7c84173a0e4f0162337a1faea0e8ec6ca1d5447"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http14-independent-review/SOURCE-44e4d96c-REVIEW.json",
+      "bytes": 7681,
+      "sha256": "744c39ae14c8c86ef6d3cab34a83f6e118ef590e38ae72e16bdd0335d55af47b"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http14-actual-independent-review/REVIEW.json",
+      "bytes": 17258,
+      "sha256": "9de6508091c71b69f0b5af4058bcbebb3a0f56f0a65fe6311951834714188053"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http14-root-validation/CI.json",
+      "bytes": 2714,
+      "sha256": "65110d92f8ad675084b98555374fd7c649209c3603f9f33acfc16ce5c4111e0c"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http14-root-validation/CI-run.json",
+      "bytes": 14319,
+      "sha256": "42473e8e6ccb8c40602d7bb3aa791fc37ec2eb122e583a2a215bf6bbf7dff619"
+    },
+    {
+      "path": ".intentsmith-artifacts/c14-save-continuation-20261008/http14-root-validation/CI-jobs.json",
+      "bytes": 6010,
+      "sha256": "41632eed65af001e836099d3bcfbf40e3df42d85ceedb02f658baf04da672661"
+    },
+    {
+      "path": "docs/review/evidence/product-continuation-20261008/http13-actual.json",
+      "bytes": 2876,
+      "sha256": "799573d73c5b66d2be640d3e90b364fbe8bde60b45ca060cfbb018a5246d0939"
+    }
+  ]
+}

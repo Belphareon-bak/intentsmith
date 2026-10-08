@@ -50,8 +50,8 @@ function parseRequestUrl(rawUrl) {
 
   const pathname = rawUrl;
   
-  // Split into segments, ignoring empty strings from leading/trailing slashes or double slashes
-  const parts = pathname.split('/').filter(part => part.length > 0);
+  // Split into segments preserving empty strings to enforce canonical paths
+  const parts = pathname.split('/');
   return { pathname, segments: parts };
 }
 
@@ -125,12 +125,21 @@ function validateContentType(contentType) {
   }
 
   const lower = contentType.toLowerCase().trim();
-  // Must be application/json with optional charset=utf-8 (case-insensitive, flexible whitespace)
-  if (lower === 'application/json' || /^application\/json;\s*charset=\s*(utf-?8)$/i.test(lower)) {
-    return;
+  // Must be application/json with optional charset=utf-8 (case-insensitive, no whitespace around =)
+  const match = lower.match(/^application\/json(?:\s*;\s*charset=("[^"]+"|[^;]+))?$/);
+  if (!match) {
+    throw createHttpError(415, 'unsupported_media_type');
   }
-  
-  throw createHttpError(415, 'unsupported_media_type');
+
+  if (match[1]) {
+    let charset = match[1];
+    if ((charset.startsWith('"') && charset.endsWith('"')) || (charset.startsWith("'") && charset.endsWith("'"))) {
+      charset = charset.slice(1, -1);
+    }
+    if (!/^utf-?8$/i.test(charset)) {
+      throw createHttpError(415, 'unsupported_media_type');
+    }
+  }
 }
 
 /**
@@ -174,10 +183,6 @@ export function createRouter(store) {
         return;
       }
 
-      // Reject trailing slash aliases for known routes to enforce canonical paths
-      if ((pathname === '/health/' || pathname === '/items/' || pathname === '/batch/') && segments.length > 0) {
-        throw createHttpError(404, 'not_found');
-      }
 
       // /items
       if (pathname === '/items') {
@@ -209,8 +214,8 @@ export function createRouter(store) {
       }
 
       // /items/:id
-      if (segments.length === 2 && segments[0] === 'items') {
-        const idRaw = segments[1];
+      if (pathname.startsWith('/items/') && pathname !== '/items' && !pathname.endsWith('/') && segments.length === 3 && segments[1] === 'items' && segments[2].length > 0) {
+        const idRaw = segments[2];
         
         let id;
         try {
@@ -318,7 +323,7 @@ export function createRouter(store) {
             allowHeader = 'GET';
           } else if (pathname === '/items') {
             allowHeader = 'GET, POST';
-          } else if (segments.length === 2 && segments[0] === 'items') {
+          } else if (pathname.startsWith('/items/') && pathname !== '/items' && !pathname.endsWith('/') && segments.length === 3 && segments[1] === 'items' && segments[2].length > 0) {
             allowHeader = 'GET, PUT, DELETE';
           } else if (pathname === '/batch') {
             allowHeader = 'POST';

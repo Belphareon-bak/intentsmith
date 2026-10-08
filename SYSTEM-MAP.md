@@ -4,13 +4,19 @@
 Release `NOT_ACCEPTED`; BE `c84b88cd` / Studio `7bf62455…bfe24` nezměněné.
 Přijaté Ledger/TaskFlow/SQLite, omezený AST/GPU panel/cleanup, full109 DB roundtrip a M3 worker;
 opakovat pouze při nové změně nebo konkrétní pochybnosti. ROOT vlastní integraci i CHAT.
-Poslední celý přijatý profil má produktový zdroj C9 `24f329c6`; publikovaný checkpoint
-`678eead707a59df568c7353a8b2dd7ad6c175b23` obsahuje také C11/C12 opravy testů.
+Poslední celý offline/database profil patří čistému `44e4d96c`, před integrací C15:
+8.10.09:52:43–10:02:53UTC,410 PASS/0 FAIL/TIMEOUT/BLOCKED/SKIPPED, exit0.
+Nezávislý review93ce797d…4381840: všech410logů,323offline+87database,
+context74, původních239kontrol C12, scenario42,0retry/0owned-process-group leaks.
+CI37756055502/job113240758670 všech18 SUCCESS. [Hashové předání](docs/review/evidence/product-continuation-20261008/c14-full-profile.json).
+Jde o deterministický profil; žádná nová živá kvalita nebo release přejímka.
+Historický C12 profil na `678eead707a59df568c7353a8b2dd7ad6c175b23`
+měl produktový zdroj C9 `24f329c6` a obsahoval C11/C12 opravy testů.
 C9: classifier13 HTTP/restart, context55, project57 a integrace19 PASS;
 nezávislé source/test/evidence/integration review. Modelové výpadky již
 nevytvářejí úspěšné assistant zprávy v klasifikátoru ani projektovém plánování.
 C12: šest harnessů na node:test, všech 239 původních kontrol zachováno,
-24 izolovaných sond nezávisle přijatých. Nový celý profil na678eead7:
+24 izolovaných sond nezávisle přijatých. Historický celý C12 profil na678eead7:
 410 PASS / 0 FAIL / BLOCKED / TIMEOUT / SKIPPED, 22:26:12–22:36:25 UTC 7. 10.,
 exit 0 a čistý strom. Review dc23d603…d631a ověřilo všech 410 logů, přesný výběr,
 239 C12 testů, scenario42 a context55. CI37696180485 má 1 job / 18 kroků SUCCESS,
@@ -47,13 +53,19 @@ Následný publikovaný `eb6effe6` má CI18 SUCCESS. Skutečný HTTP repair:
 nové1/celkem13 CODE, primární70 HTTP požadavků PASS, přesný M2 approval,
 app commit6e80b9f0 a restart; cleanup3empty/lease release PASS. Actual review přijaté.
 Původní doplňkový oracle FAIL po16 požadavcích: `charset= utf-8` vrací201 místo415.
-HTTP aplikace zůstává NOT_ACCEPTED; druhý poslední povolený pokus má strop14.
+Tento HTTP13 výsledek aplikaci nepřijal; druhý poslední povolený pokus HTTP14 je níže.
 [Hashové předání skutečného běhu](docs/review/evidence/product-continuation-20261008/http13-actual.json).
 F11 na publikovaném a7ef9239/CI18:4tahy/7Gemma4K volání, transport0,
 praktický LIVE_FAIL. Původní požadavek zachovaný; následující interpreter přesto
 znovu žádá název při správném target photo.md/source answer2. Žádný approval/efekt.
 Cleanup/unload/3empty/lease release a všech74 613 refs/221symlinků po běhu PASS.
-Příčinné actual review se dokončuje, nový známý53-korpus ani holdout se nespustil.
+Nezávislý posudek446c6c48…72b2056 uzavírá LIVE_FAIL/evidence+cleanup PASS.
+Request17 měl continuesPending:true; false-flag guard se neprocvičil. Jde o
+HTTP/backend bez Studio, živého restartu nebo úspěšného approval/zápisu.
+Nový známý53-korpus ani holdout se nespustil. HTTP14 na publikovaném44e4d96c/CI18
+má primary70+supplement17 actual review PASS9de65080, app0ae3bd8c/M2/restart/cleanup PASS.
+Alias charset=utf8 zůstává statický netestovaný limit; úplná API/prompt shoda se netvrdí.
+Cumulative14 vyčerpané, další CODE0; nejde o přirozený Studio→D1 ani release přejímku.
 
 Cache oprava `0d86b68e`: CPU 23/23 a source review; [CI37460776179](https://github.com/Belphareon-bak/intentsmith/actions/runs/37460776179) všech 18 kroků SUCCESS.
 **Copied-cache upgrade 6. 10., 12:26 UTC: 1223d2a8…9d95e79 PASS**, n=1 /8,804 s /bez modelu.
@@ -117,9 +129,12 @@ Před inferencí se opraví prokázané budget/cleanup nedostatky existujících
 32k krátce změřené fullGPU/min free 2 512 MiB; celé okno ani kvalita aplikace tím nepřijaté.
 Classifier→D1 CPU 44 +parser 24/review PASS; živý přirozený vstup a fyzická ovladatelnost IDE/M2 otevřené.
 
-Nynější úkol: kontrola GPU cleanup a autorizované HTTP/Fan pokračování.
-Navazuje souborový požadavek podle C10 s kontrolami cancel/nového zadání/jiného
-projektu; C9/C11/C12 CPU přejímka je uzavřená a není koncem produktové práce.
+C15 společná změna serializeru a instrukce má přijatý přínos v uzavřeném A/B.
+Celý profil na `44e4d96c` předchází její integraci; integrované context 82 / project 57 a source review jsou PASS.
+Nová čtyřtahová uživatelská cesta je NOT_RUN (nejvýše 12 volání / 600 s, bez retry).
+Původní grounding, cancel/nové zadání/jiný projekt a přesné schvalování se nemění.
+[Podrobnosti a přesné meze C15](docs/review/evidence/product-continuation-20261008/c15-input-ab.json).
+HTTP14 testovaný rozsah je uzavřený; Fan 12/15 čeká na rozhodnutí o oracle.
 C10 izoloval chybu modelové návaznosti a následnou ztrátu pending; další oprava
 nesmí ignorovat změnu zadání či cancel; C6 NO_GO a C7 živý FAIL zůstávají. C5 retry zastaven,
 před návratem jiná omezená strategie; C3/C4 přezkoumány,
@@ -841,14 +856,14 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 **REVIEW_PENDING** — [aktuální UI oprava a evidence](docs/review/2026-09-17-HUNT-MODEL-CONTROLS-FOLLOWUP.md).
 
 Následující LOC a registry census jsou přeměřené 8. 10. 2026 přímo na zdroji
-C14 pracovního kandidátu nad `44567af7`, přes stejný algoritmus jako `tests/artifact-validation.test.js`:
+C15 pracovního kandidátu nad `44e4d96c`, přes stejný algoritmus jako `tests/artifact-validation.test.js`:
 počet skutečných `.js` souborů a počet znaků nového řádku v jejich bytech.
 Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
-| `src/**/*.js` | **237 269 ř.**, 688 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **271 062 ř.**, 604 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **237 272 ř.**, 688 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **271 156 ř.**, 604 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **596** (`498 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **183 / 109** |
 | HTTP rout | **258 statických deklarací**; nejde o počet runtime ověřených cest |

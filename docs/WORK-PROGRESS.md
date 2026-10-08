@@ -1,12 +1,12 @@
 # IntentSmith — aktuální postup dokončení
 
-**Aktualizováno:** 8. 10. 2026. Aktuální publikovaný source `eb6effe6`: C14 save oprava, context74 a project57 PASS, CI18 SUCCESS. HTTP první nové volání (celkem13) prošlo primární70/M2/commit/restart/cleanup, supplement FAIL; druhý poslední pokus se připravuje. Fan12/15, import guard FAIL před approval; cleanup přijat. Poslední celý přijatý deterministický profil patří checkpointu `678eead7` a produktu `24f329c6`:410 PASS; novější celé přeměření se netvrdí. C5/C7 LIVE_FAIL, C6 NO_GO, H1 NOT_RUN. Release NOT_ACCEPTED.
+**Aktualizováno:** 8. 10. 2026. Publikovaný základ `44e4d96c` má celý offline/database profil 410 PASS a nezávislý review PASS. HTTP14 je přijatý v původním rozsahu 70 + 17 požadavků; rozpočet 14 CODE volání je uzavřený. F11 zůstává LIVE_FAIL, Fan čeká na rozhodnutí o oracle. C15 A/B prokázalo přínos společné změny vstupu; integrované context 82 a project 57 mají review PASS. Nová čtyřtahová uživatelská cesta je NOT_RUN. H1 NOT_RUN, release NOT_ACCEPTED.
 **Vlastník integrace a CHAT:** tento koordinátor přebírá ROOT
 (`work/real-chat-journeys-20260930`) podle následného pokynu operátora.
 Jediný writer `cre-decision.js` i společných map je nyní ROOT; HTTP, Fan, fresh5
 a M6 patří témuž koordinátorovi. Hunt a druhý posudek jeho matice zůstávají oddělené.
 CHAT checkout slouží následně jen jako vlastní sériový běhový checkout zmrazených kandidátů.
-**Release NOT_ACCEPTED. HTTP API FAIL. Fan FAIL. Mobil čeká na stabilní IDE/BE.**
+**Release NOT_ACCEPTED. HTTP14 PRIMARY70_SUPPLEMENT17_REVIEW_PASS. Fan FAIL. F11 LIVE_FAIL. Mobil čeká na stabilní IDE/BE.**
 
 ## Pokračování schválené operátorem 8. 10. 2026
 
@@ -14,8 +14,10 @@ Operátor výslovně požaduje pokračovat za předchozí CPU checkpoint a rozho
 „s H1 bych počkal, až bude kontrola úklidu GPU, HTTP bych dal jeden maximálně dva pokusy;
 fan — 15 jedna dávka oprav“. Tyto rozpočty již nečekají na další potvrzení.
 
-- H1: odloženo do přezkoumané kontroly GPU cleanup; žádné dešifrování ani sběr.
-  Prázdné compute/ps vzorky samy nepotvrzují schopnost uklidit další skutečný běh.
+- H1: původní odklad vyžadoval kontrolu GPU cleanup. Dnešní konkrétní Qwen32k
+  a Gemma4K běhy mají přezkoumaný skutečný unload a cleanup PASS. H1 zůstává
+  NOT_RUN bez plaintextu; jeho vlastní připravenost a předání raw evidence
+  operátorovi jsou samostatné otevřené podmínky, žádné dešifrování ani sběr.
 - HTTP: první genuine CODE repair routeru nad skutečným FAILED návrhem, server
   pouze exact reusePrevious. Historie12 → nejvýše13 v prvním pokusu. Druhý pokus
   je rezerva podle konkrétního výsledku prvního, nejvýše14 celkem; žádný automatický
@@ -42,7 +44,9 @@ Opravují se pouze potřebné části existujících helperů; generované aplik
 ROOT ručně neupravuje. Skutečnou schopnost cleanup ověří následný HTTP/Fan běh,
 nikoli zvláštní modelový smoke. CPU příprava sama aplikace nepřijímá.
 
-### C13 — schválené HTTP/Fan pokračování (SOURCE/CPU_PASS; HTTP_PRE_INFERENCE_FAIL; FAN_LIVE_FAIL)
+### C13 — historický průběh schváleného HTTP/Fan pokračování (SOURCE/CPU_PASS; HTTP_PRE_INFERENCE_FAIL; FAN_LIVE_FAIL)
+
+Následující přípravné kroky popisují stav tohoto cyklu. Aktuální HTTP13, F11 a HTTP14 jsou uvedené níže.
 
 BASE04d04ff0. Čtyři stávající manual helpers nyní přijímají přesně HTTP@6
 router1/server reusePrevious/cumulative13 a Fan historical8+repair4+CLI3/cumulative15.
@@ -94,7 +98,7 @@ jdoucí původně platná měření pod stejnou lease; každý odmítnutý vzore
 Cizí compute/model nebo ztráta lease okamžitě zastaví start. Žádné snížení prahů,
 modelový retry či změna oracle/rozpočtu. Nové source/CI/freeze před skutečným HTTP.
 
-### C14 — zachování požadavku při doplnění názvu souboru (SOURCE/CPU_PASS; LIVE_NOT_RUN)
+### C14 — zachování požadavku při doplnění názvu souboru (SOURCE/CPU_PASS; F11_LIVE_FAIL)
 
 BASE44567af7, navazuje na přijatou C10 diagnózu. Pouhý název souboru ve stejném
 kladném projektu nyní zachová aktivní kanonický write/create požadavek, i když
@@ -113,8 +117,8 @@ Integrované project57/artifact160, module1514+0/3cykly28 a registry596 PASS;
 raw logy i exit receipts zachované. [Hashové předání C14 a admission](review/evidence/product-continuation-20261008/c14-and-http-admission.json).
 Dosavadní C6 NO_GO a C7 LIVE_FAIL zůstávají; fixture není modelové skóre.
 Lokální evidence `.intentsmith-artifacts/c14-save-continuation-20261008/`;
-nečíst H1/H2, restricted/ ani holdout. Další: publikovaný čistý kandidát,
-skutečný HTTP repair a cílené živé ověření této CHAT změny.
+nečíst H1/H2, restricted/ ani holdout. Následné HTTP13 a F11 výsledky jsou níže;
+F11 neprocvičil false-flag guard a neprokázal úspěšnou save cestu.
 
 C14 source checkpoint `eb6effe6b782f64b264cefbb5a29abeccdf4a98b` publikovaný,
 remote přesně ověřené. CI37749230168/job113218074669 všech18 SUCCESS;
@@ -123,19 +127,20 @@ HTTP freeze f8e7ae2f…e9960fd, skutečný běh08:32:18–08:33:32UTC exit0:
 jeden nový úplný CODE výstup238tokens, cumulative13. Přesný M2 approval,
 primární oracle, commit app6e80b9f0, pending i durable restart replay PASS.
 Původní util limit dodržen po11 a10 vzorcích; všechny odmítnuté vzorky zachované.
-Own-model unload,3empty a lease release PASS. Stav je zatím PHYSICAL_PASS_REVIEW_PENDING.
+Own-model unload,3empty a lease release PASS. Původní raw stav PHYSICAL_PASS_REVIEW_PENDING
+je zachovaný; nezávislý posudek2e80ca42…a758ff uzavřel PRIMARY_PHYSICAL_PASS_SUPPLEMENTAL_FAIL_CLOSED.
 Původní supplemental oracle beze změny, freeze76d7248c…530b172:
 skutečný jeden běh08:34:36UTC/exit1,16requestů; slash aliasy a quotedUTF8/OWS
 kontroly prošly, `application/json; charset= utf-8` vrátil201 místo415.
 Supplement FAIL, aplikace NOT_ACCEPTED. Přijatý druhý/poslední operátorský
-pokus se připravuje jako nový normální single-router CODE modify, nejvýše14 celkem.
+pokus následoval jako nový normální single-router CODE modify HTTP14 níže.
 Současný lifecycle je succeeded a nesmí být přeznačen na FAILED; žádná ruční
 oprava generované aplikace ani oslabení oracle. První běh i jeho FAIL zůstávají.
-Po HTTP cleanup se připravuje jedna původní F11 CHAT série, bez retry a bez H1.
+Po HTTP cleanup proběhla jedna původní F11 CHAT série níže, bez retry a bez H1.
 Nezávislý actual audit2e80ca42…a758ff přijal primární fyzickou cestu a správné
 uzavření suplementálního FAIL; nová modelová volání z něj neplynou.
 
-### C14 F11 — jeden cílený živý průchod (SOURCE/CPU_PASS; LIVE_NOT_RUN)
+### C14 F11 — jeden cílený živý průchod (LIVE_FAIL; EVIDENCE_AND_CLEANUP_REVIEW_PASS)
 
 Původní čtyři známé F11 tahy a původní schvalovací oracle zůstávají stejné;
 žádný holdout, nový chatový korpus, prompt nebo změna modelu. Exact Gemma4K CHAT
@@ -149,7 +154,7 @@ vlastnictví. V3 obojí opravuje,35Node+5supervisor CPU PASS, staré FAIL zachov
 Source60f021b7…84263e +relay0bbd77ab…ea094a3, nezávislé review18affb60…aa0b49.
 ROOT integrovaný runner-contract1 a artifact160 PASS; raw logy i exity zachované.
 [Hashové předání F11](review/evidence/product-continuation-20261008/f11-preparation.json).
-Live_READY vyžaduje nový čistý source/CI/freeze; CPU příprava není přijetím chatu.
+Před během se vyžadoval čistý source/CI/freeze; samotná CPU příprava nebyla přijetím chatu.
 
 F11 helper publikovaný na `a7ef9239`, CI37752903870/job113230219183 všech18 SUCCESS,
 source review16c51713…170fe67, freeze3780c5ed…d50abcb a READYb47c62aa…e9370c.
@@ -162,9 +167,11 @@ hranici modelového rozhodnutí; úspěch C14 guardu na chybném false flagu ten
 konkrétní běh nepotvrzuje ani nevyvrací. Žádný opakovaný modelový pokus F11.
 Shared cleanup skutečně unloadnul Gemmu,3empty a lease release PASS; before i after
 metadata PASS. Všech74 613 refs/221symlinků po běhu shodných, source clean.
-Nezávislé actual/DB/semantics review běží; C6 skóre ani release se nezlepšují tvrzením.
+Nezávislé actual/DB/semantics review446c6c48…72b2056 přijalo důkazy LIVE_FAIL,
+bezpečné zastavení bez efektů a cleanup PASS. Jde o HTTP/backend cestu; Studio,
+živý restart ani úspěšné approval/file write tento běh neověřil. C6 skóre a release se nemění.
 
-### HTTP14 — poslední autorizovaný modelový pokus (SOURCE/CPU_PASS; LIVE_NOT_RUN)
+### HTTP14 — poslední autorizovaný modelový pokus (PRIMARY70_SUPPLEMENT17_ACTUAL_REVIEW_PASS)
 
 Nový freeze@7 navazuje normální změnou pouze routeru na succeeded app6e80b9f0.
 Bez revisionOf, bez přeznačení předchozího M2 stavu a bez nové generace serveru.
@@ -174,7 +181,70 @@ pozitivní případy, nikoli hotovou ruční opravu. Server zůstává hashově 
 do modelového kontextu se znovu nevkládá kvůli původnímu produktovému limitu.
 CPU42PASS a nezávislý replay42PASS, review3184907d…83f271a, přesná rekonstrukce
 patche a16nových/12historických refs; cleanup a původní oracly zachované.
-Následuje čistý publikovaný source/CI/freeze a poslední skutečný CODE pokus.
+Helpery jsou publikované na `44e4d96c`; CI37756055502/job113240758670 má všech18 SUCCESS.
+Freeze9691c0b4…16acad a READY89eea1e2…1d5447; skutečný běh09:35:16–09:36:30UTC/exit0.
+Jeden nový úplný CODE výstup, cumulative14; primární70, přesný M2 approval,
+commit app0ae3bd8c a pending/durable restart PASS. Own-model unload+3empty/lease
+release a source/history/authority kontrola PASS. Supplemental94a2e062…bf9b4f
+jednou09:36:58–09:37:02UTC/exit0, všech17 požadavků PASS,0modelcalls/processGroup empty.
+Nezávislý posudek9de65080…4188053 přijímá původní primary70+supplement17,
+přesné M2 schválení/commit/restart a vlastněný cleanup. After source/history:
+58 918 souborů,220 symlinků a19 historických/policy refs PASS, clean44e4d96c.
+Původní HTTP13 supplement FAIL i raw PHYSICAL_PASS_REVIEW_PENDING se zachovávají;
+[aktuální hashové předání](review/evidence/product-continuation-20261008/http14-actual.json).
+Statický limit: router stále připouští alias charset=utf8, který původní oracly
+nezkouší; PASS nedokládá úplnou shodu s přísnějším pokynem „Only utf-8“.
+Primární oracle dokládá restart serveru se stejnou /tmp DB uvnitř jednoho běhu;
+supplement používá vlastní novou DB. Trvalost M2 authority DB je ověřena zvlášť.
+Vanished drain PID3101363 zůstal UNKNOWN/nonempty; teprve další3empty vzorky
+umožnily release téže lease. Budget14 je vyčerpaný, žádné další CODE volání.
+Nejde o přirozený Studio→D1, úplnou API shodu ani release přejímku.
+
+### Celý offline/database profil před integrací C15 (FULL_PROFILE_REVIEW_PASS)
+
+Čistý publikovaný `44e4d96ceadde57eb67e81c6f67142b1143956f3`,
+8.10.09:52:43–10:02:53UTC:410 PASS/0 FAIL/TIMEOUT/BLOCKED/SKIPPED, exit0.
+Původní příkaz, prostředí, registry a výběr323offline+87database beze změny;
+žádné vyloučení programu, concurrency1,0retry,0uniklých vlastněných process groups.
+Nezávislý posudek93ce797d…4381840 ověřil všech410logů/1 323 924B,
+tři fingerprinty, context74, původních239kontrol C12 i scenario42.
+Dva textové FAIL markery jsou doložené záměrné negativní/simulační stopy.
+Přesný source před/po stejný a čistý. CI37756055502/job113240758670 má18 SUCCESS.
+[Příkaz, exity, report, všechny logové hashe a přejímka](review/evidence/product-continuation-20261008/c14-full-profile.json).
+410 jsou programy: output-gate je import smoke, pět offline crash probes
+nedokládá významovou kvalitu. Project57 patří samostatnému focused/server ověření.
+Runner-owned HOME/DB/env a process-group cleanup nejsou obecný host sandbox;
+žádná nová inference, Studio, H1/H2 ani release přejímka tím nevzniká.
+Historický C12 profil a všechny původní FAIL/withdrawn důkazy zůstávají zachované.
+
+### C15 — interpretace doplněného názvu souboru (A/B PŘÍNOS; USER_PATH_NOT_RUN)
+
+Předem přijatý experiment porovnal společnou změnu instrukce a odstranění
+starých routingových polí z `pending`. Pevný sběr na source `44e4d96c` proběhl
+8. 10. 10:11:34–10:12:22 UTC: všech 12 odpovědí úplných, exit 0, žádný retry.
+Gemma4:26b, přesný digest `08ae…12a68`, kontext 4K a původní schema zůstaly stejné.
+
+U známého úplného zadání byla varianta A správná v 0 ze 3 opakování, B ve 3 ze 3.
+Zákaz ukládání, volbu mezi dvěma cíli i zrušení obě varianty respektovaly ve 3 ze 3
+negativních kontrol. Celkem A 3 ze 6, B 6 ze 6 užitečných odpovědí; žádná nebezpečná
+interpretace. Nezávislý významový i technický posudek přijaly výsledek v tomto rozsahu.
+Jde o opakování jednoho známého pozitivního zadání a tři různé negativy, ne o 95% kvalitu
+chatu. Obě změny vstupu působily společně; jejich jednotlivý účinek nelze oddělit.
+
+Replay nevolal M1, DB, approval ani efekty. Vlastněný model se unloadnul;
+UNKNOWN PID 3195641 pouze přerušil počítání prázdných vzorků. Následovaly tři
+prázdné vzorky a uvolnění téže lease. Technický reviewer znovu ověřil 58 918
+souborů closure. [Plán, úplný raw sběr a oddělené posudky](review/evidence/product-continuation-20261008/c15-input-ab.json).
+
+ROOT aplikoval přesné přijaté source a testy do pracovního kandidátu nad `44e4d96c`.
+Nezávislé integrované review přijalo source a testy: context 82 ze 82 a project
+57 ze 57 PASS v oddělených privátních bwrap bězích bez sítě. Registry 596 a module
+graph 1 514 hran / 0 nových / 3 cykly / 28 členů mají nové exit 0 receipts.
+Celý profil 410 výše patří zdroji před C15, nikoli této změně.
+Další krok je samostatně zmrazená původní čtyřtahová uživatelská cesta: NOT_RUN,
+nejvýše 12 modelových volání a 600 sekund, bez retry. Vyžaduje přijatou integraci,
+nový source/CI pin a review přípravy. Výsledek A/B nepovoluje automatické efekty;
+původní grounding a přesné schvalování zůstávají. H1/H2 ani release nejsou přijaty.
 
 ## Autonomní postup přijatý po revizi 7. 10. 2026
 
@@ -193,7 +263,8 @@ main `838b8cee`. Obsahuje CHAT `e066956b` (merge `56138e4f`) a projektovou D1
 změnu `8fe6fb53`. Čistý vlastní CHAT checkout byl na tento základ fast-forwardnut;
 To byl stav vstupu C1. Nyní čistý ROOT checkout převzal přesný publikovaný
 CHAT `e15264f14b3db3e47837da1adac11509bcc37bc4` pomocí fast-forwardu
-z `a61fe70d`, bez slučovacího diffu. Aktuální zdroj po dalších cyklech je24f329c6.
+z `a61fe70d`, bez slučovacího diffu. Následný C9 produktový checkpoint byl24f329c6;
+aktuální zdroj a výsledky jsou v hlavičce tohoto deníku.
 Produkce ani oba zmrazené H1 kandidáty
 `c7f03d56` / `9591ea1b` se nemění.
 Full109 a kopírovaná cache/upgrade jsou přijaté v rozsahu níže; neopakují se bez
@@ -227,13 +298,20 @@ Navazující C7 opravil prokázanou aplikační ztrátu save kontextu, C8 dalš�
 třídy nepravdivého úspěchu při providerové chybě; oba mají nezávislé source
 a execution review. C7 cílená živá série přesto nabídku uložení nevytvořila.
 Externí revize C1/kolo5 doložila zbývající404/binding false-ok, nesprávné500/502
-mapování a projektový catch. Přednost má jejich společná oprava C9 níže.
-Následující chatový krok musí oddělit rozhodnutí o návaznosti a save interpretaci
-na již exponovaných případech, nikoli přidat nedoložený prompt/regex. C2 již rozebral všech 36 neužitečných odpovědí a 22 zastavení
+mapování a projektový catch; jejich společná oprava C9 je přijatá níže.
+C10 a C14 oddělily a opravily doloženou ztrátu návaznosti. F11 request19 nyní
+odhalil clarify i při úplném vstupu a správném target/source. C15 dokončil
+řízené CPU kontroly a pevné A/B: A 0 ze 3, B 3 ze 3 správných pozitivních opakování,
+obě varianty zachovaly všechny tři negativy. Integrované context 82 / project 57
+mají review PASS. Následuje nová čtyřtahová uživatelská cesta (NOT_RUN,
+nejvýše 12 volání / 600 s), bez retry, automatických efektů nebo povýšení
+understood:false na zápis. Další rozhodnutí staví na těchto omezených důkazech,
+nikoli na novém nedoloženém promptu či regexu. C2 již rozebral všech 36 neužitečných odpovědí a 22 zastavení
 z Gemma regrese podle rodiny a příčiny (aplikace/model/hodnocení, překryvy se nesčítají).
 H1 má naplánované jedno společné GPU okno pro oba pevné kandidáty, zatím
-WINDOW_NOT_OPEN; rozhodnutím 8. 10. je odložené do kontroly GPU cleanup.
-Custody/dešifrování se nyní nevyžaduje; CPU vývoj a autorizované HTTP/Fan pokračují nezávisle. D1 nemá pořadovou závislost na sběru ani hodnocení H1.
+WINDOW_NOT_OPEN. Po původním odkladu jsou konkrétní Qwen32k a Gemma4K cleanup
+běhy přezkoumané; samostatná H1 připravenost a custody zůstávají otevřené.
+Nové dešifrování ani sběr neproběhly; další autorizovaná práce pokračuje nezávisle. D1 nemá pořadovou závislost na sběru ani hodnocení H1.
 Stagnace se uplatňuje ihned; nové prompty ani regex opravy bez doložené příčiny.
 Po dvou cyklech bez posunu se strategie přehodnotí a problém oznámí, nezávislá
 práce může pokračovat. Historické různě hodnocené série nejsou samy kontrolované
@@ -638,19 +716,20 @@ Actual používá zdroj cache 0700; původní zdroj 0775 pokrývá CPU regrese, 
 
 | Oblast | Co chybí / nejbližší krok |
 | --- | --- |
-| HTTP CODE | Anchored@5 skutečně vyčerpal 12/12; nový router vrací GET /items/1=400, A3 neopravena; rollback obnovil retained zdroje |
-| HTTP strategie | Aplikace FAIL. Operátor 8. 10. schválil první genuine repair13 a případně druhý pokus nejvýše14; nový freeze/helpers v přípravě, oracle/approval/rollback zachované |
-| Fan | Frozen5f6 spotřeboval8; oracle8 PASS/6 FAIL. Operátor 8. 10. schválil jednu dávku repair4+CLI3/cumulative15; helpers/freeze v přípravě |
+| HTTP CODE | HTTP14 nové1/celkem14, primary70+supplement17 actual review PASS; app0ae3bd8c, M2/restart/cleanup PASS. Omezení charset=utf8 zachované; historické HTTP13 a anchored@5 FAIL nepřeznačené |
+| HTTP strategie | HTTP14 zmrazený rozsah uzavřen posudkem9de65080; rozpočet14 vyčerpaný. Další CODE volání, úplná API shoda ani release přejímka z výsledku neplynou |
+| Fan | C13 dokončil4 další výstupy, celkem12/15; literal import guard/oracle změna čeká na operátora, původní FAIL zachovaný. Cleanup skutečného Qwen32k běhu přijat; další core inference nepovolena |
 | Přirozené plánování | C5 v5 po opraveném ovladači odeslal vstup; GPU monitor FAIL před úplnou odpovědí, D1 NOT_REACHED. Stagnace: žádný další retry v tomto cyklu |
 | M1 outage | C1 `1f098912` source review a řízené HTTP/restart PASS; testovaný `b9cfc7c5` full410/CHAT7/CODE12/CI PASS; ROOT převzal e15264f1; C4 fresh5 b959a468 5PASS/review PASS |
-| Chatová kvalita | C6 úplné3×53/dva posudky NO_GO; C7 oprava context/restart CPU přijatá, živý save i cleanup první série FAIL; další2 NOT_RUN. Oddělit návaznost a save interpretaci |
-| Providerové chyby | C9 zdroj24f329c6: zbývající classifier404/binding/drift +projektové chyby terminal; řízené13HTTP/57project GREEN, source/test/evidence/integrace19/CI PASS. C12 celý profil410/CI18 přijat na678eead7; interní M7 status se nemění |
+| Chatová kvalita | C6 tři53 série/dva posudky NO_GO zachované. C14 CPU oprava přijata; jediná F11 live série přezkoumaný FAIL při request19, kontext úplný,0approval/efektů,cleanup PASS. C15 A/B přijato: A 0 ze 3, B 3 ze 3 pozitivních opakování, obě varianty 3 ze 3 negativ. Integrované context 82 / project 57 a review PASS; nová čtyřtahová cesta NOT_RUN |
+| Providerové chyby | C9 zdroj24f329c6: zbývající classifier404/binding/drift +projektové chyby terminal; řízené13HTTP/57project GREEN, source/test/evidence/integrace19/CI PASS. C12 celý profil410/CI18 historicky přijat na678eead7; aktuální C14 celý410/CI18 přijat na44e4d96c; interní M7 status se nemění |
 | Mobil | Chybí conversation.create; implementace a device přejímka až po stabilním IDE/BE |
 | Hunt | Potřebujeme nový grading report/cestu a vlastníka pokračování; ROOT cizí hodnocení nepřebírá |
-| H1 custody | Operátor 8. 10. odložil rozhodnutí do kontroly GPU cleanup; sběr/dešifrování NOT_RUN. Dřívější custody varianty zůstávají připravené |
+| H1 custody | Cleanup uzavřených Qwen32k a Gemma4K běhů přezkoumaný; samostatné H1 okno/custody zůstávají nedořešené. Sběr/dešifrování NOT_RUN, bez plaintextu; dosavadní varianty připravené |
 
+**Historická HTTP evidence do 7. 10.; aktuální HTTP13/14 je uvedené výše.**
 [HTTP WP](wp/WP-M2-PRIVATE-HTTP-EXECUTION-20261004.md): linux-bwrap-private-loopback-v1 je zapojený, default offline V1 zachovaný.
-Retained@3 M2/oracle/Git1856920f/BE restart prošel; API SOURCE FAIL, [export](../examples/generated-apps/http-items-candidate/README.md) NOT_ACCEPTED.
+Retained@3 M2/oracle/Git1856920f/BE restart prošel; jeho API SOURCE FAIL zůstává historický. [Aktuální export s historií](../examples/generated-apps/http-items-candidate/README.md) odpovídá následnému HTTP14 app0ae3bd8c a přijatému primary70+supplement17 rozsahu.
 70 HTTP +14 refused SQL /14 positive, AUTOINCREMENT a dva servery se stejnou DB doložené; rollback4 PASS.
 Normal@4 měl úplný kontext/výstupy; následný entry FAIL/model0 zachovaný. Anchored@5 zdroj409ed3a1:
 [CI37586564446](https://github.com/Belphareon-bak/intentsmith/actions/runs/37586564446) všech18 SUCCESS; core119/model45, lokální CODE12 PASS, source review PASS.
@@ -667,15 +746,20 @@ To nedokládá zaplněné 32k okno. Output4096 platí jen pro vydaný exact CODE
 
 ## Zbývající testy a pořadí dokončení
 
-1. Navázat na C10: opravit rozhodování o návaznosti souborového požadavku až po
-   kontrolách cancel, změny zadání a projektu. C9/C11/C12 jsou uzavřené v uvedeném
-   CPU rozsahu; poslední přijatý celý profil je678eead7,410PASS a CI18.
+1. Publikovat přijatou integraci C15 a připnout nový source/CI pro další běh.
+   Přijaté A/B prokázalo přínos společné změny vstupu; následuje samostatně
+   přezkoumaná čtyřtahová uživatelská cesta (NOT_RUN, nejvýše 12 volání / 600 s).
+   Bez automatických efektů, změny původního oracle nebo dodatečného retry.
+   C14
+   oprava návaznosti má source/CPU přejímku. C9/C11/C12 jsou uzavřené v uvedeném
+   CPU rozsahu; aktuální přijatý celý profil je44e4d96c,410PASS a CI18.
    C4 původní fresh5 na b959a468: **5PASS/review PASS**. Historický90/3PASS2FAIL zachovaný.
    C5 uzavřít jako přezkoumaný FAIL; další strategie nesmí pokračovat řadou retry aparátu.
    C6 známá regrese74,21%/15,09% NO_GO; C7/C8 produktové opravy přijaté v uvedeném rozsahu,
-   první cílený živý save stále FAIL. C10 již oddělil příčinu ztráty návaznosti
-   přesným CPU replayem; další změna potřebuje důkaz proti cancel/new-task kontrolám. Širší M6/release otevřený.
-2. Autorizované HTTP13 (případně14) a jedna Fan dávka do15 mají nyní přednost po kontrole GPU cleanup. Původní oracle, commit/restart/persistence a review se zachovají.
+   první cílený živý save stále FAIL. C14 F11 také LIVE_FAIL, ale bez ztráty vstupu
+   a s cleanup PASS. Další změna potřebuje nezávisle přijatý důkaz včetně
+   cancel/new-task/cross-project/source negativ. Širší M6/release otevřený.
+2. HTTP14 primary70+supplement17 má uzavřený actual review PASS v testovaném rozsahu; další CODE0, úplná API shoda se netvrdí. HTTP13 primary PASS/supplement FAIL zůstává historicky zachovaný. Fan12/15 čeká na rozhodnutí o protected oracle; žádná nová core inference. Původní funkční oracle, commit/restart/persistence a review se zachovají.
 3. Živý přirozený classifier→D1, fyzická ovladatelnost IDE/M2, file/web/export/skills a projektové A→B→A.
 4. Kvalita expertise/specialistů, worker souběh a delší stabilita; project/config/skills restore; společný profil a finální M5/M6.
 5. Mobil: historical CPU47, fyzická matice 13+7 NOT_RUN; device/APK/VPN/pair-revoke/M2/TalkBack.
@@ -690,7 +774,8 @@ Online zdroje se zachovají. Signed receipts 13, aktuální 24h soak/5min throug
 Hunt RO 6. 10., 12:18 UTC: canonical 107 JSON (106 batches +revision) +3 MD; poslední zápis 30. 9.,19:43 UTC.
 Poslední validované pokrytí 596/1173 responses,2324/3689 criteria; historický stop byl weekly API limit, dnešní quota tím nedoložená.
 Oddělený ROOT development draft 16/64 se nepřičítá. Nový worker progresspath vyžádaný; Gemma9591 poslední NO_GO, žádná aktivace.
-H1 plaintext odstraněn; rozhodnutí o sběru je od 8. 10. odložené do kontroly GPU cleanup.
+H1 plaintext odstraněn a sběr NOT_RUN. Po přezkoumaném cleanup konkrétních Qwen32k
+a Gemma4K běhů zbývá samostatná H1 připravenost a rozhodnutí o předání raw evidence.
 Zaslepení a předání hodnotitelům po případném sběru provede operátor. Obsah ROOT nečetl.
 [Datovaný archiv](https://github.com/Belphareon-bak/intentsmith/blob/0d86b68ef94bfd260dfb6f06d2231d14865dc9f1/docs/WORK-PROGRESS.md).
 
