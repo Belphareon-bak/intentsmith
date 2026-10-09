@@ -607,6 +607,14 @@ class LiveModel extends Component {
         : item.group === 'custom' ? 'Vlastní' : 'Nezařazené';
       const projectState = sec === 'projects' ? ({ active: 'aktivní', archived: 'archivovaný',
         deleted: 'smazaný', specification: 'specifikace' })[item.state] || 'nezjištěno' : '';
+      const workerEnabled = item.raw?.enabled;
+      const workerState = sec === 'workers' ? workerEnabled === false || workerEnabled === 0
+        ? 'pozastavený' : workerEnabled === true || workerEnabled === 1 ? 'aktivní' : 'nezjištěno' : '';
+      const workerSchedule = item.raw?.schedule?.type;
+      const workerGroups = sec === 'workers' ? [
+        ...(workerEnabled === false || workerEnabled === 0 ? ['paused'] : []),
+        ...(['cron', 'interval'].includes(workerSchedule) ? [workerSchedule] : []),
+      ] : [];
       const meta = sec === 'chats' ? this.conversationMeta(null, item) : null;
       if (meta) return { id: item.id, name: item.name, sub: meta.sub, desc: item.description,
         ...meta, icls: 'neutral', groups: [meta.projectId ? 'project' : 'free', ...(meta.specialistId ? ['specialist'] : [])],
@@ -618,15 +626,16 @@ class LiveModel extends Component {
         specialists: I.users, expertises: I.cap, workers: I.bot, market: I.bag, media: I.image })[sec],
       tone: this.sec(sec).tone,
       groups: sec === 'specialists' ? [...new Set([item.raw.type,item.raw.domain,item.state,item.group].filter(Boolean))]
+        : sec === 'workers' ? workerGroups
         : [sec === 'chats' ? (item.raw.project_id ? 'project' : 'free') : sec === 'expertises' ? item.group : item.state || item.group],
       group: sec === 'expertises' ? expertiseLabel : sec === 'projects' ? projectState : item.group || section,
-      catLabel: sec === 'expertises' ? expertiseLabel : sec === 'projects' ? projectState : item.state || item.group,
+      catLabel: sec === 'expertises' ? expertiseLabel : sec === 'projects' ? projectState : sec === 'workers' ? workerState : item.state || item.group,
       meta: sec === 'expertises' && Number.isFinite(item.raw.temperature)
         ? 'teplota ' + String(item.raw.temperature).replace('.', ',') : '',
       tag: sec === 'expertises' ? item.raw.isCustom ? 'vlastní' : 'vestavěná'
-        : sec === 'projects' ? projectState : item.state || '',
+        : sec === 'projects' ? projectState : sec === 'workers' ? workerState : item.state || '',
       tagCls: sec === 'projects' && item.state === 'active' ? 'ok' : '',
-      state: sec === 'projects' ? projectState : item.state || '' };
+      state: sec === 'projects' ? projectState : sec === 'workers' ? workerState : item.state || '' };
     });
     if (sec !== 'chats') return rows;
     const open = this.recent(s).map(sid => {

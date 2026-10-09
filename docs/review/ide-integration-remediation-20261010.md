@@ -32,6 +32,14 @@ Přenesené úpravy zachovávají design IDE a jeho barvy, podle README preview 
 
 Další skutečné funkční nálezy a jejich opravy:
 
+- Pozastavení workeři: skutečné enabled a schedule z list API určují stav,
+  filtry a počty. Ověření zahrnuje autentizovaný HTTP controller a nativní
+  kliknutí na filtr. Neznámý stav se nevydává za vypnutý worker.
+- M6 deterministický plán: přesně doplněné lokální python3, tar, iproute2 a
+  nftables, které již aktuální registr vyžaduje. Původní preflight zůstává
+  povinný; sonda kontroly pokrytí nedovolí otevřít GPU ani externí síť.
+  Starý Gate 0 v1 není podle Decision 036 release řetězem M6; diagnostický
+  běh se nepředkládá jako jeho PASS.
 - Nativní editor workera: ID instance se předává přímo při asynchronním
   otevření a po readbacku; test odkládá React state a stále načte správnou
   existující instanci. Původní synchronní mock tento problém zakrýval.

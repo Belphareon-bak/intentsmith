@@ -119,6 +119,9 @@ test('actual Studio controllers save CHAT settings then chat, recover validation
   live.setState({workerStep:1,workerProject:String(project.project.id),workerInstanceId:'studio-owned'});
   assert.equal(await live.previewWorker(live.st()),true,live.workerStatus().error);assert.equal(await live.submitWorker(live.st()),true,live.workerStatus().error);
   const installed=await expectJson(product,'GET','/api/agent-extensions/instances/studio-owned/config',null,200);assert.equal(installed.enabled,false);
+  await catalog.load('Workeři');
+  const workerRow=live.entities('workers',live.st()).find(row=>row.id==='studio-owned');
+  assert.deepEqual(workerRow.groups,['paused','interval']);assert.equal(workerRow.state,'pozastavený');
   const immediateState=live.setState,queuedState=[];live.setState=patch=>queuedState.push(patch);
   try { assert.equal(await live.openWorkerEdit({id:'studio-owned'}),true,live.workerStatus().error); }
   finally {live.setState=immediateState;for(const patch of queuedState)live.setState(patch);}

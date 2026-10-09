@@ -418,7 +418,19 @@ test('deterministic phase opens only exact locally preflighted toolchains', () =
     'toolchain:prlimit',
     'toolchain:systemd-analyze',
     'toolchain:accountant-ocr-runtime',
+    'toolchain:python3',
+    'toolchain:tar',
+    'toolchain:iproute2',
+    'toolchain:nftables',
   ]);
+  for (const program of registry.suites.filter(row=>deterministic.programIds.includes(row.id))) {
+    for (const toolchain of program.requirements.toolchain || []) {
+      assert(deterministic.allowedBlockers.includes('toolchain:'+toolchain),
+        program.id+' requires an explicitly preflighted '+toolchain);
+    }
+  }
+  assert(deterministic.allowedBlockers.every(blocker=>blocker.startsWith('toolchain:')),
+    'deterministic qualification must not open GPU, server or external-network authority');
   const source = readFileSync(
     path.join(repositoryRoot, 'scripts', 'nightly-audit.js'),
     'utf8',

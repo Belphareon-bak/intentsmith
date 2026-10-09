@@ -93,3 +93,11 @@ a neplatný generovaný balíček specialisty. Opravy zahrnují skutečný loade
 ExtensionContext a readback. Fresh-clone Gate 0 odkryl zastaralou allowlist
 Theia build výstupů; konkrétní nové výstupy mají kontrolu vlastnictví a
 negativní testy symlinků/práv. Další release brány se tím neoznačují PASS.
+
+Závěrečné nativní ověření odkrylo i prázdný filtr pozastavených workerů.
+Filtry a stav nyní používají skutečné enabled/schedule z list API; sonda
+ověřuje čítač i filtrovaný seznam. M6 deterministický plán doplňuje čtyři
+pojmenované lokální toolchainy požadované aktuálním registrem (python3, tar,
+iproute2, nftables). Každý stále prochází původním preflightem; nevzniká
+autorita pro GPU, server ani externí síť. Starý Gate 0 v1 běh je pouze
+diagnostika, podle Decision 036 není release řetězem M6.
