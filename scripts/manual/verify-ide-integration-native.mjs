@@ -35,7 +35,7 @@ try {
  assert(debugPort,'CDP port');browser=await puppeteer.connect({browserURL:'http://127.0.0.1:'+debugPort});
  let page;for(let i=0;i<90;i++){page=(await browser.pages()).find(p=>p.url().includes('/lib/frontend/index.html'));if(page)break;await new Promise(r=>setTimeout(r,500));}assert(page,'own native frontend');
  page.on('pageerror',e=>pageErrors.push(e.message));page.on('response',r=>{const u=new URL(r.url());if(u.port===String(backend.port)&&u.pathname.startsWith('/api/'))requests.push({method:r.request().method(),path:u.pathname,status:r.status()});});
- await page.waitForFunction(()=>document.body.innerText.includes('Nastavení')&&document.body.innerText.includes('Konverzace'),{timeout:90000});
+ await page.waitForFunction(()=>document.body.innerText.includes('Nastavení')&&document.body.innerText.includes('Workeři'),{timeout:90000});
  const bridge=await page.evaluate(()=>({backendUrl:window.electronIntentSmith?.getBackendUrl(),hasCapability:!!window.electronIntentSmith?.getLocalCapability()}));check('native preload uses owned backend capability',bridge.backendUrl==='http://127.0.0.1:'+backend.port&&bridge.hasCapability);
  async function clickText(text){const clicked=await page.evaluate(text=>{const node=[...document.querySelectorAll('button,[role="button"],a,.nav-item,.pitem')].find(n=>n.getBoundingClientRect().width>0&&n.innerText.trim()===text);if(!node)return false;node.click();return true;},text);assert(clicked,'visible control '+text);await new Promise(r=>setTimeout(r,400));}
  async function screenshot(name){await page.screenshot({path:path.join(output,name+'.png')});}

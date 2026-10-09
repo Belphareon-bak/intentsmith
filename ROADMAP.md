@@ -4122,4 +4122,4 @@ receipts se nepřebírají jako jeho důkaz. Pro napojení Studia platí
 jsou podle přímého rozhodnutí operátora před-release scope; produkční M5/M6
 journey, credentials a přejímka zůstávají otevřené.
 
-Integrační IDE/BE kandidát WP-IDE-INTEGRATION-20261009 má 1557 hran, 3 cykly / 28 členů. Tři importy společného resolveru mají vlastní self-review a samostatný baseline commit; nezávislé přijetí zůstává pending.
+Integrační IDE/BE kandidát WP-IDE-INTEGRATION-20261009: současný module graph má 1 557 hran, 3 cykly / 28 členů. Tři importy společného resolveru mají vlastní self-review a samostatný baseline commit; nezávislé přijetí zůstává pending.
