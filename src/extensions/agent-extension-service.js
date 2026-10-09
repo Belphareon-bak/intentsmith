@@ -9,6 +9,7 @@ import {
   createExtensionContextV1,
 } from '../../contracts/m3/extension-v1.js';
 import { validateAgentDefinition } from '../agents/schema.js';
+import { createIdeStore } from '../db/ide-store.js';
 
 const INSTANCE_BINDING_CONTRACT = 'M3AgentExtensionBinding';
 const INSTANCE_BINDING_VERSION = 1;
@@ -97,6 +98,8 @@ export class AgentExtensionService {
     this.hostCapabilities = hostCapabilities;
     this.extensionsDir = extensionsDir;
     this.extensions = new Map();
+    this.customStore = repository.db?.prepare("SELECT 1 FROM sqlite_master WHERE name='ide_documents'").get()
+      ? createIdeStore(repository.db) : null;
   }
 
   attachScheduler(scheduler) {
@@ -105,8 +108,7 @@ export class AgentExtensionService {
 
   discover() {
     this.extensions.clear();
-    if (!existsSync(this.extensionsDir)) return [];
-    const directories = readdirSync(this.extensionsDir, { withFileTypes: true })
+    const directories = (existsSync(this.extensionsDir)?readdirSync(this.extensionsDir, { withFileTypes: true }):[])
       .filter(entry => entry.isDirectory())
       .map(entry => entry.name)
       .sort(compareUtf8);
@@ -143,7 +145,41 @@ export class AgentExtensionService {
         manifestPath,
       }));
     }
+    for(const saved of this.customStore?.list('worker-template')||[]) {
+      if(this.extensions.has(saved.id)) fail('Custom extension collides with a packaged extension','M3_AGENT_EXTENSION_CONFLICT');
+      const manifest=this.validateTemplate(saved.manifest);
+      const context=createExtensionContextV1({manifest,hostCapabilities:this.hostCapabilities});
+      this.extensions.set(manifest.id,Object.freeze({manifest,context,manifestPath:null,custom:true}));
+    }
     return this.list();
+  }
+
+  validateTemplate(input) {
+    const manifest=canonicalizeExtensionManifestV1(input,EXTENSION_KIND.AGENT);
+    if(!INSTANCE_ID_PATTERN.test(manifest.id)||manifest.payload.definition.id!==manifest.id)
+      fail('Invalid worker template identity');
+    const validation=validateAgentDefinition(manifest.payload.definition);
+    if(!validation.valid)fail(validation.errors.join('; '),'M3_AGENT_EXTENSION_DEFINITION_INVALID');
+    validateEffectPolicy(manifest);
+    createExtensionContextV1({manifest,hostCapabilities:this.hostCapabilities});
+    return manifest;
+  }
+
+  saveTemplate({manifest:input,revision},actor) {
+    if(!this.customStore)fail('Custom worker storage is unavailable','M3_AGENT_EXTENSION_STORAGE_UNAVAILABLE');
+    const manifest=this.validateTemplate(input),previous=this.get(manifest.id);
+    if(previous&&!previous.custom)fail('Packaged worker cannot be replaced','M3_AGENT_EXTENSION_CONFLICT');
+    if(this.repository.getAllAgents(true).some(agent=>agent.definition?.m3_extension?.id===manifest.id))
+      fail('Installed instances protect their worker template','M3_AGENT_EXTENSION_CONFLICT');
+    const saved=this.customStore.put('worker-template',manifest.id,revision,{manifest},actor);
+    this.discover();return {id:manifest.id,revision:saved.revision,...this.configuration(manifest.id)};
+  }
+
+  deleteTemplate(id,revision,actor) {
+    if(!this.customStore||!this.get(id)?.custom)fail('Custom worker not found','M3_AGENT_EXTENSION_NOT_FOUND');
+    if(this.repository.getAllAgents(true).some(agent=>agent.definition?.m3_extension?.id===id))
+      fail('Installed instances protect their worker template','M3_AGENT_EXTENSION_CONFLICT');
+    const result=this.customStore.remove('worker-template',id,revision,actor);this.discover();return result;
   }
 
   list() {
@@ -168,7 +204,7 @@ export class AgentExtensionService {
       definition: structuredClone(extension.manifest.payload.definition) };
   }
 
-  preview(extensionId, { instanceId = extensionId, params = {} } = {}) {
+  preview(extensionId, { instanceId = extensionId, params = {} } = {}, editing = false) {
     const extension = this.get(extensionId);
     if (!extension) fail(`Unknown agent extension: ${extensionId}`, 'M3_AGENT_EXTENSION_NOT_FOUND');
     if (typeof instanceId !== 'string' || !INSTANCE_ID_PATTERN.test(instanceId)) fail('Invalid instance ID');
@@ -192,7 +228,7 @@ export class AgentExtensionService {
         || field.name === 'project_id' && (!Number.isSafeInteger(value) || value < 1)) fail(`Invalid parameter: ${field.name}`);
       values[field.name] = structuredClone(value);
     }
-    if (this.repository.getAgent(instanceId)) fail(`Agent extension instance already exists: ${instanceId}`, 'M3_AGENT_EXTENSION_CONFLICT');
+    if (!editing && this.repository.getAgent(instanceId)) fail(`Agent extension instance already exists: ${instanceId}`, 'M3_AGENT_EXTENSION_CONFLICT');
     const definition = cloneDefinition(extension.manifest, instanceId);
     return { id: extensionId, instanceId, params: values, definition,
       definitionDigest: definition.m3_extension.definitionDigest, effectsExecuted: false,
@@ -255,6 +291,31 @@ export class AgentExtensionService {
     }
     this.repository.deleteAgent(instanceId);
     return true;
+  }
+
+  instanceConfiguration(instanceId) {
+    const agent=this.repository.getAgent(instanceId);
+    if(!agent)fail('Worker instance not found','M3_AGENT_EXTENSION_NOT_FOUND');
+    this.resolveExecution(agent);
+    return {...agent,configDigest:definitionDigest({params:agent.params,name:agent.name,description:agent.description,enabled:agent.enabled})};
+  }
+
+  updateInstance(instanceId,{params,name,description,expectedDefinitionDigest,expectedConfigDigest}) {
+    const agent=this.repository.getAgent(instanceId);
+    if(!agent)fail('Worker instance not found','M3_AGENT_EXTENSION_NOT_FOUND');
+    const extension=this.resolveExecution(agent);
+    if(this.scheduler?.getStatus?.().runningAgents?.includes(instanceId))fail('Running worker cannot be edited','M3_AGENT_EXTENSION_RUNNING');
+    if(expectedDefinitionDigest!==agent.definition.m3_extension.definitionDigest)
+      fail('Worker changed since editing began','M3_AGENT_EXTENSION_STALE');
+    if(expectedConfigDigest!==this.instanceConfiguration(instanceId).configDigest)
+      fail('Worker configuration changed since editing began','M3_AGENT_EXTENSION_STALE');
+    const preview=this.preview(extension.manifest.id,{instanceId,params},true);
+    if(name!==undefined&&(typeof name!=='string'||!name.trim()||name.length>120)
+      ||description!==undefined&&(typeof description!=='string'||description.length>4000))fail('Invalid worker description');
+    const updated=this.repository.updateAgent(instanceId,{params:preview.params,
+      ...(name!==undefined?{name:name.trim()}:{}),...(description!==undefined?{description}:{}),state:{}});
+    if(updated.enabled&&updated.definition.schedule?.type!=='manual')this.scheduler?.rescheduleAgent(instanceId);
+    return this.instanceConfiguration(instanceId);
   }
 
   uninstallInstance(instanceId) {

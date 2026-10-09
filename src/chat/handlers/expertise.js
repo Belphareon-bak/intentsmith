@@ -17,7 +17,7 @@ import {
   buildAnswerContext,
 } from './decisions.js';
 import { memoryReferenceBlock } from '../conversation-context.js';
-import { getNumCtx } from '../../llm/model-ctx.js';
+import { llmGateway } from '../../llm/gateway.js';
 import { config } from '../../config.js';
 import { randomUUID, createHash } from 'crypto';
 import { ExpertiseEnforcer, quickCheck } from '../../expertises/expertise-enforcement.js';
@@ -391,7 +391,7 @@ async function generateExpertiseResponse(input, expertise, context) {
     }
 
     const answerContext = buildAnswerContext(prompt, context.history, boundedExpertiseSystemPrompt,
-      maxTokens, getNumCtx(config.models.CHAT), { allowSummaryOutputTradeoff: true });
+      maxTokens, llmGateway.getRoleContextWindow('CHAT',config.models.CHAT), { allowSummaryOutputTradeoff: true });
     prompt = answerContext.prompt;
     maxTokens = answerContext.maxTokens;
     // v57.0 - Use expertise.temperature instead of hard-coded 0.5
@@ -889,7 +889,7 @@ async function handleMergedExpertises(input, context, executionTraceId) {
       selectExpertiseTokenBudget(input),
     );
     const answerContext = buildAnswerContext(prompt, context.history, boundedMergedPrompt,
-      maxTokens, getNumCtx(config.models.CHAT), { allowSummaryOutputTradeoff: true });
+      maxTokens, llmGateway.getRoleContextWindow('CHAT',config.models.CHAT), { allowSummaryOutputTradeoff: true });
     prompt = answerContext.prompt;
     maxTokens = answerContext.maxTokens;
 

@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 597
+- Runnable programs: 599
 - Explicit support-module exclusions: 35
-- Profiles: offline=324, database=87, server=64, model=86, soak=16, manual=20
-- States: ACTIVE=499, HISTORICAL=15, BLOCKED=83
+- Profiles: offline=324, database=88, server=65, model=86, soak=16, manual=20
+- States: ACTIVE=501, HISTORICAL=15, BLOCKED=83
 
 ## Execution profiles
 
@@ -291,6 +291,8 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T1-TESTS-HUGGINGFACE-CLIENT-TEST` | `tests/huggingface-client.test.js` | `C3-025` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-HUNT-COMPLETION-SIMULATION-TEST` | `tests/hunt-completion-simulation.test.mjs` | `C3-010` | T1 | `offline` | 1 min | 3 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-HUNT-DECISION-FEASIBILITY-TEST` | `tests/hunt-decision-feasibility.test.mjs` | `C3-025` | T1 | `database` | 5 s | 2 min | network:none, temp-db | yes | `ACTIVE` | — | primary implementer |
+| `IS-T3-TESTS-IDE-BACKEND-PRODUCT-HTTP-JOURNEY-TEST` | `tests/ide-backend-product-http-journey.test.js` | `C3-005` | T3 | `server` | 5 s | 3 min | network:loopback, temp-db, toolchain:git | yes | `ACTIVE` | — | WP-IDE-BACKEND-20261009 |
+| `IS-T1-TESTS-IDE-BACKEND-TEST` | `tests/ide-backend.test.js` | `C3-005` | T1 | `database` | 5 s | 1 min | network:loopback, temp-db, toolchain:git | yes | `ACTIVE` | — | WP-IDE-BACKEND-20261009 |
 | `IS-T1-TESTS-IDE-WORKSPACE-TEST` | `tests/ide-workspace.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-IMPACT-ANALYZER-TEST` | `tests/impact-analyzer.test.js` | `C3-018` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |
 | `IS-T1-TESTS-IMPORT-MAP-TEST` | `tests/import-map.test.js` | `C3-027` | T1 | `offline` | 30 s | 2 min | network:none | yes | `ACTIVE` | — | primary implementer |

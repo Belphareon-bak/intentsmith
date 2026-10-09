@@ -25,6 +25,8 @@ import { isLocalOperatorTransportSubject } from '../security/global-auth-policy.
 import { ModelEvaluationHistory } from '../upgrade/model-evaluation-history.js';
 import { createRoleEvaluationPlans } from '../eval/role-evaluation-plan.js';
 import { collectionGradingOptions } from '../eval/grade-answer-collection.js';
+import { createIdeStore } from '../db/ide-store.js';
+import { externalSignalsForCandidate } from '../system/ide-external-signals.js';
 import {
   POLICY_SOURCE,
   readModelAutomationPolicy,
@@ -799,6 +801,7 @@ export function createSystemRoutes({
         // Prune old backups after creating new one
         const storageConfig = getStorageConfig(rawDb);
         pruneBackups(dataDir, {
+          db: rawDb,
           maxDaily: storageConfig.backup.max_daily,
           maxWeekly: storageConfig.backup.max_weekly,
         });
@@ -867,6 +870,7 @@ export function createSystemRoutes({
             projectRoot: PROJECT_ROOT,
           });
           pruneBackups(dataDir, {
+            db: rawDb,
             maxDaily: storageConfig.backup.max_daily,
             maxWeekly: storageConfig.backup.max_weekly,
           });
@@ -1331,6 +1335,8 @@ export function createSystemRoutes({
 
         const candidates = [...merged.values()].map(candidate => ({
           ...candidate,
+          externalSignals:rawDb.prepare("SELECT 1 FROM sqlite_master WHERE name='ide_documents'").get()
+            ?externalSignalsForCandidate(createIdeStore(rawDb),candidate,config.models):[],
           installed: installedByCanonical.has(candidate.canonicalName),
           fitsVram: vramBudgetMb === null || !candidate.vramMb
             ? null

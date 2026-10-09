@@ -28,7 +28,7 @@ import {
   buildAnswerContext,
 } from './decisions.js';
 import { memoryReferenceBlock } from '../conversation-context.js';
-import { getNumCtx } from '../../llm/model-ctx.js';
+import { llmGateway } from '../../llm/gateway.js';
 import { config } from '../../config.js';
 import { randomUUID } from 'crypto';
 import {
@@ -484,7 +484,7 @@ Odpovídej v češtině.` + memoryReferenceBlock(context);
     }
 
     const answerContext = buildAnswerContext(prompt, context.history, systemPrompt, 1024,
-      getNumCtx(config.models.CHAT), { allowSummaryOutputTradeoff: true });
+      llmGateway.getRoleContextWindow('CHAT',config.models.CHAT), { allowSummaryOutputTradeoff: true });
     const result = await creBridge.generateChatResponse(answerContext.prompt, systemPrompt, {
       sessionId: `specialist-${context.sessionId}`,
       temperature: 0.4,

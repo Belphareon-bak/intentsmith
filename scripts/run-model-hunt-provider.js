@@ -35,7 +35,7 @@ mkdirSync(join(runDir, 'tmp'), { mode: 0o700 });
 const startedAt = new Date().toISOString();
 const argument = name => process.argv.slice(2).find(value => value.startsWith(`--${name}=`))?.slice(name.length + 3) || null;
 const request = { kind: judgePanel ? 'judge-panel' : collectionStage ? 'collection-stage' : gradeCollection ? 'grading' : conversationHandoff ? 'conversation-handoff' : roleHandoff ? 'role-handoff' : allRolePilot ? 'all-role-pilot' : codePilot ? 'code-pilot' : process.argv.includes('--evaluate-installed') ? 'evaluation' : 'hunt',
-  model: argument('only'), role: argument('role') };
+  model: argument('only'), role: argument('role'),jobId:argument('job-id') };
 const currentFile = join(state, 'current.json');
 const publish = values => {
   const next = `${currentFile}.${process.pid}.tmp`;
@@ -52,6 +52,8 @@ const providerLease = (() => {
     if (error.code !== 'GPU_EVALUATION_BUSY') throw error;
     const result = { generatedAt: new Date().toISOString(), status: 'SCHEDULED_SKIPPED', reason: 'EVALUATION_PROVIDER_BUSY', results: [] };
     writeFileSync(join(runDir, 'result.json'), JSON.stringify(result) + '\n', { mode: 0o600 });
+    writeFileSync(join(runDir,'summary.json'),JSON.stringify({schemaVersion:1,runId:basename(runDir),
+      sourceRoot:root,startedAt,finishedAt:result.generatedAt,request,status:result.status,reasons:[result.reason]})+'\n',{mode:0o600});
     rmSync(join(runDir, 'tmp'), { recursive: true, force: true });
     console.log(JSON.stringify(result));
     process.exit(0);

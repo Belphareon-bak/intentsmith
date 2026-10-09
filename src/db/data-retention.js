@@ -92,6 +92,7 @@ const RETENTION_TABLE_MAP = [
   { table: 'telemetry_snapshots',   configKey: 'telemetry',            dateCol: 'created_at' },
   { table: 'telemetry_metrics',     configKey: 'telemetry',            dateCol: 'created_at' },
   { table: 'telemetry_alerts',      configKey: 'telemetry',            dateCol: 'created_at' },
+  { table: 'model_runtime_telemetry', configKey:'telemetry', dateCol:"datetime(occurred_at / 1000, 'unixepoch')" },
   // Medium retention
   { table: 'specialist_telemetry',  configKey: 'specialist_telemetry', dateCol: 'created_at' },
   { table: 'workflow_patterns',     configKey: 'workflow_patterns',    dateCol: 'last_seen' },

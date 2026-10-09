@@ -35,7 +35,7 @@ import { buildReportFallback } from './report.js';
 import { chatMemory } from '../../memory/chat-memory.js';
 import { config } from '../../config.js';
 import { validateUnavailableAction, quoteActionDraft, unavailableActionPresentation } from '../unavailable-action.js';
-import { getNumCtx } from '../../llm/model-ctx.js';
+import { llmGateway } from '../../llm/gateway.js';
 import { LLMCapability } from '../../llm/auth-types.js';
 // v93.1: Extracted modules — re-exported for backward compatibility
 import { enrichSearchQuery, isMetaContinuation, buildConversationContext } from './utils/search-enrichment.js';
@@ -1440,7 +1440,7 @@ Passe den Umfang der Anfrage an. Benenne Unsicherheit; erfinde keine aktuellen F
     const requestedTokens = Math.min(selectAnswerTokenBudget(input, decision.intent),
       exactCount ? Math.max(64, wordCount * 8 + 32) : Infinity,
       decision.intent === IntentType.CONVERSATIONAL && decision.metadata?.briefResponse === true ? 384 : Infinity);
-    const numCtx = getNumCtx(config.models.CHAT);
+    const numCtx = llmGateway.getRoleContextWindow('CHAT',config.models.CHAT);
     let answerContext;
     let completionBasePrompt = systemPrompt;
     if (decision.intent === IntentType.CONVERSATIONAL) {

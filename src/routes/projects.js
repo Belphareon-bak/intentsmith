@@ -7,6 +7,11 @@ import { readChatMemoryPolicy } from '../db/user-settings.js';
 
 export function createProjectRoutes(deps) {
   const { db, parseBody, sendJSON, safeError, safeParseInt, sendStaticFile, logger, path, config } = deps;
+  const defaultProjectsDir=()=>{
+    if(!db.db.prepare("SELECT 1 FROM sqlite_master WHERE name='ide_documents'").get())return config.projects.defaultDir;
+    const row=db.db.prepare("SELECT data_json FROM ide_documents WHERE kind='paths' AND id='default'").get();
+    return row?JSON.parse(row.data_json).projects:config.projects.defaultDir;
+  };
 
   return {
     // ══════════════════════════════════════════════════════════════════════════
@@ -38,7 +43,7 @@ export function createProjectRoutes(deps) {
       try {
         const pathModule = await import('path');
         const { config } = await import('../config.js');
-        const defaultDir = pathModule.resolve(config.projects.defaultDir);
+        const defaultDir = pathModule.resolve(defaultProjectsDir());
         sendJSON(res, 200, { defaultDir });
       } catch (err) {
         sendJSON(res, 500, safeError(err));
@@ -91,7 +96,7 @@ export function createProjectRoutes(deps) {
         if (!slug) return sendJSON(res, 400, { error: 'Název musí obsahovat písmeno nebo číslici.' });
         const requested = customPath?.trim()
           ? pathModule.resolve(customPath.trim())
-          : pathModule.resolve(config.projects.defaultDir, slug);
+          : pathModule.resolve(defaultProjectsDir(), slug);
         // Resolve the parent rather than following an existing target symlink.
         // The normal default directory may be created; a custom parent must exist.
         if (!customPath?.trim()) await fs.mkdir(pathModule.dirname(requested), { recursive: true });

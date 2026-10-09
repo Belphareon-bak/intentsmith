@@ -206,7 +206,7 @@ test('current migration count stays bound to the release migration set', () => {
     new URL('../src/db/migrations/', import.meta.url),
     { withFileTypes: true },
   ).filter(entry => entry.isFile() && entry.name.endsWith('.js')).length;
-  assert.equal(migrationCount, 109);
+  assert.equal(migrationCount, 110);
   assert.equal(M6_CURRENT_VERSION_MIGRATION_COUNT, migrationCount);
 });
 
@@ -228,7 +228,8 @@ test('missing, duplicate, rebound and weaker upgrade receipts fail closed', () =
     log(receipt({ currentMigrationCount: 79 })),
     log(receipt({ currentMigrationCount: 105 })),
     log(receipt({ currentMigrationCount: 107 })),
-    log(receipt({ currentMigrationCount: 110 })),
+    log(receipt({ currentMigrationCount: 109 })),
+    log(receipt({ currentMigrationCount: 111 })),
     log(receipt({ previousServerCleanShutdown: false })),
     log(receipt({ failedUpgradeExitCode: 0 })),
     log(receipt({ failedUpgradeMigrationCount: M6_CURRENT_VERSION_MIGRATION_COUNT })),

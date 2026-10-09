@@ -20,7 +20,7 @@ export async function projectRoot(db, projectId) {
   if (!(await fs.stat(root)).isDirectory() || root === path.parse(root).root || root === os.homedir()) throw scmError('SCM_ROOT_DENIED');
   return root;
 }
-export async function git(root, args, { timeout = 10000, allowFailure = false } = {}) {
+export async function git(root, args, { timeout = 10000, allowFailure = false, sshCommand = null } = {}) {
   if (!Array.isArray(args) || args.some(arg => typeof arg !== 'string' || arg.includes('\0'))) throw scmError('SCM_INPUT_INVALID');
   try {
     const result = await exec('/usr/bin/git', [
@@ -28,7 +28,7 @@ export async function git(root, args, { timeout = 10000, allowFailure = false } 
       '-c', 'commit.gpgSign=false', '-c', 'credential.helper=',
       '-c', 'protocol.allow=never', '-c', 'protocol.ssh.allow=always', '-c', 'protocol.https.allow=always',
       ...args,
-    ], options(root, timeout));
+    ], {...options(root, timeout),env:{...baseEnv(),...(sshCommand?{GIT_SSH_COMMAND:sshCommand}:{})}});
     return result.stdout;
   } catch (error) {
     if (allowFailure) return null;

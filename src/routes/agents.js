@@ -1,4 +1,5 @@
 import { createM3LegacyAgentQuarantineRoutes } from '../agents/m3-legacy-agent-quarantine.js';
+import { isLocalOperatorTransportSubject } from '../security/global-auth-policy.js';
 
 /**
  * Agent platform routes — extracted from server.js
@@ -203,6 +204,34 @@ export function createAgentPlatformRoutes(deps) {
       });
     },
 
+    'PUT /api/agent-extensions/templates/:id':async(req,res,params)=>{
+      if(!isLocalOperatorTransportSubject(req.authenticatedSubject))return sendJSON(res,403,{code:'M3_LOCAL_OPERATOR_REQUIRED'});
+      try {const body=await parseBody(req);
+        if(Object.keys(body).sort().join(',')!=='manifest,revision'||body.manifest?.id!==params.id)
+          return sendJSON(res,400,{code:'M3_AGENT_EXTENSION_INVALID'});
+        sendJSON(res,200,agentExtensionService.saveTemplate(body,req.authenticatedSubject.actorId));
+      }catch(error){sendJSON(res,error.httpStatus||(/CONFLICT|STALE/.test(error.code)?409:400),{code:error.code||'M3_AGENT_EXTENSION_INVALID'});}
+    },
+    'DELETE /api/agent-extensions/templates/:id':async(req,res,params)=>{
+      if(!isLocalOperatorTransportSubject(req.authenticatedSubject))return sendJSON(res,403,{code:'M3_LOCAL_OPERATOR_REQUIRED'});
+      try {const body=await parseBody(req);
+        if(Object.keys(body).join(',')!=='revision')return sendJSON(res,400,{code:'M3_AGENT_EXTENSION_INVALID'});
+        sendJSON(res,200,agentExtensionService.deleteTemplate(params.id,body.revision,req.authenticatedSubject.actorId));
+      }catch(error){sendJSON(res,error.httpStatus||(/CONFLICT|STALE/.test(error.code)?409:400),{code:error.code||'M3_AGENT_EXTENSION_INVALID'});}
+    },
+    'GET /api/agent-extensions/instances/:agentId/config':async(req,res,params)=>{
+      if(!isLocalOperatorTransportSubject(req.authenticatedSubject))return sendJSON(res,403,{code:'M3_LOCAL_OPERATOR_REQUIRED'});
+      try {sendJSON(res,200,agentExtensionService.instanceConfiguration(params.agentId));}
+      catch(error){sendJSON(res,404,{code:error.code||'M3_AGENT_EXTENSION_NOT_FOUND'});}
+    },
+    'PUT /api/agent-extensions/instances/:agentId':async(req,res,params)=>{
+      if(!isLocalOperatorTransportSubject(req.authenticatedSubject))return sendJSON(res,403,{code:'M3_LOCAL_OPERATOR_REQUIRED'});
+      try {const body=await parseBody(req);
+        if(!body||Object.keys(body).some(key=>!['params','name','description','expectedDefinitionDigest','expectedConfigDigest'].includes(key)))
+          return sendJSON(res,400,{code:'M3_AGENT_EXTENSION_INVALID'});
+        sendJSON(res,200,agentExtensionService.updateInstance(params.agentId,body));
+      }catch(error){sendJSON(res,/STALE|RUNNING/.test(error.code)?409:400,{code:error.code||'M3_AGENT_EXTENSION_INVALID'});}
+    },
     'GET /api/agent-extensions': async (req, res) => {
       sendJSON(res, 200, { extensions: agentExtensionService.list() });
     },

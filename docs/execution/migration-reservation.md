@@ -248,6 +248,7 @@ záznamu selže v `artifact-validation`.
 | `2026_09_25_120_studio_scm.js` | Studio 2: projektová politika pro řízené operace Git |
 | `2026_10_01_121_m2_atomic_create.js` | M2: atomické vytvoření souboru bez přepsání existujícího cíle |
 | `2026_10_04_122_m2_private_http_authority.js` | `WP-M2-PRIVATE-HTTP-EXECUTION-20261004` — ROOT: explicitní V2 payload, request, lifecycle a terminal SQL authority; V1 historie zachovaná |
+| `2026_10_09_123_ide_management.js` | `WP-IDE-BACKEND-20261009`; durable settings, tombstones, audit and telemetry |
 <!-- migration-source-manifest:end -->
 
 ## Navazující M7 rezervace 2026-08-29
@@ -531,3 +532,11 @@ a 71 worktrees potvrdil jedinou identity slotu 121, bez kolize. Tento census
 nedokládá předchozí rezervaci; napravuje neúplný integrační inventář.
 Tělo migrace ani instalovaná DB se nemění. Privátní důkaz a rozsah:
 [backend migration WP](../wp/WP-BACKEND-MIGRATION-EVIDENCE-20261001.md).
+
+### 2026-10-09 — nový IDE backend
+
+Migrace 123 je implementační kandidát. Retrospektivní read-only census 385
+lokálně dostupných refs a všech registrovaných worktrees nalezl jen jednu
+identitu slotu 123, v této vlastní větvi. Nejde o důkaz předchozí rezervace.
+Privátní důkaz: `.intentsmith-artifacts/ide-backend-evidence/migration123-census.json`.
+Zdroj nyní obsahuje 110 migrací; produkční DB se nemění.

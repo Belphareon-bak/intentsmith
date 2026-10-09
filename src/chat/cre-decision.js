@@ -39,6 +39,7 @@ import { ChatProcessingError, isChatTurnError, throwChatModelCallFailure } from 
 import { buildProjectHint } from './handlers/utils/project-context-prompt.js';
 import { buildInterpretationContext, pendingConversationQuestion } from './conversation-context.js';
 import { getNumCtx } from '../llm/model-ctx.js';
+import { llmGateway } from '../llm/gateway.js';
 import { getLanguageContext } from './handlers/utils/language.js';
 import { validateUnavailableAction } from './unavailable-action.js';
 
@@ -2549,7 +2550,7 @@ PRAVIDLA:
 - "spusť skill/recept/proceduru X" → SKILL. "vytvořit/přidat expertizu" → SKILL. SKILL = spuštění existujícího postupu nebo vytvoření nové expertizy${projectHint}${expertiseHint}`;
 
     const classificationNumCtx = classifierNumCtxOverride();
-    const effectiveNumCtx = classificationNumCtx ?? getNumCtx(config.models?.FAST || config.models?.CHAT);
+    const effectiveNumCtx = classificationNumCtx ?? llmGateway.getRoleContextWindow('CHAT',config.models?.CHAT);
     const maxTokens = 256;
 
     try {

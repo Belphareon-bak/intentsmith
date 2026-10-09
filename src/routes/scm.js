@@ -26,7 +26,11 @@ export function createScmRoutes({ db, parseBody, sendJSON, scmService }) {
   };
   return {
     'GET /api/scm/status': wrap(req => service.status(id(query(req)))),
-    'GET /api/scm/branches': wrap(req => service.branches(id(query(req)))),
+    'GET /api/scm/branches': wrap(req => { const q=query(req); return service.branches(id(q),{sort:q.get('sort')||'activity'}); }),
+    'GET /api/scm/compare': wrap(req => { const q=query(req); return service.compare(id(q),{
+      base:q.get('base'),head:q.get('head'),file:q.get('path')}); }),
+    'GET /api/scm/commit': wrap(req => { const q=query(req); return service.commit(id(q),{
+      ref:q.get('ref'),file:q.get('path'),parent:q.has('parent')?Number(q.get('parent')):0}); }),
     'GET /api/scm/log': wrap(req => { const q = query(req); return service.log(id(q), {
       limit: q.has('limit') ? Number(q.get('limit')) : 50, ref: q.get('ref') || null }); }),
     'GET /api/scm/diff': wrap(req => { const q = query(req); return service.diff(id(q), {

@@ -82,6 +82,7 @@ configureProductionOutboundPolicy({
   logger,
   enabledSurfaces: {
     'model-discovery': isM5ConditionalSurfaceEnabled(conditionalSurfaces, 'model-discovery'),
+    'external-notifications': isM5ConditionalSurfaceEnabled(conditionalSurfaces, 'external-notifications'),
   },
 });
 installProductionOutboundGuard();
@@ -201,6 +202,10 @@ import { createStudio2WorkspaceRoutes } from './routes/studio2-workspace.js';
 import { createChatRoutes } from './routes/chat.js';
 import { createDevelopmentRoutes } from './routes/development.js';
 import { createScmRoutes } from './routes/scm.js';
+import { createIdeManagementRoutes } from './routes/ide-management.js';
+import { createIdeStore } from './db/ide-store.js';
+import { createIdeHuntScheduler } from './system/ide-hunt-scheduler.js';
+import { createHuntControl } from './system/hunt-control.js';
 import { createScmService } from './scm/service.js';
 import { createMiscRoutes } from './routes/misc.js';
 import { createSpecialistRoutes } from './routes/specialists.js';
@@ -292,6 +297,7 @@ try {
       projectRoot: path.resolve(__dirname, '..'),
     });
     pruneBackups(dataDir, {
+      db: db.db,
       maxDaily: storageConfig.backup.max_daily,
       maxWeekly: storageConfig.backup.max_weekly,
     });
@@ -1221,6 +1227,9 @@ function healthHandler(req, res) {
 }
 routeDeps.healthHandler = healthHandler;
 
+const ideHuntScheduler = createIdeHuntScheduler({store:createIdeStore(db.db),control:createHuntControl(),
+  evaluations:()=>modelRegistry.getEvaluations()});
+let ideHuntInterval=null;
 const routes = {
   'GET /': healthHandler,
   'GET /api/health': healthHandler,
@@ -1274,6 +1283,7 @@ const routes = {
 
   // v87: System routes (GPU, model compatibility, diagnostics)
   ...createSystemRoutes(routeDeps),
+  ...createIdeManagementRoutes({...routeDeps,notificationRouter,huntScheduler:ideHuntScheduler}),
 
   // v91: Security routes (auth guard, API tokens, audit, webhook)
   ...createSecurityRoutes(routeDeps),
@@ -1932,6 +1942,9 @@ listenOnLegacyLoopback(server, config.server, async () => {
   }
 
   // v125: Dynamic port — resolve actual port after listen (port 0 → OS-assigned)
+  ideHuntInterval=setInterval(()=>{void ideHuntScheduler.tick().catch(error=>
+    logger.warn('IDEHunt',error.code||'IDE_HUNT_TICK_FAILED'));},30000);
+  ideHuntInterval.unref();
   const assignedPort = server.address().port;
 
   // Write port file for IDE discovery
@@ -2014,6 +2027,7 @@ let shutdownInProgress = false;
 async function gracefulShutdown(signal, exitCode = 0) {
   if (shutdownInProgress) return;
   shutdownInProgress = true;
+  if(ideHuntInterval)clearInterval(ideHuntInterval);
   logger.info('Server', `Received ${signal}, shutting down gracefully...`);
 
   // Revoke local pairing issuance before the remote listener begins draining.
@@ -2070,6 +2084,7 @@ async function gracefulShutdown(signal, exitCode = 0) {
         projectRoot: path.resolve(__dirname, '..'),
       });
       pruneBackups(dataDir, {
+        db: db.db,
         maxDaily: storageConfig.backup.max_daily,
         maxWeekly: storageConfig.backup.max_weekly,
       });

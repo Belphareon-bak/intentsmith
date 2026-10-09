@@ -3,7 +3,7 @@ name: IntentSmith development checks
 on:
   pull_request:
   push:
-    branches: [main, 'integration/main-reconcile-*', 'work/real-chat-journeys-20260930', 'work/chat-quality-20261001']
+    branches: [main, 'integration/main-reconcile-*', 'work/real-chat-journeys-20260930', 'work/chat-quality-20261001', 'work/ide-backend-20261009']
   workflow_dispatch:
 
 permissions:
@@ -79,7 +79,14 @@ jobs:
           --suite=IS-T1-TESTS-PROJECT-APP-ACCEPTANCE-TEST,IS-T1-TESTS-PROJECT-APP-M2-FUNCTIONAL-TEST,IS-T1-TESTS-M2-GOVERNANCE-EVALUATOR-TEST,IS-T1-TESTS-M2-LIFECYCLE-APPLICATION-SERVICE-TEST,IS-T1-TESTS-M1-MODEL-CONTRACT-TEST,IS-T1-TESTS-MODEL-CTX-TEST,IS-T1-TESTS-PROJECT-COLLABORATION-TEST,IS-T1-TESTS-M2-PRIVATE-HTTP-CONTRACT-TEST,IS-T1-TESTS-M2-PRIVATE-HTTP-STARTUP-TEST,IS-T1-TESTS-M2-LIFECYCLE-STUDIO-SURFACE-TEST,IS-T1-TESTS-M2-EXECUTION-PROCESS-SUPERVISION-TEST,IS-T1-TESTS-PROJECT-WELCOME-TEST
           --concurrency=1
           --allow-blocker=toolchain:bwrap,toolchain:git,toolchain:prlimit,toolchain:iproute2,toolchain:nftables
-      - name: Preserve chat and M2 audit reports
+      - name: Verify IDE management and authenticated restart journey
+        run: >-
+          node scripts/nightly-audit.js
+          --run-id=ci-ide-${{ github.run_id }}-${{ github.run_attempt }}
+          --suite=IS-T1-TESTS-IDE-BACKEND-TEST,IS-T3-TESTS-IDE-BACKEND-PRODUCT-HTTP-JOURNEY-TEST
+          --concurrency=1
+          --allow-blocker=toolchain:git
+      - name: Preserve chat, M2 and IDE audit reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -93,6 +100,10 @@ jobs:
             .intentsmith-artifacts/test-runs/ci-code-*/checkpoint.json
             .intentsmith-artifacts/test-runs/ci-code-*/inventory.json
             .intentsmith-artifacts/test-runs/ci-code-*/logs/*.log
+            .intentsmith-artifacts/test-runs/ci-ide-*/report.json
+            .intentsmith-artifacts/test-runs/ci-ide-*/checkpoint.json
+            .intentsmith-artifacts/test-runs/ci-ide-*/inventory.json
+            .intentsmith-artifacts/test-runs/ci-ide-*/logs/*.log
           if-no-files-found: error
       - name: Verify Studio 2 stores, rendering and authority adapters
         run: |

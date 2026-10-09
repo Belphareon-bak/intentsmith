@@ -140,7 +140,7 @@ mají tuto explicitní disposition:
 |---|---|
 | Správa lokálních modelů | **IN** — je nutná pro Ollama role a degradaci. |
 | Upgrade automatika / online discovery | **IN / GOVERNED** — rozhodnutím operátora z 2026-08-19 je discovery **default on**. Tím přestává být podmíněnou plochou a stává se **podmínkou vydání**: cesta musí prokázat outbound policy, approval, audit a rollback (`WP-M5-OUTBOUND-GATE`, invariant L0-12). Nesplněná validace blokuje 1.0; vypnutí už není náhradní řešení. |
-| Notifikace | **IN pro in-app** — notifikace uvnitř Studia jsou součástí 1.0 a interní výsledek je povinný pro agent E2E. Externí kanály (mail, webhook, push) jsou **rozšíření po releasu**; testují se, jen pokud se vydají jako podporované. |
+| Notifikace | **IN pro in-app a účty Discord/Telegram** — rozhodnutí operátora 2026-10-09 přesouvá Discord/Telegram před vydání. Vyžadují explicitní konfiguraci příjemce, credentials, odběru událostí a společnou outbound policy/audit. Interní výsledek zůstává povinný pro agent E2E. Mail, webhook a push zůstávají rozšíření po releasu. Podpora externích účtů vyžaduje vlastní M5/M6 journey a přejímku; implementace API sama jejich vydání nedokládá. |
 | Marketplace | **OUT pro 1.0 / TBD** — rozhodnutí operátora 2026-08-21: není součástí prvního releasu. Kód se nemaže. Pokud se později vydá jako podporovaný, vyžaduje security a install/rollback journey. |
 | Media | **OUT pro 1.0 / TBD** — rozhodnutí operátora 2026-08-21: není součástí prvního releasu. Funkční parita se zachová, do release matice nevstupuje. |
 | Licencování | **OUT pro 1.0 claim** — nedokončený kód se bez samostatného rozhodnutí nemaže, ale není podmínkou vydání. |

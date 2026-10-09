@@ -91,6 +91,18 @@ const MODEL_DISCOVERY_OUTBOUND_CAPABILITY = createOutboundCapability({
   validateTarget: validModelDiscoveryTarget,
 });
 
+const IDE_NOTIFICATIONS_OUTBOUND_CAPABILITY = createOutboundCapability({
+  surface: 'external-notifications', scope: 'notification.account.send',
+  validateTarget: ({url,method,headers,hasBody}) => {
+    if(method!=='POST'||!hasBody||url.search||url.hash) return false;
+    if(url.origin==='https://api.telegram.org') return /^\/bot[0-9]+:[A-Za-z0-9_-]+\/sendMessage$/.test(url.pathname)
+      && exactHeaders(headers,[['content-type','application/json']]);
+    return url.origin==='https://discord.com'&&/^\/api\/v10\/channels\/[0-9]{6,25}\/messages$/.test(url.pathname)
+      && headers?.length===2 && new Map(headers).get('content-type')==='application/json'
+      && /^Bot [A-Za-z0-9._-]+$/.test(new Map(headers).get('authorization')||'');
+  },
+});
+
 // Provider release metadata shares the discovery opt-out, but has a separate
 // capability: model metadata consumers cannot use it to fetch GitHub content.
 const OLLAMA_RELEASE_OUTBOUND_CAPABILITY = createOutboundCapability({
@@ -344,6 +356,7 @@ export function createOutboundPolicy({
       MODEL_DISCOVERY_OUTBOUND_CAPABILITY,
     ),
     ollamaReleaseFetch: (input, init) => governedFetch(input, init, OLLAMA_RELEASE_OUTBOUND_CAPABILITY),
+    notificationAccountFetch: (input, init) => governedFetch(input,init,IDE_NOTIFICATIONS_OUTBOUND_CAPABILITY),
     footballDataFetch: (input, init) => governedFetch(input, init, FOOTBALL_DATA_OUTBOUND_CAPABILITY),
     oddsIOFetch: (input, init) => governedFetch(input, init, ODDS_IO_OUTBOUND_CAPABILITY),
     fortunaPublicFetch: (input, init) => governedFetch(input, init, FORTUNA_PUBLIC_OUTBOUND_CAPABILITY),
@@ -381,6 +394,11 @@ export function ollamaReleaseFetch(input, init) {
     throw typedError(OUTBOUND_ERROR_CODE.AUDIT_UNAVAILABLE, 'Production outbound policy is not configured');
   }
   return productionPolicy.ollamaReleaseFetch(input, init);
+}
+
+export function notificationAccountFetch(input,init) {
+  if(!productionPolicy) throw typedError(OUTBOUND_ERROR_CODE.AUDIT_UNAVAILABLE,'Production outbound policy is not configured');
+  return productionPolicy.notificationAccountFetch(input,init);
 }
 
 export const _testInternals = Object.freeze({ authorityValue, isLoopback, requestUrl });

@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { OutboundAuditRepository, outboundTargetDigest } from '../network/outbound-audit-repository.js';
 import { git, isRepo, projectRoot, relativeFile, branchName, remoteInfo, remoteHost, snapshot, scmError } from './git-runner.js';
+import { resolveRepositorySsh } from './ssh-profile.js';
 
 const hash = value => 'sha256:' + createHash('sha256').update(value).digest('hex');
 const MODES = { init: ['ask','automatic','disabled'], commit: ['ask','automatic','disabled'],
@@ -153,11 +154,14 @@ export function createScmService({ db, clock = Date.now, idFactory = randomUUID 
     return { projectId,isRepo:true,branch,upstream,ahead,behind,fetchedAt,
       remote: remote ? { name: remote.name, host: remote.host } : null, files };
   }
-  async function branches(projectId) {
+  async function branches(projectId, { sort = 'activity' } = {}) {
+    if (!['activity','name'].includes(sort)) throw scmError('SCM_INPUT_INVALID');
     const root=await projectRoot(db,projectId);
     if (!await isRepo(root)) return { projectId,isRepo:false,branches:[] };
-    const rows=(await git(root,['for-each-ref','--format=%(refname:short)%09%(objectname)%09%(upstream:short)','refs/heads','refs/remotes']))
-      .trim().split('\n').filter(Boolean).map(line=>{const [name,hash,upstream]=line.split('\t');return {name,hash,upstream:upstream||null,remote:name.includes('/')};});
+    const rows=(await git(root,['for-each-ref',sort === 'activity' ? '--sort=-committerdate' : '--sort=refname',
+      '--format=%(refname)%09%(refname:short)%09%(objectname)%09%(upstream:short)%09%(committerdate:iso-strict)','refs/heads','refs/remotes']))
+      .trim().split('\n').filter(Boolean).map(line=>{const [ref,name,hash,upstream,lastActivity]=line.split('\t');
+        return {name,ref,hash,upstream:upstream||null,remote:ref.startsWith('refs/remotes/'),lastActivity:lastActivity||null};});
     return {projectId,isRepo:true,branches:rows};
   }
   async function log(projectId,{limit=50,ref=null}={}) {
@@ -175,6 +179,53 @@ export function createScmService({ db, clock = Date.now, idFactory = randomUUID 
     const text=await git(root,['diff','--no-ext-diff','--no-textconv',...(staged?['--cached']:[]),'--',file]);
     if (text.length>1_000_000) throw scmError('SCM_DIFF_LIMIT');
     return {projectId,path:file,staged,diff:text};
+  }
+  async function resolveRef(root, ref) {
+    if (typeof ref !== 'string' || ref.length > 240 || ref.startsWith('-')
+      || !/^(?:[a-f0-9]{7,64}|HEAD|(?:refs\/(?:heads|remotes)\/)?[A-Za-z0-9][A-Za-z0-9._/-]*)$/.test(ref)
+      || ref.includes('..') || ref.includes('//')) throw scmError('SCM_REF_INVALID');
+    const oid = (await git(root,['rev-parse','--verify','--end-of-options',`${ref}^{commit}`],{allowFailure:true}))?.trim();
+    if (!/^[a-f0-9]{40,64}$/.test(oid || '')) throw scmError('SCM_REF_NOT_FOUND');
+    return oid;
+  }
+  function changedFiles(raw) {
+    const fields = raw.split('\0'), files = [];
+    for (let i=0;i<fields.length;i++) {
+      const m = /^(\d+|-)\t(\d+|-)\t(.*)$/.exec(fields[i]);
+      if (!m) continue;
+      let file=m[3],oldPath=null;
+      if (!file) {oldPath=fields[++i];file=fields[++i];}
+      files.push({path:file,oldPath,added:m[1]==='-'?null:Number(m[1]),removed:m[2]==='-'?null:Number(m[2]),binary:m[1]==='-'});
+    }
+    return files;
+  }
+  async function compare(projectId,{base,head,file=null}={}) {
+    const root=await projectRoot(db,projectId);
+    if (!await isRepo(root)) throw scmError('SCM_REPO_STATE_INVALID');
+    const baseOid=await resolveRef(root,base),headOid=await resolveRef(root,head);
+    if (file!==null) relativeFile(file);
+    const args=['diff','--no-ext-diff','--no-textconv',baseOid,headOid];
+    const files=changedFiles(await git(root,[...args,'--numstat','-z','--']));
+    const patch=await git(root,[...args,'--',...(file?[file]:[])]);
+    if (patch.length>1_000_000) throw scmError('SCM_DIFF_LIMIT');
+    return {projectId,base,head,baseOid,headOid,files,diff:patch,path:file};
+  }
+  async function commit(projectId,{ref,file=null,parent=0}={}) {
+    const root=await projectRoot(db,projectId),oid=await resolveRef(root,ref);
+    if (!await isRepo(root)) throw scmError('SCM_REPO_STATE_INVALID');
+    if (!Number.isSafeInteger(parent)||parent<0) throw scmError('SCM_INPUT_INVALID');
+    const raw=await git(root,['show','--no-patch','--format=%H%x00%P%x00%an%x00%aI%x00%s%x00%b',oid,'--']);
+    const [hashValue,parents,author,time,subject,...body]=raw.split('\0');
+    const parentOids=parents?parents.split(' '):[];
+    if (parentOids.length && parent>=parentOids.length || !parentOids.length && parent!==0) throw scmError('SCM_INPUT_INVALID');
+    const baseOid=parentOids[parent]||null;
+    if (file!==null) relativeFile(file);
+    const args=baseOid?['diff',baseOid,oid]:['show','--format=',oid];
+    const flags=['--no-ext-diff','--no-textconv'];
+    const files=changedFiles(await git(root,[...args,...flags,'--numstat','-z','--']));
+    const patch=await git(root,[...args,...flags,'--',...(file?[file]:[])]);
+    if (patch.length>1_000_000) throw scmError('SCM_DIFF_LIMIT');
+    return {projectId,hash:hashValue,parents:parentOids,author,time,subject,body:body.join('\0').trim(),parent,baseOid,files,diff:patch,path:file};
   }
   function m2Busy(projectId) {
     const row=db.prepare(`SELECT 1 FROM m2_execution_claims c JOIN m2_execution_requests r ON r.execution_id=c.execution_id
@@ -218,7 +269,9 @@ export function createScmService({ db, clock = Date.now, idFactory = randomUUID 
       if (input.op==='push' && !(await status(input.projectId)).upstream) throw scmError('SCM_UPSTREAM_REQUIRED');
     }
     const createdAt=clock(), id=idFactory();
+    const ssh=remote?await resolveRepositorySsh(db,input.projectId,remote):null;
     const plan={id,projectId:input.projectId,root,op:input.op,args,remote,before,
+      ssh:ssh?{...ssh,command:undefined}:null,
       policyRevision:current.revision,createdAt,expiresAt:createdAt+120000};
     const json=JSON.stringify(plan),digest=hash(json);
     db.transaction(()=>{db.prepare(`INSERT INTO scm_operations
@@ -252,8 +305,10 @@ export function createScmService({ db, clock = Date.now, idFactory = randomUUID 
         audit(plan.id,plan.projectId,actorId,'network_denied',{op:plan.op,host:remote?.host||null});
         networkAudit(plan,'deny','SCM_HOST_DENIED');throw scmError('SCM_HOST_DENIED');
       }
-      networkAudit(plan,'allow','SCM_HOST_ALLOWED');
     }
+    const ssh=plan.remote?await resolveRepositorySsh(db,plan.projectId,plan.remote):null;
+    if(JSON.stringify(ssh?{...ssh,command:undefined}:null)!==JSON.stringify(plan.ssh??null))throw scmError('SCM_SSH_PROFILE_CHANGED');
+    if(networkOps.has(plan.op))networkAudit(plan,'allow','SCM_HOST_ALLOWED');
     db.transaction(()=>{
       if (db.prepare("SELECT 1 FROM scm_operations WHERE project_id=? AND state='running'").get(plan.projectId)) throw scmError('SCM_PROJECT_BUSY');
       if (row.state!=='pending'||m2Busy(plan.projectId)) throw scmError('SCM_PROJECT_BUSY');
@@ -273,14 +328,14 @@ export function createScmService({ db, clock = Date.now, idFactory = randomUUID 
       } else if (plan.op==='branch.create') await git(root,['switch','-c',a.name]);
       else if (plan.op==='checkout') await git(root,['switch','--',a.name]);
       else if (plan.op==='fetch') await git(root,['fetch','--no-tags','--no-recurse-submodules',plan.remote.url,
-        `+refs/heads/${plan.remote.branch}:refs/remotes/${plan.remote.name}/${plan.remote.branch}`],{timeout:60000});
+        `+refs/heads/${plan.remote.branch}:refs/remotes/${plan.remote.name}/${plan.remote.branch}`],{timeout:60000,sshCommand:ssh?.command});
       else if (plan.op==='pull') {
         await git(root,['fetch','--no-tags','--no-recurse-submodules',plan.remote.url,
-          `+refs/heads/${plan.remote.branch}:refs/remotes/${plan.remote.name}/${plan.remote.branch}`],{timeout:60000});
+          `+refs/heads/${plan.remote.branch}:refs/remotes/${plan.remote.name}/${plan.remote.branch}`],{timeout:60000,sshCommand:ssh?.command});
         const mergeBase=(await git(root,['merge-base','HEAD','FETCH_HEAD'],{allowFailure:true}))?.trim();
         if (mergeBase!==(await git(root,['rev-parse','HEAD'])).trim()) throw scmError('SCM_HISTORY_DIVERGED');
         await git(root,['merge','--ff-only','FETCH_HEAD']);
-      } else if (plan.op==='push') await git(root,['push',plan.remote.url,`HEAD:refs/heads/${plan.remote.branch}`],{timeout:60000});
+      } else if (plan.op==='push') await git(root,['push',plan.remote.url,`HEAD:refs/heads/${plan.remote.branch}`],{timeout:60000,sshCommand:ssh?.command});
       result={after:await snapshot(root),completedAt:clock()};
       db.transaction(()=>{
         if (networkOps.has(plan.op)) networkAudit(plan,'succeeded','SCM_GIT_SUCCEEDED','terminal');
@@ -332,7 +387,7 @@ export function createScmService({ db, clock = Date.now, idFactory = randomUUID 
       WHERE projects.status='active' AND (pull_mode='automatic' OR fetch_mode='automatic')
       ORDER BY project_id`).all();
   }
-  return {policy,writePolicy,status,branches,log,diff,prepare,execute,cancel,
+  return {policy,writePolicy,status,branches,log,diff,compare,commit,prepare,execute,cancel,
     runAutomatic,automaticProjects,
     operations:(projectId,actorId)=>db.prepare(`SELECT * FROM scm_operations
       WHERE project_id=? AND actor_id IN (?,?) ORDER BY created_at DESC LIMIT 30`)

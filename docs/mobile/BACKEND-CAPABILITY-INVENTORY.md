@@ -12,14 +12,14 @@ remote-health.read is a public GET /remote/v1/health prerequisite, not one of th
 The underlying requirements retain their own candidate stage. Availability and scopes must
 still be validated against the actual server/session; desktop route existence grants no remote authority.
 
-- Desktop route declarations: 275
+- Desktop route declarations: 308
 - Legacy /m1 declarations: 0
 - M7 HTTP routes: 7
 - M7 invocation operations: 17
 - Capability areas: approvals, conversations, events, notifications, projects, settings, stored_information
 - Control-plane operations (not another capability): 3
-- Desktop route digest: `8798ce81cfebacf9a3051a46c0cb90505114b90ac2a13aebab48caba4ddb04a8`
-- Combined inventory digest: `a00eaab933d8baab0b7fabe03b00231860c574ad3a53a19d712f35a0820f408a`
+- Desktop route digest: `f35e574f3e765f8b98d04cba02cbfbd1da788e8bb1200db1618c4c5ff394132b`
+- Combined inventory digest: `13f731489ac22824f659c3c7bc75bab0651d09e0975e5e7dcfb38d178a8b0909`
 
 Workers, specialists and device management have no M7 operation in this projection.
 Their desktop route declarations must not be mistaken for a mobile capability.
@@ -62,15 +62,23 @@ Their desktop route declarations must not be mistaken for a mobile capability.
 
 | Method | Path | Source |
 |---|---|---|
+| GET | `/api/accounts` | src/routes/ide-management.js |
+| DELETE | `/api/accounts/:id` | src/routes/ide-management.js |
+| PUT | `/api/accounts/:id` | src/routes/ide-management.js |
+| POST | `/api/accounts/:id/test` | src/routes/ide-management.js |
 | GET | `/api/agent-extensions` | src/routes/agents.js |
 | GET | `/api/agent-extensions/:id` | src/routes/agents.js |
 | POST | `/api/agent-extensions/:id/install` | src/routes/agents.js |
 | DELETE | `/api/agent-extensions/:id/instances/:agentId` | src/routes/agents.js |
 | POST | `/api/agent-extensions/:id/preview` | src/routes/agents.js |
 | DELETE | `/api/agent-extensions/instances/:agentId` | src/routes/agents.js |
+| PUT | `/api/agent-extensions/instances/:agentId` | src/routes/agents.js |
+| GET | `/api/agent-extensions/instances/:agentId/config` | src/routes/agents.js |
 | POST | `/api/agent-extensions/instances/:agentId/disable` | src/routes/agents.js |
 | POST | `/api/agent-extensions/instances/:agentId/enable` | src/routes/agents.js |
 | POST | `/api/agent-extensions/instances/:agentId/run` | src/routes/agents.js |
+| DELETE | `/api/agent-extensions/templates/:id` | src/routes/agents.js |
+| PUT | `/api/agent-extensions/templates/:id` | src/routes/agents.js |
 | GET | `/api/agents` | src/routes/agents.js |
 | POST | `/api/agents` | src/routes/agents.js |
 | DELETE | `/api/agents/:id` | src/routes/agents.js |
@@ -233,6 +241,8 @@ Their desktop route declarations must not be mistaken for a mobile capability.
 | GET | `/api/scheduler/status` | src/routes/agents.js |
 | GET | `/api/scm/branches` | src/routes/scm.js |
 | POST | `/api/scm/cancel` | src/routes/scm.js |
+| GET | `/api/scm/commit` | src/routes/scm.js |
+| GET | `/api/scm/compare` | src/routes/scm.js |
 | GET | `/api/scm/diff` | src/routes/scm.js |
 | POST | `/api/scm/execute` | src/routes/scm.js |
 | GET | `/api/scm/log` | src/routes/scm.js |
@@ -240,6 +250,11 @@ Their desktop route declarations must not be mistaken for a mobile capability.
 | GET | `/api/scm/policy` | src/routes/scm.js |
 | PUT | `/api/scm/policy` | src/routes/scm.js |
 | POST | `/api/scm/prepare` | src/routes/scm.js |
+| GET | `/api/scm/profiles` | src/routes/ide-management.js |
+| DELETE | `/api/scm/profiles/:id` | src/routes/ide-management.js |
+| PUT | `/api/scm/profiles/:id` | src/routes/ide-management.js |
+| GET | `/api/scm/repositories` | src/routes/ide-management.js |
+| PUT | `/api/scm/repositories/:projectId` | src/routes/ide-management.js |
 | GET | `/api/scm/status` | src/routes/scm.js |
 | GET | `/api/security/audit` | src/routes/security.js |
 | POST | `/api/security/privacy/history/attest` | src/routes/privacy.js |
@@ -282,8 +297,11 @@ Their desktop route declarations must not be mistaken for a mobile capability.
 | GET | `/api/storage/info` | src/routes/misc.js |
 | GET | `/api/studio2/workspace/entry` | src/routes/studio2-workspace.js |
 | POST | `/api/studio2/workspace/operation` | src/routes/studio2-workspace.js |
-| POST | `/api/system/backup` | src/routes/system.js |
-| GET | `/api/system/backups` | src/routes/system.js |
+| POST | `/api/system/backup` | src/routes/ide-management.js, src/routes/system.js |
+| GET | `/api/system/backups` | src/routes/ide-management.js, src/routes/system.js |
+| DELETE | `/api/system/backups/:name` | src/routes/ide-management.js |
+| GET | `/api/system/backups/:name` | src/routes/ide-management.js |
+| PUT | `/api/system/backups/:name` | src/routes/ide-management.js |
 | GET | `/api/system/catalog` | src/routes/system.js |
 | POST | `/api/system/clean` | src/routes/system.js |
 | GET | `/api/system/diagnostics` | src/routes/system.js |
@@ -306,20 +324,35 @@ Their desktop route declarations must not be mistaken for a mobile capability.
 | POST | `/api/system/models/evaluate` | src/routes/system.js |
 | GET | `/api/system/models/evaluations` | src/routes/system.js |
 | GET | `/api/system/models/evaluations/:runId` | src/routes/system.js |
+| GET | `/api/system/models/external-signals` | src/routes/ide-management.js |
+| DELETE | `/api/system/models/external-signals/:id` | src/routes/ide-management.js |
+| PUT | `/api/system/models/external-signals/:id` | src/routes/ide-management.js |
 | POST | `/api/system/models/grade` | src/routes/system.js |
 | GET | `/api/system/models/grading/:runId` | src/routes/system.js |
 | GET | `/api/system/models/hunt` | src/routes/system.js |
 | POST | `/api/system/models/hunt/control` | src/routes/system.js |
+| GET | `/api/system/models/hunt/jobs` | src/routes/ide-management.js |
+| DELETE | `/api/system/models/hunt/jobs/:id` | src/routes/ide-management.js |
+| GET | `/api/system/models/hunt/profiles` | src/routes/ide-management.js |
+| DELETE | `/api/system/models/hunt/profiles/:id` | src/routes/ide-management.js |
+| PUT | `/api/system/models/hunt/profiles/:id` | src/routes/ide-management.js |
+| POST | `/api/system/models/hunt/profiles/:id/queue` | src/routes/ide-management.js |
 | GET | `/api/system/models/info` | src/routes/system.js |
 | GET | `/api/system/models/overview` | src/routes/system.js |
 | GET | `/api/system/models/policy` | src/routes/system.js |
 | PUT | `/api/system/models/policy` | src/routes/system.js |
 | POST | `/api/system/models/pull` | src/routes/system.js |
+| GET | `/api/system/models/role-settings` | src/routes/ide-management.js |
+| PUT | `/api/system/models/role-settings/:role` | src/routes/ide-management.js |
+| GET | `/api/system/models/telemetry` | src/routes/ide-management.js |
 | GET | `/api/system/models/universe` | src/routes/system.js |
 | GET | `/api/system/models/universe/:name` | src/routes/system.js |
 | POST | `/api/system/restore` | src/routes/system.js |
 | POST | `/api/system/shutdown-backup` | src/routes/system.js |
 | GET | `/api/system/storage` | src/routes/system.js |
+| GET | `/api/system/storage/inventory` | src/routes/ide-management.js |
+| GET | `/api/system/storage/paths` | src/routes/ide-management.js |
+| PUT | `/api/system/storage/paths` | src/routes/ide-management.js |
 | GET | `/api/system/storage/settings` | src/routes/system.js |
 | PUT | `/api/system/storage/settings` | src/routes/system.js |
 | GET | `/api/system/upgrades` | src/routes/system.js |

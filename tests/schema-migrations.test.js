@@ -221,6 +221,7 @@ const ALL_MIGRATIONS = [
   '2026_09_25_120_studio_scm',
   '2026_10_01_121_m2_atomic_create',
   '2026_10_04_122_m2_private_http_authority',
+  '2026_10_09_123_ide_management',
 ];
 
 const MIGRATION_COUNT = ALL_MIGRATIONS.length;
@@ -241,6 +242,7 @@ const EXPECTED_TABLES = [
   'entity_profiles', 'entry_history', 'expertise_bindings', 'expertise_memory', 'expertises',
   'feedback', 'feedback_attachments', 'financial_entries',
   'global_memory', 'governor_proposals', 'governor_reports',
+  'ide_documents', 'ide_events', 'ide_document_tombstones', 'model_runtime_telemetry',
   'knowledge_facts', 'knowledge_sources', 'knowledge_verification_log',
   'learned_patterns', 'lifecycle_handoff_state', 'llm_execution_log', 'logs',
   'm7_manual_information', 'marketplace_catalog_cache', 'marketplace_packages', 'media_generations',
@@ -509,6 +511,7 @@ describe('T-SM0: Migration identity preflight', async () => {
   '2026_09_25_120_studio_scm',
   '2026_10_01_121_m2_atomic_create',
   '2026_10_04_122_m2_private_http_authority',
+  '2026_10_09_123_ide_management',
     ]);
     assert.strictEqual(db.prepare(`
       SELECT COUNT(*) AS count FROM schema_migrations
@@ -1580,9 +1583,10 @@ describe('T-SM11: Core / hunt branch upgrades converge without losing evidence',
         const studioScm = '2026_09_25_120_studio_scm';
         const atomicCreate = '2026_10_01_121_m2_atomic_create';
         const privateHttpAuthority = '2026_10_04_122_m2_private_http_authority';
+        const ideManagement = '2026_10_09_123_ide_management';
         assert.deepEqual(result.applied, origin === 'fresh' ? ALL_MIGRATIONS
-          : origin === 'base' ? [...huntVersions, canonicalWeb, repeatedMeasurement, settingNames, evaluationAcceptance, developmentInstallations, graderReviews, adjudications, studioScm, atomicCreate, privateHttpAuthority]
-          : origin === 'web' ? [...huntVersions, repeatedMeasurement, settingNames, evaluationAcceptance, developmentInstallations, graderReviews, adjudications, studioScm, atomicCreate, privateHttpAuthority] : [canonicalWeb, repeatedMeasurement, settingNames, evaluationAcceptance, developmentInstallations, graderReviews, adjudications, studioScm, atomicCreate, privateHttpAuthority]);
+          : origin === 'base' ? [...huntVersions, canonicalWeb, repeatedMeasurement, settingNames, evaluationAcceptance, developmentInstallations, graderReviews, adjudications, studioScm, atomicCreate, privateHttpAuthority, ideManagement]
+          : origin === 'web' ? [...huntVersions, repeatedMeasurement, settingNames, evaluationAcceptance, developmentInstallations, graderReviews, adjudications, studioScm, atomicCreate, privateHttpAuthority, ideManagement] : [canonicalWeb, repeatedMeasurement, settingNames, evaluationAcceptance, developmentInstallations, graderReviews, adjudications, studioScm, atomicCreate, privateHttpAuthority, ideManagement]);
         assert.deepEqual(schema(db), expectedSchema);
         for (const [table, originalRows] of Object.entries(before)) assert.deepEqual(rows(db)[table], originalRows, `${origin}: ${table}`);
         assert.deepEqual(db.pragma('foreign_key_check'), []);
