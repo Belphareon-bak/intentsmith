@@ -1,6 +1,8 @@
 # WP — skutečný frontend IDE podle schváleného návrhu
 
-Stav: IMPLEMENTATION_IN_PROGRESS, 2026-10-09. Vlastník checkoutu: root.
+Stav: IMPLEMENTED_REVIEWED_CANDIDATE, 2026-10-09. Vlastník checkoutu: root.
+Frontendový rozsah dokončen; společný release není přijatý. Publikace větve
+má samostatný lokální receipt, neznamená merge nebo nasazení.
 Autorita: přímé zadání operátora z 9. 10. — použít Claude preview ve skutečném
 IDE, zachovat původní palety, zjednodušit nastavení a navigaci. Navazuje na
 operátorem schválené úpravy účtů, úložiště, huntu a Gitu z téže konverzace.
@@ -56,7 +58,7 @@ Hranice: publikace frontendové větve není release ani přejímka. Nezastavova
 produkční backend ani chráněný 24h běh. Zastavení vlastního izolovaného
 ověřovacího procesu přes jeho evidované PID; nikdy plošný kill.
 
-## Průběžné důkazy a zbývající gate
+## Uzavřené frontendové ověření
 
 - Generátor/parita a 141 cílených testů PASS; 12 nových modelových a 10
   management regresí navíc k 14 novým UI/SCM a 105 stávajícím LiveModel.
@@ -68,12 +70,38 @@ ověřovacího procesu přes jeho evidované PID; nikdy plošný kill.
 - Autorské HTTP: BE přesně `0766a0ba`, skutečná autentizace a migrations,
   12 modelových kontrol a 10 management checkpointů / 91 požadavků / restart.
   Všechny vlastní procesy uzavřené, inference a send 0; starší fixture FAIL
-  zachovány. Jde o autorské důkazy, ne nezávislou přejímku.
+  zachovány. Důkazy nezávisle ověřené; navíc non-author HTTP subset 8/8.
+- Actual React + HTTP: čtyři formuláře (účet, cesta, retence, SSH) prošly
+  fyzickým klikáním, zápisem a nezávislým čtením. Celkový V5 harness zůstává
+  FAIL: očekával ready Hunt v neinstalovaném desktopu (DESKTOP_NOT_INSTALLED).
+  Tento dílčí rozsah přijatý review, žádný další celý CRUD retry.
 - Nezávislé checkpointy opravily podklady ikon, pozdní výběr složky, ztrátu
   názvu větve, editaci profilu během zápisu a vadný řádek role-settings.
-  Poslední opravná delta čeká na uzavření nezávislé revize.
-- Celé L1 se spustí po commitu čistého stromu; první spuštění před commitem
-  skončilo správně exit 2 na stráži clean-tree, ne na testové vadě.
+  Oba P2 poslední delty uzavřené; vlastní browser review 7/7. Celý L1 navíc
+  zachytil pořadí columnsVM/wsVM, které mohlo předčasně označit M2 plán za
+  prohlédnutý. Oprava a540 zachovává původní oracle a prošla nezávislou revizí.
+- Celé L1 na čistém `817c289871ae2e968b7a88d1556bceb3c957be00`: 414/414 PASS,
+  concurrency1 a původních 11 ověřených toolchain prerequisites, žádný retry
+  ani únik podle runneru. Nezávisle ověřeny všechny logy a otisky.
+  Původní 649 (374/24/16) a a540 (389/9/16) zůstávají FAIL; část chyb byla
+  souběžné pozorování dočasné fixture v source-tree guardu, část registry/LOC
+  census. Guard ani testové assertions nebyly oslabeny. První dirty invocation
+  a chybný výběr suite ID zůstávají exit2 před testy.
+- Finální `119d258cdf89788435e706a875256cbb811ab074` přidává pouze čtyři
+  settings-only CSS rules a opravu dokumentačního fingerprintu. Na tomto SHA
+  3 relevantní programy PASS (view/parita, UI, artifact integrity), aktuální
+  browser více palet/šířek PASS. Celých 414 se nevydává za běh na119.
+- AppImage119 SHA-256 `6bfe56c16bf8178b09b44a9e5e3fab1e4ae0686a22dae21331be3699b85fe12b`,
+  195157758 B. Static packaged parity + všech11 palet. Actual cold boot vlastního
+  prázdného profilu: klik Nastavení, 13 tile rules, no pageerrors, exit0/cleanup.
+  Backend v tomto nativním běhu výslovně nepřipojen; bridge folder-picker
+  přítomný, skutečný dialog se v této kontrole neotevíral. Historické native
+  exit1 a jejich následný cleanup receipt zůstávají zachované.
+- Závěrečné review `full817-style119/REVIEW.json`, SHA-256
+  `0617093270dd4cb82e2d950995ecb28969a5d1c6e98784da7e1f04f6472a4414`,
+  bez nových nálezů, umožňuje předání frontendového kandidáta.
+
+Přesné piny, příkazy, hranice a lokální balík: [předání](../review/2026-10-09-IDE-FRONTEND.md).
 
 Známé hranice: staré celé `/api/settings` není serverové CAS; katalog musí
 přiznat chybějící veřejné podklady či kvantizační metadata. Hunt API poskytuje
