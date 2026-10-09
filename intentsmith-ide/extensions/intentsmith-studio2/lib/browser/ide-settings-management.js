@@ -16,7 +16,8 @@ const endpoint = (prefix, id) => prefix + encodeURIComponent(String(id));
 const bytes = n => Number.isFinite(n) && n >= 0 ? (n / 1048576).toLocaleString('cs-CZ', { maximumFractionDigits: 1 }) + ' MiB' : 'Nezjištěno';
 const count = (n, one, few, many) => `${n} ${n === 1 ? one : n >= 2 && n <= 4 ? few : many}`;
 const meta = (label, value) => ({ label, value: String(value ?? 'Nezjištěno') });
-const fail = (code, status = 0) => Object.assign(new Error(code), { code, status });
+const fail = (code, status = 0, userMessage = '') => Object.assign(new Error(code), { code, status, userMessage });
+const freshId = prefix => prefix+'_'+(globalThis.crypto?.randomUUID?.()||Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,12));
 const noop = () => {};
 
 // Canonical offline Component fallback. Every non-loop template path exists;
@@ -101,7 +102,8 @@ class IdeSettingsManagement {
       try { data = await response.json(); } catch { throw fail('IDE_RESPONSE_INVALID', response.status); }
       if (this.destroyed) throw fail('IDE_VIEW_CLOSED');
       if (this.sourceIdentity() !== source) throw fail('IDE_BACKEND_CHANGED');
-      if (!response.ok) throw fail(typeof data?.code === 'string' && /^[A-Z0-9_]{1,100}$/.test(data.code) ? data.code : 'IDE_REQUEST_FAILED', response.status);
+      if (!response.ok) throw fail(typeof data?.code === 'string' && /^[A-Z0-9_]{1,100}$/.test(data.code) ? data.code : 'IDE_REQUEST_FAILED', response.status,
+        typeof data?.error==='string'&&data.error.length<=500&&!/[\x00-\x1f]/.test(data.error)?data.error:'Požadavek nebyl přijat. Zkontrolujte vyplněné údaje.');
       if (!plain(data)) throw fail('IDE_RESPONSE_INVALID', response.status);
       return data;
     } finally { clearTimeout(timeout); this.requests.delete(controller); }
@@ -127,7 +129,7 @@ class IdeSettingsManagement {
       assertDocument(paths);
       if (paths.id !== 'default' || !text(paths.projects)) throw fail('IDE_RESPONSE_INVALID');
       assertList(inventory, 'disks', d => text(d.mountPoint) && text(d.type, 100) && ['OBSERVED', 'UNAVAILABLE'].includes(d.status));
-      assertList(inventory, 'locations', l => text(l.kind, 100) && text(l.path) && ['COMPLETE', 'PARTIAL', 'MISSING', 'UNAVAILABLE'].includes(l.status));
+      assertList(inventory, 'locations', l => text(l.kind, 100) && (l.status==='UNKNOWN'?l.path===null:text(l.path)) && ['COMPLETE', 'PARTIAL', 'MISSING', 'UNAVAILABLE','UNKNOWN'].includes(l.status));
       assertList(inventory, 'databases', d => text(d.name, 100) && d.engine === 'SQLite' && text(d.version, 100) && Number.isFinite(d.allocatedBytes));
       return { inventory, paths };
     }
@@ -211,6 +213,11 @@ class IdeSettingsManagement {
       }
       this.notices.set(category, success); return true;
     } catch (error) {
+      if([400,422].includes(error.status)){
+        if(editor&&this.editors.get(category)===editor)editor.blocked=false;
+        this.notices.set(category,'Neuloženo. '+(error.userMessage||'Opravte vyplněné údaje.')+' Rozepsané hodnoty zůstaly a můžete je upravit.');
+        return false;
+      }
       if (editor && this.editors.get(category) === editor) editor.blocked = true;
       // No retry or draft rebasing. Refresh is read-only; cancel/reopen is an explicit user choice.
       this.notices.set(category, error.status === 409 ? (error.code === 'IDE_REVISION_STALE' ? 'Konflikt revize' : 'Backend odmítl operaci') + ' (' + error.code + '). Rozepsané hodnoty zůstaly. Obnov stav a porovnej je; zápis se neopakuje.'
@@ -330,21 +337,21 @@ class IdeSettingsManagement {
   }
   openAccount(category, account = null) {
     const original = account || null, d = account ? pick(account, ['id', 'name', 'provider', 'credentialEnv', 'recipient', 'enabled'])
-      : { id: '', name: '', provider: 'telegram', credentialEnv: 'INTENTSMITH_TELEGRAM_', recipient: '', enabled: false };
+      : { id: freshId('account'), name: '', provider: 'telegram', credentialEnv: 'INTENTSMITH_TELEGRAM_', recipient: '', enabled: false };
     for (const event of ACCOUNT_EVENTS) d['event_' + event] = account?.events.includes(event) || false;
     this.editor(category, 'account', original, d);
   }
   openSsh(profile = null) { this.editor('git', 'ssh', profile, profile ? pick(profile, ['id', 'name', 'host', 'user', 'port', 'identityFile', 'knownHostsFile'])
-    : { id: '', name: '', host: '', user: 'git', port: 22, identityFile: '', knownHostsFile: '' }); }
+    : { id: freshId('ssh'), name: '', host: '', user: 'git', port: 22, identityFile: '', knownHostsFile: '' }); }
   editorVM(category) {
     const editor = this.editors.get(category);
     if (!editor) return emptyManagementVM().editor;
     const f = (label, key, type, extra) => this.field(category, label, key, type, extra);
     let fields = [], title = '';
     if (editor.kind === 'account') { title = editor.original ? 'Upravit doručovací propojení' : 'Nové doručovací propojení'; fields = [
-      f('ID propojení', 'id', 'text', { disabled: !!editor.original, hint: 'Stabilní ID bez mezer. Smazané ID nelze použít znovu.' }), f('Název', 'name'),
+      f('ID propojení', 'id', 'text', { disabled: true, hint: 'ID se vytváří automaticky. Nové propojení dostane nové ID.' }), f('Název', 'name'),
       f('Služba', 'provider', 'select', { options: [['telegram', 'Telegram'], ['discord', 'Discord']] }),
-      f('Proměnná s přihlašovacím údajem', 'credentialEnv', 'text', { hint: 'Pouze název INTENTSMITH_TELEGRAM_* nebo INTENTSMITH_DISCORD_*. Skutečný token se nastavuje mimo IDE.' }),
+      f('Proměnná s přihlašovacím údajem', 'credentialEnv', 'text', { hint: 'Token nastavte v ~/.config/intentsmith/runtime.env a restartujte backendovou službu. Sem patří jen název INTENTSMITH_TELEGRAM_* nebo INTENTSMITH_DISCORD_*.' }),
       f('Příjemce / kanál', 'recipient'), f('Povolit doručování', 'enabled', 'toggle'), f('Události workerů', 'event_worker', 'toggle'), f('Události životního cyklu', 'event_lifecycle', 'toggle') ]; }
     if (editor.kind === 'paths') { title = 'Složka pro nové projekty'; fields = [f('Existující absolutní složka', 'projects', 'text', { hint: 'Změní pouze výchozí umístění nových projektů. Nepřesouvá stávající data.' })]; }
     if (editor.kind === 'backup') { title = 'Poznámka a archivace · ' + editor.original.name; fields = [f('Poznámka', 'note'), f('Archivovat', 'archived', 'toggle', { hint: 'Archiv se vyřadí z automatické retence. Obsah této zálohy se nemění.' })]; }
@@ -385,7 +392,7 @@ class IdeSettingsManagement {
       })));
       sections.push(this.section('Databáze', 'Připojené databáze SQLite, jejich engine, stránkové využití a WAL.', (inventory.databases || []).map(d => this.row(d.name, d.path || 'Databáze v paměti', d.engine + ' ' + d.version,
         [meta('Přiděleno', bytes(d.allocatedBytes)), meta('Využito', bytes(d.usedBytes)), meta('WAL', bytes(d.walBytes)), meta('Režim', d.journalMode), meta('Tabulky', d.tableCount)]))));
-      sections.push(this.section('Umístění dat', 'Částečné měření adresáře je označené; seznam nemusí být kompletní. Přesun dat ani změna umístění modelů se zde neprovádí.', (inventory.locations || []).map(l => this.row({ projects: 'Projekty', data: 'Data aplikace', backups: 'Zálohy', models: 'Modely' }[l.kind] || l.kind, l.path, { COMPLETE: 'Úplné měření', PARTIAL: 'Částečné měření', MISSING: 'Složka chybí', UNAVAILABLE: 'Nedostupné' }[l.status], [meta('Změřená velikost', bytes(l.bytes)), meta('Prohlédnuté položky', l.entries)]))));
+      sections.push(this.section('Umístění dat', 'Částečné měření adresáře je označené; seznam nemusí být kompletní. Přesun dat ani změna umístění modelů se zde neprovádí.', (inventory.locations || []).map(l => this.row({ projects: 'Projekty', data: 'Data aplikace', backups: 'Zálohy', models: 'Modely' }[l.kind] || l.kind, l.path||'Poskytovatel cestu nesdělil', { COMPLETE: 'Úplné měření', PARTIAL: 'Částečné měření', MISSING: 'Složka chybí', UNAVAILABLE: 'Nedostupné',UNKNOWN:'Cesta není známá' }[l.status], [meta('Změřená velikost', bytes(l.bytes)), meta('Prohlédnuté položky', l.entries),...(l.pathSource?[meta('Zdroj cesty',l.pathSource==='LOCAL_PROVIDER_SERVICE'?'Konfigurace služby Ollama':'Konfigurace instalace')]:[])]))));
       if (data.paths) sections.push(this.section('Nové projekty', 'Pouze výchozí cesta. Stávající projektové složky se nepřesouvají.', [this.row('Výchozí složka', data.paths.projects, 'Revize ' + data.paths.revision, [], [a('Upravit', () => this.editor(category, 'paths', data.paths, { projects: data.paths.projects }))])]));
     }
     if (category === 'zalohy') {

@@ -78,7 +78,7 @@ export const config = {
   // Ollama
   ollama: {
     baseUrl: process.env.OLLAMA_URL || 'http://127.0.0.1:11434',
-    modelsPath: process.env.OLLAMA_MODELS || '/usr/share/ollama/.ollama/models',
+    modelsPath: process.env.OLLAMA_MODELS || null,
     retries: 3,
     retryDelay: 2000,
   },

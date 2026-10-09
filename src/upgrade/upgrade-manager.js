@@ -23,6 +23,7 @@ import {
 import { requireLoopbackModelProviderOrigin } from './model-provider-origin.js';
 import { checkOllamaUpdate } from './ollama-update-check.js';
 import { statfsSync } from 'node:fs';
+import { resolveOllamaStorage } from '../system/ollama-storage.js';
 import { DEFAULT_MIN_AVAILABLE_DISK_BYTES } from './gpu-evaluation-lock.js';
 
 // Presentation of Ollama's NDJSON stream. A layer reaching 100% is not a
@@ -127,10 +128,7 @@ export class UpgradeManager {
     this._modelArtifactAuthorityRepository = null;
     this._pullIdleTimeoutMs = MODEL_PULL_IDLE_TIMEOUT_MS;
     this._pullProgress = new Map();
-    this._readPullStorageBytes = options.readPullStorageBytes || (() => {
-      const stats = statfsSync(config.ollama?.modelsPath || process.env.OLLAMA_MODELS || '/usr/share/ollama/.ollama/models');
-      return Number(stats.bavail) * Number(stats.bsize);
-    });
+    this._readPullStorageBytes = options.readPullStorageBytes || null;
     this._modelUseAuthority = options.modelUseAuthority || modelUseAuthority;
     if (typeof this._modelUseAuthority?.acquireExclusive !== 'function') {
       throw modelPullError('MODEL_USE_AUTHORITY_REQUIRED', 'Model use authority is unavailable');
@@ -421,9 +419,14 @@ export class UpgradeManager {
     };
     let storageWatch, pullController, pullReader, storageError;
     let remainingDownloadBytes = 0;
+    const location=this._readPullStorageBytes?null:await resolveOllamaStorage(config.ollama);
+    const readStorage=this._readPullStorageBytes||(()=>{
+      if(!location?.path)throw modelPullError('MODEL_PULL_STORAGE_UNKNOWN','Úložiště poskytovatele není známé.');
+      const stats=statfsSync(location.path);return Number(stats.bavail)*Number(stats.bsize);
+    });
     const requireStorage = () => {
       let available;
-      try { available = this._readPullStorageBytes(); } catch { /* Unknown storage fails closed. */ }
+      try { available = readStorage(); } catch { /* Unknown storage fails closed. */ }
       if (!Number.isSafeInteger(available) || available < 0) throw modelPullError(
         'MODEL_PULL_STORAGE_UNKNOWN', 'Volné místo pro modely nelze ověřit. Stahování se nespustí nebo zastaví.');
       if (available - remainingDownloadBytes < DEFAULT_MIN_AVAILABLE_DISK_BYTES) throw modelPullError(

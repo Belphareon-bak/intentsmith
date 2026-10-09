@@ -296,7 +296,7 @@ test('configured role limits reach the provider and telemetry keeps its served d
     for(const role of Object.keys(runtimeConfig.models))runtimeConfig.models[role]='fixture-model:latest';
     llmGateway.setUsageDb(f.db);
     f.store.put('role','CHAT',0,{model:runtimeConfig.models.CHAT,digestSha256:digest,
-      contextWindowTokens:2048,maxOutputTokens:128},'operator');
+      contextWindowTokens:4096,maxOutputTokens:128},'operator');
     let body;
     globalThis.fetch=async(_url,options)=>{body=JSON.parse(options.body);return new Response(JSON.stringify({
       model:runtimeConfig.models.CHAT,model_digest_sha256:digest,message:{content:'Controlled provider'},done_reason:'stop',
@@ -304,12 +304,12 @@ test('configured role limits reach the provider and telemetry keeps its served d
     const token=createAuthToken({role:'CRE_DECISION',decisionId:'ide-wire-fixture',maxTokens:512,
       auditContext:{sessionId:'ide-wire-fixture'}});
     await callWithAuth(token,'Check the role settings',{model:runtimeConfig.models.CHAT,maxTokens:256,
-      correlation:{modelRole:'CHAT'},retries:1});
-    assert.equal(body.options.num_ctx,2048);assert.equal(body.options.num_predict,128);
+      correlation:{modelRole:'CHAT',purpose:'answer'},retries:1});
+    assert.equal(body.options.num_ctx,4096);assert.equal(body.options.num_predict,128);
     await generateChatResponse('Check actual chat adapter','',{maxTokens:256,retries:1});
-    assert.equal(body.options.num_ctx,2048);assert.equal(body.options.num_predict,128);
-    assert.equal(getCompactionBudget(runtimeConfig.models.CHAT).contextWindow,2048);
-    assert.equal(getCompactionBudget(runtimeConfig.models.CHAT).maxOutputTokens,128);
+    assert.equal(body.options.num_ctx,4096);assert.equal(body.options.num_predict,128);
+    assert.equal(getCompactionBudget(runtimeConfig.models.CHAT).contextWindow,4096);
+    assert.equal(getCompactionBudget(runtimeConfig.models.CHAT).maxOutputTokens,1000);
     const observed=f.db.prepare('SELECT * FROM model_runtime_telemetry').get();
     assert.equal(observed.digest_sha256,digest);assert.equal(observed.output_tokens,3);assert.equal(observed.role,'CHAT');
   } finally {globalThis.fetch=oldFetch;Object.assign(runtimeConfig.models,oldModels);llmGateway.setUsageDb(oldDb);}
@@ -375,4 +375,51 @@ test('Czech specialist names transliterate correctly, duplicate IDs conflict and
     const source=await fs.readFile(path.join(specialists,id,'index.js'),'utf8');assert.match(source,/domain_rules: \["Keep names"\]/);
     await direct['POST /api/specialists']({body:{name}},{});assert.equal(response.status,409);
   }
+});
+
+test('actual local Ollama service wins over backend hint; remote/missing providers remain unknown',async()=>{
+  const {resolveOllamaStorage}=await import('../src/system/ollama-storage.js');
+  const runCommand=async(executable,args)=>{assert.equal(executable,'systemctl');assert.deepEqual(args,['show','ollama.service','--property=Environment,ActiveState,MainPID']);return {stdout:'ActiveState=active\nMainPID=42\nEnvironment=OLLAMA_MODELS=/mnt/vi7000/ollama/models OLLAMA_HOST=127.0.0.1:11434\n'};};
+  const value=await resolveOllamaStorage({baseUrl:'http://127.0.0.1:11434',modelsPath:'/wrong/backend/hint'},{runCommand});
+  assert.equal(value.path,'/mnt/vi7000/ollama/models');assert.equal(value.backendHintDiffers,true);
+  assert.equal((await resolveOllamaStorage({baseUrl:'http://127.0.0.1:11111'},{runCommand})).path,null);
+  assert.equal((await resolveOllamaStorage({baseUrl:'https://remote.invalid'},{runCommand:()=>{throw Error('Must not inspect local unit');}})).reason,'REMOTE_PROVIDER_STORAGE');
+  assert.equal((await resolveOllamaStorage({},{runCommand:()=>{throw Error('Unavailable');}})).status,'UNKNOWN');
+  const f=await fixture();f.db.exec('CREATE TEMP TABLE temporary_fixture(value TEXT)');
+  const {storageInventory}=await import('../src/system/ide-storage.js');
+  const inventory=await storageInventory(f.db,f.config,f.store,{providerProbe:{runCommand:async()=>({stdout:''})},readMountInfo:async()=>
+    '1 0 8:1 / / rw - btrfs /dev/fixture rw\n2 0 8:1 /@home /home rw - btrfs /dev/fixture rw\n3 0 0:1 / /var/lib/docker/overlay rw - overlay overlay rw\n'});
+  assert.equal(inventory.disks.length,1);assert.deepEqual(inventory.disks[0].mountPoints,['/','/home']);
+  assert(!inventory.databases.some(x=>x.name==='temp'));assert.equal(inventory.locations.find(x=>x.kind==='models').status,'UNKNOWN');
+});
+
+test('correctable SSH/context errors are safe 422s; internal exceptions are 500 and DELETE IDs validate',async()=>{
+  const f=await fixture();
+  const missing=await f.request('PUT /api/scm/profiles/:id',{revision:0,name:'SSH',host:'github.com',user:'git',port:22,
+    identityFile:path.join(f.dir,'missing'),knownHostsFile:path.join(f.dir,'missing-hosts')},{id:'safe'});
+  assert.equal(missing.status,422);assert.equal(missing.body.code,'IDE_SSH_FILE_MISSING');assert(!JSON.stringify(missing).includes(f.dir));
+  const small=await f.request('PUT /api/system/models/role-settings/:role',{revision:0,model:'fixture-model:latest',digestSha256:digest,contextWindowTokens:2048,maxOutputTokens:32},{role:'CHAT'});
+  assert.equal(small.status,422);assert.equal(small.body.code,'IDE_CONTEXT_TOO_SMALL');
+  f.setRoutes(createIdeManagementRoutes({...f.deps,huntScheduler:{list:()=>[]}}));
+  for(const key of ['DELETE /api/scm/profiles/:id','DELETE /api/system/models/hunt/profiles/:id'])assert.equal((await f.request(key,{revision:1},{id:'../unsafe'})).status,400);
+  const routes=createIdeManagementRoutes({...f.deps,parseBody:async()=>{throw Object.assign(Error('secret filesystem path'),{code:'ENOENT'});}});
+  const unexpected=await routes['PUT /api/accounts/:id']({authenticatedSubject:local},{},{id:'fixture'});
+  assert.equal(unexpected.status,500);assert.equal(unexpected.body.code,'IDE_OPERATION_FAILED');assert(!JSON.stringify(unexpected).includes('secret'));
+});
+
+test('shared model D2/R1/R2 calls apply distinct role contexts and persist role telemetry',async()=>{
+  const {WorkflowOrchestrator}=await import('../src/planner/workflow.js');
+  const f=await fixture(),oldFetch=globalThis.fetch,oldModels={...runtimeConfig.models},oldDb=llmGateway._usageDb;
+  const roles=['D2','R1','R2'],observed=[];
+  try {
+    llmGateway.setUsageDb(f.db);
+    for(const [i,role] of roles.entries()){
+      runtimeConfig.models[role]='shared:latest';f.db.prepare('INSERT INTO model_desired_bindings VALUES(?,?,?)').run(role,'shared:latest',digest);
+      f.store.put('role',role,0,{model:'shared:latest',digestSha256:digest,contextWindowTokens:4096*(i+1),maxOutputTokens:128+i},'operator');
+    }
+    globalThis.fetch=async(_url,options)=>{observed.push(JSON.parse(options.body));return new Response(JSON.stringify({model:'shared:latest',model_digest_sha256:digest,message:{content:'Controlled role response'},done_reason:'stop',eval_count:4,eval_duration:1000000000}));};
+    const workflow=new WorkflowOrchestrator();for(const role of roles)await workflow._callLLM(role,'Controlled planner role','',{maxTokens:256,retries:1});
+    assert.deepEqual(observed.map(x=>x.options.num_ctx),[4096,8192,12288]);assert.deepEqual(observed.map(x=>x.options.num_predict),[128,129,130]);
+    assert.deepEqual(f.db.prepare('SELECT role FROM model_runtime_telemetry ORDER BY id').all().map(x=>x.role),roles);
+  }finally{globalThis.fetch=oldFetch;Object.assign(runtimeConfig.models,oldModels);llmGateway.setUsageDb(oldDb);}
 });

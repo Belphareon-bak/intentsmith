@@ -3,7 +3,7 @@ name: IntentSmith development checks
 on:
   pull_request:
   push:
-    branches: [main, 'integration/main-reconcile-*', 'work/real-chat-journeys-20260930', 'work/chat-quality-20261001', 'work/ide-backend-20261009']
+    branches: [main, 'integration/main-reconcile-*', 'work/real-chat-journeys-20260930', 'work/chat-quality-20261001', 'work/ide-backend-20261009', 'work/ide-integration-20261009']
   workflow_dispatch:
 
 permissions:

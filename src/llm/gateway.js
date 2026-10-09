@@ -1040,7 +1040,8 @@ class LLMGateway {
     const effectiveMaxTokens = Math.min(
       options.maxTokens || 4096,
       authToken?.maxTokens || 4096,
-      roleSettings?.maxOutputTokens ?? Infinity
+      roleSettings?.role==='CHAT'&&options.correlation?.purpose!=='answer'
+        ? Infinity : roleSettings?.maxOutputTokens ?? Infinity
     );
 
     // ════════════════════════════════════════════════════════════════════════

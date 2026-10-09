@@ -1896,6 +1896,47 @@ class LiveModel extends Component {
     } finally { this._expertiseWizardStatus.busy = false; this.forceUpdate(); }
   }
 
+  async saveWorkerTemplate(s) {
+    if(this._workerWizardStatus.busy || this._workerWizardStatus.uncertain) return false;
+    let manifest;
+    try { manifest=JSON.parse(s.workerTemplate); if(!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(manifest.id)) throw Error('Neplatné ID šablony.'); }
+    catch(error){this._workerWizardStatus.error='Zkontrolujte manifest JSON: '+error.message;this.forceUpdate();return false;}
+    const backend=this.widget.catalog.backendUrl();this._workerWizardStatus.busy=true;this.forceUpdate();
+    let submitted=false;
+    try {
+      const old=this._workerWizardStatus.extensions.find(x=>x.id===manifest.id);
+      if(old && !old.custom) throw Error('Vestavěné rozšíření nelze přepsat.');
+      submitted=true;
+      const response=await this.fetchImpl(backend+'/api/agent-extensions/templates/'+encodeURIComponent(manifest.id),{
+        method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({manifest,revision:old?.revision||0}),signal:AbortSignal.timeout(15000)});
+      const result=await response.json();
+      if(!response.ok){submitted=false;if(response.status===409)this._workerWizardStatus.uncertain=true;throw Error('Šablona nebyla uložena: '+(result.code||response.status));}
+      if(this.widget.catalog.backendUrl()!==backend)throw Error('Backend se změnil. Ověřte šablonu v původním katalogu.');
+      const readback=await this.widget.catalog.get('/api/agent-extensions/'+encodeURIComponent(manifest.id));
+      if(result.id!==manifest.id || readback.definitionDigest!==result.definitionDigest || readback.revision!==result.revision)
+        throw Error('Uloženou šablonu nelze přesně ověřit. Obnovte katalog před dalším zápisem.');
+      await this.loadWorkerWizard();this.setState({workerExtension:manifest.id,workerStep:0});
+      this._workerWizardStatus.error='Šablona uložena a ověřena. Nová instance bude vypnutá.';return true;
+    }catch(error){if(submitted)this._workerWizardStatus.uncertain=true;this._workerWizardStatus.error=error.message;return false;}
+    finally{this._workerWizardStatus.busy=false;this.forceUpdate();}
+  }
+
+  async loadWorkerInstance(s) {
+    if(this._workerWizardStatus.busy)return false;
+    if(!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(s.workerInstanceId)){this._workerWizardStatus.error='Zadejte ID existující instance.';this.forceUpdate();return false;}
+    const backend=this.widget.catalog.backendUrl();this._workerWizardStatus.busy=true;this.forceUpdate();
+    try {
+      const current=await this.widget.catalog.get('/api/agent-extensions/instances/'+encodeURIComponent(s.workerInstanceId)+'/config');
+      if(backend!==this.widget.catalog.backendUrl() || current.id!==s.workerInstanceId || !/^sha256:[a-f0-9]{64}$/.test(current.configDigest))throw Error('Konfiguraci instance nelze ověřit.');
+      this._workerWizardStatus.editSource=current;this._workerWizardStatus.editBackend=backend;
+      this._workerWizardStatus.preview=null;this._workerWizardStatus.previewKey='';this._workerWizardStatus.uncertain=false;this._workerWizardStatus.error='';
+      const {project_id,...params}=current.params;
+      this.setState({workerEditing:true,workerStep:0,workerExtension:current.definition.m3_extension.id,workerProject:String(project_id||''),
+        workerParams:JSON.stringify(params,null,2),workerName:current.name,workerDescription:current.description||''});return true;
+    }catch(error){this._workerWizardStatus.error=error.message;return false;}
+    finally{this._workerWizardStatus.busy=false;this.forceUpdate();}
+  }
+
   async loadWorkerWizard() {
     this._workerWizardStatus = { ...this._workerWizardStatus, loading: true, error: '' };
     this.forceUpdate();
@@ -1958,7 +1999,7 @@ class LiveModel extends Component {
     try {
       const response = await this.fetchImpl(this.widget.catalog.backendUrl() + '/api/agent-extensions/'
         + encodeURIComponent(s.workerExtension) + '/preview', { method: 'POST',
-        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(draft), signal: AbortSignal.timeout(10000) });
+        headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(s.workerEditing?{...draft,expectedConfigDigest:this._workerWizardStatus.editSource.configDigest}:draft), signal: AbortSignal.timeout(10000) });
       const result = await response.json();
       if (!response.ok || result.id !== s.workerExtension || result.instanceId !== draft.instanceId
         || JSON.stringify(result.params) !== JSON.stringify(draft.params) || result.effectsExecuted !== false
@@ -1984,20 +2025,23 @@ class LiveModel extends Component {
     try {
       const base = this.widget.catalog.backendUrl();
       if (typeof base !== 'string' || !/^https?:\/\//.test(base)) throw Error('Backend není dostupný.');
-      const response = await this.fetchImpl(base + '/api/agent-extensions/' + encodeURIComponent(extensionId) + '/install', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...draft, enabled: false,
-          expectedDefinitionDigest: this._workerWizardStatus.preview.definitionDigest }), signal: AbortSignal.timeout(30000) });
+      if(s.workerEditing && (base!==this._workerWizardStatus.editBackend || this._workerWizardStatus.editSource?.id!==instanceId)) throw Error('Otevřete aktuální konfiguraci instance.');
+      const response = await this.fetchImpl(base + (s.workerEditing ? '/api/agent-extensions/instances/'+encodeURIComponent(instanceId) : '/api/agent-extensions/' + encodeURIComponent(extensionId) + '/install'), {
+        method: s.workerEditing?'PUT':'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(s.workerEditing?{params:draft.params,name:s.workerName,description:s.workerDescription,
+          expectedDefinitionDigest:this._workerWizardStatus.preview.definitionDigest,expectedConfigDigest:this._workerWizardStatus.editSource.configDigest}:
+          { ...draft, enabled: false, expectedDefinitionDigest: this._workerWizardStatus.preview.definitionDigest }), signal: AbortSignal.timeout(30000) });
       let result = {};
       try { result = await response.json(); } catch { /* A lost response leaves the effect uncertain. */ }
       if (!response.ok) throw Object.assign(Error(result.error || `Worker nelze vytvořit (HTTP ${response.status}).`),
         { status: response.status });
-      if (result.id !== instanceId || result.enabled !== false
+      if (result.id !== instanceId || result.enabled !== (s.workerEditing?this._workerWizardStatus.editSource.enabled:false)
         || result.definition?.m3_extension?.id !== extensionId)
         throw Error('Backend nevrátil ověřitelnou instanci workeru. Zkontroluj katalog.');
       accepted = result;
       const detail = await this.widget.catalog.get('/api/agents/' + encodeURIComponent(instanceId));
-      if (detail.id !== instanceId || detail.enabled !== false
+      if(s.workerEditing && (detail.name!==s.workerName.trim() || detail.description!==s.workerDescription || base!==this.widget.catalog.backendUrl()))throw Error('Upravená konfigurace není přesně potvrzena.');
+      if (detail.id !== instanceId || detail.enabled !== (s.workerEditing?this._workerWizardStatus.editSource.enabled:false)
         || detail.definition?.m3_extension?.id !== extensionId
         || JSON.stringify(detail.params) !== JSON.stringify(this._workerWizardStatus.preview.params)
         || detail.definition?.m3_extension?.definitionDigest !== this._workerWizardStatus.preview.definitionDigest)
@@ -2009,11 +2053,11 @@ class LiveModel extends Component {
         return true;
       }
       this.setState({ ...this.pSelect(this.st(), 'workers', instanceId),
-        workerStep: 0, workerProject: '', workerInstanceId: '' });
+        workerStep: 0, workerProject: '', workerInstanceId: '',workerEditing:false });
       return true;
     } catch (error) {
       this._workerWizardStatus = { ...this._workerWizardStatus,
-        uncertain: !accepted && !error?.status,
+        uncertain: !!accepted || !error?.status || error?.status===409,
         error: accepted ? `Backend vytvořil worker ${instanceId}, ale další ověření selhalo. Obnov katalog.`
           : (error?.message || 'Výsledek vytvoření není jistý. Zkontroluj katalog před dalším pokusem.') };
       this.widget.catalogActionError = this._workerWizardStatus.error;
@@ -2028,7 +2072,9 @@ class LiveModel extends Component {
     const form = this.specialistWizardVM(s);
     if (s.specialistStep !== 1 || form.submitDisabled || this._specialistWizardStatus.uncertain) return false;
     const body = { name: s.specialistName.trim(), domain: s.specialistDomain,
-      description: s.specialistDescription.trim(), icon: s.specialistIcon || null };
+      description: s.specialistDescription.trim(), icon: s.specialistIcon || null,
+      systemPrompt:s.specialistPrompt.trim(),domainRules:s.specialistRules.split('\n').map(x=>x.trim()).filter(Boolean),
+      constraints:s.specialistConstraints.split('\n').map(x=>x.trim()).filter(Boolean) };
     this._specialistWizardStatus = { busy: true, error: '', uncertain: false };
     this.widget.catalogActionError = null;
     this.forceUpdate();
@@ -2063,7 +2109,7 @@ class LiveModel extends Component {
       return true;
     } catch (error) {
       this._specialistWizardStatus = { ...this._specialistWizardStatus,
-        uncertain: !accepted && !error?.status,
+        uncertain: !!accepted || !error?.status,
         error: accepted ? `Backend vytvořil specialistu ${accepted.id}, ale další ověření selhalo. Obnov katalog.`
           : (error?.message || 'Výsledek vytvoření není jistý. Zkontroluj katalog před dalším pokusem.') };
       this.widget.catalogActionError = this._specialistWizardStatus.error;
@@ -2155,7 +2201,7 @@ class LiveModel extends Component {
       return true;
     } catch (error) {
       this._projectWizardStatus = { ...this._projectWizardStatus,
-        uncertain: !accepted && !error?.status,
+        uncertain: !!accepted || !error?.status,
         error: accepted ? `Backend potvrdil projekt ${accepted.id}, ale další ověření selhalo. Obnov katalog.`
           : (error?.message || 'Výsledek založení projektu není jistý. Zkontroluj katalog před dalším pokusem.') };
       this.widget.catalogActionError = this._projectWizardStatus.error;

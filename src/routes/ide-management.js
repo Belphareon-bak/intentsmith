@@ -4,7 +4,7 @@ import { isLocalOperatorTransportSubject } from '../security/global-auth-policy.
 import { createIdeStore, ideError, record, textField, identifier } from '../db/ide-store.js';
 import { storageInventory, validatePaths } from '../system/ide-storage.js';
 import { validateAccount, accountView, deliverAccount, registerAccountChannels } from '../system/ide-accounts.js';
-import { currentRoleArtifact, validateRoleSettings, IDE_MODEL_ROLES } from '../llm/role-runtime-settings.js';
+import { currentRoleArtifact, validateRoleSettings, IDE_MODEL_ROLES, minimumRoleContext } from '../llm/role-runtime-settings.js';
 import { getModelRuntimeProfile, getCodeRuntimeProfile } from '../llm/model-runtime-profile.js';
 import { getNumCtx } from '../llm/model-ctx.js';
 import { backupManagement } from '../system/ide-backups.js';
@@ -12,6 +12,29 @@ import { notificationAccountFetch } from '../network/outbound-policy.js';
 import { git, projectRoot, remoteHost } from '../scm/git-runner.js';
 import { validateHuntProfile, IDE_HUNT_TERMINAL_STATES } from '../system/ide-hunt-scheduler.js';
 import { validateExternalSignal } from '../system/ide-external-signals.js';
+
+const ERROR_MESSAGES={
+  IDE_CONTEXT_TOO_SMALL:'Kontext je pro interní interpretaci příliš malý. CHAT potřebuje nejméně 4096 tokenů.',
+  IDE_SSH_FILE_MISSING:'Soubor SSH klíče nebo known_hosts neexistuje. Opravte cestu.',
+  IDE_SSH_FILE_ACCESS_DENIED:'Backend nemá přístup k SSH souboru. Zkontrolujte jeho vlastníka a oprávnění.',
+  IDE_SSH_FILE_UNSAFE:'SSH soubor nesplňuje požadavky na vlastníka, oprávnění nebo bezpečnou cestu.',
+  IDE_PATH_MISSING:'Vybraná složka neexistuje. Zvolte existující složku.',
+  IDE_PATH_ACCESS_DENIED:'Backend nemá přístup k vybrané složce.',
+  IDE_ID_RETIRED:'Tento identifikátor už byl použit a odstraněn. Nový prvek potřebuje nové ID.',
+  IDE_REVISION_STALE:'Záznam mezitím někdo změnil. Obnovte data a porovnejte rozepsané hodnoty.',
+  IDE_TOKEN_LIMIT_INVALID:'Zkontrolujte celé počty tokenů. Výstup musí být menší než kontext.',
+  IDE_BINDING_CHANGED:'Model nebo jeho digest se změnil. Načtěte aktuální nastavení role.',
+  IDE_CONTEXT_EXCEEDS_RUNTIME_CEILING:'Kontext překračuje ověřený strop tohoto runtime.',
+  IDE_CONTEXT_EXCEEDS_APPROVED_PROFILE:'Kontext překračuje schválený profil modelu.',
+  IDE_CODE_CONTEXT_PINNED:'Kontext kvalifikovaného CODE musí odpovídat schválenému profilu.',
+  IDE_PROFILE_IN_USE:'SSH profil používá repozitář. Nejdřív změňte jeho přiřazení.',
+  IDE_HUNT_PROFILE_IN_USE:'Profil má neuzavřený úkol. Nejdřív jej dokončete nebo zrušte.',
+};
+function filesystemFailure(error,prefix){
+  if(error.code==='ENOENT'||error.code==='ENOTDIR')throw ideError(prefix+'_MISSING',422);
+  if(error.code==='EACCES'||error.code==='EPERM')throw ideError(prefix+'_ACCESS_DENIED',422);
+  throw error;
+}
 
 export function createIdeManagementRoutes({db,config,parseBody,sendJSON,notificationRouter,
   accountFetch=notificationAccountFetch,environment=process.env,projectRoot:sourceRoot=process.cwd(),huntScheduler=null}) {
@@ -23,15 +46,22 @@ export function createIdeManagementRoutes({db,config,parseBody,sendJSON,notifica
   const local=action=>async(req,res,params={})=>{
     if(!isLocalOperatorTransportSubject(req.authenticatedSubject))return sendJSON(res,403,{code:'IDE_LOCAL_OPERATOR_REQUIRED'});
     try{return sendJSON(res,200,await action(req,params));}
-    catch(error){return sendJSON(res,error.httpStatus||400,{code:error.code||'IDE_OPERATION_FAILED',
-      error:error.code||'Operace se nezdařila.'});}
+    catch(error){
+      const known=Number.isInteger(error.httpStatus)&&error.httpStatus>=400&&error.httpStatus<=599;
+      const status=known?error.httpStatus:500;
+      const code=known&&/^[A-Z][A-Z0-9_]{0,99}$/.test(error.code)?error.code:'IDE_OPERATION_FAILED';
+      return sendJSON(res,status,{code,error:ERROR_MESSAGES[code]||
+        (status>=500?'Operace se nezdařila. Obnovte stav před dalším pokusem.':'Požadavek nebyl přijat. Zkontrolujte vyplněné údaje.')});
+    }
   };
   function roleView(role) {
     let artifact;
     try {artifact=currentRoleArtifact(raw,config,role);}catch {return {role,status:'BINDING_UNAVAILABLE',revision:0};}
     const saved=store.get('role',role),profile=getModelRuntimeProfile(artifact.model)||getCodeRuntimeProfile(artifact.model,artifact.digestSha256);
-    const current=saved?.digestSha256===artifact.digestSha256&&saved.model===artifact.model;
-    return {role,...artifact,revision:saved?.revision??0,status:current?'CONFIGURED':saved?'STALE':'DEFAULT',
+    const sameArtifact=saved?.digestSha256===artifact.digestSha256&&saved.model===artifact.model;
+    const current=sameArtifact&&saved.contextWindowTokens>=minimumRoleContext(role);
+    return {role,...artifact,minimumContextWindowTokens:minimumRoleContext(role),
+      revision:saved?.revision??0,status:current?'CONFIGURED':sameArtifact?'REQUIRES_UPDATE':saved?'STALE':'DEFAULT',
       settings:current?{contextWindowTokens:saved.contextWindowTokens,maxOutputTokens:saved.maxOutputTokens}:
         {contextWindowTokens:getNumCtx(artifact.model,4096),maxOutputTokens:null},
       outputAuthority:'CALL_SITE_AND_AUTH_TOKEN_CEILING',
@@ -61,9 +91,11 @@ export function createIdeManagementRoutes({db,config,parseBody,sendJSON,notifica
     for(const key of ['identityFile','knownHostsFile']) {
       const filename=textField(input[key],4096);
       if(!path.isAbsolute(filename)||!/^\/[a-zA-Z0-9_./-]+$/.test(filename))throw ideError('IDE_SSH_PATH_INVALID');
-      const stat=await fs.lstat(filename);
+      let stat;
+      try{stat=await fs.lstat(filename);if(await fs.realpath(filename)!==filename)throw ideError('IDE_SSH_FILE_UNSAFE');}
+      catch(error){filesystemFailure(error,'IDE_SSH_FILE');}
       if(!stat.isFile()||stat.isSymbolicLink()||stat.nlink!==1||stat.uid!==process.getuid()
-        ||stat.mode&(key==='identityFile'?0o077:0o022)||await fs.realpath(filename)!==filename)
+        ||stat.mode&(key==='identityFile'?0o077:0o022))
         throw ideError('IDE_SSH_FILE_UNSAFE');
     }
     return {name:textField(input.name),host:host.toLowerCase(),user,port:input.port,
@@ -94,7 +126,9 @@ export function createIdeManagementRoutes({db,config,parseBody,sendJSON,notifica
     'GET /api/system/storage/inventory':local(()=>storageInventory(raw,config,store)),
     'GET /api/system/storage/paths':local(()=>({id:'default',revision:0,projects:path.resolve(config.projects.defaultDir),...store.get('paths','default')})),
     'PUT /api/system/storage/paths':local(async req=>{const body=await parseBody(req),values=validatePaths(body);
-      const root=await fs.realpath(values.projects);if(!(await fs.stat(root)).isDirectory())throw ideError('IDE_PATH_INVALID');
+      let root;
+      try{root=await fs.realpath(values.projects);if(!(await fs.stat(root)).isDirectory())throw ideError('IDE_PATH_INVALID');}
+      catch(error){filesystemFailure(error,'IDE_PATH');}
       return store.put('paths','default',body.revision,{projects:root},actor(req));}),
     'GET /api/system/models/role-settings':local(()=>({roles:IDE_MODEL_ROLES.map(roleView)})),
     'PUT /api/system/models/role-settings/:role':local(async(req,p)=>{const body=await parseBody(req);
@@ -127,8 +161,9 @@ export function createIdeManagementRoutes({db,config,parseBody,sendJSON,notifica
     'GET /api/scm/profiles':local(()=>({profiles:store.list('ssh-profile')})),
     'PUT /api/scm/profiles/:id':local(async(req,p)=>{const body=await parseBody(req);
       return store.put('ssh-profile',identifier(p.id),body.revision,await validateSsh(body),actor(req));}),
-    'DELETE /api/scm/profiles/:id':local(async(req,p)=>{if(store.list('repository').some(r=>r.sshProfileId===p.id))throw ideError('IDE_PROFILE_IN_USE',409);
-      const body=record(await parseBody(req),['revision']);return store.remove('ssh-profile',p.id,body.revision,actor(req));}),
+    'DELETE /api/scm/profiles/:id':local(async(req,p)=>{const id=identifier(p.id);
+      if(store.list('repository').some(r=>r.sshProfileId===id))throw ideError('IDE_PROFILE_IN_USE',409);
+      const body=record(await parseBody(req),['revision']);return store.remove('ssh-profile',id,body.revision,actor(req));}),
     'PUT /api/scm/repositories/:projectId':local(async(req,p)=>{const body=record(await parseBody(req),['revision','sshProfileId']);
       const id=Number(p.projectId);await projectRoot(raw,id);
       if(body.sshProfileId!==null&&!store.get('ssh-profile',identifier(body.sshProfileId)))throw ideError('IDE_PROFILE_NOT_FOUND',404);
@@ -141,17 +176,18 @@ export function createIdeManagementRoutes({db,config,parseBody,sendJSON,notifica
       'PUT /api/system/models/hunt/profiles/:id':local(async(req,p)=>{const body=await parseBody(req);
         return store.put('hunt-profile',identifier(p.id),body.revision,validateHuntProfile(body),actor(req));}),
       'DELETE /api/system/models/hunt/profiles/:id':local(async(req,p)=>{
-        if(huntScheduler.list().some(j=>j.profileId===p.id&&!IDE_HUNT_TERMINAL_STATES.includes(j.state)))
+        const id=identifier(p.id);
+        if(huntScheduler.list().some(j=>j.profileId===id&&!IDE_HUNT_TERMINAL_STATES.includes(j.state)))
           throw ideError('IDE_HUNT_PROFILE_IN_USE',409);
         const body=record(await parseBody(req),['revision']);
-        return raw.transaction(()=>{const removed=store.remove('hunt-profile',p.id,body.revision,actor(req));
-          const cursor=store.get('hunt-cursor',p.id);if(cursor)store.remove('hunt-cursor',p.id,cursor.revision,actor(req));
+        return raw.transaction(()=>{const removed=store.remove('hunt-profile',id,body.revision,actor(req));
+          const cursor=store.get('hunt-cursor',id);if(cursor)store.remove('hunt-cursor',id,cursor.revision,actor(req));
           return removed;}).immediate();}),
       'GET /api/system/models/hunt/jobs':local(()=>({jobs:huntScheduler.list()})),
-      'POST /api/system/models/hunt/profiles/:id/queue':local(async(req,p)=>huntScheduler.enqueue(p.id,
+      'POST /api/system/models/hunt/profiles/:id/queue':local(async(req,p)=>huntScheduler.enqueue(identifier(p.id),
         record(await parseBody(req),['revision','at','confirm']),actor(req))),
       'DELETE /api/system/models/hunt/jobs/:id':local(async(req,p)=>{
-        const body=record(await parseBody(req),['revision']);return huntScheduler.cancel(p.id,body.revision,actor(req));}),
+        const body=record(await parseBody(req),['revision']);return huntScheduler.cancel(identifier(p.id),body.revision,actor(req));}),
     }:{}),
   };
 }

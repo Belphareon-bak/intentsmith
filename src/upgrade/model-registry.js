@@ -25,14 +25,17 @@ import { requireLoopbackModelProviderOrigin } from './model-provider-origin.js';
 import { readModelAutomationPolicy } from '../db/model-policy.js';
 import { resolveCurrentBindings } from './model-upgrade-prototype.js';
 import fs from 'fs';
+import { resolveOllamaStorage } from '../system/ollama-storage.js';
 
 const OVERVIEW_CACHE_TTL = 30_000; // 30s
 const DELETE_SOURCES = new Set(['USER_REQUEST', 'USER_HTTP', 'USER_CHAT', 'AUTO_CLEANUP']);
 export const AUTO_CLEANUP_MIN_FREE_BYTES = 40 * 1_073_741_824;
 
-function readModelStorageFreeBytes() {
+async function readModelStorageFreeBytes() {
   try {
-    const stats = fs.statfsSync(config.ollama?.modelsPath || '/usr/share/ollama/.ollama/models');
+    const storage=await resolveOllamaStorage(config.ollama);
+    if(!storage.path)return null;
+    const stats = fs.statfsSync(storage.path);
     const freeBytes = Number(stats.bavail) * Number(stats.bsize);
     return Number.isSafeInteger(freeBytes) && freeBytes >= 0 ? freeBytes : null;
   } catch {
@@ -610,13 +613,13 @@ export class ModelRegistry {
 
     // Disk usage
     let diskUsage = { totalBytes: 0, totalGB: '0', freeBytes: null, freeGB: null,
-      modelsPath: config.ollama.modelsPath };
+      modelsPath: (await resolveOllamaStorage(config.ollama)).path };
     const totalBytes = installed.reduce((sum, m) => sum + (m.size || 0), 0);
     diskUsage.totalBytes = totalBytes;
     diskUsage.totalGB = (totalBytes / 1_073_741_824).toFixed(1);
     // Use the same user-available capacity as cleanup. A missing model mount
     // must remain unknown; capacity on / says nothing about a separate disk.
-    const freeBytes = this._modelStorageFreeBytes();
+    const freeBytes = await this._modelStorageFreeBytes();
     if (Number.isSafeInteger(freeBytes) && freeBytes >= 0) {
       diskUsage.freeBytes = freeBytes;
       diskUsage.freeGB = (freeBytes / 1_073_741_824).toFixed(1);
@@ -998,7 +1001,7 @@ export class ModelRegistry {
       }
       // Retention is pressure relief, not routine churn. A failed or ambiguous
       // disk measurement must keep every artifact.
-      let freeBytes = this._modelStorageFreeBytes();
+      let freeBytes = await this._modelStorageFreeBytes();
       if (!Number.isSafeInteger(freeBytes) || freeBytes < 0
         || freeBytes >= AUTO_CLEANUP_MIN_FREE_BYTES) return [];
       const installed = await this.getInstalled({ strict: true });

@@ -1276,7 +1276,7 @@ export function createSystemRoutes({
         const huntCatalog = new ModelHuntState(db.db).catalogSnapshot();
         const huntCandidates = huntCatalog.candidates.map(candidate => ({ ...candidate,
           baseVramMb: candidate.sizeGB ? Math.round(candidate.sizeGB * 1024 * TYPICAL_VRAM_OVERHEAD) : null }));
-        const installedByCanonical = new Set();
+        const installedByCanonical = new Set(),installedQuantization=new Map();
         try {
           const response = await fetch(`${config.ollama.baseUrl}/api/tags`, {
             signal: AbortSignal.timeout(5000),
@@ -1284,7 +1284,7 @@ export function createSystemRoutes({
           const payload = await response.json();
           for (const model of payload.models || []) {
             const canonical = canonicalModelName(model.name);
-            if (canonical) installedByCanonical.add(canonical);
+            if (canonical) {installedByCanonical.add(canonical);const quant=model.details?.quantization_level;if(typeof quant==='string'&&quant.length<=100)installedQuantization.set(canonical,quant);}
           }
         } catch (error) {
           logger.warn('System', `Cannot fetch installed candidates from Ollama: ${error.message}`);
@@ -1318,6 +1318,7 @@ export function createSystemRoutes({
               name: previous?.name || entry.name,
               canonicalName: canonical,
               family: entry.family || previous?.family || null,
+              quantization: entry.quantization || entry.details?.quantization_level || previous?.quantization || installedQuantization.get(canonical) || null,
               category: entry.category || previous?.category || null,
               params: entry.params ?? previous?.params ?? null,
               sizeGB: entry.sizeGB ?? previous?.sizeGB ?? null,

@@ -233,7 +233,7 @@ export function createAgentPlatformRoutes(deps) {
       }catch(error){sendJSON(res,/STALE|RUNNING/.test(error.code)?409:400,{code:error.code||'M3_AGENT_EXTENSION_INVALID'});}
     },
     'GET /api/agent-extensions': async (req, res) => {
-      sendJSON(res, 200, { extensions: agentExtensionService.list() });
+      sendJSON(res, 200, { extensions: agentExtensionService.list(), invalidTemplates:agentExtensionService.invalidCustomTemplates||[] });
     },
 
     'GET /api/agent-extensions/:id': async (req, res, params) => {
@@ -244,7 +244,15 @@ export function createAgentPlatformRoutes(deps) {
     'POST /api/agent-extensions/:id/preview': async (req, res, params) => {
       try {
         const body = await parseBody(req);
-        const preview = agentExtensionService.preview(params.id, body);
+        let editing=false;
+        if(body.expectedConfigDigest!==undefined){
+          if(!isLocalOperatorTransportSubject(req.authenticatedSubject))return sendJSON(res,403,{code:'M3_LOCAL_OPERATOR_REQUIRED'});
+          const current=agentExtensionService.instanceConfiguration(body.instanceId);
+          if(current.definition?.m3_extension?.id!==params.id || current.configDigest!==body.expectedConfigDigest)
+            return sendJSON(res,409,{code:'M3_AGENT_EXTENSION_STALE'});
+          editing=true;
+        }
+        const preview = agentExtensionService.preview(params.id, body, editing);
         sendJSON(res, 200, preview);
       } catch (error) {
         sendJSON(res, error.code === 'M3_AGENT_EXTENSION_CONFLICT' ? 409 : 400,

@@ -964,21 +964,20 @@ Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
-| `src/**/*.js` | **238 572 ř.**, 698 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **273 348 ř.**, 610 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **238 690 ř.**, 699 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **273 466 ř.**, 610 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **602** (`504 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **187 / 110** |
 | HTTP rout | **308 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
 
-Počet 183 tabulek je dřívější census čerstvé kanonické DB; zde se znovu
-neměřil. Počet 109 migrací je ověřený aktuální zdrojový manifest; migrace 122
+Počet 183 tabulek a 109 migrací je historický census před migrací 123; migrace 122
 přidává sloupec a mění trigger dispatch, nevytváří novou tabulku. Instalované
 historické DB mohou mít podporované dodatečné migrační záznamy `061/062/068`;
 jejich zachování při upgrade má samostatnou evidenci a nemění kanonický
 zdrojový počet `109`.
 
-Aktuální registry fingerprint referenčního zdroje je
+Historický registry fingerprint referenčního zdroje před spojením větví je
 `48ffb34d7c8c27e79abb6ea824cd130ada380837e5ffed3272c10aa0b11deba6`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
@@ -1716,3 +1715,13 @@ restart průchod CPU PASS. Nejde o fyzickou modelovou přejímku aplikace.
 Immutable-copy runner váže celý původní manifest379, zachovává šest modulů
 a před forwardem dovolí právě jeden nový modelový request. Původní FAIL platí.
 Expanded review, aktuální registrované brány a připnutý živý průchod následují.
+
+## Integrace IDE/BE 2026-10-09
+
+Větev work/ide-integration-20261009 spojuje backend 0766a0ba a frontend
+598de50e. Doplňuje opravy úložiště, validací, role budgetů a sdílených modelů,
+M3 editor a specialistická pravidla, veřejné reference a důvody čekání Huntu.
+[WP](docs/wp/WP-IDE-INTEGRATION-20261009.md),
+[API](docs/development/ide-management-api.md),
+[self-review hranic](docs/review/ide-integration-boundaries-20261009.md).
+Kandidát REVIEW_PENDING; produkce ani automation hold se nemění.

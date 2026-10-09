@@ -10,7 +10,7 @@ export function validateExternalSignal(input) {
   let source;try{source=new URL(input.sourceUrl);}catch{throw ideError('IDE_EXTERNAL_SOURCE_INVALID');}
   if(source.protocol!=='https:'||source.username||source.password||source.hash||source.href.length>2000)
     throw ideError('IDE_EXTERNAL_SOURCE_INVALID');
-  if(typeof input.measuredAt!=='string'||new Date(input.measuredAt).toISOString()!==input.measuredAt
+  if(typeof input.measuredAt!=='string'||!Number.isFinite(Date.parse(input.measuredAt))||new Date(input.measuredAt).toISOString()!==input.measuredAt
     ||Date.parse(input.measuredAt)>Date.now())throw ideError('IDE_EXTERNAL_DATE_INVALID');
   const model=textField(input.model,200);
   if(!/^[A-Za-z0-9][A-Za-z0-9._:/-]*$/.test(model))throw ideError('IDE_MODEL_NAME_INVALID');

@@ -21,22 +21,22 @@ Frontend má pro nové prvky generovat nové ID. Neznámé vstupní klíče se o
 
 | Oblast | Endpointy a význam |
 |---|---|
-| Úložiště | `GET /api/system/storage/inventory`: připojené filesystémy, kapacity, velikost cest s COMPLETE/PARTIAL/MISSING/UNAVAILABLE, všechny SQLite databáze na živém spojení, verze, stránky, WAL. `GET/PUT /api/system/storage/paths`: výchozí cesta nových projektů. |
+| Úložiště | `GET /api/system/storage/inventory`: připojené filesystémy, kapacity, velikost cest s COMPLETE/PARTIAL/MISSING/UNAVAILABLE/UNKNOWN, pojmenované SQLite databáze (bez dočasné temp) na živém spojení, verze, stránky, WAL. `GET/PUT /api/system/storage/paths`: výchozí cesta nových projektů. |
 | Modelové role | `GET /api/system/models/role-settings`, `PUT /api/system/models/role-settings/:role`: oddělené `contextWindowTokens` a `maxOutputTokens` pro D1/D2/CODE/R1/R2/CHAT/VISION, přiřazené k přesnému modelu a digestu. |
 | Měření provozu | `GET /api/system/models/telemetry?days=7&digestSha256=…`: nejvýše 5000 posledních pozorování, P50/P95, počet/doba volání, průběh rychlosti. Seskupení podle modelu, skutečně vráceného digestu a role. Rychlost z provider `eval_count/eval_duration`; chybějící údaje zůstávají null. |
 | Veřejná skóre | `GET /api/system/models/external-signals`, `PUT/DELETE /api/system/models/external-signals/:id`: operátorem importované reference se zdrojem, datem, rolí, metrikou a stupnicí. Existující `/api/system/models/candidates` je připojí jako `externalSignals`. |
 | Účty | `GET /api/accounts`, `PUT/DELETE /api/accounts/:id`, `POST /api/accounts/:id/test`: více Discord/Telegram účtů, příjemce, jméno, zapnutí, odběr worker/lifecycle událostí. Test vyžaduje `confirm: true` a přesnou revizi. |
 | Zálohy | `GET /api/system/backups`, `POST /api/system/backup`, `GET/PUT/DELETE /api/system/backups/:name`: výběr sekcí, poznámka, archivace, detail a přesně potvrzené odstranění. Existující `GET/PUT /api/system/storage/settings` řídí retenci. |
 | Repozitáře | `GET /api/scm/repositories`: skutečné remotes a oprávnění projektu. `GET /api/scm/profiles`, `PUT/DELETE /api/scm/profiles/:id`: SSH profily. `PUT /api/scm/repositories/:projectId`: vazba profilu. |
-| Git | `GET /api/scm/branches?projectId=…&sort=activity` (nebo name), `GET /api/scm/compare?projectId=…&base=…&head=…&file=…`, `GET /api/scm/commit?projectId=…&ref=…&file=…&parent=0`. Výsledek obsahuje přesné commit OID, soubory, přejmenování, binární změny a omezený patch. |
+| Git | `GET /api/scm/branches?projectId=…&sort=activity` (nebo name), `GET /api/scm/compare?projectId=…&base=…&head=…&path=…`, `GET /api/scm/commit?projectId=…&ref=…&path=…&parent=0`. Výsledek obsahuje přesné commit OID, soubory, přejmenování, binární změny a omezený patch. |
 | Hunt | `GET /api/system/models/hunt/profiles`, `PUT/DELETE /api/system/models/hunt/profiles/:id`, `POST /api/system/models/hunt/profiles/:id/queue`, `GET /api/system/models/hunt/jobs`, `DELETE /api/system/models/hunt/jobs/:id`. |
-| Workeři | `PUT/DELETE /api/agent-extensions/templates/:id`: deklarativní M3 šablony. Existující preview/install slouží pro vytvoření instance. `GET /api/agent-extensions/instances/:agentId/config`, `PUT /api/agent-extensions/instances/:agentId`: úprava parametrů, jména, popisu, enabled; přesné definition/config digests. |
+| Workeři | `PUT/DELETE /api/agent-extensions/templates/:id`: deklarativní M3 šablony. Existující preview/install slouží pro vytvoření instance. `GET /api/agent-extensions/instances/:agentId/config`, `PUT /api/agent-extensions/instances/:agentId`: úprava parametrů, jména a popisu; přesné definition/config digests. |
 | Specialisté | Existující `POST /api/specialists` nyní převádí českou diakritiku do čitelného ID a přijímá `systemPrompt`, `domainRules`, `constraints`; kolize je 409. Katalog nevrací `dummy-logger`. |
 
 Příklad zápisu modelové role; hodnoty model/digest/revision se berou z GET:
 
 ```json
-{"revision":0,"model":"fixture:1b","digestSha256":"<aktuální 64hex digest>","contextWindowTokens":2048,"maxOutputTokens":256}
+{"revision":0,"model":"fixture:1b","digestSha256":"<aktuální 64hex digest>","contextWindowTokens":4096,"maxOutputTokens":256}
 ```
 
 Role settings se použijí v gateway, v legacy CHAT/VISION adaptérech a při
@@ -118,3 +118,30 @@ doménová pravidla sama žádný nástroj ani oprávnění nevytvářejí.
 Po integraci je nutné nezávislé review, UI journey, skutečné externí účty a
 ověření Huntu na GPU. Kvalitativní kampaň a release acceptance následují až po
 těchto funkčních důkazech. Tento WP žádný model neaktivuje a nemění produkci.
+
+## Integrační doplnění WP-IDE-INTEGRATION-20261009
+
+CHAT vyžaduje nejméně 4096 tokenů kontextu; menší hodnota vrací bezpečnou
+422 s kódem IDE_CONTEXT_TOO_SMALL. Limit výstupu CHAT řídí pouze odpověď,
+klasifikační JSON a kompakce mají vlastní autorizované rozpočty. D2/R1/R2
+předávají roli explicitně i při společném modelu. Staré nedostatečné nastavení
+se označí REQUIRES_UPDATE a nepoužije se.
+
+Cesta modelů se ověřuje přes konfiguraci aktivní lokální služby Ollama pro
+odpovídající endpoint. Neznámá/remote cesta je null/UNKNOWN; fallback je pouze
+výslovná instalační konfigurace. Mounty stejného zařízení jsou sloučené.
+Interní chyby jsou 500 IDE_OPERATION_FAILED; chybějící SSH soubor je 422 bez
+úniku technické cesty. Formát ID je stejný při PUT i DELETE.
+
+Studio poskytuje editor deklarativních vlastních šablon a úpravu instance
+přes chráněnou M3 konfiguraci. Preview úpravy vyžaduje lokální operátorský
+subject, existující vlastnictví rozšíření a expectedConfigDigest. Uložení
+instance dále vyžaduje expectedDefinitionDigest. Stav zapnutí se tím nemění.
+Neplatná uložená vlastní šablona neodstaví zbytek katalogu; GET vrátí invalidTemplates.
+Specialista má v průvodci prompt, doménová pravidla a omezení.
+
+400/422 odmítnutí zachová editovatelný návrh. 409 konflikt nebo nejistý zápis
+zůstává uzamčený pro obnovu a kontrolu; automatické opakování není povolené.
+Veřejnou referenci lze importovat formulářem s readbackem zdroje, metriky,
+data a stupnice. Kvantizace pochází z metadata API; chybějící údaj se nepředstírá.
+Hunt respektuje automation hold a zobrazuje důvod odložení.

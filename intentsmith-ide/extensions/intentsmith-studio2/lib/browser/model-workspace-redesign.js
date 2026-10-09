@@ -9,7 +9,7 @@ const record = v => v !== null && typeof v === 'object' && !Array.isArray(v);
 const validRoleSettings = data => record(data) && Array.isArray(data.roles) && data.roles.length <= ROLES.length
   && new Set(data.roles.filter(record).map(row => row.role)).size === data.roles.length
   && data.roles.every(row => record(row) && ROLES.includes(row.role) && Number.isSafeInteger(row.revision) && row.revision >= 0
-    && (row.status === 'BINDING_UNAVAILABLE' || ['DEFAULT', 'STALE', 'CONFIGURED'].includes(row.status)
+    && (row.status === 'BINDING_UNAVAILABLE' || ['DEFAULT', 'STALE', 'CONFIGURED','REQUIRES_UPDATE'].includes(row.status)
       && typeof row.model === 'string' && DIGEST.test(row.digestSha256 || '') && record(row.settings)
       && Number.isSafeInteger(row.settings.contextWindowTokens) && row.settings.contextWindowTokens >= 512
       && (row.settings.maxOutputTokens === null || Number.isSafeInteger(row.settings.maxOutputTokens) && row.settings.maxOutputTokens > 0)
@@ -104,7 +104,7 @@ class ModelWorkspaceRedesign extends ModelWorkspace {
     super(options); this.extra=new Map();this.extraLoading=new Map();this.huntTab='overview';
     this.matrixRole='CHAT';this.matrixDirection='desc';this.matrixSelection='';this.inventoryModel='';
     this.catalogFilter={search:'',role:'CHAT',fits:true,availability:'notInstalled',sort:'benefit',protocol:''};
-    this.catalogName='';this.profileDraft=null;this.roleRuntimeDraft=null;this.queueAt='';this.telemetryDays=7;this.sequence=0;
+    this.externalDraft=null;this.catalogName='';this.profileDraft=null;this.roleRuntimeDraft=null;this.queueAt='';this.telemetryDays=7;this.sequence=0;
   }
   destroy(){super.destroy();this.extra.clear();this.extraLoading.clear();}
   currentBackend(){const value=this.backendUrl?.();if(typeof value!=='string'||!/^https?:\/\//.test(value))throw Error('Backend není dostupný.');return value;}
@@ -189,11 +189,11 @@ class ModelWorkspaceRedesign extends ModelWorkspace {
     },'Zrušit čekající úkol '+id+'? Spuštěný úkol se touto cestou zastavit nedá.');
   }
   editRoleRuntime(role){if(this.busy)return false;const row=this.extraData('settings')?.roles.find(r=>r.role===role);if(!row||!ROLES.includes(role)||!DIGEST.test(row.digestSha256||'')||!Number.isSafeInteger(row.revision)||!row.settings||typeof row.model!=='string')return false;
-    this.roleRuntimeDraft={role,backend:this.extra.get('settings').backend,model:row.model,digestSha256:row.digestSha256,revision:row.revision,contextWindowTokens:row.settings.contextWindowTokens,maxOutputTokens:row.settings.maxOutputTokens??'',source:JSON.parse(JSON.stringify(row))};this.changed();return true;}
+    this.roleRuntimeDraft={role,backend:this.extra.get('settings').backend,model:row.model,digestSha256:row.digestSha256,revision:row.revision,minimumContextWindowTokens:row.minimumContextWindowTokens||(role==='CHAT'?4096:512),sharedModelRoles:(this.extraData('settings')?.roles||[]).filter(r=>r.model===row.model).map(r=>r.role),contextWindowTokens:row.settings.contextWindowTokens,maxOutputTokens:row.settings.maxOutputTokens??'',source:JSON.parse(JSON.stringify(row))};this.changed();return true;}
   setRoleRuntime(key,event){if(this.busy||!this.roleRuntimeDraft||!['contextWindowTokens','maxOutputTokens'].includes(key))return;this.roleRuntimeDraft={...this.roleRuntimeDraft,[key]:event.target.value===''?'':Number(event.target.value)};this.changed();}
   saveRoleRuntime(){const draft=this.roleRuntimeDraft;if(!draft)return false;const {role,backend,model,digestSha256,revision,contextWindowTokens,maxOutputTokens}=draft;
     const fail=text=>{this.notice=text;this.changed();return false;};
-    if(!ROLES.includes(role)||!DIGEST.test(digestSha256)||!Number.isSafeInteger(revision)||!Number.isSafeInteger(contextWindowTokens)||contextWindowTokens<512||contextWindowTokens>262144||!Number.isSafeInteger(maxOutputTokens)||maxOutputTokens<1||maxOutputTokens>6000||maxOutputTokens>=contextWindowTokens)return fail('Zadejte celý kontext 512–262 144 a výstup 1–6 000 tokenů; výstup musí být menší než kontext. Skutečný runtime limit ověřuje backend.');
+    if(!ROLES.includes(role)||!DIGEST.test(digestSha256)||!Number.isSafeInteger(revision)||!Number.isSafeInteger(contextWindowTokens)||contextWindowTokens<(draft.minimumContextWindowTokens||512)||contextWindowTokens>262144||!Number.isSafeInteger(maxOutputTokens)||maxOutputTokens<1||maxOutputTokens>6000||maxOutputTokens>=contextWindowTokens)return fail('Zadejte celý kontext '+(draft.minimumContextWindowTokens||512)+'–262 144 a výstup 1–6 000 tokenů; výstup musí být menší než kontext. Skutečný runtime limit ověřuje backend.');
     try{this.assertBackend(backend);}catch(error){return fail(error.message);}
     const body={revision,model,digestSha256,contextWindowTokens,maxOutputTokens};
     return this.action('Uložení parametrů '+role,async()=>{
@@ -208,7 +208,7 @@ class ModelWorkspaceRedesign extends ModelWorkspace {
       this.roleRuntimeDraft=null;return 'Parametry '+role+' uloženy a ověřeny. Promptové a autorizované limity výstupu zůstávají platné.';
     });
   }
-  roleRuntimeVM(){const d=this.roleRuntimeDraft,noop=()=>false;return {hasDraft:!!d,draft:d?{...d,contextWindowTokens:d.contextWindowTokens,maxOutputTokens:d.maxOutputTokens,setContext:e=>this.setRoleRuntime('contextWindowTokens',e),setOutput:e=>this.setRoleRuntime('maxOutputTokens',e),save:()=>this.saveRoleRuntime(),close:()=>{this.roleRuntimeDraft=null;this.changed();},disabled:this.busy||!this.isCurrentBackend(d.backend)}:{role:'',model:'',digestSha256:'',revision:0,contextWindowTokens:'',maxOutputTokens:'',setContext:noop,setOutput:noop,save:noop,close:noop,disabled:true}};}
+  roleRuntimeVM(){const d=this.roleRuntimeDraft,noop=()=>false;return {hasDraft:!!d,minimumNote:d?'Minimum kontextu pro '+d.role+': '+d.minimumContextWindowTokens+' tokenů. Délka odpovědi CHAT neomezuje interní JSON kroky.':'',sharedWarning:d?.sharedModelRoles?.length>1?'Stejný model používají role '+d.sharedModelRoles.join(', ')+'. Rozdílný kontext může při přepnutí model znovu načíst.':'',draft:d?{...d,contextWindowTokens:d.contextWindowTokens,maxOutputTokens:d.maxOutputTokens,setContext:e=>this.setRoleRuntime('contextWindowTokens',e),setOutput:e=>this.setRoleRuntime('maxOutputTokens',e),save:()=>this.saveRoleRuntime(),close:()=>{this.roleRuntimeDraft=null;this.changed();},disabled:this.busy||!this.isCurrentBackend(d.backend)}:{role:'',model:'',digestSha256:'',revision:0,minimumContextWindowTokens:512,contextWindowTokens:'',maxOutputTokens:'',setContext:noop,setOutput:noop,save:noop,close:noop,disabled:true}};}
   evaluateArtifact(role, model, digest) {
     const current = this.resources.get('evaluations')?.data?.[0]?.roles?.[role]?.artifacts?.find(a => a.model === model);
     if (!DIGEST.test(digest || '') || current?.digestSha256 !== digest) return false;
@@ -238,6 +238,28 @@ class ModelWorkspaceRedesign extends ModelWorkspace {
     });
   }
   matrixVM(){const plans=this.resources.get('evaluations')?.data?.[0]?.roles||{};return {headers:ROLES.map(role=>({role,sort:()=>this.sortMatrix(role),ariaSort:this.matrixRole===role?(this.matrixDirection==='desc'?'descending':'ascending'):'none'})),rows:matrixRows(plans,this.matrixRole,this.matrixDirection).map(row=>({model:row.model,digest:row.digest,cells:ROLES.map(role=>{const a=row.cells[role],cell=scoreCell(a);return {...cell,role,selected:this.matrixSelection===row.key+'\n'+role,select:()=>this.selectCell(row,role),test:()=>this.evaluateArtifact(role,row.model,row.digest),testDisabled:this.busy||!a||plans[role]?.artifacts?.find(x=>x.model===row.model)?.digestSha256!==row.digest||a.applicable===false||(plans[role]?.measurementReady===false||plans[role]?.measurementReady===undefined&&plans[role]?.decisionReady===false)||!DIGEST.test(a.digestSha256||'')||!DIGEST.test(plans[role]?.suiteContractSha256||'')};})}))};}
+  openExternalReference() {
+    if(this.busy)return false;
+    this.externalDraft={backend:this.currentBackend(),id:'reference_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,8),model:this.catalogName||'',role:this.catalogFilter.role,
+      metric:'',score:'',minimum:'0',maximum:'100',sourceUrl:'',measuredAt:'',referenceModel:'',blocked:false};this.changed();return true;
+  }
+  async saveExternalReference() {
+    const d=this.externalDraft;if(!d||d.blocked||this.busy)return false;
+    const body={revision:0,model:d.model,role:d.role,metric:d.metric,score:Number(d.score),minimum:Number(d.minimum),maximum:Number(d.maximum),sourceUrl:d.sourceUrl,measuredAt:Number.isFinite(Date.parse(d.measuredAt))?new Date(d.measuredAt).toISOString():d.measuredAt,referenceModel:d.referenceModel};
+    if(!d.score.trim()||!d.metric.trim()||!d.referenceModel.trim()||!Number.isFinite(Date.parse(d.measuredAt))){this.notice='Vyplňte skóre, metriku, referenční model a datum v ISO formátu.';this.changed();return false;}
+    return this.action('Uložení veřejného podkladu',async()=>{
+      this.assertBackend(d.backend);d.blocked=true;
+      let result;
+      try{result=await this.requestAt(d.backend,'/api/system/models/external-signals/'+encodeURIComponent(d.id),{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});}
+      catch(error){if([400,422].includes(error.status))d.blocked=false;throw error;}
+      const readback=await this.requestAt(d.backend,'/api/system/models/external-signals');
+      const saved=readback.signals?.find(x=>x.id===d.id);
+      if(result.revision!==1||saved?.revision!==1||Object.keys(body).filter(k=>k!=='revision'&&k!=='measuredAt').some(k=>saved[k]!==body[k])||saved.measuredAt!==new Date(body.measuredAt).toISOString())throw Error('Podklad mohl být uložen, ale nelze jej přesně ověřit. Obnovte katalog před dalším zápisem.');
+      this.externalDraft=null;await super.load('candidates',true);return 'Veřejný podklad uložen a ověřen. Místní kvalitu prokazuje samostatná evaluace.';
+    });
+  }
+  externalReferenceVM(){const d=this.externalDraft;return {open:()=>this.openExternalReference(),hasDraft:!!d,disabled:this.busy||!!d?.blocked,
+    fields:d?['model','role','metric','score','minimum','maximum','sourceUrl','measuredAt','referenceModel'].map(key=>({key,label:({model:'Model v katalogu',role:'Role',metric:'Metrika',score:'Skóre',minimum:'Minimum stupnice',maximum:'Maximum stupnice',sourceUrl:'HTTPS odkaz na zdroj',measuredAt:'Datum měření (ISO)',referenceModel:'Název modelu ve zdroji'})[key],value:d[key],disabled:this.busy||d.blocked,change:e=>{if(!this.busy&&!d.blocked){d[key]=e.target.value;this.changed();}}})):[],save:()=>this.saveExternalReference(),close:()=>{if(!this.busy){this.externalDraft=null;this.changed();}}};}
   catalogVM(){const source=this.resources.get('candidates')?.status==='ready'?this.resources.get('candidates').data[0]:null,items=source?.candidates||[],downloads=this.resources.get('candidates')?.data?.[1]?.downloads||[],filter=this.catalogFilter;
     const protocols=[...new Set(items.flatMap(c=>(c.externalSignals||[]).filter(s=>s.role===filter.role).map(s=>stable([s.sourceUrl,s.metric,s.minimum,s.maximum,s.measuredAt]))))];
     const protocol=protocols.includes(filter.protocol)?filter.protocol:protocols[0]||'';
@@ -248,7 +270,7 @@ class ModelWorkspaceRedesign extends ModelWorkspace {
     const selected=filtered.find(c=>c.name===this.catalogName)||filtered[0]||null;
     const family=selected&&selected.name.split(':')[0];
     const siblings=selected?items.filter(c=>c.name.split(':')[0]===family):[];
-    const present=c=>{const download=downloads.find(d=>d.model===c.name),sig=signal(c);return {name:c.name,cls:c.name===selected?.name?'on':'',family:str(c.family),quant:'Kvantizace není doložena tímto API',metadata:str(c.metadataVerifiedAt),localQuality:'Místní kvalita není odvozena z veřejného žebříčku',size:num(c.sizeGB)+' GiB',vram:num(Number.isFinite(c.vramMb)?c.vramMb/1024:null)+' GiB',fit:c.fitsVram===true?'V odhadovaném limitu':c.fitsVram===false?'Nad odhadovaným limitem':'VRAM neověřena',installed:c.installed===true,roles:(c.eligibleRoles||[]).map(role=>({role,active:this.resources.get('roles')?.data?.[0]?.bindings?.[role]===c.name,cls:this.resources.get('roles')?.data?.[0]?.bindings?.[role]===c.name?'on':''})),
+    const present=c=>{const download=downloads.find(d=>d.model===c.name),sig=signal(c);return {name:c.name,cls:c.name===selected?.name?'on':'',family:str(c.family),quant:c.quantization||c.details?.quantization_level||c.details?.quantizationLevel||'Kvantizace není doložena tímto API',metadata:str(c.metadataVerifiedAt),localQuality:'Místní kvalita není odvozena z veřejného žebříčku',size:num(c.sizeGB)+' GiB',vram:num(Number.isFinite(c.vramMb)?c.vramMb/1024:null)+' GiB',fit:c.fitsVram===true?'V odhadovaném limitu':c.fitsVram===false?'Nad odhadovaným limitem':'VRAM neověřena',installed:c.installed===true,roles:(c.eligibleRoles||[]).map(role=>({role,active:this.resources.get('roles')?.data?.[0]?.bindings?.[role]===c.name,cls:this.resources.get('roles')?.data?.[0]?.bindings?.[role]===c.name?'on':''})),
       score:sig?num(sig.score)+' · '+str(sig.metric):'—',gain:sig?.comparisonEvidenceId&&Number.isFinite(sig.estimatedGainPoints)?num(sig.estimatedGainPoints)+' normalizovaných bodů · prior':'—',source:sig?str(sig.sourceUrl):'Veřejný podklad chybí',scope:sig?str(sig.identityScope)+' · '+str(sig.measuredAt):'Místní kvalita nezměřena',
       prepareTests:()=>this.prepareModelTests(c.name),prepareTestsDisabled:this.busy||c.installed!==true||!(c.eligibleRoles||[]).some(r=>ROLES.includes(r)),select:()=>{this.catalogName=c.name;this.changed();},pull:()=>this.pull(c.name),pullDisabled:this.busy||c.installed===true||!!download&&!['done','error'].includes(download.status),downloadStatus:str(download?.status),
       tests:(c.eligibleRoles||[]).filter(r=>ROLES.includes(r)).map(role=>{const p=this.resources.get('evaluations')?.data?.[0]?.roles?.[role],a=p?.artifacts?.find(x=>x.model===c.name);return {role,test:()=>this.evaluate(role,c.name),disabled:this.busy||!a||a.applicable===false||(p?.measurementReady===false||p?.measurementReady===undefined&&p?.decisionReady===false)||!DIGEST.test(a.digestSha256||'')||!DIGEST.test(p?.suiteContractSha256||'')};})};};
@@ -266,7 +288,7 @@ class ModelWorkspaceRedesign extends ModelWorkspace {
       setModelA:e=>{if(this.busy||this.profileDraft!==d)return false;this.profileDraft={...this.profileDraft,models:[e.target.value,...this.profileDraft.models.slice(1)]};this.changed();},setModelB:e=>{if(this.busy||this.profileDraft!==d)return false;this.profileDraft={...this.profileDraft,models:[this.profileDraft.models[0]||'',e.target.value]};this.changed();},
       dateDisabled:this.busy||!['once','interval'].includes(d.scheduleType),timeDisabled:this.busy||!['daily','weekly'].includes(d.scheduleType),dayDisabled:this.busy||d.scheduleType!=='weekly',intervalDisabled:this.busy||d.scheduleType!=='interval'};return body;
   }
-  jobsVM(){return this.jobRows().map(j=>({id:j.id,name:j.profile?.name||j.profileId,state:str(j.state),at:date(j.at),models:(j.pins||[]).map(p=>p.model+' @ '+p.digestSha256).join(' × ')||'Discovery',roles:(j.profile?.roles||[]).join(', '),revision:'Profil r'+j.profileRevision+' / úkol r'+j.revision,deferred:str(j.deferredBecause),result:str(j.result?.status||j.code),cancel:()=>this.cancelJob(j.id),cancelDisabled:this.busy||j.state!=='QUEUED'}));}
+  jobsVM(){return this.jobRows().map(j=>({id:j.id,name:j.profile?.name||j.profileId,state:str(j.state),at:date(j.at),models:(j.pins||[]).map(p=>p.model+' @ '+p.digestSha256).join(' × ')||'Discovery',roles:(j.profile?.roles||[]).join(', '),revision:'Profil r'+j.profileRevision+' / úkol r'+j.revision,deferred:({AUTOMATION_HOLD:'Pozastaveno výslovným automation hold',DESKTOP_NOT_INSTALLED:'Desktopová služba Huntu není nainstalovaná',HUNT_UNAVAILABLE:'Služba Huntu není dostupná',GPU_STATE_UNKNOWN:'Stav GPU nelze ověřit',HUNT_ACTIVE:'Jiný Hunt už běží'})[j.deferredBecause]||str(j.deferredBecause),result:str(j.result?.status||j.code),cancel:()=>this.cancelJob(j.id),cancelDisabled:this.busy||j.state!=='QUEUED'}));}
   summary(){const binding=this.resources.get('roles'),settings=this.extraData('settings')?.roles||[],roles=binding?.status==='ready'?binding.data[0].bindings:{};const plans=binding?.status==='ready'?binding.data[1].roles:{};
     return {roles:ROLES.map(role=>{const s=settings.find(s=>s.role===role&&s.model===roles[role]),a=plans?.[role]?.artifacts?.find(a=>a.isCurrentBinding);return {role,model:str(roles[role]),settingsText:s?.settings?str(s.settings.contextWindowTokens)+' / '+str(s.settings.maxOutputTokens)+' tok.':'—',measuredText:scoreCell(a).text};}),status:binding?.status==='ready'?'Aktuální přiřazení z backendu.':binding?.status==='error'?'Přiřazení nelze načíst: '+binding.error:'Načítám aktuální přiřazení…'};
   }
@@ -284,7 +306,7 @@ class ModelWorkspaceRedesign extends ModelWorkspace {
     }));
     const operations = ['policy', 'governor', 'upgrades'].includes(tab);
     const redesign={isOverview:tab==='overview',isRoles:tab==='roles',isInventory:tab==='inventory',isEvaluations:tab==='evaluations',isHunt,isTelemetry:tab==='telemetry',isPolicy:operations,isLegacy:!TOP.some(([id])=>id===tab)&&!isHunt,showJobs:isHunt&&['overview','profiles','history'].includes(this.huntTab),showBaseRows:['overview','roles','policy','governor','upgrades'].includes(tab),
-      matrix,catalog:this.catalogVM(),profiles:this.profileVM(),jobs:this.jobsVM(),huntOverview:isHunt&&this.huntTab==='overview',huntCatalog:isHunt&&this.huntTab==='catalog',huntProfiles:isHunt&&this.huntTab==='profiles',huntHistory:isHunt&&this.huntTab==='history',
+      matrix,externalReference:this.externalReferenceVM(),catalog:this.catalogVM(),profiles:this.profileVM(),jobs:this.jobsVM(),huntOverview:isHunt&&this.huntTab==='overview',huntCatalog:isHunt&&this.huntTab==='catalog',huntProfiles:isHunt&&this.huntTab==='profiles',huntHistory:isHunt&&this.huntTab==='history',
       operationsTabs:[['policy','Provoz a parametry'],['governor','Správa hardwaru'],['upgrades','Změny modelů']].map(([id,label])=>({label,cls:id===tab?'on':'',select:()=>this.select(id)})),
       recent,progressDetail:typeof current?.progress?.detail==='string'?current.progress.detail:current?.progress?.detail?JSON.stringify(current.progress.detail):'Backend nemá aktuální hlášení.',progressAt:date(current?.progress?.updatedAt),
       activeQueue:(current?.queue||[]).map(q=>({name:str(q.name),roles:(q.roles||[]).join(', '),state:str(q.state)})),

@@ -18339,7 +18339,7 @@
       ],
       "capabilityId": "C3-005",
       "tier": "T3",
-      "fixture": "owned authenticated product restart and loopback tripwire provider",
+      "fixture": "owned authenticated product restart, real Studio controllers, save-to-chat and M3 create/edit over a controlled loopback provider",
       "profile": "server",
       "timeoutMs": 180000,
       "expectedDurationMs": 5000,

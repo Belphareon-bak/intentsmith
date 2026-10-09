@@ -899,9 +899,9 @@ test('specialist wizard creates reviewed package and verifies manifest before op
     fetchImpl: async url => {
       const path = new URL(url).pathname;
       if (path === '/api/specialists') return { ok: true, json: async () => ({
-        specialists: installed ? [{ id: 'pekladatelv-asistent', name, status: 'enabled', domain: 'language' }] : [] }) };
-      if (path === '/api/specialists/pekladatelv-asistent') return { ok: true,
-        json: async () => ({ ok: true, id: 'pekladatelv-asistent', manifest: { name, domain: 'language' } }) };
+        specialists: installed ? [{ id: 'prekladateluv-asistent', name, status: 'enabled', domain: 'language' }] : [] }) };
+      if (path === '/api/specialists/prekladateluv-asistent') return { ok: true,
+        json: async () => ({ ok: true, id: 'prekladateluv-asistent', manifest: { name, domain: 'language' } }) };
       throw Error('Unexpected request: ' + path);
     } });
   const { model } = setup({ catalog });
@@ -912,17 +912,17 @@ test('specialist wizard creates reviewed package and verifies manifest before op
     postCount++;
     if (conflict) return { ok: false, status: 409, json: async () => ({ error: 'Již existuje' }) };
     installed = true;
-    return { ok: true, json: async () => ({ ok: true, specialist: { id: 'pekladatelv-asistent' } }) };
+    return { ok: true, json: async () => ({ ok: true, specialist: { id: 'prekladateluv-asistent' } }) };
   };
   model.setState({ mode: 'section', section: 'specialists', detail: { specialists: '__new__' },
     specialistStep: 1, specialistName: name, specialistDomain: 'language',
     specialistDescription: "Řádek 'jeden'\nDruhý řádek", specialistIcon: '🧠' });
-  assert.equal(model.specialistWizardVM(model.st()).reviewId, 'pekladatelv-asistent');
+  assert.equal(model.specialistWizardVM(model.st()).reviewId, 'prekladateluv-asistent');
   assert.equal(await model.submitSpecialist(model.st()), false);
   assert.equal(model.specialistStatus().uncertain, false, 'explicit 409 permits correction');
   conflict = false;
   assert.equal(await model.submitSpecialist(model.st()), true);
-  assert.equal(model.st().detail.specialists, 'pekladatelv-asistent');
+  assert.equal(model.st().detail.specialists, 'prekladateluv-asistent');
   assert.equal(model.detailVM(model.st()).title, name);
   assert.equal(postCount, 2);
 });

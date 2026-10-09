@@ -4,6 +4,9 @@ import { getNumCtx } from './model-ctx.js';
 import { ideError, record } from '../db/ide-store.js';
 
 export const IDE_MODEL_ROLES = Object.freeze(['D1','D2','CODE','R1','R2','CHAT','VISION']);
+// The reviewed CHAT interpretation prompt reserves 256 output + 128 framing
+// tokens before quoted user evidence. Smaller windows cannot run that path.
+export const minimumRoleContext = role => role==='CHAT'?4096:512;
 export function currentRoleArtifact(db, config, role) {
   if (!IDE_MODEL_ROLES.includes(role)) throw ideError('IDE_ROLE_INVALID');
   const binding = db.prepare('SELECT model_name,digest_sha256 FROM model_desired_bindings WHERE role=?').get(role);
@@ -16,13 +19,16 @@ export function roleRuntimeSettings(db, config, role, model) {
   if (!row) return null;
   const settings=JSON.parse(row.data_json),artifact=currentRoleArtifact(db,config,role);
   return sameModelName(artifact.model,model) && sameModelName(settings.model,model)
-    && settings.digestSha256===artifact.digestSha256 ? settings : null;
+    && settings.digestSha256===artifact.digestSha256
+    && settings.contextWindowTokens>=minimumRoleContext(role) ? {...settings,role} : null;
 }
 export function validateRoleSettings(db, config, role, input) {
   record(input,['revision','model','digestSha256','contextWindowTokens','maxOutputTokens']);
   const artifact=currentRoleArtifact(db,config,role);
   if (!sameModelName(input.model,artifact.model) || input.digestSha256!==artifact.digestSha256)
     throw ideError('IDE_BINDING_CHANGED',409);
+  if(Number.isSafeInteger(input.contextWindowTokens)&&input.contextWindowTokens<minimumRoleContext(role))
+    throw ideError('IDE_CONTEXT_TOO_SMALL',422);
   if (!Number.isSafeInteger(input.contextWindowTokens)||input.contextWindowTokens<512||input.contextWindowTokens>262144
     || !Number.isSafeInteger(input.maxOutputTokens)||input.maxOutputTokens<1||input.maxOutputTokens>6000
     || input.maxOutputTokens>=input.contextWindowTokens) throw ideError('IDE_TOKEN_LIMIT_INVALID');

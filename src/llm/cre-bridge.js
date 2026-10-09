@@ -590,7 +590,7 @@ export async function classifyIntent(prompt, systemPrompt = '', options = {}) {
     // attempts. A slow model is unaffected: timeouts are never retried.
     retries: 1,
     ...options,
-    correlation:{...options.correlation,modelRole:config.models?.FAST&&config.models.FAST!==config.models.CHAT?'FAST':'CHAT'},
+    correlation:{...options.correlation,modelRole:config.models?.FAST&&config.models.FAST!==config.models.CHAT?'FAST':'CHAT',purpose:'classify'},
   });
 }
 
@@ -617,7 +617,7 @@ export async function analyzeProjectCode(prompt, systemPrompt, options = {}) {
     temperature: 0.1,
     retries: 1,
     signal,
-    correlation:{modelRole:'CHAT'},
+    correlation:{modelRole:'CHAT',purpose:'classify'},
   });
 }
 
@@ -648,7 +648,7 @@ export async function generateChatResponse(prompt, systemPrompt = '', options = 
     top_p: options.top_p ?? 0.75,
     repeat_penalty: options.repeat_penalty ?? 1.1,
     ...withClockContext(systemPrompt, options),
-    correlation:{...options.correlation,modelRole:'CHAT'},
+    correlation:{...options.correlation,modelRole:'CHAT',purpose:options.correlation?.purpose||'answer'},
   });
 }
 
@@ -695,7 +695,7 @@ export async function generateArtifact(prompt, systemPrompt = '', options = {}) 
       model: options.model || config.models?.CHAT,
       temperature: options.temperature ?? 0.3,
       ...options,
-      correlation:{...options.correlation,modelRole:'CHAT'},
+      correlation:{...options.correlation,modelRole:'CHAT',purpose:'synthesize'},
     });
 
     logger.debug('CREBridge', `generateArtifact success`, {

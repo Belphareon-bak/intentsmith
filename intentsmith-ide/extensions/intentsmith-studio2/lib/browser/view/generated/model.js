@@ -59,8 +59,8 @@ class Component extends DCLogic {
       projectMode: 'create', projectStep: 0, projectName: '', projectPath: '',
       projectDescription: '', projectType: 'general',
       specialistStep: 0, specialistName: '', specialistDomain: 'general',
-      specialistDescription: '', specialistIcon: '',
-      workerStep: 0, workerExtension: 'project-health', workerProject: '', workerInstanceId: '', workerParams: '{}',
+      specialistDescription: '', specialistIcon: '', specialistPrompt: '', specialistRules: '', specialistConstraints: '',
+      workerStep: 0, workerExtension: 'project-health', workerProject: '', workerInstanceId: '', workerParams: '{}', workerTemplate: '', workerName: '', workerDescription: '', workerEditing: false,
       expertiseStep: 0, expertiseEditingId: '', expertiseName: '', expertiseDomain: '', expertiseDescription: '', expertiseIcon: '👤',
       expertiseTone: 'professional', expertiseTemperature: 0.5, expertiseSystemPrompt: '',
       expertiseCreativity: 50, expertiseReasoning: 50, expertiseDeterminism: 50,
@@ -1395,7 +1395,7 @@ return {"tabs":[],"rows":[],"buttons":[],"runDetail":{"title":"","status":"","ru
   expertiseWizardVM(s) {
     const status = this.expertiseStatus();
     const name = s.expertiseName.trim();
-    const id = s.expertiseEditingId || name.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '').replace(/^_+|_+$/g, '').slice(0, 32);
+    const id = s.expertiseEditingId || name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '').replace(/^_+|_+$/g, '').slice(0, 32);
     const moduleFields = [
       [s.expertiseDomainRules, 15], [s.expertiseEmphasis, 10], [s.expertiseConstraints, 15],
       [s.expertiseVocabulary, 30], [s.expertiseAntipatterns, 10]
@@ -1451,6 +1451,11 @@ return {"tabs":[],"rows":[],"buttons":[],"runDetail":{"title":"","status":"","ru
       testDisabled: !valid || status.busy || !s.expertiseTestQuestion.trim() || s.expertiseTestQuestion.length > 2000,
       test: () => this.testExpertise(this.st()), testResult: status.testResult?.response || '',
       hasTestResult: !!status.testResult?.response,
+      prompt: s.specialistPrompt, setPrompt: e => this.setState({specialistPrompt:e.target.value}),
+      rules: s.specialistRules, setRules: e => this.setState({specialistRules:e.target.value}),
+      constraints: s.specialistConstraints, setConstraints: e => this.setState({specialistConstraints:e.target.value}),
+      reviewPrompt: s.specialistPrompt || s.specialistDescription, reviewRules: s.specialistRules || 'bez pravidel',
+      reviewConstraints: s.specialistConstraints || 'bez omezení',
       reviewName: name, reviewId: id, reviewDomain: s.expertiseDomain || 'custom',
       submitLabel: s.expertiseEditingId ? 'Uložit změny' : 'Potvrdit expertýzu',
       nextDisabled: !valid || status.busy, submitDisabled: !valid || status.busy || !!status.uncertain,
@@ -1476,6 +1481,12 @@ return {"tabs":[],"rows":[],"buttons":[],"runDetail":{"title":"","status":"","ru
       && !Array.isArray(params) && s.workerParams.length <= 4096
       && /^[a-z0-9](?:[a-z0-9_-]{0,62}[a-z0-9])?$/.test(instanceId);
     return {
+      editing: s.workerEditing, name:s.workerName, setName:e=>this.setState({workerName:e.target.value}),
+      description:s.workerDescription, setDescription:e=>this.setState({workerDescription:e.target.value}),
+      template:s.workerTemplate, setTemplate:e=>this.setState({workerTemplate:e.target.value}),
+      templateDisabled:status.busy || status.uncertain, saveTemplate:()=>this.saveWorkerTemplate(this.st()),
+      loadInstance:()=>this.loadWorkerInstance(this.st()), newInstance:()=>this.setState({workerEditing:false,workerStep:0,workerInstanceId:'',workerName:'',workerDescription:''}),
+      submitLabel:s.workerEditing?'Uložit konfiguraci':'Potvrdit instanci',
       stepLabel: s.workerStep === 0 ? 'Krok 1 ze 2 · Instance' : 'Krok 2 ze 2 · Kontrola',
       isForm: s.workerStep === 0, isReview: s.workerStep === 1,
       extensions: extensions.map(item => ({ value: item.id, label: item.name + ' · ' + item.id })),
@@ -1490,6 +1501,7 @@ return {"tabs":[],"rows":[],"buttons":[],"runDetail":{"title":"","status":"","ru
         actions: extension.definition.actions }, null, 2) : '',
       hasDefinition: !!extension?.definition,
       instanceId: s.workerInstanceId, setInstanceId: e => this.setState({ workerInstanceId: e.target.value }),
+      reviewState:s.workerEditing?(status.editSource?.enabled?'zapnuto (stav se nemění)':'vypnuto'):'vypnuto',
       reviewExtension: extension?.name || '—', reviewProject: project?.name || '—', reviewInstanceId: instanceId,
       nextDisabled: !valid || status.busy || status.loading,
       submitDisabled: !valid || status.busy || status.loading || !!status.uncertain,
@@ -1507,12 +1519,13 @@ return {"tabs":[],"rows":[],"buttons":[],"runDetail":{"title":"","status":"","ru
   specialistWizardVM(s) {
     const status = this.specialistStatus();
     const name = s.specialistName.trim();
-    const id = name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
+    const id = name.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
       .replace(/^-+|-+$/g, '').slice(0, 32);
     const domains = ['general', 'technology', 'business', 'creative', 'research', 'psychology', 'language', 'education', 'data'];
     const valid = name.length >= 2 && name.length <= 120 && !!id && !/[\x00-\x1f]/.test(name)
       && domains.includes(s.specialistDomain) && s.specialistDescription.length <= 4000
-      && Array.from(s.specialistIcon).length <= 4;
+      && Array.from(s.specialistIcon).length <= 4 && s.specialistPrompt.length <= 12000
+      && [s.specialistRules,s.specialistConstraints].every(v => v.length <= 12000 && v.split('\n').filter(x=>x.trim()).length <= 50);
     return {
       step: s.specialistStep, isForm: s.specialistStep === 0, isReview: s.specialistStep === 1,
       stepLabel: s.specialistStep === 0 ? 'Krok 1 ze 2 · Údaje' : 'Krok 2 ze 2 · Kontrola',
@@ -1521,6 +1534,11 @@ return {"tabs":[],"rows":[],"buttons":[],"runDetail":{"title":"","status":"","ru
       setDomain: e => this.setState({ specialistDomain: e.target.value }),
       description: s.specialistDescription, setDescription: e => this.setState({ specialistDescription: e.target.value }),
       icon: s.specialistIcon, setIcon: e => this.setState({ specialistIcon: e.target.value }),
+      prompt: s.specialistPrompt, setPrompt: e => this.setState({specialistPrompt:e.target.value}),
+      rules: s.specialistRules, setRules: e => this.setState({specialistRules:e.target.value}),
+      constraints: s.specialistConstraints, setConstraints: e => this.setState({specialistConstraints:e.target.value}),
+      reviewPrompt: s.specialistPrompt || s.specialistDescription, reviewRules: s.specialistRules || 'bez pravidel',
+      reviewConstraints: s.specialistConstraints || 'bez omezení',
       reviewName: name, reviewId: id, reviewDomain: s.specialistDomain,
       reviewDescription: s.specialistDescription || 'bez popisu', reviewIcon: s.specialistIcon || '🤖',
       nextDisabled: !valid || status.busy, submitDisabled: !valid || status.busy || !!status.uncertain,

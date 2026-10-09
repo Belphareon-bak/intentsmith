@@ -137,7 +137,8 @@ export function createIdeHuntScheduler({store,control,evaluations,clock=Date.now
       if(!job)return;
       const status=await control.status({freshGpu:true});
       const deferredBecause=['RUNNING','STOPPING'].includes(status.state)?'HUNT_ACTIVE':status.hold?'AUTOMATION_HOLD':
-        !status.gpu.available?(status.gpu.code||'GPU_NOT_IDLE'):null;
+        status.state==='UNAVAILABLE'?(status.code||'HUNT_UNAVAILABLE'):
+        !status.gpu?.available?(status.gpu?.code||'GPU_STATE_UNKNOWN'):null;
       if(deferredBecause) {
         if(job.deferredBecause!==deferredBecause)store.put('hunt-job',job.id,job.revision,{...data(job),deferredBecause},job.actor);
         return;

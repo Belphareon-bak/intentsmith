@@ -126,8 +126,7 @@ export function getCompactionBudget(
     contextWindow,
     thresholdTokens: Math.floor(contextWindow * config.compact.threshold),
     safetyMaxChars: Math.floor(contextWindow * 0.6) * 4,
-    maxOutputTokens: Math.min(SUMMARY_OUTPUT_TOKEN_CAP, Math.floor(contextWindow / 4),
-      llmGateway.getRoleRuntimeSettings('CHAT',summaryModel)?.maxOutputTokens??Infinity),
+    maxOutputTokens: Math.min(SUMMARY_OUTPUT_TOKEN_CAP, Math.floor(contextWindow / 4)),
   });
 }
 
@@ -318,7 +317,7 @@ async function runCompaction(conversationId, store, keepTurns, sessionId, budget
         num_ctx: budget.contextWindow,
         maxTokens: modelOutputTokens,
         timeout: 60000,
-        correlation:{modelRole:budget.summaryModel===config.models.CHAT?'CHAT':null},
+        correlation:{modelRole:budget.summaryModel===config.models.CHAT?'CHAT':null,purpose:'synthesize'},
       });
       if (result?.finishReason === 'stop' && result.content?.trim()) break;
       if (result?.finishReason !== 'length') break;

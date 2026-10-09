@@ -159,6 +159,7 @@ async function callLLM(role, prompt, systemPrompt = '', options = {}) {
       model,
       timeout,
       ...options,
+      correlation:{...options.correlation,modelRole:role},
     });
     // Every CODE consumer must see a terminal failure before it can persist or
     // apply incomplete code, including the lifecycle cookbook's test executor.

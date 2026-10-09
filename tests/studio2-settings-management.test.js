@@ -122,3 +122,11 @@ test('legacy retention merges only selected backup values, preserves unrelated s
   assert.equal(writes[0].body.unrelated, 'preserve'); assert.equal(writes[0].body.storage.retention.conversations, 100); assert.equal(writes[0].body.storage.backup.periodic, false);
   assert.equal(c.resource('zalohy').backupPolicy.max_daily, 1); assert.equal(c.resource('zalohy').backupPolicy.max_weekly, 2); assert.equal(f.backups.length, 1); c.destroy();
 });
+
+test('definite validation rejection preserves an editable draft for correction',async()=>{
+  let reject=true;
+  const f=fixture({handle:(path,method,body,respond)=>method==='PUT'&&reject?respond(422,{code:'IDE_SSH_FILE_MISSING',error:'Soubor SSH klíče neexistuje. Opravte cestu.'}):null}),c=f.controller;
+  await c.load('ucet');c.openAccount('ucet',c.resource('ucet').accounts[0]);c.editors.get('ucet').draft.name='Moje rozepsaná změna';
+  assert.equal(await c.save('ucet'),false);assert.equal(c.editors.get('ucet').blocked,false);assert.equal(c.editors.get('ucet').draft.name,'Moje rozepsaná změna');
+  reject=false;assert.equal(await c.save('ucet'),true);assert.equal(f.accounts[0].name,'Moje rozepsaná změna');
+});

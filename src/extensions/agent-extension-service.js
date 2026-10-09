@@ -145,11 +145,14 @@ export class AgentExtensionService {
         manifestPath,
       }));
     }
+    this.invalidCustomTemplates=[];
     for(const saved of this.customStore?.list('worker-template')||[]) {
+      try {
       if(this.extensions.has(saved.id)) fail('Custom extension collides with a packaged extension','M3_AGENT_EXTENSION_CONFLICT');
       const manifest=this.validateTemplate(saved.manifest);
       const context=createExtensionContextV1({manifest,hostCapabilities:this.hostCapabilities});
-      this.extensions.set(manifest.id,Object.freeze({manifest,context,manifestPath:null,custom:true}));
+      this.extensions.set(manifest.id,Object.freeze({manifest,context,manifestPath:null,custom:true,revision:saved.revision}));
+      } catch(error) { this.invalidCustomTemplates.push({id:saved.id,code:error.code||'M3_AGENT_EXTENSION_INVALID'}); }
     }
     return this.list();
   }
@@ -201,6 +204,8 @@ export class AgentExtensionService {
     const extension = this.get(extensionId);
     if (!extension) fail(`Unknown agent extension: ${extensionId}`, 'M3_AGENT_EXTENSION_NOT_FOUND');
     return { id: extensionId, moduleVersion: extension.manifest.moduleVersion,
+      custom:extension.custom===true,revision:extension.revision||0,
+      definitionDigest:definitionDigest(extension.manifest.payload.definition),
       definition: structuredClone(extension.manifest.payload.definition) };
   }
 
