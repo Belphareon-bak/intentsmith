@@ -35,7 +35,7 @@ import { extractJSON } from '../llm/client.js';
 import { config } from '../config.js';
 import { featureManager } from '../core/feature-manager.js';
 import { isAbortError, throwIfAborted } from '../core/abort-error.js';
-import { ChatProcessingError, isChatTurnError, throwChatModelCallFailure } from '../core/chat-turn-error.js';
+import { ChatProcessingError, ChatContextCapacityError, isChatTurnError, throwChatModelCallFailure } from '../core/chat-turn-error.js';
 import { buildProjectHint } from './handlers/utils/project-context-prompt.js';
 import { buildInterpretationContext, pendingConversationQuestion } from './conversation-context.js';
 import { getNumCtx } from '../llm/model-ctx.js';
@@ -2723,6 +2723,9 @@ PRAVIDLA:
     } catch (err) {
       throwIfAborted(context.signal);
       if (isAbortError(err) || isChatTurnError(err)) throw err;
+      if (err.code === 'CHAT_INTERPRETATION_CONTEXT_LIMIT') {
+        throw new ChatContextCapacityError(err.code, err);
+      }
       // Unexpected local processing failures are terminal too. Only the
       // explicit successful-output checks above may request regex fallback.
       throw new ChatProcessingError('INTENT_CLASSIFICATION_PROCESSING_FAILED', err);

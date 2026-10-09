@@ -56,3 +56,32 @@ globální kontext; další účinky této sondě nepřísluší označit za PAS
 reprodukce a limity. Podle doplňujícího zadání operátora se po publikování
 čeká na nezávislý verdikt Opuse pro finální úpravy. CHAT styl/vlastní prompt
 a související měření patří po releasu; žádný hold ani binding se nemění.
+
+## Dokončení podle doplňujícího zadání 10. 10.
+
+Autorita: přímé zadání operátora zapracovat důležité změny doladěného preview,
+projít nezávislou revizi a dokončit nedodělky bránící releasu. Dostupný
+nezávislý posudek je `review-integration-c47d1883.md`; identita použitého modelu
+není v souboru uvedená. Nejde o přejímku nových následných oprav.
+
+Rozsah dokončení: bezpečné rozpočty CHAT a strukturovaných rolí (N1/N2),
+skutečný pull endpoint a disková inventura Huntu (N3/N8), formulářový průvodce
+a editace workerů (N4), známé klientské chyby a důvody neprovedení (N5/N6),
+nativní zápis/readback (N7). Srovnat důležité body 1–9 V4 a původní a–k:
+retence s náhledem/potvrzením, Git výběr větví a detail, telemetrie a označení
+nepodložených funkcí. U obecných nastavení ověřit skutečného spotřebitele;
+hodnoty bez účinku nesmějí vystupovat jako funkční ovladače.
+
+Demo: nejmenší CHAT okno + 2000 znaků; nadlimitní zpráva s opravitelnou chybou;
+strukturované role bez zkrácení JSON; sidecar inference/pull na různých portech;
+worker vytvořený formulářem a upravený z detailu; nativní uložení/restart;
+retence, Git a další ovladače podle výsledného rozsahu. Aktualizovat runtime
+kontrakty, census, registry a souhrn hotových funkcí/zbývajících release podmínek.
+Publikovat a ověřit vzdálené SHA i CI. Produkce, cizí soak, klíče/podpisy,
+automation hold, bindingy a odložená CHAT personalizace zůstávají chráněné.
+
+
+Implementační dokončení N1–N8 a V4 je v novém
+[paketu](../review/ide-integration-remediation-20261010.md). Následuje čistý
+aplikační commit, celý profil, skutečný HTTP/restart, nový AppImage/nativní
+zápis a CI. Původní výsledky z c47d1883 nejsou přeneseny na nový kód.

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { createStateBackup, listBackups, pruneBackups } from '../core/db-backup.js';
+import { createStateBackup, listBackups, pruneBackups, planBackupRetention } from '../core/db-backup.js';
 import { getStorageConfig } from '../db/data-retention.js';
 import { ideError, record, textField } from '../db/ide-store.js';
 
@@ -9,6 +9,15 @@ export function backupManagement({db,dataDir,projectRoot,dbPath,store}) {
   const annotate=backup=>({...backup,...(store.get('backup',backup.name)||{revision:0,note:'',archived:false}),
     db_size_mb:Math.round(backup.db_size_bytes/10485.76)/100,total_size_mb:Math.round(backup.total_size_bytes/10485.76)/100});
   const list=()=>listBackups(dataDir).map(annotate);
+  function retentionPreview(input) {
+    record(input,['maxDaily','maxWeekly']);
+    if(!Number.isSafeInteger(input.maxDaily)||input.maxDaily<1||input.maxDaily>30
+      ||!Number.isSafeInteger(input.maxWeekly)||input.maxWeekly<1||input.maxWeekly>12)throw ideError('IDE_BACKUP_RETENTION_INVALID',422);
+    const plan=planBackupRetention(dataDir,{db,...input});
+    return {maxDaily:input.maxDaily,maxWeekly:input.maxWeekly,scope:'CURRENT_SNAPSHOTS_NEXT_RETENTION',
+      deletesNothing:true,deletions:plan.deletions.map(b=>({name:b.name,contentFingerprint:b.content_fingerprint})),
+      protected:plan.backups.filter(b=>plan.keep.has(b.name)).map(b=>b.name)};
+  }
   const find=name=>{const result=list().find(item=>item.name===name);if(!result)throw ideError('IDE_BACKUP_NOT_FOUND',404);return result;};
   function put(name,input,actor) {
     record(input,['revision','note','archived']);find(name);
@@ -49,5 +58,5 @@ export function backupManagement({db,dataDir,projectRoot,dbPath,store}) {
     const retention=pruneBackups(dataDir,{db,maxDaily:config.backup.max_daily,maxWeekly:config.backup.max_weekly});
     return {ok:true,name:result.name,files:result.files,size_kb:Math.round(result.size/1024),backup:find(result.name),retention};
   }
-  return {list,find,put,remove,create};
+  return {list,find,put,remove,create,retentionPreview};
 }

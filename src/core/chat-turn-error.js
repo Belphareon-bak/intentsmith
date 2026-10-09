@@ -13,7 +13,7 @@ export const ChatTurnErrorCode = Object.freeze({
 export const ChatTurnErrorMessage = Object.freeze({
   LLM_PROVIDER_UNAVAILABLE: 'Model provider is temporarily unavailable.',
   CHAT_PROCESSING_FAILED: 'Chat processing failed.',
-  CHAT_CONTEXT_CAPACITY_EXCEEDED: 'Conversation context exceeds this model window. Shorten the request or start a new conversation.',
+  CHAT_CONTEXT_CAPACITY_EXCEEDED: 'Zpráva nebo kontext rozhovoru je pro nastavené okno CHAT příliš dlouhý. Zkraťte zprávu, zvětšete kontext role CHAT nebo začněte novou konverzaci.',
   CHAT_PERSISTENCE_FAILED: 'Chat response could not be persisted.',
   MODEL_RESPONSE_TRUNCATED: 'Model response was incomplete and was not saved.',
   M2_EFFECT_AUTHORITY_REQUIRED: 'This write requires M2 effect authority.',
@@ -151,6 +151,9 @@ export function throwChatModelCallFailure(error, signal, sourceErrorType = 'LLM_
   if (aborted) throw aborted;
   for (const cause of chain) {
     if (isChatTurnError(cause)) throw cause;
+    if (cause.code === 'LLM_CONTEXT_WINDOW_EXCEEDED') {
+      throw new ChatContextCapacityError(sourceErrorType, error);
+    }
     if (cause.code === 'LLM_PROVIDER_MALFORMED_RESPONSE') {
       throw new ChatProcessingError(sourceErrorType, error);
     }

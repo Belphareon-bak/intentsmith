@@ -7,7 +7,7 @@ import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 const projectRoot=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const require=createRequire(import.meta.url);
-const {ModelWorkspaceRedesign:Workspace,matrixRows,scoreCell,profileBody,validJobPins}=require(path.join(projectRoot,'intentsmith-ide/extensions/intentsmith-studio2/lib/browser/model-workspace-redesign.js'));
+const {ModelWorkspaceRedesign:Workspace,matrixRows,scoreCell,telemetryGraph,profileBody,validJobPins}=require(path.join(projectRoot,'intentsmith-ide/extensions/intentsmith-studio2/lib/browser/model-workspace-redesign.js'));
 const D='a'.repeat(64),E='b'.repeat(64),S='c'.repeat(64),copy=v=>JSON.parse(JSON.stringify(v));
 const backend='https://own-adapter-fixture.invalid';
 function workspace(){return new Workspace({backendUrl:()=>backend,fetchImpl:()=>{throw Error('Unexpected external fetch');},confirmAction:()=>true});}
@@ -18,6 +18,16 @@ test('flat evaluation matrix keeps exact artifact identities and missing/awaitin
  const roles={CHAT:{artifacts:[{model:'same',digestSha256:D,status:'COMPLETE',score:.42},{model:'same',digestSha256:E,status:'AWAITING_REVIEW',score:.99}]},CODE:{artifacts:[{model:'same',digestSha256:E,status:'COMPLETE',score:.8}]}};
  assert.equal(matrixRows(roles,'CHAT','asc').length,2);assert.equal(matrixRows(roles,'CHAT','asc')[0].digest,D);assert.equal(matrixRows(roles,'CODE','desc')[0].digest,E);
  assert.equal(scoreCell(roles.CHAT.artifacts[1]).text,'—');assert.equal(scoreCell(roles.CHAT.artifacts[0]).cls,'mw-score-low');
+ for(const [score,band] of [[.49,'low'],[.5,'low-middle'],[.69,'low-middle'],[.7,'middle'],[.79,'middle'],[.8,'middle-high'],[.89,'middle-high'],[.9,'high']])
+   assert.equal(scoreCell({status:'COMPLETE',score}).cls,'mw-score-'+band);
+});
+
+test('telemetry chart uses observed timestamps and latency, bounds points and does not invent unknown values',()=>{
+ const points=Array.from({length:130},(_,i)=>({at:1000+i*100,durationMs:i}));
+ const graph=telemetryGraph([{model:'measured',role:'CHAT',observations:[...points,{at:null,durationMs:null}]}]);
+ assert.equal(graph.points.length,120);assert.equal(graph.points[0].x,5);assert.equal(graph.points.at(-1).x,295);
+ assert.equal(graph.points.at(-1).y,15);assert.match(graph.note,/120/);
+ assert.equal(telemetryGraph([{observations:[{at:1,durationMs:null}]}]).hasPoints,false);
 });
 
 test('optional management endpoint failure leaves supported overview usable',async()=>{
@@ -32,14 +42,14 @@ test('public score sorting uses a single comparable protocol instead of mixed be
 });
 
 test('role parameters repair a current STALE binding with exact artifact CAS and readback',async()=>{
- const w=workspace();let row={role:'CHAT',model:'model:tag',digestSha256:D,revision:3,status:'STALE',settings:{contextWindowTokens:4096,maxOutputTokens:null},verifiedHardwareMaximum:null,outputAuthority:'CALL_SITE_AND_AUTH_TOKEN_CEILING'},writes=0;
+ const w=workspace();let row={role:'CHAT',model:'model:tag',digestSha256:D,revision:3,status:'STALE',settings:{contextWindowTokens:8192,maxOutputTokens:null},verifiedHardwareMaximum:null,outputAuthority:'CALL_SITE_AND_AUTH_TOKEN_CEILING'},writes=0;
  extra(w,'settings',{roles:[copy(row)]});assert.equal(w.editRoleRuntime('CHAT'),true);w.setRoleRuntime('maxOutputTokens',{target:{value:'1024'}});
  w.request=async(route,options={})=>{if(options.method==='PUT'){writes++;const body=JSON.parse(options.body);assert.deepEqual(Object.keys(body).sort(),['revision','model','digestSha256','contextWindowTokens','maxOutputTokens'].sort());assert.equal(body.digestSha256,D);assert.equal(body.revision,3);row={...row,revision:4,status:'CONFIGURED',settings:{contextWindowTokens:body.contextWindowTokens,maxOutputTokens:body.maxOutputTokens}};return copy(row);}return{roles:[copy(row)]};};
  assert.equal(await w.saveRoleRuntime(),true);assert.equal(writes,1);assert.equal(w.roleRuntimeDraft,null);w.destroy();
 });
 
 test('changed role artifact or backend cannot authorize a write from an older editor',async()=>{
- const w=workspace(),row={role:'CHAT',model:'model:tag',digestSha256:D,revision:0,status:'DEFAULT',settings:{contextWindowTokens:4096,maxOutputTokens:null}};
+ const w=workspace(),row={role:'CHAT',model:'model:tag',digestSha256:D,revision:0,status:'DEFAULT',settings:{contextWindowTokens:8192,maxOutputTokens:null}};
  let endpoint=backend,requests=0,writes=0;w.backendUrl=()=>endpoint;extra(w,'settings',{roles:[copy(row)]});w.editRoleRuntime('CHAT');w.setRoleRuntime('maxOutputTokens',{target:{value:'1024'}});
  w.request=async(route,o={})=>{requests++;if(o.method==='PUT')writes++;return{roles:[{...row,digestSha256:E}]};};endpoint='https://different.invalid';assert.equal(await w.saveRoleRuntime(),false);assert.equal(requests,0);
  endpoint=backend;assert.equal(await w.saveRoleRuntime(),false);assert.equal(writes,0);assert.ok(w.roleRuntimeDraft);w.destroy();

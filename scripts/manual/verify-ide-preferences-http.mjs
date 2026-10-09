@@ -4,6 +4,8 @@ import {mkdir,writeFile} from 'node:fs/promises';
 import {execFileSync} from 'node:child_process';
 import http from 'node:http';
 import {createRequire} from 'node:module';
+import Database from 'better-sqlite3';
+import {readChatMemoryPolicy} from '../../src/db/user-settings.js';
 import {createOwnedJourneyRuntime,expectJson,startProduct,stopProduct} from '../../tests/helpers/chat-project-expertise-model-journey.js';
 import {isolatedTestRuntime} from '../../tests/helpers/isolated-test-db.js';
 const require=createRequire(import.meta.url);
@@ -42,33 +44,37 @@ try {
         definition.type==='time'?'12:34':
         definition.type==='number'?Math.min(definition.max,definition.defaultValue+definition.step):
         definition.key.endsWith('ollamaUrl')?'http://127.0.0.1:12345':'Owned settings fixture';
-      assert.equal(live.changePreference(category,definition,value),true);
-      records.push({category,key:definition.key,label:definition.label,value,controllerSave:'PENDING',httpReadback:'PENDING',restartReadback:'PENDING',runtimeEffect:'NOT_VERIFIED'});
+      assert.equal(live.changePreference(category,definition,value),definition.supported);
+      records.push({category,key:definition.key,label:definition.label,value:definition.supported?value:definition.defaultValue,
+        support:definition.supported?'ACTIVE':'READ_ONLY_NO_RUNTIME_CONSUMER',controllerSave:definition.supported?'PENDING':'WRITE_REFUSED',
+        httpReadback:definition.supported?'PENDING':'UNCHANGED',restartReadback:'PENDING',runtimeEffect:definition.supported?'PENDING':'UNSUPPORTED_LABELLED'});
     }
-    assert.equal(await live.savePreferences(category),true,live._preferenceNotice.get(category));
+    const active=records.filter(r=>r.category===category&&r.support==='ACTIVE');
+    assert.equal(await live.savePreferences(category),active.length>0,live._preferenceNotice.get(category));
     const observed=await expectJson(product,'GET','/api/settings',null,200);
-    for(const record of records.filter(r=>r.category===category)){
-      assert.equal(observed[record.key],record.value);record.controllerSave='PASS';record.httpReadback='PASS';
-    }
+    for(const record of active){assert.equal(observed[record.key],record.value);record.controllerSave='PASS';record.httpReadback='PASS';}
+    for(const record of records.filter(r=>r.category===category&&r.support!=='ACTIVE'))assert.equal(observed[record.key],undefined);
   }
   assert.equal(calls.length,0,'saving ordinary settings must not launch inference');
   await stopProduct(product);product=null;product=await launch();
   const restored=await expectJson(product,'GET','/api/settings',null,200);
-  for(const record of records){assert.equal(restored[record.key],record.value);record.restartReadback='PASS';}
-  const roles=await expectJson(product,'GET','/api/system/models/role-settings',null,200);
-  const chat=roles.roles.find(r=>r.role==='CHAT');
-  const conversation=await expectJson(product,'POST','/api/conversations',{title:'Settings effect observation',mode:'chat'},201);
-  await expectJson(product,'POST','/api/chat',{conversation_id:conversation.conversation.id,message:'Vysvětli kompozici.'},200);
-  const last=calls.at(-1);
-  const contextRecord=records.find(r=>r.key==='intentsmith.llm.contextWindow');
-  contextRecord.runtimeEffect=last.options.num_ctx===contextRecord.value?'PASS':'NOT_APPLIED';
-  const temperatureRecord=records.find(r=>r.key==='intentsmith.llm.temperature');
-  temperatureRecord.runtimeEffect=last.options.temperature===temperatureRecord.value?'PASS':'NOT_APPLIED';
-  const result={status:'ROUNDTRIP_PASS_EFFECT_COVERAGE_INCOMPLETE',scope:'OWNED_ACTUAL_HTTP_FRONTEND_CONTROLLERS_SQLITE_RESTART_CONTROLLED_PROVIDER',sourceRevision:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),records,roleContext:chat.contextWindowTokens,providerAnswerOptions:last.options,inferenceCalls:calls.length,completedAt:new Date().toISOString()};
+  for(const record of records){
+    assert.equal(restored[record.key],record.support==='ACTIVE'?record.value:undefined);
+    record.restartReadback=record.support==='ACTIVE'?'PASS':'UNCHANGED';
+  }
+  const policyDb=new Database(runtime.database,{readonly:true});
+  let memoryPolicy;try{memoryPolicy=readChatMemoryPolicy(policyDb);}finally{policyDb.close();}
+  for(const [key,property] of [['ltmEnabled','ltm'],['learningEnabled','learning'],['feedbackDetection','feedback'],['patternTracking','patterns']]){
+    assert.equal(memoryPolicy[property],false);
+    records.find(r=>r.key==='intentsmith.memory.'+key).runtimeEffect='MEMORY_POLICY_DISABLED_CONFIRMED';
+  }
+  const result={status:'ACTIVE_PREFERENCES_HTTP_RESTART_PASS_INACTIVE_WRITES_REFUSED',scope:'OWNED_ACTUAL_HTTP_FRONTEND_CONTROLLERS_SQLITE_RESTART',
+    sourceRevision:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),records,memoryPolicy,
+    effectRegressionPrograms:['chat-memory-privacy','chat-privacy-http'],inferenceCalls:calls.length,completedAt:new Date().toISOString()};
   const output=new URL('../../.intentsmith-artifacts/ide-integration-20261009/ordinary-preferences.json',import.meta.url);
   await mkdir(new URL('./',output),{recursive:true,mode:0o700});
   await writeFile(output,JSON.stringify(result,null,2)+'\n');
-  console.log(JSON.stringify({status:result.status,fields:records.length,answerOptions:last.options,effectFindings:records.filter(r=>r.runtimeEffect==='NOT_APPLIED')},null,2));
+  console.log(JSON.stringify({status:result.status,fields:records.length,active:records.filter(r=>r.support==='ACTIVE').length,readOnly:records.filter(r=>r.support!=='ACTIVE').length,memoryPolicy},null,2));
 } finally {
   live?.componentWillUnmount();
   if(product)await stopProduct(product);

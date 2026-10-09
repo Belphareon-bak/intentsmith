@@ -46,6 +46,7 @@ import { fetchModels as fetchWhatllm, matchModels } from '../src/upgrade/whatllm
 import { enrichFromHuggingFace } from '../src/upgrade/huggingface-client.js';
 import { modelRegistry } from '../src/upgrade/model-registry.js';
 import { upgradeManager } from '../src/upgrade/upgrade-manager.js';
+import { resolveOllamaStorage } from '../src/system/ollama-storage.js';
 import { modelUseAuthority } from '../src/upgrade/model-use-authority.js';
 import { createModelArtifactAuthorityRepository } from '../src/upgrade/model-artifact-authority-repository.js';
 import {
@@ -242,10 +243,11 @@ function gpuComputeProcesses() {
   } catch { return ['stav GPU nelze bezpečně zjistit']; }
 }
 
-function modelStorageAvailableBytes() {
+async function modelStorageAvailableBytes() {
   try {
-    const storagePath = process.env.OLLAMA_MODELS || '/usr/share/ollama/.ollama/models';
-    const stats = statfsSync(storagePath);
+    const observed = await resolveOllamaStorage({...config.ollama,baseUrl:PULL_PROVIDER_URL});
+    if (!observed.path) return null;
+    const stats = statfsSync(observed.path);
     return Number(stats.bavail) * Number(stats.bsize);
   } catch { return null; }
 }
@@ -255,7 +257,7 @@ async function scheduledEvaluationReadiness() {
     residentModels: await listResident({ baseUrl: config.ollama?.baseUrl }),
     computeProcesses: gpuComputeProcesses(),
     memoryAvailableBytes: memoryAvailableBytes(),
-    diskAvailableBytes: modelStorageAvailableBytes(),
+    diskAvailableBytes: await modelStorageAvailableBytes(),
   }, { installedOnly: EVALUATE_INSTALLED });
 }
 
@@ -820,7 +822,7 @@ if (!readiness.ready) {
 }
 
 const toTry = [];
-let plannedDiskAvailableBytes = modelStorageAvailableBytes();
+let plannedDiskAvailableBytes = await modelStorageAvailableBytes();
 for (const candidate of picked) {
   if (toTry.length >= LIMIT) break;
   if (candidate.installed !== true) {
@@ -902,7 +904,7 @@ for (const cand of toTry) {
     // Earlier candidates and unrelated disk users may have consumed the space
     // since queue planning. Recheck immediately before this candidate's pull.
     const headroom = assessCandidateDownloadHeadroom({
-      diskAvailableBytes: modelStorageAvailableBytes(),
+      diskAvailableBytes: await modelStorageAvailableBytes(),
       downloadBytes: Math.ceil(Number(cand.sizeGB) * 2 ** 30),
     });
     if (!headroom.ready) {

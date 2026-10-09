@@ -776,6 +776,9 @@
 .intentsmith-studio2-widget .scm-review-file.on{background:var(--acc-soft)}
 .intentsmith-studio2-widget .scm-review-file i{color:var(--ok);font-style:normal}
 .intentsmith-studio2-widget .scm-review-file b{color:var(--bad);font-weight:400;margin-left:6px}
+.intentsmith-studio2-widget .scm-split{border-collapse:collapse;width:100%;table-layout:fixed}
+.intentsmith-studio2-widget .scm-split td{overflow:auto;max-width:0;min-width:0;vertical-align:top}
+.intentsmith-studio2-widget .scm-split th{text-align:left;color:var(--dim)}
 .intentsmith-studio2-widget .scm-review-diff{overflow:auto;user-select:text;font:12px/1.65 var(--font-mono);padding:8px 0;min-width:0}
 .intentsmith-studio2-widget .scm-diff-line{white-space:pre;padding:0 16px;min-width:max-content;min-height:1.65em}
 .intentsmith-studio2-widget .scm-diff-line.added{background:color-mix(in srgb,var(--ok) 12%,transparent);color:var(--text)}
@@ -836,6 +839,11 @@
 .intentsmith-studio2-widget .mw-candidate small{color:var(--faint);font-size:10px}
 .intentsmith-studio2-widget .mw-candidate>span{font-size:11px;color:var(--dim)}
 .intentsmith-studio2-widget .mw-role-tags{display:flex;flex-wrap:wrap;gap:4px}
+.intentsmith-studio2-widget .view-disabled{opacity:.4}
+.intentsmith-studio2-widget .mw-catalog-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:10px}
+.intentsmith-studio2-widget .mw-catalog-tiles .mw-candidate{border:1px solid var(--soft);border-radius:5px}
+.intentsmith-studio2-widget .mw-catalog-size-1 .mw-candidate{padding:9px;font-size:11px}
+.intentsmith-studio2-widget .mw-catalog-size-3 .mw-candidate{padding:18px;font-size:13px}
 .intentsmith-studio2-widget .mw-catalog-detail{min-width:0;position:sticky;top:0;align-self:start;padding:0 0 0 14px;background:none;border:0;border-radius:0}
 .intentsmith-studio2-widget .mw-catalog-detail h3{overflow-wrap:anywhere}
 .intentsmith-studio2-widget .mw-facts{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;margin:12px 0;font-size:12px}
@@ -848,6 +856,10 @@
 .intentsmith-studio2-widget .mw-profile .model-actions{flex-shrink:0;max-width:260px}
 .intentsmith-studio2-widget .mw-editor{margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
 .intentsmith-studio2-widget .mw-queue-at{max-width:360px;margin-top:14px}
+.intentsmith-studio2-widget .mw-queue-title{margin-top:28px!important}
+.intentsmith-studio2-widget .mw-telemetry-plot{display:block;width:100%;height:180px;overflow:visible;color:var(--dim)}
+.intentsmith-studio2-widget .mw-telemetry-dot{fill:var(--acc)}
+.intentsmith-studio2-widget .mw-time-axis{display:flex;justify-content:space-between;gap:12px;font-size:11px;color:var(--dim)}
 .intentsmith-studio2-widget .mw-muted{color:var(--faint)}
 @container(max-width:740px){.intentsmith-studio2-widget .mw-catalog-grid{grid-template-columns:minmax(0,1fr)}
 .intentsmith-studio2-widget .mw-catalog-detail{position:static}

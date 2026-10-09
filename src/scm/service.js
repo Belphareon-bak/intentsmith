@@ -206,9 +206,8 @@ export function createScmService({ db, clock = Date.now, idFactory = randomUUID 
     if (file!==null) relativeFile(file);
     const args=['diff','--no-ext-diff','--no-textconv',baseOid,headOid];
     const files=changedFiles(await git(root,[...args,'--numstat','-z','--']));
-    const patch=await git(root,[...args,'--',...(file?[file]:[])]);
-    if (patch.length>1_000_000) throw scmError('SCM_DIFF_LIMIT');
-    return {projectId,base,head,baseOid,headOid,files,diff:patch,path:file};
+    const patch=await git(root,[...args,'--',...(file?[file]:[])],{truncateOutput:true});
+    return {projectId,base,head,baseOid,headOid,files,diff:patch.text,diffTruncated:patch.truncated,path:file};
   }
   async function commit(projectId,{ref,file=null,parent=0}={}) {
     const root=await projectRoot(db,projectId),oid=await resolveRef(root,ref);
@@ -223,9 +222,8 @@ export function createScmService({ db, clock = Date.now, idFactory = randomUUID 
     const args=baseOid?['diff',baseOid,oid]:['show','--format=',oid];
     const flags=['--no-ext-diff','--no-textconv'];
     const files=changedFiles(await git(root,[...args,...flags,'--numstat','-z','--']));
-    const patch=await git(root,[...args,...flags,'--',...(file?[file]:[])]);
-    if (patch.length>1_000_000) throw scmError('SCM_DIFF_LIMIT');
-    return {projectId,hash:hashValue,parents:parentOids,author,time,subject,body:body.join('\0').trim(),parent,baseOid,files,diff:patch,path:file};
+    const patch=await git(root,[...args,...flags,'--',...(file?[file]:[])],{truncateOutput:true});
+    return {projectId,hash:hashValue,parents:parentOids,author,time,subject,body:body.join('\0').trim(),parent,baseOid,files,diff:patch.text,diffTruncated:patch.truncated,path:file};
   }
   function m2Busy(projectId) {
     const row=db.prepare(`SELECT 1 FROM m2_execution_claims c JOIN m2_execution_requests r ON r.execution_id=c.execution_id

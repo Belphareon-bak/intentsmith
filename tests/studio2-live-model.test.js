@@ -431,7 +431,7 @@ test('M7 pairing in Security accepts only an exact short-lived local claim and k
 });
 
 test('user preferences use the prototype form and verify saved backend values', async () => {
-  let server = { 'intentsmith.account.displayName': 'Původní', 'intentsmith.language': 'cs', unrelated: 'zůstane' };
+  let server = { 'intentsmith.memory.ltmEnabled': true, unrelated: 'zůstane' };
   const calls = [];
   const fetchImpl = async (url, options = {}) => {
     const method = options.method || 'GET';
@@ -446,25 +446,24 @@ test('user preferences use the prototype form and verify saved backend values', 
   const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335', fetchImpl });
   const { model } = setup({ catalog });
   model.fetchImpl = fetchImpl;
-  model.setState({ mode: 'section', section: 'settings', detail: { settings: 'ucet' } });
-  await model.loadSettingsResource('ucet');
+  model.setState({ mode: 'section', section: 'settings', detail: { settings: 'pamet' }, dtab: {'settings:pamet':'uceni'} });
+  await model.loadSettingsResource('pamet');
   let vm = model.detailVM(model.st());
-  let form = vm.blocks.find(block => block.isPreferences).preferences;
-  assert.equal(form.fields[0].value, 'Původní');
-  form.fields[0].change({ target: { value: 'Nové jméno' } });
+  let form = vm.blocks.filter(block => block.isPreferences).find(block=>block.preferences.fields.some(f=>f.label==='Dlouhodobá paměť')).preferences;
+  assert.equal(form.fields[0].checked, true);
+  form.fields[0].change({ target: { checked: false } });
   vm = model.detailVM(model.st());
   assert.equal(vm.primaryLabel, 'Uložit změny');
   assert.equal(await vm.onPrimary(), true);
-  assert.deepEqual(server, { 'intentsmith.account.displayName': 'Nové jméno',
-    'intentsmith.language': 'cs', unrelated: 'zůstane' });
+  assert.deepEqual(server, { 'intentsmith.memory.ltmEnabled': false, unrelated: 'zůstane' });
   assert.equal(model.detailVM(model.st()).hasPrimary, false);
   assert.deepEqual(calls, ['GET', 'GET', 'POST', 'GET']);
-  model.detailVM(model.st()).blocks.find(block => block.isPreferences).preferences.fields[0]
-    .change({ target: { value: 'Další jméno' } });
-  server['intentsmith.language'] = 'en';
-  assert.equal(await model.savePreferences('ucet'), false, 'external write requires refresh');
+  model.detailVM(model.st()).blocks.filter(block=>block.isPreferences).find(block=>block.preferences.fields.some(f=>f.label==='Dlouhodobá paměť')).preferences.fields[0]
+    .change({ target: { checked: true } });
+  server.unrelated = 'external write';
+  assert.equal(await model.savePreferences('pamet'), false, 'external write requires refresh');
   assert.equal(calls.filter(method => method === 'POST').length, 1);
-  assert.match(model._preferenceNotice.get('ucet'), /mezitím změnilo/);
+  assert.match(model._preferenceNotice.get('pamet'), /mezitím změnilo/);
 });
 
 test('notification sections read real channels, reject malformed data and never send without a user action', async () => {
@@ -667,7 +666,7 @@ test('project tiles translate backend status and unknown expertises have a visib
   model.componentWillUnmount();
 });
 
-test('preference fields reject out-of-range values before POST', async () => {
+test('inactive legacy preferences are visibly read-only and cannot POST', async () => {
   const calls = [];
   const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335',
     fetchImpl: async (url, options = {}) => { calls.push(options.method || 'GET');
@@ -676,11 +675,15 @@ test('preference fields reject out-of-range values before POST', async () => {
   model.setState({ mode: 'section', section: 'settings', detail: { settings: 'vystup' },
     dtab: { 'settings:vystup': 'delka' } });
   await model.loadSettingsResource('vystup');
-  const field = model.detailVM(model.st()).blocks.find(block => block.isPreferences).preferences.fields[0];
+  const field = model.detailVM(model.st()).blocks.filter(block=>block.isPreferences).flatMap(block=>block.preferences.fields).find(f=>f.isNumber);
+  assert.equal(field.disabled, true);
+  assert.match(field.effectNote, /Modely → Role/);
   field.change({ target: { value: '999999' } });
+  assert.equal(model._preferenceDrafts.get('vystup'), undefined);
   assert.equal(await model.savePreferences('vystup'), false);
   assert.equal(calls.includes('POST'), false);
-  assert.match(model._preferenceNotice.get('vystup'), /Neplatná hodnota/);
+  model._preferenceDrafts.set('vystup', {'intentsmith.output.maxResponseLength':8192});
+  assert.equal(await model.savePreferences('vystup'), false, 'an injected stale draft also cannot write an inactive preference');
 });
 
 test('settings include the requested Git category and preserve verified feature changes', async () => {
@@ -1277,9 +1280,9 @@ test('worker detail runs only a verified M3 extension through its active route',
   vm = model.detailVM(model.st());
   assert.equal(vm.blocks[0].rows[0].t, '#2 · success');
   vm.tabs.find(tab => tab.label === 'Přehled').go();
-  assert.equal(await model.detailVM(model.st()).secondary[0].go(), true);
+  assert.equal(await model.detailVM(model.st()).secondary.find(action=>action.label==='Pozastavit').go(), true);
   assert.equal(model.detailVM(model.st()).hasPrimary, false);
-  assert.equal(await model.detailVM(model.st()).secondary[1].go(), true, widget.catalogActionError);
+  assert.equal(await model.detailVM(model.st()).secondary.find(action=>action.label==='Odinstalovat').go(), true, widget.catalogActionError);
   assert.equal(model.st().detail.workers, null);
   await model.loadWorkerDetail('legacy');
   model.setState({ detail: { workers: 'legacy' } });

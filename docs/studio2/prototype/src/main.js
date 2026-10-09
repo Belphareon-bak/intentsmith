@@ -56,6 +56,7 @@ class Component extends DCLogic {
       specialistStep: 0, specialistName: '', specialistDomain: 'general',
       specialistDescription: '', specialistIcon: '', specialistPrompt: '', specialistRules: '', specialistConstraints: '',
       workerStep: 0, workerExtension: 'project-health', workerProject: '', workerInstanceId: '', workerParams: '{}', workerTemplate: '', workerName: '', workerDescription: '', workerEditing: false,
+      workerTemplateName: 'Kontrola projektu', workerTemplateDescription: '', workerQuery: 'TODO FIXME HACK', workerCondition: 'changed', workerThreshold: '1', workerSchedule: 'manual', workerInterval: '1h', workerMessage: 'Projekt obsahuje {{sources.project_health.data.issue_count}} signálů.',
       expertiseStep: 0, expertiseEditingId: '', expertiseName: '', expertiseDomain: '', expertiseDescription: '', expertiseIcon: '👤',
       expertiseTone: 'professional', expertiseTemperature: 0.5, expertiseSystemPrompt: '',
       expertiseCreativity: 50, expertiseReasoning: 50, expertiseDeterminism: 50,
@@ -1351,14 +1352,14 @@ class Component extends DCLogic {
   preferencesVM() {
     return { fields: [{ label: 'Ukázková volba', value: 'Hodnota z prototypu', isText: true,
       isTextarea: false, isNumber: false, isToggle: false, isTime: false, isSelect: false,
-      options: [], checked: false, disabled: true, min: 0, max: 0, step: 1, change: () => {} }],
+      options: [], checked: false, disabled: true, hasEffectNote:false, effectNote:'', min: 0, max: 0, step: 1, change: () => {} }],
     status: 'Prototyp ukazuje formulář; hodnoty načítá až živé Studio.' };
   }
 
   modelWorkspaceVM() {
 // Insert inside Component.modelWorkspaceVM() for passive prototype shape.
 const noop = () => false;
-return {"tabs":[],"rows":[],"buttons":[],"runDetail":{"title":"","status":"","runId":"","provenance":"","note":"","attempts":"","tasks":[]},"hasRunDetail":false,"runDetailLoading":false,"runDetailError":"","runDetailReady":false,"closeRun":noop,"status":"Načítám ověřená data z backendu…","hasRoleForm":false,"roleOptions":[],"modelOptions":[],"selectedRole":"CHAT","selectedModel":"","hasPolicyForm":false,"policyFailover":false,"policyCleanup":false,"policyDays":14,"setPolicyFailover":noop,"setPolicyCleanup":noop,"setPolicyDays":noop,"verifyWarning":"","hasRollback":false,"rollback":noop,"setRole":noop,"setModel":noop,"applyRole":noop,"applyRoleDisabled":true,"summaryRoles":[],"summaryStatus":"Načítám aktuální přiřazení…","redesign":{"isOverview":true,"isRoles":false,"isInventory":false,"isEvaluations":false,"isHunt":false,"isTelemetry":false,"isPolicy":false,"isLegacy":false,"showJobs":false,"showBaseRows":true,"matrix":{"headers":[],"rows":[]},"catalog":{"rows":[],"hasSelection":false,"selected":{"name":"","family":"","size":"","vram":"","fit":"","score":"","gain":"","source":"","scope":"","quant":"","metadata":"","localQuality":"","downloadStatus":"","roles":[],"tests":[],"prepareTests":noop,"prepareTestsDisabled":true,"pull":noop,"pullDisabled":true},"variants":[],"hasVariants":false,"count":"0 modelů","unknownVram":"0 modelů bez odhadu VRAM","search":"","setSearch":noop,"roleOptions":[],"role":"CHAT","setRole":noop,"fits":true,"setFits":noop,"availability":"notInstalled","setAvailability":noop,"sort":"benefit","setSort":noop,"protocol":"","protocolOptions":[],"setProtocol":noop},"profiles":{"rows":[],"hasDraft":false,"new":noop,"queueAt":"","setQueueAt":noop,"save":noop,"close":noop,"disabled":false,"draft":{"id":"","revision":0,"name":"","kind":"hunt","roles":[],"models":[],"limit":1,"enabled":false,"modelsPath":"","scheduleType":"manual","at":"","intervalMinutes":60,"time":"","timezone":"Europe/Prague","weekDays":[],"modelA":"","modelB":"","disabled":true,"isHunt":false,"isChallenge":false,"dateEnabled":false,"timeEnabled":false,"dayEnabled":false,"intervalEnabled":false,"dateDisabled":true,"timeDisabled":true,"dayDisabled":true,"intervalDisabled":true,"roleOptions":[],"dayOptions":[],"modelOptions":[],"kindOptions":[],"scheduleOptions":[],"setName":noop,"setKind":noop,"setLimit":noop,"setEnabled":noop,"setModelsPath":noop,"setSchedule":noop,"setAt":noop,"setInterval":noop,"setTime":noop,"setTimezone":noop,"setModelA":noop,"setModelB":noop}},"jobs":[],"huntOverview":false,"huntCatalog":false,"huntProfiles":false,"huntHistory":false,"huntTabs":[],"huntState":"—","huntModel":"—","huntPhase":"—","hold":"","recent":[],"activeQueue":[],"scheduledProfiles":[],"operationsTabs":[],"progressDetail":"","progressAt":"","inventory":[],"history":[],"telemetry":[],"telemetryNote":"Telemetrie neměří správnost odpovědí. Skóre pochází pouze z evaluací.","days":7,"setDays":noop,"externalReference":{"hasDraft":false,"disabled":true,"fields":[],"open":noop,"save":noop,"close":noop},"roleRuntime":{"hasDraft":false,"minimumNote":"","sharedWarning":"","draft":{"minimumContextWindowTokens":512,"role":"","model":"","digestSha256":"","revision":0,"contextWindowTokens":"","maxOutputTokens":"","setContext":noop,"setOutput":noop,"save":noop,"close":noop,"disabled":true}},"showRoleSettings":false,"settings":[],"profileStatus":"","jobStatus":"","settingsStatus":"","hasProfileApi":false,"noProfileApi":true,"capabilityNote":"Discovery limit 1–10; evaluace používá kontext 4 096 tokenů a dostupné sady serveru. Jen při volné GPU. Bez automatické změny role. Rozpočty volání/VRAM/disku, editace pořadí a test největší HW dvojice zde ještě nemají API."}};
+return {"tabs":[],"rows":[],"buttons":[],"runDetail":{"title":"","status":"","runId":"","provenance":"","note":"","attempts":"","tasks":[]},"hasRunDetail":false,"runDetailLoading":false,"runDetailError":"","runDetailReady":false,"closeRun":noop,"status":"Načítám ověřená data z backendu…","hasRoleForm":false,"roleOptions":[],"modelOptions":[],"selectedRole":"CHAT","selectedModel":"","hasPolicyForm":false,"policyFailover":false,"policyCleanup":false,"policyDays":14,"setPolicyFailover":noop,"setPolicyCleanup":noop,"setPolicyDays":noop,"verifyWarning":"","hasRollback":false,"rollback":noop,"setRole":noop,"setModel":noop,"applyRole":noop,"applyRoleDisabled":true,"summaryRoles":[],"summaryStatus":"Načítám aktuální přiřazení…","redesign":{"isOverview":true,"isRoles":false,"isInventory":false,"isEvaluations":false,"isHunt":false,"isTelemetry":false,"isPolicy":false,"isLegacy":false,"showJobs":false,"showBaseRows":true,"matrix":{"headers":[],"rows":[]},"catalog":{"layoutClass":"mw-catalog-list","rows":[],"hasSelection":false,"selected":{"name":"","family":"","parameters":"—","license":"—","size":"","vram":"","fit":"","score":"","gain":"","source":"","scope":"","quant":"","metadata":"","localQuality":"","downloadStatus":"","roles":[],"tests":[],"prepareTests":noop,"prepareTestsDisabled":true,"pull":noop,"pullDisabled":true},"variants":[],"hasVariants":false,"count":"0 modelů","unknownVram":"0 modelů bez odhadu VRAM","search":"","setSearch":noop,"roleOptions":[],"role":"CHAT","setRole":noop,"fits":true,"setFits":noop,"availability":"notInstalled","setAvailability":noop,"sort":"benefit","setSort":noop,"protocol":"","protocolOptions":[],"setProtocol":noop},"profiles":{"rows":[],"hasDraft":false,"new":noop,"queueAt":"","setQueueAt":noop,"save":noop,"close":noop,"disabled":false,"draft":{"id":"","revision":0,"name":"","kind":"hunt","roles":[],"models":[],"limit":1,"enabled":false,"modelsPath":"","scheduleType":"manual","at":"","intervalMinutes":60,"time":"","timezone":"Europe/Prague","weekDays":[],"modelA":"","modelB":"","disabled":true,"isHunt":false,"isChallenge":false,"dateEnabled":false,"timeEnabled":false,"dayEnabled":false,"intervalEnabled":false,"dateDisabled":true,"timeDisabled":true,"dayDisabled":true,"intervalDisabled":true,"roleOptions":[],"dayOptions":[],"modelOptions":[],"kindOptions":[],"scheduleOptions":[],"setName":noop,"setKind":noop,"setLimit":noop,"setEnabled":noop,"setModelsPath":noop,"setSchedule":noop,"setAt":noop,"setInterval":noop,"setTime":noop,"setTimezone":noop,"setModelA":noop,"setModelB":noop}},"jobs":[],"huntOverview":false,"huntCatalog":false,"huntProfiles":false,"huntHistory":false,"huntTabs":[],"huntState":"—","huntModel":"—","huntPhase":"—","hold":"","recent":[],"activeQueue":[],"scheduledProfiles":[],"operationsTabs":[],"progressDetail":"","progressAt":"","inventory":[],"history":[],"telemetry":[],"telemetryGraph":{"hasPoints":false,"maximum":"—","first":"—","last":"—","note":"Naměřená data nejsou dostupná.","points":[]},"telemetryNote":"Telemetrie neměří správnost odpovědí. Skóre pochází pouze z evaluací.","days":7,"setDays":noop,"externalReference":{"hasDraft":false,"disabled":true,"fields":[],"open":noop,"save":noop,"close":noop},"roleRuntime":{"hasDraft":false,"minimumNote":"","sharedWarning":"","draft":{"minimumContextWindowTokens":512,"role":"","model":"","digestSha256":"","revision":0,"contextWindowTokens":"","maxOutputTokens":"","setContext":noop,"setOutput":noop,"save":noop,"close":noop,"disabled":true}},"showRoleSettings":false,"settings":[],"profileStatus":"","jobStatus":"","settingsStatus":"","hasProfileApi":false,"noProfileApi":true,"capabilityNote":"Discovery limit 1–10; evaluace používá kontext 4 096 tokenů a dostupné sady serveru. Jen při volné GPU. Bez automatické změny role. Rozpočty volání/VRAM/disku, editace pořadí a test největší HW dvojice zde ještě nemají API."}};
 
   }
 
@@ -1462,6 +1463,7 @@ return {"tabs":[],"rows":[],"buttons":[],"runDetail":{"title":"","status":"","ru
   }
 
   saveWorkerTemplate() { return false; }
+  saveWorkerTemplateForm() { return false; }
   loadWorkerInstance() { return false; }
 
   workerWizardVM(s) {
@@ -1479,10 +1481,18 @@ return {"tabs":[],"rows":[],"buttons":[],"runDetail":{"title":"","status":"","ru
       && !Array.isArray(params) && s.workerParams.length <= 4096
       && /^[a-z0-9](?:[a-z0-9_-]{0,62}[a-z0-9])?$/.test(instanceId);
     return {
-      editing: s.workerEditing, name:s.workerName, setName:e=>this.setState({workerName:e.target.value}),
+      editing: s.workerEditing, creating:!s.workerEditing, name:s.workerName, setName:e=>this.setState({workerName:e.target.value}),
       description:s.workerDescription, setDescription:e=>this.setState({workerDescription:e.target.value}),
       template:s.workerTemplate, setTemplate:e=>this.setState({workerTemplate:e.target.value}),
       templateDisabled:!!status.busy || !!status.uncertain, saveTemplate:()=>this.saveWorkerTemplate(this.st()),
+      templateName:s.workerTemplateName, setTemplateName:e=>this.setState({workerTemplateName:e.target.value}),
+      templateDescription:s.workerTemplateDescription, setTemplateDescription:e=>this.setState({workerTemplateDescription:e.target.value}),
+      query:s.workerQuery, setQuery:e=>this.setState({workerQuery:e.target.value}),
+      condition:s.workerCondition, setCondition:e=>this.setState({workerCondition:e.target.value}),
+      threshold:s.workerThreshold, setThreshold:e=>this.setState({workerThreshold:e.target.value}), thresholdDisabled:s.workerCondition!=='issues',
+      schedule:s.workerSchedule, setSchedule:e=>this.setState({workerSchedule:e.target.value}),
+      interval:s.workerInterval, setInterval:e=>this.setState({workerInterval:e.target.value}), intervalDisabled:s.workerSchedule!=='interval',
+      message:s.workerMessage, setMessage:e=>this.setState({workerMessage:e.target.value}), saveTemplateForm:()=>this.saveWorkerTemplateForm(this.st()),
       loadInstance:()=>this.loadWorkerInstance(this.st()), newInstance:()=>this.setState({workerEditing:false,workerStep:0,workerInstanceId:'',workerName:'',workerDescription:''}),
       submitLabel:s.workerEditing?'Uložit konfiguraci':'Potvrdit instanci',
       stepLabel: s.workerStep === 0 ? 'Krok 1 ze 2 · Instance' : 'Krok 2 ze 2 · Kontrola',
@@ -1490,7 +1500,8 @@ return {"tabs":[],"rows":[],"buttons":[],"runDetail":{"title":"","status":"","ru
       extensions: extensions.map(item => ({ value: item.id, label: item.name + ' · ' + item.id })),
       extension: s.workerExtension, setExtension: e => this.setState({ workerExtension: e.target.value }),
       projects: projects.map(item => ({ value: String(item.id), label: item.name })),
-      project: s.workerProject, setProject: e => this.setState({ workerProject: e.target.value }),
+      project: s.workerProject, setProject: e => this.setState({ workerProject: e.target.value,
+        workerInstanceId:s.workerInstanceId || (s.workerExtension+'-'+e.target.value+'-'+Date.now().toString(36)).slice(0,64) }),
       needsProject, params: s.workerParams, setParams: e => this.setState({ workerParams: e.target.value }),
       parameterSchema: JSON.stringify(fields.filter(field => field.name !== 'project_id'), null, 2),
       hasParameters: fields.some(field => field.name !== 'project_id'),
@@ -2774,6 +2785,7 @@ return {"tabs":[],"rows":[],"buttons":[],"runDetail":{"title":"","status":"","ru
       pal: pal.pal, palEmpty: pal.palEmpty, palKey: pal.palKey,
       hasCtx: ctx.hasCtx, ctxItems: ctx.ctxItems, ctxX: ctx.ctxX, ctxY: ctx.ctxY, ctxTitle: ctx.ctxTitle, ctxHasQ: ctx.ctxHasQ, ctxQ: ctx.ctxQ, ctxCls: ctx.ctxCls, setCtxQ: (e) => this.setState({ ctxQ: e.target.value }), closeCtx: (e) => { if (e && e.preventDefault) e.preventDefault(); this.setState({ ctx: null }); },
       tbar: {
+        viewDisabled:isSessions,viewTitle:isSessions?'Seznam a dlaždice jsou dostupné v katalogu.':'Katalog jako dlaždice nebo seznam',
         tilesCls: s.view === 'dlazdice' ? 'on' : '', listCls: s.view === 'seznam' ? 'on' : '',
         showTiles: () => this.setState({ view: 'dlazdice' }), showList: () => this.setState({ view: 'seznam' }),
         viewDim: isSessions ? 'dimmed' : '', colDim: isSessions ? '' : 'dimmed',
@@ -2795,7 +2807,7 @@ return {"tabs":[],"rows":[],"buttons":[],"runDetail":{"title":"","status":"","ru
       newSession: this.run((s2) => this.pNewSession(s2, {})),
       isSessions, isSection: !isSessions, secLabel: this.sec(s.section).label,
       isScmReview: false, scmReview: { project: '', title: '', identity: '', author: '',
-        base: '', head: '', loading: false, hasError: false, error: '', hasData: false,
+        base: '', head: '', branchSort:'activity', branchError:'', referenceOptions:[], setBranchSort:()=>{}, hasParents:false, parent:'0', parents:[], setParent:()=>{}, layout:'unified', unified:true, split:false, splitLines:[], setLayout:()=>{}, diffNote:'', loading: false, hasError: false, error: '', hasData: false,
         files: [], lines: [], empty: false, compareDisabled: true, close: () => {},
         setBase: () => {}, setHead: () => {}, compare: () => {}, refresh: () => {}, all: () => {} },
       columns, colTpl, noSessions: isSessions && lay.length === 0,

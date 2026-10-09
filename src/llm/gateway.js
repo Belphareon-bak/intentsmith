@@ -67,6 +67,7 @@ export const LLMGatewayErrorCode = Object.freeze({
   BINDING_ARTIFACT_DRIFT: 'LLM_BINDING_ARTIFACT_DRIFT',
   CODE_RUNTIME_UNAVAILABLE: 'LLM_CODE_RUNTIME_UNAVAILABLE',
   CODE_RUNTIME_DRIFT: 'LLM_CODE_RUNTIME_DRIFT',
+  CONTEXT_WINDOW_EXCEEDED: 'LLM_CONTEXT_WINDOW_EXCEEDED',
 });
 
 export class LLMGatewayError extends Error {
@@ -639,6 +640,14 @@ class LLMGateway {
     return resolveNumCtx(model,this.getRoleRuntimeSettings(role,model)?.contextWindowTokens,fallback);
   }
 
+  assertRoleTextCapacity(messages,contextWindow,outputTokens) {
+    // Conservative text admission, not a tokenizer or an image/HW capacity measurement.
+    const promptBytes=messages.reduce((sum,message)=>sum+Buffer.byteLength(String(message.content??''),'utf8'),0);
+    if(Math.ceil(promptBytes/2)+128+messages.length*8+outputTokens>contextWindow)
+      throw new LLMGatewayError(LLMGatewayErrorCode.CONTEXT_WINDOW_EXCEEDED,
+        'Vstup a potřebný výstup se nevejdou do nastaveného kontextu role. Zvětšete kontext nebo zkraťte vstup.',{httpStatus:422,retryable:false});
+  }
+
   recordProviderTelemetry({data,model,role,callerRole,duration,output,contextTokens,outputLimit}) {
     if(!this._usageDb)return;
     try {
@@ -1040,8 +1049,8 @@ class LLMGateway {
     const effectiveMaxTokens = Math.min(
       options.maxTokens || 4096,
       authToken?.maxTokens || 4096,
-      roleSettings?.role==='CHAT'&&options.correlation?.purpose!=='answer'
-        ? Infinity : roleSettings?.maxOutputTokens ?? Infinity
+      options.correlation?.purpose==='answer'&&!options.format
+        ? roleSettings?.maxOutputTokens ?? Infinity : Infinity
     );
 
     // ════════════════════════════════════════════════════════════════════════
@@ -1124,6 +1133,14 @@ class LLMGateway {
       msgs.push({ role: 'user', content: prompt });
       return msgs;
     })();
+
+    // Configured windows must never silently discard a planner/reviewer prompt.
+    // A conservative UTF-8 estimate follows the interpretation path (2 bytes
+    // per token); output and message framing are reserved separately. This is
+    // admission, not a claim about the model's exact tokenizer or HW maximum.
+    if (roleSettings) {
+      this.assertRoleTextCapacity(messages,effectiveNumCtx,effectiveMaxTokens);
+    }
 
     const body = {
       model,

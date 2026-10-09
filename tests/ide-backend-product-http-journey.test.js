@@ -13,7 +13,7 @@ test('IDE management uses the actual authenticated product and durable restart',
   const provider=http.createServer(async(req,res)=>{
     res.setHeader('content-type','application/json');
     if(req.url==='/api/tags')res.end(JSON.stringify({models:[{name:model,digest}]}));
-    else if(req.url==='/api/show')res.end(JSON.stringify({model_info:{'fixture.context_length':4096}}));
+    else if(req.url==='/api/show')res.end(JSON.stringify({model_info:{'fixture.context_length':16384}}));
     else {modelCalls++;res.writeHead(503).end(JSON.stringify({error:'Inference is outside this journey'}));}
   });
   await new Promise(resolve=>provider.listen(0,'127.0.0.1',resolve));
@@ -27,7 +27,7 @@ test('IDE management uses the actual authenticated product and durable restart',
   await expectJson(product,'PUT','/api/system/storage/paths',{revision:0,projects},200);
   const roles=await expectJson(product,'GET','/api/system/models/role-settings',null,200);
   const chat=roles.roles.find(role=>role.role==='CHAT');assert.equal(chat.digestSha256,digest);
-  const pair={revision:0,model,digestSha256:digest,contextWindowTokens:4096,maxOutputTokens:256};
+  const pair={revision:0,model,digestSha256:digest,contextWindowTokens:8192,maxOutputTokens:256};
   await expectJson(product,'PUT','/api/system/models/role-settings/CHAT',pair,200);
   await expectJson(product,'PUT','/api/accounts/telegram',{revision:0,name:'Telegram',provider:'telegram',
     credentialEnv:'INTENTSMITH_TELEGRAM_PRODUCT_FIXTURE',recipient:'123456',events:['worker'],enabled:false},200);
@@ -38,11 +38,15 @@ test('IDE management uses the actual authenticated product and durable restart',
   assert.equal(profile.revision,1);
   const backup=await expectJson(product,'POST','/api/system/backup',{sections:['database'],note:'Product HTTP fixture'},200);
   assert.equal(backup.backup.note,'Product HTTP fixture');
+  const preview=await expectJson(product,'POST','/api/system/backups/retention-preview',{maxDaily:1,maxWeekly:1},200);
+  assert.equal(preview.deletesNothing,true);assert(preview.protected.includes(backup.name));
+  const afterPreview=(await expectJson(product,'GET','/api/system/backups',null,200)).backups;
+  assert(afterPreview.some(b=>b.name===backup.name));
   await stopProduct(product);product=null;product=await launch();
   assert.equal((await expectJson(product,'GET','/api/system/storage/paths',null,200)).projects,projects);
   assert.equal((await expectJson(product,'GET','/api/projects/defaults',null,200)).defaultDir,projects);
   const restored=(await expectJson(product,'GET','/api/system/models/role-settings',null,200)).roles.find(r=>r.role==='CHAT');
-  assert.deepEqual(restored.settings,{contextWindowTokens:4096,maxOutputTokens:256});
+  assert.deepEqual(restored.settings,{contextWindowTokens:8192,maxOutputTokens:256});
   await expectJson(product,'PUT','/api/system/models/role-settings/CHAT',pair,409);
   assert.equal((await expectJson(product,'GET','/api/accounts',null,200)).accounts[0].credentialConfigured,false);
   assert.equal((await expectJson(product,'GET','/api/system/models/hunt/profiles',null,200)).profiles[0].name,'Nightly');
@@ -66,7 +70,7 @@ test('actual Studio controllers save CHAT settings then chat, recover validation
     const chunks=[];for await(const c of req)chunks.push(c);
     res.setHeader('content-type','application/json');
     if(req.url==='/api/tags')return res.end(JSON.stringify({models:[{name:model,digest}]}));
-    if(req.url==='/api/show')return res.end(JSON.stringify({model_info:{'fixture.context_length':4096}}));
+    if(req.url==='/api/show')return res.end(JSON.stringify({model_info:{'fixture.context_length':16384}}));
     if(req.url!=='/api/chat')return res.writeHead(503).end('{}');
     const body=JSON.parse(Buffer.concat(chunks));calls.push(body);
     const classifier=body.messages?.some(m=>m.role==='system'&&m.content.includes('Klasifikuj'));
@@ -83,12 +87,18 @@ test('actual Studio controllers save CHAT settings then chat, recover validation
   await models.loadExtra('settings');models.editRoleRuntime('CHAT');models.roleRuntimeDraft.contextWindowTokens=2048;models.roleRuntimeDraft.maxOutputTokens=32;
   assert.equal(await models.saveRoleRuntime(),false);assert.equal(calls.length,0);
   await expectJson(product,'PUT','/api/system/models/role-settings/CHAT',{revision:0,model,digestSha256:digest,contextWindowTokens:2048,maxOutputTokens:32},422);
-  models.roleRuntimeDraft.contextWindowTokens=4096;assert.equal(await models.saveRoleRuntime(),true,models.notice);
+  models.roleRuntimeDraft.contextWindowTokens=8192;assert.equal(await models.saveRoleRuntime(),true,models.notice);
   const conversation=await expectJson(product,'POST','/api/conversations',{title:'Role settings integration',mode:'chat'},201);
-  const reply=await expectJson(product,'POST','/api/chat',{conversation_id:conversation.conversation.id,message:'Vysvětli rozdíl mezi kompozicí a dědičností.'},200);
+  const reply=await expectJson(product,'POST','/api/chat',{conversation_id:conversation.conversation.id,message:'Vysvětli tento podklad: '+('podklad '.repeat(250))},200);
   assert.equal(reply.response,'Kontext a limit odpovědi jsou ověřené.');
   assert(calls.some(c=>c.messages.some(m=>m.content.includes('Klasifikuj'))&&c.options.num_predict===256),'classification must retain JSON budget');
-  assert.equal(calls.at(-1).options.num_predict,32);assert(calls.every(c=>c.options.num_ctx===4096));
+  assert.equal(calls.at(-1).options.num_predict,32);assert(calls.every(c=>c.options.num_ctx===8192));
+  const tooLong=await expectJson(product,'POST','/api/conversations',{title:'Oversized request',mode:'chat'},201);
+  const beforeRejected=calls.length;
+  const rejected=await expectJson(product,'POST','/api/chat',{conversation_id:tooLong.conversation.id,message:'x'.repeat(30000)},413);
+  assert.equal(rejected.code,'CHAT_CONTEXT_CAPACITY_EXCEEDED');assert.match(rejected.error,/kontext|okno CHAT/);assert.equal(calls.length,beforeRejected);
+  const recorded=await expectJson(product,'GET','/api/conversations/'+tooLong.conversation.id+'/messages',null,200);
+  assert(!recorded.messages.some(m=>m.role==='assistant'));
   const settings=new IdeSettingsManagement({backendUrl,fetchImpl,confirmAction:()=>true});t.after(()=>settings.destroy());
   await settings.load('git');settings.openSsh();
   const editor=settings.editors.get('git');Object.assign(editor.draft,{name:'My SSH',host:'github.com',user:'git',port:22,identityFile:path.join(runtime.home,'id'),knownHostsFile:path.join(runtime.home,'known_hosts')});
@@ -101,13 +111,15 @@ test('actual Studio controllers save CHAT settings then chat, recover validation
   const project=await expectJson(product,'POST','/api/projects',{name:'Owned IDE fixture',type:'general'},201);
   live.setState(live.pSelect(live.st(),'workers','__new__'));
   await live.loadWorkerWizard();
-  const manifest=JSON.parse(readFileSync(new URL('../agent-extensions/project-health/agent.json',import.meta.url),'utf8'));
-  manifest.id='studio-custom';manifest.payload.definition.id='studio-custom';manifest.payload.definition.name='Studio custom';
-  live.setState({workerTemplate:JSON.stringify(manifest)});assert.equal(await live.saveWorkerTemplate(live.st()),true,live.workerStatus().error);
+  live.setState({workerTemplateName:'Česká kontrola',workerQuery:'TODO FIXME',workerCondition:'issues',workerThreshold:'2',workerSchedule:'interval',workerInterval:'1h'});
+  assert.equal(await live.saveWorkerTemplateForm(live.st()),true,live.workerStatus().error);
+  const template=JSON.parse(live.st().workerTemplate);
+  assert.match(template.id,/^ceska-kontrola-/);assert.equal(template.payload.definition.conditions[0].value,2);
+  assert.equal(template.payload.definition.schedule.value,'1h');assert.equal(template.payload.definition.actions[0].config.use_llm,false);
   live.setState({workerStep:1,workerProject:String(project.project.id),workerInstanceId:'studio-owned'});
   assert.equal(await live.previewWorker(live.st()),true,live.workerStatus().error);assert.equal(await live.submitWorker(live.st()),true,live.workerStatus().error);
   const installed=await expectJson(product,'GET','/api/agent-extensions/instances/studio-owned/config',null,200);assert.equal(installed.enabled,false);
-  live.setState({workerInstanceId:'studio-owned'});assert.equal(await live.loadWorkerInstance(live.st()),true,live.workerStatus().error);
+  assert.equal(await live.openWorkerEdit({id:'studio-owned'}),true,live.workerStatus().error);
   live.setState({workerStep:1,workerName:'Edited in Studio'});assert.equal(await live.previewWorker(live.st()),true,live.workerStatus().error);
   assert.equal(await live.submitWorker(live.st()),true,live.workerStatus().error);
   const edited=await expectJson(product,'GET','/api/agent-extensions/instances/studio-owned/config',null,200);assert.equal(edited.name,'Edited in Studio');assert.equal(edited.enabled,false);

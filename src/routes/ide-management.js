@@ -14,7 +14,7 @@ import { validateHuntProfile, IDE_HUNT_TERMINAL_STATES } from '../system/ide-hun
 import { validateExternalSignal } from '../system/ide-external-signals.js';
 
 const ERROR_MESSAGES={
-  IDE_CONTEXT_TOO_SMALL:'Kontext je pro interní interpretaci příliš malý. CHAT potřebuje nejméně 4096 tokenů.',
+  IDE_CONTEXT_TOO_SMALL:'Kontext je pro interní interpretaci příliš malý. CHAT potřebuje nejméně 8192 tokenů.',
   IDE_SSH_FILE_MISSING:'Soubor SSH klíče nebo known_hosts neexistuje. Opravte cestu.',
   IDE_SSH_FILE_ACCESS_DENIED:'Backend nemá přístup k SSH souboru. Zkontrolujte jeho vlastníka a oprávnění.',
   IDE_SSH_FILE_UNSAFE:'SSH soubor nesplňuje požadavky na vlastníka, oprávnění nebo bezpečnou cestu.',
@@ -29,7 +29,15 @@ const ERROR_MESSAGES={
   IDE_CODE_CONTEXT_PINNED:'Kontext kvalifikovaného CODE musí odpovídat schválenému profilu.',
   IDE_PROFILE_IN_USE:'SSH profil používá repozitář. Nejdřív změňte jeho přiřazení.',
   IDE_HUNT_PROFILE_IN_USE:'Profil má neuzavřený úkol. Nejdřív jej dokončete nebo zrušte.',
+  SCM_PROJECT_REQUIRED:'Vyberte platný projekt.',
+  SCM_PROJECT_NOT_FOUND:'Projekt není dostupný. Obnovte seznam projektů.',
+  SCM_ROOT_DENIED:'Vybraná složka projektu není povolená.',
+  SCM_REPO_ROOT_MISMATCH:'Git repozitář má jiný kořen než vybraný projekt.',
+  BACKUP_SCOPE_INVALID:'Záloha musí obsahovat databázi. Zkontrolujte vybrané sekce.',
 };
+const KNOWN_CLIENT_STATUS={SCM_PROJECT_REQUIRED:422,SCM_PROJECT_NOT_FOUND:404,
+  SCM_ROOT_DENIED:422,SCM_REPO_ROOT_MISMATCH:409,BACKUP_SCOPE_INVALID:422,
+  BACKUP_TIME_INVALID:422,BACKUP_CONTENT_MISMATCH:409};
 function filesystemFailure(error,prefix){
   if(error.code==='ENOENT'||error.code==='ENOTDIR')throw ideError(prefix+'_MISSING',422);
   if(error.code==='EACCES'||error.code==='EPERM')throw ideError(prefix+'_ACCESS_DENIED',422);
@@ -47,8 +55,9 @@ export function createIdeManagementRoutes({db,config,parseBody,sendJSON,notifica
     if(!isLocalOperatorTransportSubject(req.authenticatedSubject))return sendJSON(res,403,{code:'IDE_LOCAL_OPERATOR_REQUIRED'});
     try{return sendJSON(res,200,await action(req,params));}
     catch(error){
-      const known=Number.isInteger(error.httpStatus)&&error.httpStatus>=400&&error.httpStatus<=599;
-      const status=known?error.httpStatus:500;
+      const mapped=KNOWN_CLIENT_STATUS[error.code];
+      const known=Number.isInteger(error.httpStatus)&&error.httpStatus>=400&&error.httpStatus<=599||mapped!==undefined;
+      const status=mapped??(known?error.httpStatus:500);
       const code=known&&/^[A-Z][A-Z0-9_]{0,99}$/.test(error.code)?error.code:'IDE_OPERATION_FAILED';
       return sendJSON(res,status,{code,error:ERROR_MESSAGES[code]||
         (status>=500?'Operace se nezdařila. Obnovte stav před dalším pokusem.':'Požadavek nebyl přijat. Zkontrolujte vyplněné údaje.')});
@@ -134,6 +143,7 @@ export function createIdeManagementRoutes({db,config,parseBody,sendJSON,notifica
     'PUT /api/system/models/role-settings/:role':local(async(req,p)=>{const body=await parseBody(req);
       store.put('role',p.role,body.revision,validateRoleSettings(raw,config,p.role,body),actor(req));return roleView(p.role);}),
     'GET /api/system/models/telemetry':local(telemetry),
+    'POST /api/system/backups/retention-preview':local(async req=>backups.retentionPreview(await parseBody(req))),
     'GET /api/system/models/external-signals':local(()=>({signals:store.list('external-signal'),
       use:'DOWNLOAD_AND_TEST_PRIORITY_ONLY',localQualityAuthority:false})),
     'PUT /api/system/models/external-signals/:id':local(async(req,p)=>{const body=await parseBody(req);
@@ -165,7 +175,8 @@ export function createIdeManagementRoutes({db,config,parseBody,sendJSON,notifica
       if(store.list('repository').some(r=>r.sshProfileId===id))throw ideError('IDE_PROFILE_IN_USE',409);
       const body=record(await parseBody(req),['revision']);return store.remove('ssh-profile',id,body.revision,actor(req));}),
     'PUT /api/scm/repositories/:projectId':local(async(req,p)=>{const body=record(await parseBody(req),['revision','sshProfileId']);
-      const id=Number(p.projectId);await projectRoot(raw,id);
+      const id=Number(p.projectId);
+      try {await projectRoot(raw,id);}catch(error){filesystemFailure(error,'IDE_PATH');}
       if(body.sshProfileId!==null&&!store.get('ssh-profile',identifier(body.sshProfileId)))throw ideError('IDE_PROFILE_NOT_FOUND',404);
       return store.put('repository',String(id),body.revision,{sshProfileId:body.sshProfileId},actor(req));}),
     ...(huntScheduler?{

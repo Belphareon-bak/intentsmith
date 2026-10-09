@@ -2,7 +2,10 @@
 
 // Existing /api/settings keys and defaults from the classic Studio. The
 // renderer keeps these declarations separate from backend-owned model policy.
-const field = (key, label, type, defaultValue, extra = {}) => Object.freeze({ key, label, type, defaultValue, ...extra });
+const ACTIVE_KEYS = new Set(['intentsmith.memory.ltmEnabled', 'intentsmith.memory.learningEnabled',
+  'intentsmith.memory.feedbackDetection', 'intentsmith.memory.patternTracking']);
+const field = (key, label, type, defaultValue, extra = {}) => Object.freeze({ key, label, type, defaultValue,
+  supported:ACTIVE_KEYS.has(key), ...extra });
 const SETTINGS_FIELDS = Object.freeze({
   modely: {
     inference: [field('intentsmith.llm.temperature', 'Teplota generování', 'number', 0.7, { min: 0, max: 2, step: 0.1 }),

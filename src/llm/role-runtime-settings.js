@@ -4,9 +4,9 @@ import { getNumCtx } from './model-ctx.js';
 import { ideError, record } from '../db/ide-store.js';
 
 export const IDE_MODEL_ROLES = Object.freeze(['D1','D2','CODE','R1','R2','CHAT','VISION']);
-// The reviewed CHAT interpretation prompt reserves 256 output + 128 framing
-// tokens before quoted user evidence. Smaller windows cannot run that path.
-export const minimumRoleContext = role => role==='CHAT'?4096:512;
+// CHAT requires room for interpretation and an ordinary 2 000-character input.
+// Longer requests still undergo per-call admission and receive a typed capacity error.
+export const minimumRoleContext = role => role==='CHAT'?8192:512;
 export function currentRoleArtifact(db, config, role) {
   if (!IDE_MODEL_ROLES.includes(role)) throw ideError('IDE_ROLE_INVALID');
   const binding = db.prepare('SELECT model_name,digest_sha256 FROM model_desired_bindings WHERE role=?').get(role);

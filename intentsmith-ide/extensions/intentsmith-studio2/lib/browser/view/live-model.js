@@ -13,6 +13,7 @@ const { MEDIA_ID } = require('../catalog-store');
 const { IntentSmithBus } = require('@intentsmith/chat-panel/lib/browser/event-bus');
 const { COMMANDS: LEARNING_COMMANDS, runCommand: runLearningCommand } = require('../learning-commands');
 const { SETTINGS_FIELDS, fieldsFor, validateValue } = require('../settings-preferences');
+const { workerTemplate } = require('../worker-template');
 const { ModelWorkspaceRedesign } = require('../model-workspace-redesign');
 const { IdeSettingsManagement, CATEGORIES: MANAGEMENT_CATEGORIES } = require('../ide-settings-management');
 const { ScmReview } = require('../scm-review');
@@ -616,8 +617,8 @@ class LiveModel extends Component {
       desc: item.description, icon: ({ chats: I.chat, projects: I.folder,
         specialists: I.users, expertises: I.cap, workers: I.bot, market: I.bag, media: I.image })[sec],
       tone: this.sec(sec).tone,
-      groups: [sec === 'chats' ? (item.raw.project_id ? 'project' : 'free')
-        : sec === 'expertises' ? item.group : item.state || item.group],
+      groups: sec === 'specialists' ? [...new Set([item.raw.type,item.raw.domain,item.state,item.group].filter(Boolean))]
+        : [sec === 'chats' ? (item.raw.project_id ? 'project' : 'free') : sec === 'expertises' ? item.group : item.state || item.group],
       group: sec === 'expertises' ? expertiseLabel : sec === 'projects' ? projectState : item.group || section,
       catLabel: sec === 'expertises' ? expertiseLabel : sec === 'projects' ? projectState : item.state || item.group,
       meta: sec === 'expertises' && Number.isFinite(item.raw.temperature)
@@ -882,7 +883,7 @@ class LiveModel extends Component {
         stCls: busy ? 'warn' : enabled ? 'ok' : 'idle',
         hasPrimary: extension && enabled && !busy, primaryLabel: 'Spustit teď',
         onPrimary: () => this.pWorkerAction(item, 'run'),
-        secondary: extension && !busy ? [{ label: enabled ? 'Pozastavit' : 'Obnovit',
+        secondary: extension && !busy ? [{ label: 'Upravit', icon: I.gear, go: () => this.openWorkerEdit(item) }, { label: enabled ? 'Pozastavit' : 'Obnovit',
           icon: enabled ? I.pause : I.play, go: () => this.pWorkerAction(item, enabled ? 'disable' : 'enable') },
         { label: 'Odinstalovat', icon: I.trash, go: () => this.pWorkerAction(item, 'uninstall') }] : [],
         more: () => {}, hasTabs: true, tabs: [['prehled', 'Přehled'], ['zdroje', 'Zdroje'], ['behy', 'Běhy']]
@@ -1896,6 +1897,22 @@ class LiveModel extends Component {
     } finally { this._expertiseWizardStatus.busy = false; this.forceUpdate(); }
   }
 
+  async openWorkerEdit(item) {
+    this.setState({ ...this.pSelect(this.st(), 'workers', '__new__'), workerInstanceId:item.id });
+    await this.loadWorkerWizard();
+    return this.loadWorkerInstance(this.st());
+  }
+
+  async saveWorkerTemplateForm(s) {
+    try {
+      const slug=String(s.workerTemplateName||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'').slice(0,40) || 'worker';
+      const manifest=workerTemplate(s, slug+'-'+Date.now().toString(36));
+      const next={...s,workerTemplate:JSON.stringify(manifest,null,2)};
+      this.setState({workerTemplate:next.workerTemplate});
+      return this.saveWorkerTemplate(next);
+    } catch(error) { this._workerWizardStatus.error=error.message;this.forceUpdate();return false; }
+  }
+
   async saveWorkerTemplate(s) {
     if(this._workerWizardStatus.busy || this._workerWizardStatus.uncertain) return false;
     let manifest;
@@ -1915,7 +1932,7 @@ class LiveModel extends Component {
       const readback=await this.widget.catalog.get('/api/agent-extensions/'+encodeURIComponent(manifest.id));
       if(result.id!==manifest.id || readback.definitionDigest!==result.definitionDigest || readback.revision!==result.revision)
         throw Error('Uloženou šablonu nelze přesně ověřit. Obnovte katalog před dalším zápisem.');
-      await this.loadWorkerWizard();this.setState({workerExtension:manifest.id,workerStep:0});
+      await this.loadWorkerWizard();this.setState({workerExtension:manifest.id,workerStep:0,workerInstanceId:manifest.id+'-1'});
       this._workerWizardStatus.error='Šablona uložena a ověřena. Nová instance bude vypnutá.';return true;
     }catch(error){if(submitted)this._workerWizardStatus.uncertain=true;this._workerWizardStatus.error=error.message;return false;}
     finally{this._workerWizardStatus.busy=false;this.forceUpdate();}
@@ -2635,7 +2652,7 @@ class LiveModel extends Component {
 
   developmentVM() { return this.development.vm(); }
 
-  modelWorkspaceVM() { return this.modelWorkspace.vm(); }
+  modelWorkspaceVM() { return this.modelWorkspace.vm(this.st().view,this.st().size); }
 
   managementVM(s, category) { return this.settingsManagement.vm(category || s.detail.settings, s.view, s.size); }
 
@@ -2656,7 +2673,11 @@ class LiveModel extends Component {
       const current = Object.hasOwn(draft, definition.key) ? draft[definition.key]
         : ready && resource.data[definition.key] !== undefined ? resource.data[definition.key] : definition.defaultValue;
       return { label: definition.label, value: String(current), checked: current === true,
-        disabled: !ready || this._settingsBusy,
+        disabled: !ready || this._settingsBusy || !definition.supported,
+        effectNote:definition.supported ? '' : definition.key === 'intentsmith.llm.contextWindow' || definition.key === 'intentsmith.output.maxResponseLength'
+          ? 'Kontext a délku odpovědi nastavte zvlášť u každé role v Modely → Role.'
+          : 'Tato starší volba zatím nemá účinek. Uloženou hodnotu zobrazujeme pouze pro čtení.',
+        hasEffectNote:!definition.supported,
         isText: definition.type === 'text', isTextarea: definition.type === 'textarea',
         isNumber: definition.type === 'number', isToggle: definition.type === 'toggle',
         isTime: definition.type === 'time', isSelect: definition.type === 'select',
@@ -2671,7 +2692,7 @@ class LiveModel extends Component {
 
   changePreference(id, definition, raw) {
     const resource = this._settingsResources.get(id === 'modely' ? 'modely:prefs' : id);
-    if (resource?.status !== 'ready' || this._settingsBusy || !Object.values(SETTINGS_FIELDS[id] || {}).flat().includes(definition)) return false;
+    if (resource?.status !== 'ready' || this._settingsBusy || !definition.supported || !Object.values(SETTINGS_FIELDS[id] || {}).flat().includes(definition)) return false;
     const draft = { ...(this._preferenceDrafts.get(id) || {}) };
     const value = raw;
     const original = resource.data[definition.key] === undefined ? definition.defaultValue : resource.data[definition.key];
@@ -2691,7 +2712,7 @@ class LiveModel extends Component {
     for (const [key, raw] of Object.entries(draft)) {
       const definition = definitions.find(item => item.key === key);
       const value = definition?.type === 'number' ? Number(raw) : raw;
-      if (!definition || !validateValue(definition, value)) {
+      if (!definition?.supported || !validateValue(definition, value)) {
         this._preferenceNotice.set(id, 'Neplatná hodnota: ' + (definition?.label || key));
         this.forceUpdate(); return false;
       }
@@ -3819,6 +3840,14 @@ class LiveModel extends Component {
       vm.mainCols = vm.mainCols.replace(/ minmax\(0, 1fr\).*/, ' minmax(0, 1fr) 0px 0px');
       vm.tbar.viewDim = 'dimmed'; vm.tbar.colDim = 'dimmed';
     }
+    const settingsId=s.detail?.settings;
+    const modelCatalog=settingsId==='modely'&&['hunt','candidates','history'].includes(this.modelWorkspace.tab)&&this.modelWorkspace.huntTab==='catalog'&&!this.modelWorkspace.externalDraft;
+    const collection=!vm.isScmReview&&!vm.isSessions&&s.mode==='section'&&s.detail?.[s.section]!=='__new__'
+      &&(s.section!=='settings'||!settingsId||modelCatalog||['ucet','oznameni','uloziste','zalohy','git'].includes(settingsId)&&!this.settingsManagement.editors.has(settingsId));
+    vm.tbar.viewDisabled=!collection;
+    vm.tbar.viewTitle=collection?'Katalog jako dlaždice nebo seznam':'Tato stránka používá formulář, tabulku nebo diff. Seznam a dlaždice zde nemají účinek.';
+    vm.tbar.viewDim=collection?'':'view-disabled';
+    if(!collection){vm.tbar.showTiles=()=>false;vm.tbar.showList=()=>false;vm.setSize=()=>false;}
     // Okno Electronu: Studio 2 kreslí vlastní titulní lištu, tlačítka ovládají skutečné okno.
     const core = typeof window !== 'undefined' ? window.electronTheiaCore : null;
     if (core) {

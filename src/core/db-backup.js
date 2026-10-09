@@ -463,34 +463,39 @@ export function listBackups(dataDir) {
   return backups;
 }
 
+export function planBackupRetention(dataDir, opts = {}) {
+  const maxDaily = opts.maxDaily ?? 7, maxWeekly = opts.maxWeekly ?? 4;
+  if (![maxDaily,maxWeekly].every(n=>Number.isSafeInteger(n)&&n>=0)) throw Object.assign(new Error('Invalid retention policy'),{code:'BACKUP_RETENTION_INVALID'});
+  const backups = listBackups(dataDir);
+  // Archived snapshots are protected in every automatic retention caller.
+  // If an existing management store is unreadable, delete nothing.
+  const archived = new Set();
+  if (opts.db?.prepare("SELECT 1 FROM sqlite_master WHERE name='ide_documents'").get()) {
+    for (const row of opts.db.prepare("SELECT id,data_json FROM ide_documents WHERE kind='backup'").all()) {
+      if (JSON.parse(row.data_json).archived===true) archived.add(row.id);
+    }
+  }
+  const weekly = [];
+  const daily = [];
+  for (const backup of backups) {
+    const match = backup.name.match(BACKUP_NAME_PATTERN);
+    if (!match) { daily.push(backup); continue; }
+    const date = new Date(`${match[1]}T00:00:00Z`);
+    (date.getUTCDay() === 0 ? weekly : daily).push(backup);
+  }
+  const keep = new Set([
+    ...archived,
+    ...(backups[0] ? [backups[0].name] : []),
+    ...daily.slice(0, maxDaily),
+    ...weekly.slice(0, maxWeekly),
+  ].map(backup => typeof backup==='string'?backup:backup.name));
+  return {backups,keep,deletions:backups.filter(backup=>!keep.has(backup.name))};
+}
+
 export function pruneBackups(dataDir, opts = {}) {
-  const maxDaily = opts.maxDaily ?? 7;
-  const maxWeekly = opts.maxWeekly ?? 4;
   const stats = { deleted: 0, kept: 0 };
   try {
-    const backups = listBackups(dataDir);
-    // Archived snapshots are protected in every automatic retention caller.
-    // If an existing management store is unreadable, delete nothing.
-    const archived = new Set();
-    if (opts.db?.prepare("SELECT 1 FROM sqlite_master WHERE name='ide_documents'").get()) {
-      for (const row of opts.db.prepare("SELECT id,data_json FROM ide_documents WHERE kind='backup'").all()) {
-        if (JSON.parse(row.data_json).archived===true) archived.add(row.id);
-      }
-    }
-    const weekly = [];
-    const daily = [];
-    for (const backup of backups) {
-      const match = backup.name.match(BACKUP_NAME_PATTERN);
-      if (!match) { daily.push(backup); continue; }
-      const date = new Date(`${match[1]}T00:00:00Z`);
-      (date.getUTCDay() === 0 ? weekly : daily).push(backup);
-    }
-    const keep = new Set([
-      ...archived,
-      ...(backups[0] ? [backups[0].name] : []),
-      ...daily.slice(0, maxDaily),
-      ...weekly.slice(0, maxWeekly),
-    ].map(backup => typeof backup==='string'?backup:backup.name));
+    const {backups,keep}=planBackupRetention(dataDir,opts);
     for (const backup of backups) {
       if (keep.has(backup.name)) stats.kept += 1;
       else {

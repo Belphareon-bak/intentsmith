@@ -36,7 +36,7 @@ Frontend má pro nové prvky generovat nové ID. Neznámé vstupní klíče se o
 Příklad zápisu modelové role; hodnoty model/digest/revision se berou z GET:
 
 ```json
-{"revision":0,"model":"fixture:1b","digestSha256":"<aktuální 64hex digest>","contextWindowTokens":4096,"maxOutputTokens":256}
+{"revision":0,"model":"fixture:1b","digestSha256":"<aktuální 64hex digest>","contextWindowTokens":8192,"maxOutputTokens":256}
 ```
 
 Role settings se použijí v gateway, v legacy CHAT/VISION adaptérech a při
@@ -145,3 +145,42 @@ zůstává uzamčený pro obnovu a kontrolu; automatické opakování není povo
 Veřejnou referenci lze importovat formulářem s readbackem zdroje, metriky,
 data a stupnice. Kvantizace pochází z metadata API; chybějící údaj se nepředstírá.
 Hunt respektuje automation hold a zobrazuje důvod odložení.
+
+
+## Dokončení revize a preview V4, 10. 10.
+
+CHAT přijímá nejméně 8 192 tokenů. Nadlimitní interpretace i následná odpověď
+vrací `413 CHAT_CONTEXT_CAPACITY_EXCEEDED` s českou opravnou větou; nevzniká
+vymyšlená odpověď. Všechny konfigurované role kontrolují před inference odhad
+textu + rámování + vlastní výstupní rozpočet. Jde o konzervativní přijímací
+kontrolu textu, nikoli přesný tokenizer, měření obrazových tokenů nebo HW maxima.
+Limit běžné odpovědi platí jen pro explicitní `purpose: answer` bez JSON
+formátu; interní strukturované kroky včetně VISION drží vlastní auth/call-site
+rozpočet. Při malém okně odmítnou vstup jako `LLM_CONTEXT_WINDOW_EXCEEDED`.
+
+`POST /api/system/backups/retention-preview` přijímá `{maxDaily,maxWeekly}`,
+vrací aktuální kandidáty a chráněné snímky a nic nemaže. Používá stejný plán
+jako všechny stávající automatické retence. Studio ukáže kandidáty a před
+uložením pravidel s dopadem vyžaduje potvrzení. Nové zálohy mohou plán změnit;
+uložení pravidel samo nic neodstraní. Legacy zápis pravidel má preflight a
+readback, není vydáván za CAS.
+
+Git compare/detail vrací `diffTruncated` a nejvýše 1 MB patche; seznam souborů
+zůstává k dispozici i pro velkou změnu. Frontend nabízí větve podle aktivity
+nebo názvu, přesné reference, rodiče commitu a společný diff / vedle sebe.
+Telemetrie má naměřené P50/P95, součet, první/poslední čas a graf maximálně
+120 skutečných pozorování. Čas prvního tokenu se neměří a UI to uvádí.
+
+Worker má formulář nad povolenou místní M3 autoritou: projektový zdroj,
+změna revize nebo práh signálů, ruční/intervalové spouštění, oznámení v IDE.
+Pokročilý JSON je volitelný. Úprava instance je dostupná z detailu; tvorba
+neaktivuje workera. Obecná historická nastavení mají čtyři aktivní přepínače
+paměti; dalších 31 bez ověřeného spotřebitele je pro čtení s vysvětlením a
+UI jejich zápis odmítá. Kontext/výstup se nastavují výhradně v editoru role.
+
+Resolver úložiště používá ověřenou místní službu Ollama; její skutečná cesta
+má přednost před backendovým hintem. `systemctl` má pevnou cestu
+`/usr/bin/systemctl`. Hunt předává adresu skutečného pull provideru, nikoli
+inference sidecaru; neznámou kapacitu nevydává za dostatek místa. Pokud chybí
+instalace Huntu, fronta uchová důvod `DESKTOP_NOT_INSTALLED`. Automation hold
+stanice zůstává účinný.

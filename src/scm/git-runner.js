@@ -20,7 +20,7 @@ export async function projectRoot(db, projectId) {
   if (!(await fs.stat(root)).isDirectory() || root === path.parse(root).root || root === os.homedir()) throw scmError('SCM_ROOT_DENIED');
   return root;
 }
-export async function git(root, args, { timeout = 10000, allowFailure = false, sshCommand = null } = {}) {
+export async function git(root, args, { timeout = 10000, allowFailure = false, sshCommand = null, truncateOutput = false } = {}) {
   if (!Array.isArray(args) || args.some(arg => typeof arg !== 'string' || arg.includes('\0'))) throw scmError('SCM_INPUT_INVALID');
   try {
     const result = await exec('/usr/bin/git', [
@@ -28,9 +28,11 @@ export async function git(root, args, { timeout = 10000, allowFailure = false, s
       '-c', 'commit.gpgSign=false', '-c', 'credential.helper=',
       '-c', 'protocol.allow=never', '-c', 'protocol.ssh.allow=always', '-c', 'protocol.https.allow=always',
       ...args,
-    ], {...options(root, timeout),env:{...baseEnv(),...(sshCommand?{GIT_SSH_COMMAND:sshCommand}:{})}});
-    return result.stdout;
+    ], {...options(root, timeout),...(truncateOutput?{maxBuffer:1_000_000}:{}),env:{...baseEnv(),...(sshCommand?{GIT_SSH_COMMAND:sshCommand}:{})}});
+    return truncateOutput ? {text:result.stdout,truncated:false} : result.stdout;
   } catch (error) {
+    if (truncateOutput && error.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER' && typeof error.stdout === 'string')
+      return {text:Buffer.from(error.stdout).subarray(0,999_997).toString('utf8'),truncated:true};
     if (allowFailure) return null;
     if (error.killed || error.signal) throw scmError('SCM_GIT_TIMEOUT');
     throw scmError('SCM_GIT_FAILED', 'Git operation failed');

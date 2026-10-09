@@ -1321,6 +1321,7 @@ export function createSystemRoutes({
               quantization: entry.quantization || entry.details?.quantization_level || previous?.quantization || installedQuantization.get(canonical) || null,
               category: entry.category || previous?.category || null,
               params: entry.params ?? previous?.params ?? null,
+              license: typeof entry.license==='string'&&entry.license.length<=200?entry.license:previous?.license||null,
               sizeGB: entry.sizeGB ?? previous?.sizeGB ?? null,
               vramMb: entry.effectiveVramMb ?? entry.baseVramMb ?? previous?.vramMb ?? null,
               contextWindow: entry.contextWindow ?? previous?.contextWindow ?? null,

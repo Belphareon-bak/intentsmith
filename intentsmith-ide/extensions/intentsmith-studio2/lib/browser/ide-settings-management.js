@@ -247,6 +247,13 @@ class IdeSettingsManagement {
         editor.blocked = true; this.notice(category, 'Nastavení se nepodařilo ověřit před zápisem (' + error.code + '). Rozepsané hodnoty zůstaly; obnov stav.'); return false;
       } finally { this.busy.delete(category); this.changed(); }
       if (this.editors.get(category) !== editor || !this.ready(category) || this.resources.get(category).source !== source) return false;
+      try {
+        const preview=await this.request('POST','/api/system/backups/retention-preview',{maxDaily:patch.max_daily,maxWeekly:patch.max_weekly},source);
+        if(preview.deletesNothing!==true||preview.scope!=='CURRENT_SNAPSHOTS_NEXT_RETENTION'||!Array.isArray(preview.deletions)
+          ||preview.deletions.some(b=>!ID.test(b.name||'')))throw fail('IDE_RETENTION_PREVIEW_INVALID');
+        if(preview.deletions.length && !await this.confirmed('Uložení nyní nic nesmaže. Při příštím automatickém úklidu tato pravidla odstraní následující nearchivované zálohy (novější zálohy mohou seznam změnit):\n'+preview.deletions.map(b=>b.name).join('\n')+'\nUložit tato pravidla?'))return false;
+      } catch(error) {this.notice(category,'Náhled retence se nepodařilo ověřit. Pravidla nebyla změněna.');return false;}
+      if(this.editors.get(category)!==editor||this.sourceIdentity()!==source)return false;
       // Legacy full-document endpoint. This preflight/readback is intentionally
       // not labelled CAS; its server-side race is recorded in the handoff.
       const body = { ...current, storage: { ...current.storage, backup: { ...current.storage?.backup, ...patch } } };
@@ -378,7 +385,7 @@ class IdeSettingsManagement {
     if (category === 'ucet' || category === 'oznameni') {
       sections.push(this.section(category === 'ucet' ? 'Propojené doručovací účty' : 'Doručovací kanály', 'Telegram a Discord používají odkaz na proměnnou prostředí. Uložení konfigurace a ověřené doručení jsou různé stavy.', accountRows,
         [a('+ Přidat propojení', () => this.openAccount(category), { primary: true })]));
-      if (category === 'ucet') sections.push(this.section('Identita a další poskytovatelé', 'Zobrazované jméno a popis jsou lokální preference. Další propojení, nový přihlašovací účet a osobní/pracovní/anonymní identita zatím nejsou dostupné.', []));
+      if (category === 'ucet') sections.push(this.section('Identita a další poskytovatelé', 'Starší zobrazované jméno a popis zatím nemají připojený účinek a jsou pouze pro čtení. Další propojení, nový přihlašovací účet a osobní/pracovní/anonymní identita zatím nejsou dostupné.', []));
       if (category === 'oznameni') {
         sections.push(this.section('Kanály zaregistrované v backendu', 'Registrace kanálu sama neprokazuje doručení. Parametry Telegramu a Discordu upravíte výše.', (data.channels || []).map(c => this.row(c.name, '', c.configured ? 'Zaregistrován' : 'Nenastaven', []))));
         if (data.email) sections.push(this.section('E-mail', 'Současné parametry SMTP jsou zde jen pro čtení. Přihlašovací údaj zůstává v prostředí a do formuláře se nevkládá.', [this.row('SMTP', data.email.smtpHost || 'Server není nastaven', data.email.emailEnabled ? 'Povoleno' : 'Vypnuto', [meta('Příjemce', data.email.emailRecipient || 'Nenastaven'), meta('Port', data.email.smtpPort), meta('Odesílatel', data.email.smtpFrom || 'Nenastaven')])]));
@@ -400,7 +407,7 @@ class IdeSettingsManagement {
       if (data.backupPolicy) sections.push(this.section('Pravidla záloh', 'Backend třídí zálohy do běžné a nedělní skupiny. Archivované zálohy a nejnovější záloha jsou chráněné. Změna pravidel sama nic nemaže; retence se použije při vytvoření zálohy.',
         [this.row('Retence a životní cyklus', '', 'Načteno z backendu', [meta('Běžná skupina', count(data.backupPolicy.max_daily, 'záloha', 'zálohy', 'záloh')), meta('Nedělní skupina', count(data.backupPolicy.max_weekly, 'záloha', 'zálohy', 'záloh')), meta('Při spuštění', data.backupPolicy.on_startup ? 'Zapnuto' : 'Vypnuto'), meta('Při ukončení', data.backupPolicy.on_shutdown ? 'Zapnuto' : 'Vypnuto')],
           [a('Upravit pravidla', () => this.editor(category, 'retention', { settings: data.settings }, data.backupPolicy))])]));
-      sections.push(this.section('Zálohy stavu', 'Archivace chrání před automatickou retencí. Nová záloha použije aktuální pravidla backendu; vlastní časový plán a náhled úklidu zatím nejsou dostupné.', (data.backups || []).map(b => this.row(b.name, b.created_at || 'Čas není známý', b.archived ? 'Archiv' : 'Běžná záloha',
+      sections.push(this.section('Zálohy stavu', 'Archivace chrání před automatickou retencí. Nová záloha použije aktuální pravidla backendu; náhled úklidu je součástí změny pravidel. Vlastní časový plán zatím není dostupný.', (data.backups || []).map(b => this.row(b.name, b.created_at || 'Čas není známý', b.archived ? 'Archiv' : 'Běžná záloha',
         [meta('Poznámka', b.note || 'Bez poznámky'), meta('Celkem', bytes(b.total_size_bytes)), meta('Databáze', bytes(b.db_size_bytes)), meta('Rozsah', b.sections.join(', ')), meta('Obnova', b.restorable ? 'Podporovaný formát; validační kontrola zde neproběhla' : 'Nepodporovaný formát')],
         [a('Poznámka / archivace', () => this.editor(category, 'backup', b, { note: b.note, archived: b.archived })), a('Manifest', () => { this.details.set(category, { title: 'Metadata zálohy · ' + b.name, rows: [meta('Formát', b.format_version), meta('Schema', b.schema_version), meta('Otisk obsahu', b.content_fingerprint || 'Chybí'), meta('Obnovitelný rozsah', b.restore_scope.join(', ') || 'Žádný'), meta('Archivní rozsah', b.sections.filter(s => !b.restore_scope.includes(s)).join(', ') || 'Žádný')] }); this.changed(); }), a('Smazat…', () => this.remove(category, 'backups', b), { danger: true, disabled: !ready || b.archived || (data.backups || []).length <= 1 })]))));
       sections.push(this.section('Obnova a plánování', 'Obnova databáze probíhá při zastavené aplikaci přes podporovaný restore příkaz. Projekty a přílohy záloha stavu nezahrnuje. Pravidelný časový plán a náhled úklidu zatím nejsou dostupné.', []));

@@ -112,7 +112,13 @@ export function createIdeHuntScheduler({store,control,evaluations,clock=Date.now
         if(active.state==='LAUNCHING') {
           store.put('hunt-job',active.id,active.revision,{...data(active),state:'INTERRUPTED',code:'IDE_HUNT_LAUNCH_UNCERTAIN'},active.actor);return;
         }
-        const status=await control.status({jobId:active.launchToken});
+        let status;
+        try {status=await control.status({jobId:active.launchToken});}
+        catch(error) {
+          const code=/^[A-Z][A-Z0-9_]{0,99}$/.test(error.code||'')?error.code:'HUNT_STATUS_UNAVAILABLE';
+          if(active.deferredBecause!==code)store.put('hunt-job',active.id,active.revision,{...data(active),deferredBecause:code},active.actor);
+          return;
+        }
         if(['RUNNING','STOPPING'].includes(status.state))return;
         // Only a matching request started after this job proves completion.
         const result=[status.jobResult,...(status.recent||[])].filter(Boolean)
@@ -135,7 +141,9 @@ export function createIdeHuntScheduler({store,control,evaluations,clock=Date.now
       const job=store.list('hunt-job').filter(j=>j.state==='QUEUED'&&Date.parse(j.at)<=clock())
         .sort((a,b)=>Date.parse(a.at)-Date.parse(b.at)||a.createdAt-b.createdAt)[0];
       if(!job)return;
-      const status=await control.status({freshGpu:true});
+      let status;
+      try {status=await control.status({freshGpu:true});}
+      catch(error) {status={state:'UNAVAILABLE',code:/^[A-Z][A-Z0-9_]{0,99}$/.test(error.code||'')?error.code:'HUNT_STATUS_UNAVAILABLE'};}
       const deferredBecause=['RUNNING','STOPPING'].includes(status.state)?'HUNT_ACTIVE':status.hold?'AUTOMATION_HOLD':
         status.state==='UNAVAILABLE'?(status.code||'HUNT_UNAVAILABLE'):
         !status.gpu?.available?(status.gpu?.code||'GPU_STATE_UNKNOWN'):null;

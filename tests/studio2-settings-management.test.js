@@ -38,6 +38,7 @@ function fixture(extra = {}) {
       repositories[0].profile = { id: '1', revision: body.revision + 1, sshProfileId: body.sshProfileId }; return respond(200, repositories[0].profile);
     }
     if (options.method === 'POST' && path === '/api/settings') { settings = clone(body); return respond(200, { success: true }); }
+    if (options.method === 'POST' && path === '/api/system/backups/retention-preview') return respond(200,{deletesNothing:true,scope:'CURRENT_SNAPSHOTS_NEXT_RETENTION',deletions:[]});
     throw new Error('Unexpected offline request: ' + options.method + ' ' + path);
   };
   let confirms = 0, updates = 0;
@@ -118,9 +119,21 @@ test('legacy retention merges only selected backup values, preserves unrelated s
   const data = c.resource('zalohy'); c.editor('zalohy', 'retention', { settings: data.settings }, data.backupPolicy);
   c.editors.get('zalohy').draft.max_daily = 1; c.editors.get('zalohy').draft.max_weekly = 2;
   assert.equal(await c.save('zalohy'), true);
-  const writes = f.calls.filter(x => x.method !== 'GET'); assert.equal(writes.length, 1); assert.equal(writes[0].path, '/api/settings');
+  assert(f.calls.some(x=>x.path==='/api/system/backups/retention-preview'));
+  const writes = f.calls.filter(x => x.path === '/api/settings' && x.method === 'POST'); assert.equal(writes.length, 1); assert.equal(writes[0].path, '/api/settings');
   assert.equal(writes[0].body.unrelated, 'preserve'); assert.equal(writes[0].body.storage.retention.conversations, 100); assert.equal(writes[0].body.storage.backup.periodic, false);
   assert.equal(c.resource('zalohy').backupPolicy.max_daily, 1); assert.equal(c.resource('zalohy').backupPolicy.max_weekly, 2); assert.equal(f.backups.length, 1); c.destroy();
+});
+
+test('retention changes show the actual deletion preview and cancellation preserves draft without saving',async()=>{
+  let confirmation='';
+  const f=fixture({confirmAction:message=>{confirmation=message;return false;},handle:async(path,method,body,respond)=>{
+    if(path==='/api/system/backups/retention-preview')return respond(200,{deletesNothing:true,scope:'CURRENT_SNAPSHOTS_NEXT_RETENTION',deletions:[{name:'old.backup'}]});
+  }}),c=f.controller;
+  await c.load('zalohy');const data=c.resource('zalohy');c.editor('zalohy','retention',{settings:data.settings},data.backupPolicy);
+  c.editors.get('zalohy').draft.max_daily=1;
+  assert.equal(await c.save('zalohy'),false);assert.match(confirmation,/old.backup/);assert.match(confirmation,/příštím/);
+  assert(!f.calls.some(x=>x.method==='POST'&&x.path==='/api/settings'));assert.equal(c.editors.get('zalohy').draft.max_daily,1);c.destroy();
 });
 
 test('definite validation rejection preserves an editable draft for correction',async()=>{

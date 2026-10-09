@@ -964,8 +964,8 @@ Při další integraci se přeměří znovu.
 
 | | |
 |---|---:|
-| `src/**/*.js` | **238 694 ř.**, 699 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **273 470 ř.**, 610 `.js` souborů v pracovním kandidátu |
+| `src/**/*.js` | **238 754 ř.**, 699 `.js` souborů v pracovním kandidátu |
+| `tests/**/*.js` | **273 586 ř.**, 610 `.js` souborů v pracovním kandidátu |
 | Registrovaných testových programů | **602** (`504 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **187 / 110** |
 | HTTP rout | **308 statických deklarací**; nejde o počet runtime ověřených cest |
@@ -1731,3 +1731,12 @@ nativní AppImage 9/9 a CI 19/19. Dodatečná sonda ověřila persistenci/restar
 Kandidát REVIEW_PENDING_WITH_OPEN_SETTINGS_FINDINGS; bod f) není plný PASS.
 Finální úpravy čekají na nezávislý verdikt Opuse; produkce ani automation hold
 se nemění. CHAT personalizace podle nového doplnění patří po releasu.
+
+
+Dokončení revize 10. 10. doplňuje N1–N8, formulář workeru, textové přijímací
+rozpočty všech konfigurovaných rolí, pull storage endpoint, retenci s náhledem,
+Git selektory/rodiče/omezený diff a graf naměřené telemetrie. Preview V4 1–9
+je srovnáno s kanonickým zdrojem vzhledu. 31 historických neúčinných voleb
+je nyní pouze pro čtení; čtyři přepínače paměti jsou aktivní. **Nový celý
+profil a nativní zápis/restart se kvalifikují samostatně; nezávislá revize je
+požadovaná.** [Paket](docs/review/ide-integration-remediation-20261010.md).

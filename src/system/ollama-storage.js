@@ -17,7 +17,7 @@ export async function resolveOllamaStorage(ollama = {}, { runCommand = execute, 
     || endpoint.username || endpoint.password) return unknown('REMOTE_PROVIDER_STORAGE');
   if (platform === 'linux') {
     try {
-      const { stdout } = await runCommand('systemctl', ['show', 'ollama.service',
+      const { stdout } = await runCommand('/usr/bin/systemctl', ['show', 'ollama.service',
         '--property=Environment,ActiveState,MainPID'], { timeout: 1000, maxBuffer: 65536, encoding: 'utf8' });
       const properties = Object.fromEntries(stdout.split('\n').filter(line => line.includes('='))
         .map(line => { const i = line.indexOf('='); return [line.slice(0, i), line.slice(i + 1)]; }));

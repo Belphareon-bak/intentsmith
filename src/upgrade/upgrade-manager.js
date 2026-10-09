@@ -129,6 +129,7 @@ export class UpgradeManager {
     this._pullIdleTimeoutMs = MODEL_PULL_IDLE_TIMEOUT_MS;
     this._pullProgress = new Map();
     this._readPullStorageBytes = options.readPullStorageBytes || null;
+    this._resolvePullStorage = options.resolvePullStorage || resolveOllamaStorage;
     this._modelUseAuthority = options.modelUseAuthority || modelUseAuthority;
     if (typeof this._modelUseAuthority?.acquireExclusive !== 'function') {
       throw modelPullError('MODEL_USE_AUTHORITY_REQUIRED', 'Model use authority is unavailable');
@@ -419,7 +420,7 @@ export class UpgradeManager {
     };
     let storageWatch, pullController, pullReader, storageError;
     let remainingDownloadBytes = 0;
-    const location=this._readPullStorageBytes?null:await resolveOllamaStorage(config.ollama);
+    const location=this._readPullStorageBytes?null:await this._resolvePullStorage({...config.ollama,baseUrl:provider.origin});
     const readStorage=this._readPullStorageBytes||(()=>{
       if(!location?.path)throw modelPullError('MODEL_PULL_STORAGE_UNKNOWN','Úložiště poskytovatele není známé.');
       const stats=statfsSync(location.path);return Number(stats.bavail)*Number(stats.bsize);
