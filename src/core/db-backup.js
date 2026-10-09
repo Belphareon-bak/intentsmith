@@ -292,6 +292,10 @@ function replaceDatabaseFileSet(stagingPath, targetDbPath) {
  * only intentsmith.db; release code is never downgraded by data recovery.
  */
 export function createStateBackup(db, dataDir, opts = {}) {
+  const sections = opts.sections ?? ['database','config','skills','specialists'];
+  if (!Array.isArray(sections) || !sections.includes('database') || new Set(sections).size!==sections.length
+    || sections.some(section=>!['database','config','skills','specialists'].includes(section)))
+    throw new StateBackupError('BACKUP_SCOPE_INVALID','A state backup requires database; optional sections are config, skills, specialists');
   const projectRoot = opts.projectRoot || path.dirname(dataDir);
   const backupsDir = path.join(dataDir, 'backups');
   const timestamp = formatTimestamp(opts.now || new Date());
@@ -327,7 +331,7 @@ export function createStateBackup(db, dataDir, opts = {}) {
     stats.size += fs.statSync(dbBackupPath).size;
 
     const skillsSrc = path.join(projectRoot, 'skills');
-    if (fs.existsSync(skillsSrc)) {
+    if (sections.includes('skills') && fs.existsSync(skillsSrc)) {
       const skillsDst = path.join(stagingPath, 'skills');
       fs.mkdirSync(skillsDst, { mode: 0o700 });
       for (const name of fs.readdirSync(skillsSrc).sort()) {
@@ -347,12 +351,12 @@ export function createStateBackup(db, dataDir, opts = {}) {
     }
 
     const specialistsSrc = path.join(projectRoot, 'specialists');
-    if (fs.existsSync(specialistsSrc)) {
+    if (sections.includes('specialists') && fs.existsSync(specialistsSrc)) {
       copyDirSync(specialistsSrc, path.join(stagingPath, 'specialists'), stats);
     }
 
     const configDst = path.join(stagingPath, 'config');
-    for (const name of ['intentsmith-setup.json', 'c3-setup.json', 'design-defaults.json']) {
+    for (const name of sections.includes('config') ? ['intentsmith-setup.json', 'c3-setup.json', 'design-defaults.json'] : []) {
       const src = path.join(dataDir, name);
       if (!fs.existsSync(src)) continue;
       if (!fs.lstatSync(src).isFile()) {
@@ -377,7 +381,8 @@ export function createStateBackup(db, dataDir, opts = {}) {
       created_at: new Date(opts.now || Date.now()).toISOString(),
       type: 'state',
       restore_scope: ['database'],
-      archival_only: ['config', 'skills', 'specialists'],
+      archival_only: sections.filter(section=>section!=='database'),
+      backup_scope: sections,
       schema_version: migrationVersions.length,
       migration_versions: migrationVersions,
       migration_fingerprint: sha256Bytes(JSON.stringify(migrationVersions)),
@@ -443,6 +448,9 @@ export function listBackups(dataDir) {
           restorable: metadata.format_version === BACKUP_FORMAT_VERSION,
           schema_version: Number.isSafeInteger(metadata.schema_version) ? metadata.schema_version : 0,
           migration_fingerprint: metadata.migration_fingerprint || null,
+          content_fingerprint: metadata.content_fingerprint || null,
+          sections: metadata.backup_scope || ['database','config','skills','specialists'],
+          restore_scope: metadata.restore_scope || [],
           db_size_bytes: Number.isSafeInteger(metadata.db_size_bytes) ? metadata.db_size_bytes : 0,
           total_size_bytes: dirSizeSync(backupPath),
         });
@@ -461,6 +469,14 @@ export function pruneBackups(dataDir, opts = {}) {
   const stats = { deleted: 0, kept: 0 };
   try {
     const backups = listBackups(dataDir);
+    // Archived snapshots are protected in every automatic retention caller.
+    // If an existing management store is unreadable, delete nothing.
+    const archived = new Set();
+    if (opts.db?.prepare("SELECT 1 FROM sqlite_master WHERE name='ide_documents'").get()) {
+      for (const row of opts.db.prepare("SELECT id,data_json FROM ide_documents WHERE kind='backup'").all()) {
+        if (JSON.parse(row.data_json).archived===true) archived.add(row.id);
+      }
+    }
     const weekly = [];
     const daily = [];
     for (const backup of backups) {
@@ -470,9 +486,11 @@ export function pruneBackups(dataDir, opts = {}) {
       (date.getUTCDay() === 0 ? weekly : daily).push(backup);
     }
     const keep = new Set([
+      ...archived,
+      ...(backups[0] ? [backups[0].name] : []),
       ...daily.slice(0, maxDaily),
       ...weekly.slice(0, maxWeekly),
-    ].map(backup => backup.name));
+    ].map(backup => typeof backup==='string'?backup:backup.name));
     for (const backup of backups) {
       if (keep.has(backup.name)) stats.kept += 1;
       else {

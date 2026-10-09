@@ -25,7 +25,7 @@
 
 import { config } from '../config.js';
 import { logger } from '../core/logger.js';
-import { callWithAuth } from '../llm/gateway.js';
+import { callWithAuth, llmGateway } from '../llm/gateway.js';
 import { createAuthToken, LLMCallerRole, LLMCapability } from '../llm/auth-types.js';
 import { getNumCtx } from '../llm/model-ctx.js';
 import { abortErrorFromSignal, throwIfAborted } from '../core/abort-error.js';
@@ -119,13 +119,15 @@ function effectiveKeepTurns(configured, historyLimit = HANDLER_HISTORY_MAX_TURNS
 export function getCompactionBudget(
   summaryModel = config.compact.summaryModel || config.models.CHAT,
 ) {
-  const contextWindow = getNumCtx(summaryModel, config.compact.contextWindow);
+  const contextWindow = Math.min(getNumCtx(summaryModel, config.compact.contextWindow),
+    llmGateway.getRoleContextWindow('CHAT',config.models.CHAT,config.compact.contextWindow));
   return Object.freeze({
     summaryModel,
     contextWindow,
     thresholdTokens: Math.floor(contextWindow * config.compact.threshold),
     safetyMaxChars: Math.floor(contextWindow * 0.6) * 4,
-    maxOutputTokens: Math.min(SUMMARY_OUTPUT_TOKEN_CAP, Math.floor(contextWindow / 4)),
+    maxOutputTokens: Math.min(SUMMARY_OUTPUT_TOKEN_CAP, Math.floor(contextWindow / 4),
+      llmGateway.getRoleRuntimeSettings('CHAT',summaryModel)?.maxOutputTokens??Infinity),
   });
 }
 
@@ -316,6 +318,7 @@ async function runCompaction(conversationId, store, keepTurns, sessionId, budget
         num_ctx: budget.contextWindow,
         maxTokens: modelOutputTokens,
         timeout: 60000,
+        correlation:{modelRole:budget.summaryModel===config.models.CHAT?'CHAT':null},
       });
       if (result?.finishReason === 'stop' && result.content?.trim()) break;
       if (result?.finishReason !== 'length') break;

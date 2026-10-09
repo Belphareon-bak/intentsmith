@@ -37,6 +37,21 @@ export class NotificationEmitter {
     this._cfgCacheTs = 0;
   }
 
+  async _emitAccounts(eventType,notification) {
+    if(!this.db.prepare("SELECT 1 FROM sqlite_master WHERE name='ide_documents'").get()) return;
+    for(const row of this.db.prepare("SELECT id,data_json FROM ide_documents WHERE kind='account'").all()) {
+      try {
+        const account=JSON.parse(row.data_json);
+        if(!account.enabled||!account.events.includes(eventType)) continue;
+        await this.pipeline.process({...notification,
+          agent_id:`${notification.agent_id}:account:${row.id}`,
+          channel:`${account.provider}.account.${row.id}`,recipient:account.recipient,data:{eventType}});
+      } catch {
+        this.logger.warn('NotificationEmitter','Account notification failed',{accountId:row.id});
+      }
+    }
+  }
+
   /**
    * Read email notification config from user_settings (cached).
    * @returns {{ channel: string, recipient: string, onLifecycle: boolean, onWorker: boolean } | null}
@@ -92,7 +107,6 @@ export class NotificationEmitter {
    */
   async emitLifecycleEvent({ type, projectName, milestoneTitle, details, retryCount }) {
     const cfg = this._getEmailConfig();
-    if (!cfg || !cfg.onLifecycle) return;
 
     const titles = {
       milestone_pass: `Milestone hotový: ${milestoneTitle || '?'}`,
@@ -115,6 +129,9 @@ export class NotificationEmitter {
     }
 
     try {
+      await this._emitAccounts('lifecycle',{agent_id:'lifecycle',title:titles[type]||`Lifecycle: ${type}`,
+        body,priority:priorityMap[type]||'normal',created_at:Date.now(),reason:{trigger:type,source_type:'lifecycle'}});
+      if(!cfg||!cfg.onLifecycle) return;
       await this.pipeline.process({
         agent_id: 'lifecycle',
         channel: cfg.channel,
@@ -144,9 +161,11 @@ export class NotificationEmitter {
     if (type !== 'error' && type !== 'complete') return; // only these two
 
     const cfg = this._getEmailConfig();
-    if (!cfg || !cfg.onWorker) return;
 
     try {
+      await this._emitAccounts('worker',{agent_id:agentId,title:`[Worker] ${title}`,body:details||'',
+        priority:type==='error'?'high':'normal',created_at:Date.now(),reason:{trigger:type,source_type:'worker'}});
+      if(!cfg||!cfg.onWorker) return;
       await this.pipeline.process({
         agent_id: agentId,
         channel: cfg.channel,

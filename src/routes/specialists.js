@@ -106,7 +106,7 @@ export function createSpecialistRoutes(deps) {
     'GET /api/specialists': t((req, res) => {
       try {
         const installed = specialistLoader.getInstalled();
-        const result = installed.map(row => ({
+        const result = installed.filter(row=>row.id!=='dummy-logger').map(row => ({
           id: row.id,
           name: specialistLoader.getManifest(row.id)?.name || row.name,
           description: specialistLoader.getManifest(row.id)?.description || row.domain,
@@ -285,16 +285,20 @@ export function createSpecialistRoutes(deps) {
         if (!body || typeof body !== 'object' || Array.isArray(body)) {
           return sendJSON(res, 400, { ok: false, error: 'Specialist body must be an object' });
         }
-        const { name, domain, description, icon } = body;
+        const { name, domain, description, icon, systemPrompt, domainRules = [], constraints = [] } = body;
 
         if (typeof name !== 'string' || name.trim().length < 2 || name.length > 120 ||
           domain != null && (typeof domain !== 'string' || domain.length > 80) ||
           description != null && (typeof description !== 'string' || description.length > 4000) ||
-          icon != null && (typeof icon !== 'string' || icon.length > 16)) {
+          icon != null && (typeof icon !== 'string' || icon.length > 16) ||
+          systemPrompt != null && (typeof systemPrompt!=='string'||systemPrompt.length>12000) ||
+          [domainRules,constraints].some(items=>!Array.isArray(items)||items.length>50
+            ||items.some(item=>typeof item!=='string'||!item.trim()||item.length>2000))) {
           return sendJSON(res, 400, { ok: false, error: 'Invalid specialist name, domain, description or icon' });
         }
 
         const id = name.trim().toLowerCase()
+          .normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
           .replace(/\s+/g, '-')
           .replace(/[^a-z0-9-]/g, '')
           .replace(/^-+|-+$/g, '')
@@ -366,13 +370,13 @@ const EXPERTISE = {
   capabilities: { reasoning: 50, creativity: 50, determinism: 50, riskTolerance: 30, verbosity: 50 },
   tone: 'professional',
   modules: {
-    domain_rules: [],
+    domain_rules: ${jsString(domainRules)},
     emphasis: [],
-    constraints: [],
+    constraints: ${jsString(constraints)},
     vocabulary: [],
     antipatterns: [],
   },
-  systemPrompt: ${jsString(safeDesc || 'Jsi specialista ' + safeName + '.')},
+  systemPrompt: ${jsString(systemPrompt?.trim() || safeDesc || 'Jsi specialista ' + safeName + '.')},
 };
 
 export async function register(ctx) {

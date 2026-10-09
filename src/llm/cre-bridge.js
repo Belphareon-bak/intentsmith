@@ -589,7 +589,8 @@ export async function classifyIntent(prompt, systemPrompt = '', options = {}) {
     // a refused connection only delays it -- measured at ~6 s for three
     // attempts. A slow model is unaffected: timeouts are never retried.
     retries: 1,
-    ...options
+    ...options,
+    correlation:{...options.correlation,modelRole:config.models?.FAST&&config.models.FAST!==config.models.CHAT?'FAST':'CHAT'},
   });
 }
 
@@ -616,6 +617,7 @@ export async function analyzeProjectCode(prompt, systemPrompt, options = {}) {
     temperature: 0.1,
     retries: 1,
     signal,
+    correlation:{modelRole:'CHAT'},
   });
 }
 
@@ -645,7 +647,8 @@ export async function generateChatResponse(prompt, systemPrompt = '', options = 
     temperature: options.temperature ?? 0.5,
     top_p: options.top_p ?? 0.75,
     repeat_penalty: options.repeat_penalty ?? 1.1,
-    ...withClockContext(systemPrompt, options)
+    ...withClockContext(systemPrompt, options),
+    correlation:{...options.correlation,modelRole:'CHAT'},
   });
 }
 
@@ -691,7 +694,8 @@ export async function generateArtifact(prompt, systemPrompt = '', options = {}) 
       systemPrompt,
       model: options.model || config.models?.CHAT,
       temperature: options.temperature ?? 0.3,
-      ...options
+      ...options,
+      correlation:{...options.correlation,modelRole:'CHAT'},
     });
 
     logger.debug('CREBridge', `generateArtifact success`, {
@@ -743,6 +747,7 @@ export async function analyzeImages(prompt, images, systemPrompt = '', options =
   const model = config.models?.VISION || 'llava-llama3:8b';
   const timeout = config.timeouts?.VISION || 60000;
   const startTime = Date.now();
+  const roleSettings=llmGateway.getRoleRuntimeSettings('VISION',model);
 
   const body = {
     model,
@@ -752,8 +757,8 @@ export async function analyzeImages(prompt, images, systemPrompt = '', options =
     stream: false,
     options: {
       temperature: 0.3,
-      num_predict: 2048,
-      num_ctx: 4096,
+      num_predict: Math.min(2048,roleSettings?.maxOutputTokens??Infinity),
+      num_ctx: roleSettings?llmGateway.getRoleContextWindow('VISION',model,4096):4096,
     },
   };
 
@@ -784,6 +789,8 @@ export async function analyzeImages(prompt, images, systemPrompt = '', options =
 
       const data = await response.json();
       const duration = Date.now() - startTime;
+      llmGateway.recordProviderTelemetry({data,model,role:'VISION',callerRole:token.role,duration,
+        output:data.response||'',contextTokens:body.options.num_ctx,outputLimit:body.options.num_predict});
 
       return {
         content: data.response || '',

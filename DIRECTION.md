@@ -199,6 +199,7 @@ Chronologicky, s důvodem. Tohle je ta část, která se z kódu odvodit nedá.
 
 | Datum | Rozhodnutí | Důvod |
 |---|---|---|
+| 2026-10-09 | **Discord/Telegram účty a notifikace patří před vydání** | Přímé zadání operátora k backendu nových funkcí IDE mění dřívější odklad externích kanálů. Nutná zůstává scoped outbound authority, opt-in, audit a samostatná M5/M6 přejímka; obchod a multimédia se tím neposouvají. |
 | 2026-08-01 | **Pořadí schopností je dané závislostmi, ne prioritami** | Staví se na tom, co je nutné pro běh. Historie vývoje C3 to potvrzuje. |
 | 2026-08-01 | **#18 se rozdělí** na správu modelů (základ) a upgrade automatiku (mimo) | Název „Model upgrade" popisoval 8 % modulu. Správa modelů je pro běh nutná, discovery ne. |
 | 2026-08-01 | **Bezpečnost a credentials až po odladění základu, ale před release** | `P-001`..`P-003` zůstávají v evidenci. Loopback dovoluje lokální vývoj; production-ready milník je bez nápravy nepustí. |

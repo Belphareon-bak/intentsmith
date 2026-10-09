@@ -1,7 +1,7 @@
 // Local desktop control of one installed, bounded systemd hunt. No shell input.
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { readFile, lstat, realpath, readdir } from 'node:fs/promises';
+import { readFile, lstat, realpath, readdir, access } from 'node:fs/promises';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inspectHuntGpu } from '../upgrade/model-hunt-diagnostics.js';
@@ -45,7 +45,7 @@ export function createHuntControl({ installationFile = process.env.INTENTSMITH_I
   }
   let health = null, healthAt = 0;
   const control = {
-    async status({ freshGpu = false } = {}) {
+    async status({ freshGpu = false, jobId = null } = {}) {
       const installed = await installation();
       const [serviceResult, timerResult, evaluationResult, gpu] = await Promise.all([
         run(['show', SERVICE, ...properties.map(p => `--property=${p}`)]),
@@ -112,11 +112,43 @@ export function createHuntControl({ installationFile = process.env.INTENTSMITH_I
         service, timer, evaluation, gpu, gpuInventory: await readInventory(), current, progress, resources, hold,
         lastStartConditionFailed: service.ConditionResult === 'no' && Number(service.ConditionTimestampMonotonic) > 0,
         recent: recent.filter(r => r.finishedAt).sort((a,b) => String(b.finishedAt).localeCompare(String(a.finishedAt))).slice(0,5),
+        jobResult:jobId?recent.find(result=>result.request?.jobId===jobId)||null:null,
         // A stored plan is explicitly dated, never passed off as a fresh discovery.
         queue: active ? progress?.queue || [] : [], lastPlan: progress?.queue || [], queueObservedAt: progress?.updatedAt || null,
       };
     },
-    async evaluate(request, evaluations) {
+    async hunt(profile,jobId=null) {
+      if(jobId!==null&&!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(jobId))throw new Error('HUNT_JOB_ID_INVALID');
+      if(!profile||profile.kind!=='hunt'||!Array.isArray(profile.roles)||profile.roles.length<1||profile.roles.length>7
+        ||profile.roles.some(role=>!['D1','D2','CODE','R1','R2','CHAT','VISION'].includes(role))
+        ||!Number.isSafeInteger(profile.limit)||profile.limit<1||profile.limit>10||!Array.isArray(profile.models)
+        ||profile.models.some(model=>!/^[A-Za-z0-9][A-Za-z0-9._:/-]{0,199}$/.test(model)))
+        throw Object.assign(new Error('HUNT_PROFILE_INVALID'),{httpStatus:400});
+      const status=await control.status({freshGpu:true});
+      if(status.hold||['RUNNING','STOPPING'].includes(status.state))throw Object.assign(new Error('HUNT_AUTOMATION_HELD_OR_BUSY'),{httpStatus:409});
+      if(!status.gpu.available)throw Object.assign(new Error(status.gpu.code),{httpStatus:503,code:status.gpu.code});
+      const installed=await installation();
+      if(profile.modelsPath!==null) {
+        if(typeof profile.modelsPath!=='string'||!/^\/[A-Za-z0-9_./-]+$/.test(profile.modelsPath)
+          ||await realpath(profile.modelsPath)!==profile.modelsPath||!(await lstat(profile.modelsPath)).isDirectory())
+          throw Object.assign(new Error('HUNT_MODEL_PATH_INVALID'),{httpStatus:400});
+        await access(profile.modelsPath,2);
+      }
+      await launch(['--user','--collect','--unit='+EVALUATION,
+        '--property=Type=exec','--property=WorkingDirectory='+installed.sourceRoot,
+        '--property=EnvironmentFile='+join(installed.configDirectory,'runtime.env'),
+        '--property=KillMode=control-group','--property=TimeoutStopSec=15s',
+        '--property=MemoryHigh=60%','--property=MemoryMax=75%','--property=MemorySwapMax=1G','--property=OOMPolicy=stop',
+        '--property=RuntimeMaxSec=6h','--property=NoNewPrivileges=true','--property=UMask=0077','--property=Nice=10',
+        ...(profile.modelsPath?['--setenv=OLLAMA_MODELS='+profile.modelsPath]:[]),
+        '--',installed.node,join(installed.sourceRoot,'scripts/run-model-hunt-provider.js'),
+        '--run','--scheduled','--keep-inconclusive','--limit='+profile.limit,'--role='+profile.roles.join(','),
+        ...(jobId?['--job-id='+jobId]:[]),
+        ...(profile.models.length?['--only='+profile.models.join(',')]:[])]);
+      return {accepted:true,kind:'hunt',roles:profile.roles,models:profile.models,limit:profile.limit};
+    },
+    async evaluate(request, evaluations,jobId=null) {
+      if(jobId!==null&&!/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(jobId))throw new Error('HUNT_JOB_ID_INVALID');
       const batch = request && Object.keys(request).sort().join(',') === 'digestSha256,model,roles';
       const pins = batch ? request.roles : [{ role: request?.role, suiteContractSha256: request?.suiteContractSha256 }];
       if (!request || (!batch && Object.keys(request).sort().join(',') !== 'digestSha256,model,role,suiteContractSha256')
@@ -140,6 +172,7 @@ export function createHuntControl({ installationFile = process.env.INTENTSMITH_I
         }
       }
       const status = await control.status({ freshGpu: true });
+      if(status.hold)throw Object.assign(new Error('HUNT_AUTOMATION_HELD'),{httpStatus:409,code:'HUNT_AUTOMATION_HELD'});
       if (['RUNNING','STOPPING'].includes(status.state)) throw Object.assign(new Error('HUNT_ALREADY_RUNNING'), { httpStatus: 409 });
       if (!status.gpu.available) throw Object.assign(new Error(status.gpu.message), { httpStatus: 503, code: status.gpu.code });
       const installed = await installation();
@@ -152,6 +185,7 @@ export function createHuntControl({ installationFile = process.env.INTENTSMITH_I
         '--', installed.node, join(installed.sourceRoot,'scripts/run-model-hunt-provider.js'),
         '--run', '--scheduled', '--keep-inconclusive', '--evaluate-installed', '--limit=1',
         '--only=' + request.model, '--role=' + pins.map(pin => pin.role).join(','), '--expected-digest=' + request.digestSha256,
+        ...(jobId?['--job-id='+jobId]:[]),
         batch ? '--expected-contracts=' + JSON.stringify(Object.fromEntries(pins.map(pin => [pin.role, pin.suiteContractSha256])))
           : '--expected-contract=' + request.suiteContractSha256]);
       return { accepted: true, model: request.model, role: pins.map(pin => pin.role).join(','), roles: pins.map(pin => pin.role) };

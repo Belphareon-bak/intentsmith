@@ -18206,6 +18206,72 @@
       },
       "flakeCount": 0,
       "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-IDE-BACKEND-TEST",
+      "path": "tests/ide-backend.test.js",
+      "argv": [
+        "node",
+        "tests/ide-backend.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T1",
+      "fixture": "owned SQLite, Git, loopback HTTP and controlled provider transport",
+      "profile": "database",
+      "timeoutMs": 60000,
+      "expectedDurationMs": 5000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false,
+        "toolchain": [
+          "git"
+        ]
+      },
+      "required": true,
+      "owner": "WP-IDE-BACKEND-20261009",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T3-TESTS-IDE-BACKEND-PRODUCT-HTTP-JOURNEY-TEST",
+      "path": "tests/ide-backend-product-http-journey.test.js",
+      "argv": [
+        "node",
+        "tests/ide-backend-product-http-journey.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T3",
+      "fixture": "owned authenticated product restart and loopback tripwire provider",
+      "profile": "server",
+      "timeoutMs": 180000,
+      "expectedDurationMs": 5000,
+      "requirements": {
+        "network": "loopback",
+        "database": true,
+        "server": false,
+        "ollama": false,
+        "gpu": false,
+        "toolchain": [
+          "git"
+        ]
+      },
+      "required": true,
+      "owner": "WP-IDE-BACKEND-20261009",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
     }
   ]
 }

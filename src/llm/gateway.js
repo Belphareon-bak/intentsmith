@@ -16,6 +16,7 @@
 // ══════════════════════════════════════════════════════════════════════════════
 
 import { config } from '../config.js';
+import { roleRuntimeSettings, IDE_MODEL_ROLES } from './role-runtime-settings.js';
 import { CODE_RUNTIME_PROFILE, CODE_RUNTIME_QUALIFICATION, getCodeRuntimeProfile } from './model-runtime-profile.js';
 import {
   AbortSource,
@@ -222,6 +223,7 @@ const M1_CORRELATION_KEYS = Object.freeze([
   'purpose',
 ]);
 const M1_MODEL_PURPOSES = new Set(Object.values(M1_MODEL_PURPOSE));
+const ROLE_SETTINGS_CAPTURE = Symbol('role-settings-capture');
 const MODEL_NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,255}$/;
 
 function isModelName(value) {
@@ -626,6 +628,37 @@ class LLMGateway {
   /** v133: Set DB for usage tracking */
   setUsageDb(db) { this._usageDb = db; }
 
+  getRoleRuntimeSettings(role, model) {
+    if (!this._usageDb) return null;
+    // Older unit fixtures intentionally have no management migration.
+    if (!this._usageDb.prepare("SELECT 1 FROM sqlite_master WHERE name='ide_documents'").get()) return null;
+    return roleRuntimeSettings(this._usageDb,config,role,model);
+  }
+
+  getRoleContextWindow(role,model=config.models[role],fallback=8192) {
+    return resolveNumCtx(model,this.getRoleRuntimeSettings(role,model)?.contextWindowTokens,fallback);
+  }
+
+  recordProviderTelemetry({data,model,role,callerRole,duration,output,contextTokens,outputLimit}) {
+    if(!this._usageDb)return;
+    try {
+      const count=value=>Number.isSafeInteger(value)&&value>=0?value:null;
+      this._usageDb.prepare(`INSERT INTO model_runtime_telemetry
+        (model,digest_sha256,role,caller_role,occurred_at,duration_ms,output_characters,
+         prompt_tokens,output_tokens,generation_ns,context_tokens,output_limit) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`)
+        .run(data.model||model,normalizeModelDigestSha256(data.digest||data.model_digest_sha256),role,callerRole,
+          Date.now(),duration,output.length,count(data.prompt_eval_count),count(data.eval_count),count(data.eval_duration),contextTokens,outputLimit);
+    }catch {this.audit.log('LLM_TELEMETRY_UNAVAILABLE',{code:'TELEMETRY_WRITE_FAILED'});}
+  }
+
+  roleSettingsForCall(options) {
+    if(Object.hasOwn(options,ROLE_SETTINGS_CAPTURE))return options[ROLE_SETTINGS_CAPTURE];
+    const model=options.model || config.models.CHAT;
+    const roles=IDE_MODEL_ROLES.filter(role=>sameModelName(config.models[role],model));
+    const role=options.correlation?.modelRole || options.modelRole || (roles.length===1?roles[0]:null);
+    return this.getRoleRuntimeSettings(role,model);
+  }
+
   setBindingStartupAuthority(authority, options = {}) {
     if (!authority || !['DURABLE', 'DEGRADED'].includes(authority.status)) {
       throw new TypeError('LLM binding startup authority must be DURABLE or DEGRADED');
@@ -1003,9 +1036,11 @@ class LLMGateway {
     // DETERMINE LIMITS
     // ════════════════════════════════════════════════════════════════════════
 
+    const roleSettings = this.roleSettingsForCall(options);
     const effectiveMaxTokens = Math.min(
       options.maxTokens || 4096,
-      authToken?.maxTokens || 4096
+      authToken?.maxTokens || 4096,
+      roleSettings?.maxOutputTokens ?? Infinity
     );
 
     // ════════════════════════════════════════════════════════════════════════
@@ -1020,7 +1055,8 @@ class LLMGateway {
     // Do not start an unbounded metadata request after queue admission. The
     // complete binding/provider check below uses the attempt timeout + lease.
     if (codeRuntime) checkCodeCaptureConfiguration(codeRuntime, options.signal);
-    const effectiveNumCtx = codeRuntime?.numCtx ?? resolveNumCtx(model, options.num_ctx);
+    const effectiveNumCtx = codeRuntime?.numCtx ?? resolveNumCtx(model,
+      roleSettings?.contextWindowTokens ?? options.num_ctx);
     const baseUrl = codeRuntime?.baseUrl;
     let expectedArtifact = codeRuntime?.artifact ?? null;
     if (!codeRuntime && this._bindingStartupAuthority?.status === 'DURABLE') {
@@ -1317,6 +1353,8 @@ class LLMGateway {
               'INSERT INTO model_usage (model, role, request_type, model_digest_sha256) VALUES (?, ?, ?, ?)'
             ).run(servedModel, usageRole, requestType, servedDigest);
           } catch (_) {}
+          this.recordProviderTelemetry({data,model:servedModel,role:correlation.modelRole||options.modelRole||null,
+            callerRole:authToken?.role||null,duration,output,contextTokens:effectiveNumCtx,outputLimit:effectiveMaxTokens});
         }
 
         emitRuntimeSignal('runtime', true, {
@@ -1577,9 +1615,11 @@ async function callWithPolicyInternal(token, prompt, options = {}, codeRuntimeCa
   const policyOptions = { ...options, ...(codeRuntimeCapture !== null
     ? { correlation: Object.freeze({ ...options.correlation }) } : {}) };
   validatePolicyBoundary(token, policyOptions);
+  policyOptions[ROLE_SETTINGS_CAPTURE]=llmGateway.roleSettingsForCall(policyOptions);
   const model = policyOptions.model ?? config.models?.CHAT ?? 'qwen3.5:27b';
   const codeRuntime = codeRuntimeCapture !== null ? validateCodeCaptureScope(codeRuntimeCapture, token, policyOptions) : null;
-  const numCtx = codeRuntime?.numCtx ?? resolveNumCtx(model, policyOptions.num_ctx);
+  const numCtx = codeRuntime?.numCtx ?? resolveNumCtx(model,
+    llmGateway.roleSettingsForCall(policyOptions)?.contextWindowTokens ?? policyOptions.num_ctx);
   if (!isPolicyNumCtx(numCtx)) {
     throw new LLMGatewayError(
       LLMGatewayErrorCode.INVALID_REQUEST,
