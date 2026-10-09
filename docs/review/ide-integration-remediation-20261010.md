@@ -30,10 +30,30 @@ Zdroj vzhledu zůstává `docs/studio2/prototype/src/main.js` a
 `main.template.html`; generovaný renderer se tvoří pouze build-view skriptem.
 Přenesené úpravy zachovávají design IDE a jeho barvy, podle README preview V4.
 
+Další skutečné funkční nálezy a jejich opravy:
+
+- Nativní editor workera: ID instance se předává přímo při asynchronním
+  otevření a po readbacku; test odkládá React state a stále načte správnou
+  existující instanci. Původní synchronní mock tento problém zakrýval.
+- Generovaný specialista: platný deklarovaný nástroj pro přípravu doménového
+  kontextu, registrace přes ExtensionContext V1, zachovaný prompt/pravidla/
+  omezení. Nástroj pouze připravuje kontext, neprovádí inference ani efekty.
+  Backend nepotvrdí úspěch bez instalace, manifestu a registrace runtime.
+  Skutečný loader a runtime ověřují vytvoření i bezpečné citování polí.
+- Gate 0: přesně pojmenované Theia esbuild skripty a protocol lib/tsbuildinfo
+  jsou kontrolované build výstupy. Cizí výstupy, symlinky a zapisovatelné
+  soubory zůstávají odmítnuté. Původní čerstvý clone úspěšně instaloval IDE,
+  ale stará kontrola odmítla těchto pět skutečných nových build cest.
+
 Dosavadní průchody jsou dílčí; celý nový čistý offline/database profil,
 registrované HTTP programy, AppImage, nativní zápis/restart a přesné CI se
 doplní po commitu. Původních 415/415 a 9/9 na `c47d1883` není důkazem nové
 aplikační revize. Neúspěšné meziběhy se nepřepisují na PASS.
+
+Čistý `7962d250`: celý profil **415/415 PASS**, HTTP 3/3, CI 38003377261
+19/19 a AppImage sestaven. Nativní diagnostika odhalila výše uvedené skutečné
+chyby; její částečné průchody nejsou PASS celé cesty. Poslední opravy mají
+samostatný následný commit a novou kvalifikaci.
 
 Čistý `fc22a2e1`: HTTP 3/3, CI 38002233484 19/19, AppImage sestaven;
 celý profil **414/415 FAIL**. Jediná chyba je zastaralý generovaný mobilní

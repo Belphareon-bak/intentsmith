@@ -1900,7 +1900,7 @@ class LiveModel extends Component {
   async openWorkerEdit(item) {
     this.setState({ ...this.pSelect(this.st(), 'workers', '__new__'), workerInstanceId:item.id });
     await this.loadWorkerWizard();
-    return this.loadWorkerInstance(this.st());
+    return this.loadWorkerInstance({ ...this.st(), workerInstanceId:item.id });
   }
 
   async saveWorkerTemplateForm(s) {
@@ -1948,7 +1948,7 @@ class LiveModel extends Component {
       this._workerWizardStatus.editSource=current;this._workerWizardStatus.editBackend=backend;
       this._workerWizardStatus.preview=null;this._workerWizardStatus.previewKey='';this._workerWizardStatus.uncertain=false;this._workerWizardStatus.error='';
       const {project_id,...params}=current.params;
-      this.setState({workerEditing:true,workerStep:0,workerExtension:current.definition.m3_extension.id,workerProject:String(project_id||''),
+      this.setState({workerEditing:true,workerInstanceId:current.id,workerStep:0,workerExtension:current.definition.m3_extension.id,workerProject:String(project_id||''),
         workerParams:JSON.stringify(params,null,2),workerName:current.name,workerDescription:current.description||''});return true;
     }catch(error){this._workerWizardStatus.error=error.message;return false;}
     finally{this._workerWizardStatus.busy=false;this.forceUpdate();}

@@ -55,7 +55,7 @@ try {
   const handle=await page.evaluateHandle(label=>[...document.querySelectorAll('label')].find(n=>n.getBoundingClientRect().width>0&&(n.querySelector('span')?.innerText.trim()===label||n.childNodes[0]?.textContent.trim()===label))?.querySelector('input,textarea,select')||null,label);
   const node=handle.asElement();assert(node,'visible field '+label);
   if(await node.evaluate(n=>n.tagName==='SELECT'))await node.select(String(value));
-  else {await node.click({clickCount:3});await node.press('Backspace');await node.type(String(value));await node.press('Tab');}
+  else {await node.click();await page.keyboard.down('Control');await page.keyboard.press('a');await page.keyboard.up('Control');await node.press('Backspace');await node.type(String(value));await node.press('Tab');}
   await handle.dispose();
  }
  async function clickSummary(text){const handle=await page.evaluateHandle(text=>[...document.querySelectorAll('summary')].find(n=>n.innerText.trim()===text),text);const node=handle.asElement();assert(node,'summary '+text);await node.click();await handle.dispose();}
@@ -83,8 +83,8 @@ try {
  await editField('Projekt',String(fixtureProject.project.id));await editField('ID instance','native-owned-worker');await clickText('Pokračovat na kontrolu');await clickText('Ověřit konfiguraci bez spuštění');
  await page.waitForFunction(()=>document.body.innerText.includes('Konfigurace je platná.'),{timeout:15000});await clickText('Potvrdit instanci');
  await page.waitForFunction(()=>document.body.innerText.includes('Nativní kontrola')&&!document.querySelector('[aria-label="Průvodce workerem"]'),{timeout:15000});
- const savedWorker=await expectJson(backend,'GET','/api/agent-extensions/instances/native-owned-worker/config',null,200);check('native friendly worker form saves a verified disabled custom instance',savedWorker.enabled===false&&savedWorker.definition.sources[0].config.query==='TODO FIXME');written.worker=savedWorker.definitionDigest;
- await clickText('Upravit');await page.waitForFunction(()=>document.body.innerText.includes('Uložit konfiguraci'),{timeout:15000});await editField('Název','Nativní upravená kontrola');await clickText('Pokračovat na kontrolu');await clickText('Ověřit konfiguraci bez spuštění');await page.waitForFunction(()=>document.body.innerText.includes('Konfigurace je platná.'),{timeout:15000});await clickText('Uložit konfiguraci');
+ const savedWorker=await expectJson(backend,'GET','/api/agent-extensions/instances/native-owned-worker/config',null,200);check('native friendly worker form saves a verified disabled custom instance',savedWorker.enabled===false&&savedWorker.definition.sources[0].config.query==='TODO FIXME');written.worker=savedWorker.configDigest;
+ await clickText('Upravit');await page.waitForFunction(()=>document.body.innerText.includes('Krok 1 ze 2')&&[...document.querySelectorAll('label')].some(n=>n.innerText.startsWith('Název')&&n.querySelector('input')?.value==='Nativní kontrola'),{timeout:15000});await editField('Název','Nativní upravená kontrola');await clickText('Pokračovat na kontrolu');await page.waitForFunction(()=>document.body.innerText.includes('Uložit konfiguraci'),{timeout:15000});await clickText('Ověřit konfiguraci bez spuštění');await page.waitForFunction(()=>document.body.innerText.includes('Konfigurace je platná.'),{timeout:15000});await clickText('Uložit konfiguraci');
  const updatedWorker=await expectJson(backend,'GET','/api/agent-extensions/instances/native-owned-worker/config',null,200);check('native worker detail edit verifies configuration and retains disabled state',updatedWorker.name==='Nativní upravená kontrola'&&updatedWorker.enabled===false);await screenshot('worker');
  await clickText('Specialisté');await clickText('Nový specialista');
  await page.waitForFunction(()=>document.body.innerText.includes('Doménová pravidla'),{timeout:15000});check('native specialist advanced fields mounted',true);

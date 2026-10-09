@@ -119,7 +119,10 @@ test('actual Studio controllers save CHAT settings then chat, recover validation
   live.setState({workerStep:1,workerProject:String(project.project.id),workerInstanceId:'studio-owned'});
   assert.equal(await live.previewWorker(live.st()),true,live.workerStatus().error);assert.equal(await live.submitWorker(live.st()),true,live.workerStatus().error);
   const installed=await expectJson(product,'GET','/api/agent-extensions/instances/studio-owned/config',null,200);assert.equal(installed.enabled,false);
-  assert.equal(await live.openWorkerEdit({id:'studio-owned'}),true,live.workerStatus().error);
+  const immediateState=live.setState,queuedState=[];live.setState=patch=>queuedState.push(patch);
+  try { assert.equal(await live.openWorkerEdit({id:'studio-owned'}),true,live.workerStatus().error); }
+  finally {live.setState=immediateState;for(const patch of queuedState)live.setState(patch);}
+  assert.equal(live.st().workerInstanceId,'studio-owned');assert.equal(live.st().workerEditing,true);
   live.setState({workerStep:1,workerName:'Edited in Studio'});assert.equal(await live.previewWorker(live.st()),true,live.workerStatus().error);
   assert.equal(await live.submitWorker(live.st()),true,live.workerStatus().error);
   const edited=await expectJson(product,'GET','/api/agent-extensions/instances/studio-owned/config',null,200);assert.equal(edited.name,'Edited in Studio');assert.equal(edited.enabled,false);

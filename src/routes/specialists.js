@@ -288,7 +288,7 @@ export function createSpecialistRoutes(deps) {
         const { name, domain, description, icon, systemPrompt, domainRules = [], constraints = [] } = body;
 
         if (typeof name !== 'string' || name.trim().length < 2 || name.length > 120 ||
-          domain != null && (typeof domain !== 'string' || domain.length > 80) ||
+          domain != null && (typeof domain !== 'string' || domain.length > 80 || !/^[a-z0-9_]+$/.test(domain.trim())) ||
           description != null && (typeof description !== 'string' || description.length > 4000) ||
           icon != null && (typeof icon !== 'string' || icon.length > 16) ||
           systemPrompt != null && (typeof systemPrompt!=='string'||systemPrompt.length>12000) ||
@@ -302,7 +302,7 @@ export function createSpecialistRoutes(deps) {
           .replace(/\s+/g, '-')
           .replace(/[^a-z0-9-]/g, '')
           .replace(/^-+|-+$/g, '')
-          .substring(0, 32);
+          .substring(0, 32).replace(/-+$/g, '');
 
         if (!id) {
           return sendJSON(res, 400, { ok: false, error: 'Invalid name — cannot generate ID' });
@@ -334,7 +334,7 @@ export function createSpecialistRoutes(deps) {
           type: 'domain',
           engine: '>=122.0.0',
           entry: './index.js',
-          tools: [],
+          tools: [{ id: id + '.prepare_context', name: 'Připravit doménový kontext', module: './index.js', function: 'prepareContext' }],
           capabilities: [],
           expertises: [id],
           enabledByDefault: true,
@@ -349,7 +349,9 @@ export function createSpecialistRoutes(deps) {
         // JSON literals preserve quotes, backslashes and newlines as data.
         const jsString = value => JSON.stringify(value).replace(/\u2028/g, '\\u2028').replace(/\u2029/g, '\\u2029');
 
-        const indexJs = `// Auto-generated specialist
+        const indexJs = `import { fileURLToPath } from 'node:url';
+
+// Auto-generated specialist
 // ══════════════════════════════════════════════════════════════════════════════
 
 const EXPERTISE = {
@@ -366,7 +368,7 @@ const EXPERTISE = {
   dataUsagePolicy: 'open',
   outputBias: 'neutral',
   temperature: 0.5,
-  tools: [],
+  tools: [${jsString(id + '.prepare_context')}],
   capabilities: { reasoning: 50, creativity: 50, determinism: 50, riskTolerance: 30, verbosity: 50 },
   tone: 'professional',
   modules: {
@@ -379,31 +381,38 @@ const EXPERTISE = {
   systemPrompt: ${jsString(systemPrompt?.trim() || safeDesc || 'Jsi specialista ' + safeName + '.')},
 };
 
-export async function register(ctx) {
-  const { runtime, manifest } = ctx;
+// This local tool prepares the configured domain context. It does not run
+// a model, tests, deployment, or external actions.
+export async function prepareContext(params = {}) {
+  if (typeof params.request !== 'string' || !params.request.trim() || params.request.length > 32000) {
+    return { status: 'error', message: 'Zadejte požadavek o délce 1–32 000 znaků.' };
+  }
+  return { status: 'ok', data: { request: params.request.trim(), expertise: EXPERTISE } };
+}
 
+export async function register(ctx) {
+  const runtime = ctx.requireCapability('specialist.runtime.v1');
+  const toolId = ${jsString(id + '.prepare_context')};
   runtime.registerSpecialist({
-    id: manifest.id,
+    id: ctx.extensionId,
     domain: ${jsString(safeDomain)},
     globalParamExtractor: null,
-    tools: [],
+    tools: [{ id: toolId, name: 'Připravit doménový kontext',
+      description: 'Připraví požadavek, systémový prompt, pravidla a omezení pro doménovou odpověď.',
+      modulePath: fileURLToPath(import.meta.url), functionName: 'prepareContext',
+      patterns: [], extractParams: input => ({ request: input }) }],
   });
-
-  if (ctx.registries?.expertise) {
-    ctx.registries.expertise.addCustom(EXPERTISE);
-  }
-
-  if (ctx.registries?.capability?.register) {
-    for (const cap of manifest.capabilities || []) {
-      ctx.registries.capability.register(cap, manifest.id);
-    }
-  }
+  ctx.getCapability('specialist.registry.expertise.v1')?.addCustom(EXPERTISE);
+  ctx.getCapability('specialist.registry.cre.v1')?.registerToolType?.(toolId);
+  ctx.getCapability('specialist.registry.tool-executor.v1')?.register?.(toolId, prepareContext);
 }
 
 export function unregister(ctx) {
-  try { ctx.runtime?.unregisterSpecialist?.(${jsString(id)}); } catch {}
-  try { ctx.registries?.expertise?.removeCustom(${jsString(id)}); } catch {}
-  try { ctx.registries?.capability?.unregisterBySpecialist?.(${jsString(id)}); } catch {}
+  const toolId = ${jsString(id + '.prepare_context')};
+  ctx.requireCapability('specialist.runtime.v1').unregisterSpecialist(ctx.extensionId);
+  ctx.getCapability('specialist.registry.expertise.v1')?.removeCustom(${jsString(id)});
+  ctx.getCapability('specialist.registry.cre.v1')?.unregisterToolType?.(toolId);
+  ctx.getCapability('specialist.registry.tool-executor.v1')?.unregister?.(toolId);
 }
 `;
 
@@ -419,6 +428,11 @@ export function unregister(ctx) {
 
         // Verify
         const installed = specialistLoader.getInstalled().find(r => r.id === id);
+        if (!installed || !specialistLoader.getManifest(id)
+          || specialistRuntime && !specialistRuntime.isSpecialist(id)) {
+          return sendJSON(res, 500, { ok: false, id, errorCode: 'SPECIALIST_CREATION_NOT_READY',
+            error: 'Balíček byl zapsán, ale registraci specialisty nelze ověřit. Před dalším pokusem zkontrolujte katalog.' });
+        }
 
         logger.info('SpecialistAPI', `Created specialist "${id}" → specialists/${id}/`);
         sendJSON(res, 201, {
@@ -428,7 +442,7 @@ export function unregister(ctx) {
             name: safeName,
             domain: safeDomain,
             version: '1.0.0',
-            status: installed ? installed.status : 'installed',
+            status: installed.status,
           },
         });
       } catch (err) {

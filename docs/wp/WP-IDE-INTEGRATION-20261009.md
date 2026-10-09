@@ -87,3 +87,9 @@ Implementační dokončení N1–N8 a V4 je v novém
 [paketu](../review/ide-integration-remediation-20261010.md). Následuje čistý
 aplikační commit, celý profil, skutečný HTTP/restart, nový AppImage/nativní
 zápis a CI. Původní výsledky z c47d1883 nejsou přeneseny na nový kód.
+
+Skutečné nativní ověření navíc otevřelo asynchronní editaci instance workera
+a neplatný generovaný balíček specialisty. Opravy zahrnují skutečný loader,
+ExtensionContext a readback. Fresh-clone Gate 0 odkryl zastaralou allowlist
+Theia build výstupů; konkrétní nové výstupy mají kontrolu vlastnictví a
+negativní testy symlinků/práv. Další release brány se tím neoznačují PASS.

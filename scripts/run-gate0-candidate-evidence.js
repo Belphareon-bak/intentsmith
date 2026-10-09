@@ -255,7 +255,10 @@ export function assertAllowedIgnoredState(statusPorcelain, evidenceRoot) {
       || filePath.startsWith('intentsmith-ide/node_modules/')
       || /^intentsmith-ide\/(?:applications|extensions)\/[^/]+\/node_modules\//.test(filePath)
       || /^intentsmith-ide\/applications\/electron\/(?:lib|src-gen|dist)\//.test(filePath)
-      || /^intentsmith-ide\/applications\/electron\/gen-webpack[^/]*\.js$/.test(filePath)
+      || /^intentsmith-ide\/applications\/electron\/gen-(?:webpack[^/]*\.js|esbuild\.(?:browser|electron|node)\.mjs)$/.test(filePath)
+      || filePath === 'intentsmith-ide/extensions/intentsmith-protocol/lib/'
+      || filePath.startsWith('intentsmith-ide/extensions/intentsmith-protocol/lib/')
+      || filePath === 'intentsmith-ide/extensions/intentsmith-protocol/tsconfig.tsbuildinfo'
     )
   ));
   if (!allowed) {
@@ -371,6 +374,7 @@ export async function assertOwnedDependencyRoots(sourceRoot) {
     'intentsmith-ide/applications/electron/lib',
     'intentsmith-ide/applications/electron/src-gen',
     'intentsmith-ide/applications/electron/dist',
+    'intentsmith-ide/extensions/intentsmith-protocol/lib',
   ];
   for (const collection of ['intentsmith-ide/applications', 'intentsmith-ide/extensions']) {
     const absoluteCollection = path.join(sourceRoot, collection);
@@ -394,6 +398,12 @@ export async function assertOwnedDependencyRoots(sourceRoot) {
       relativePath,
     );
   }
+  const protocolBuildInfo = path.join(sourceRoot, 'intentsmith-ide/extensions/intentsmith-protocol/tsconfig.tsbuildinfo');
+  const protocolMetadata = await lstat(protocolBuildInfo).catch(error => { if (error.code === 'ENOENT') return null; throw error; });
+  if (protocolMetadata && (protocolMetadata.isSymbolicLink() || !protocolMetadata.isFile()
+    || (protocolMetadata.mode & 0o022) !== 0 || await realpath(protocolBuildInfo) !== protocolBuildInfo)) {
+    throw new Error('Gate 0 generated protocol build metadata is not owned');
+  }
   const electronRoot = path.join(
     sourceRoot,
     'intentsmith-ide',
@@ -408,7 +418,7 @@ export async function assertOwnedDependencyRoots(sourceRoot) {
     throw error;
   }
   for (const entry of electronEntries) {
-    if (!/^gen-webpack[^/]*\.js$/.test(entry.name)) continue;
+    if (!/^gen-(?:webpack[^/]*\.js|esbuild\.(?:browser|electron|node)\.mjs)$/.test(entry.name)) continue;
     const absolutePath = path.join(electronRoot, entry.name);
     const metadata = await lstat(absolutePath);
     if (

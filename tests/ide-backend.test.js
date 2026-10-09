@@ -382,10 +382,11 @@ test('custom workers preserve M3 authority, persist templates, edit parameters a
 
 test('Czech specialist names transliterate correctly, duplicate IDs conflict and supplied rules remain quoted data',async()=>{
   const f=await fixture(),specialists=path.join(f.dir,'specialists');await fs.mkdir(specialists);
-  const loader={baseDir:specialists,getInstalled:()=>[],discoverAll(){},installPending(){},async enableAll(){}};
+  const created=new Set();
+  const loader={baseDir:specialists,getInstalled:()=>[...created].map(id=>({id,status:'enabled'})),getManifest:id=>created.has(id)?{id}:null,discoverAll(){},installPending(){created.add(this.current);},async enableAll(){}};
   const routes=createSpecialistRoutes({specialistLoader:loader,logger:quiet,sendJSON:(_r,status,body)=>({status,body}),parseBody:async req=>req.body});
-  for(const [name,id] of [['Překladač','prekladac'],['Šéf kuchyně','sef-kuchyne'],['Čí','ci']]) {
-    let response;const direct=createSpecialistRoutes({specialistLoader:loader,logger:quiet,sendJSON:(_r,status,body)=>{response={status,body};},parseBody:async req=>req.body});
+  for(const [name,id] of [['Překladač','prekladac'],['Šéf kuchyně','sef-kuchyne'],['Čí','ci'],['a'.repeat(31)+' b','a'.repeat(31)]]) {
+    loader.current=id;let response;const direct=createSpecialistRoutes({specialistLoader:loader,logger:quiet,sendJSON:(_r,status,body)=>{response={status,body};},parseBody:async req=>req.body});
     await direct['POST /api/specialists']({body:{name,systemPrompt:'Translate faithfully',domainRules:['Keep names'],constraints:['No invented facts']}},{});
     assert.equal(response.status,201);assert.equal(response.body.specialist.id,id);
     const source=await fs.readFile(path.join(specialists,id,'index.js'),'utf8');assert.match(source,/domain_rules: \["Keep names"\]/);

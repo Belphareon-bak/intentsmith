@@ -3728,11 +3728,19 @@ test('every producer phase rejects ignored runtime paths outside its allowlist',
     '!! node_modules/',
     '!! intentsmith-ide/extensions/example/node_modules/',
     '!! intentsmith-ide/applications/electron/lib/',
+    '!! intentsmith-ide/applications/electron/gen-esbuild.browser.mjs',
+    '!! intentsmith-ide/applications/electron/gen-esbuild.electron.mjs',
+    '!! intentsmith-ide/applications/electron/gen-esbuild.node.mjs',
+    '!! intentsmith-ide/extensions/intentsmith-protocol/lib/',
+    '!! intentsmith-ide/extensions/intentsmith-protocol/tsconfig.tsbuildinfo',
   ].join('\n');
   assertEqual(
     assertAllowedIgnoredState(allowed, evidenceRoot).unexpectedPathCount,
     0,
   );
+  for(const unexpected of ['intentsmith-ide/extensions/other/lib/','intentsmith-ide/extensions/other/tsconfig.tsbuildinfo','intentsmith-ide/applications/electron/gen-esbuild.unowned.mjs']) {
+    assertThrows(()=>assertAllowedIgnoredState(`${allowed}\n!! ${unexpected}`,evidenceRoot));
+  }
   assertThrows(() => assertAllowedIgnoredState(
     `${allowed}\n!! data/intentsmith.db`,
     evidenceRoot,
@@ -3821,6 +3829,25 @@ await testAsync('producer makes safe package-manager root modes private before r
   chmodSync(dependencyRoot, 0o775);
   await assertOwnedDependencyRoots(repository);
   assertEqual(statSync(dependencyRoot).mode & 0o777, 0o700);
+});
+
+await testAsync('generated Theia scripts and protocol metadata reject symlinks and writable files', async () => {
+  const repository = path.join(testRoot, 'generated-build-ownership');
+  for (const relative of ['intentsmith-ide/applications/electron/gen-esbuild.browser.mjs',
+    'intentsmith-ide/extensions/intentsmith-protocol/tsconfig.tsbuildinfo']) {
+    const target = path.join(repository, relative);
+    mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
+    symlinkSync(process.execPath, target);
+    let rejected = false;
+    try { await assertOwnedDependencyRoots(repository); } catch { rejected = true; }
+    assertEqual(rejected, true);
+    rmSync(target);
+    writeFileSync(target, 'owned build output');chmodSync(target, 0o666);
+    rejected = false;
+    try { await assertOwnedDependencyRoots(repository); } catch { rejected = true; }
+    assertEqual(rejected, true);
+    chmodSync(target, 0o600);await assertOwnedDependencyRoots(repository);
+  }
 });
 
 rmSync(testRoot, { recursive: true, force: true });
