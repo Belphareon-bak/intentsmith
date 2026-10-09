@@ -12,12 +12,12 @@ integritu záloh a existující M3 hranici workerů.
 Vstup: GitHub main `138e958be927df9835c091d3ad41d44b347e85b5`, ověřený
 `git ls-remote` a fetch. Checkout: `intentsmith-ide-backend-20261009`, větev
 `work/ide-backend-20261009`. Zdrojový ROOT, běžící release i stabilitní snapshot
-jsou cizí a pouze pro čtení. Absorbované checkouty zatím mají neověřené
-vlastnictví/evidence; report rozpočtu běží, žádný se nemaže silou.
+jsou cizí a pouze pro čtení. U absorbovaných checkoutů nebylo prokázáno
+vlastnictví/evidence; inventura rozpočtu neopravňuje jejich odstranění.
 
 Vlastněné cesty: nové `src/system/ide-*`, DB store, role-runtime-settings a SCM SSH connector, příslušné route/service změny,
 nová migrace 123, pozitivní a negativní backendové testy a jejich registrace,
-popis API, PRODUCT/DIRECTION pro operátorem změněný rozsah externích kanálů.
+popis API, CI pro nové sady, PRODUCT/DIRECTION pro operátorem změněný rozsah externích kanálů.
 Zakázané: frontend/prototypy, produkční DB/config, váhy/bindingy modelů,
 release attestace a cizí checkouty. Veřejný connector: autentizované lokální
 HTTP API; nové efekty používají existující řízené cesty. GPU/inference běhy
@@ -37,3 +37,7 @@ specialistické, storage, gateway a outbound sady; registry a `git diff --check`
 Stop: potřeba oslabit L0, nejasný rozsah efektu nebo kolize s cizím vlastníkem.
 Publikace samostatné větve; integrace/nezávislá revize a release acceptance
 zůstávají oddělené od výsledku vývojových testů.
+
+Implementační výsledek a další krok: [předání ROOT](../review/ide-backend-handoff-20261009.md).
+Vývojové ověření 414/414 PASS; integrační/nezávislé review je REVIEW_PENDING,
+release zůstává NOT_ACCEPTED.

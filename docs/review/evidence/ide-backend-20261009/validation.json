@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "manifestType": "intentsmith.ide-backend-development-evidence",
+  "generatedAt": "2026-10-09T19:31:22.559879+00:00",
+  "status": "REVIEW_PENDING",
+  "releaseAcceptance": "NOT_ACCEPTED",
+  "baseRevision": "138e958be927df9835c091d3ad41d44b347e85b5",
+  "testedRevision": "03abd72a61c1c59cf6535f2746d9735468683e2b",
+  "sourceCodeManifest": {
+    "path": ".intentsmith-artifacts/ide-backend-evidence/source-file-hashes.json",
+    "sha256": "1a74b64f0cc3143e29b09027c2c5731de742d21503435420ad6d0a415f954c1c"
+  },
+  "selection": {
+    "offline": 324,
+    "database": 88,
+    "server": 2,
+    "model": 0,
+    "soak": 0,
+    "manual": 0
+  },
+  "statusCounts": {
+    "PASS": 414,
+    "FAIL": 0,
+    "TIMEOUT": 0,
+    "BLOCKED": 0,
+    "SKIPPED": 0
+  },
+  "verdict": "PASS",
+  "registryHash": "f95d0d0e8e9ce598791f08c884820f4b2c2ed82e333cc597a2441c7aa9ab7788",
+  "inventoryFingerprint": "840500fcf32c899eb3978115d8cb59e3cdad57c2f7156fbfeadab2f30265fcf5",
+  "optionsFingerprint": "049ac2634e513dd62d05bbb7695f0bbe97eb80ffb5f36a5b8ee7f47f52b87c10",
+  "concurrency": 1,
+  "allowDirty": false,
+  "allSourceChecksClean": true,
+  "allProcessCleanupChecksPassed": true,
+  "firstProgramStartedAt": "2026-10-09T19:18:09.106Z",
+  "lastProgramEndedAt": "2026-10-09T19:29:09.410Z",
+  "report": {
+    "path": ".intentsmith-artifacts/ide-backend-evidence/ide-be-final-20261009/report.json",
+    "sha256": "9e4638a5f3a2972447f129e038bd595a89a44a4546263908a8da8464df1c3193"
+  },
+  "checkpoint": {
+    "path": ".intentsmith-artifacts/ide-backend-evidence/ide-be-final-20261009/checkpoint.json",
+    "sha256": "eb359a569c7842cacf6406a3a70532eab8127ee391fcd09434e6f3a870f3e115"
+  },
+  "inventory": {
+    "path": ".intentsmith-artifacts/ide-backend-evidence/ide-be-final-20261009/inventory.json",
+    "sha256": "75ebd7cb718afc44c9753b584ba0c14d1c024d3269c74c3a710cba8b30c2c89d"
+  },
+  "logHashesSha256": "e05996f877c10ba86493fbc26024c198916d8295cda023f8e616c78a22013920",
+  "newSuites": [
+    {
+      "id": "IS-T3-TESTS-IDE-BACKEND-PRODUCT-HTTP-JOURNEY-TEST",
+      "path": "tests/ide-backend-product-http-journey.test.js",
+      "status": "PASS",
+      "durationMs": 1837,
+      "logSha256": "5aa2e32c59b9f4aebe82a930acc0623fa1b5023e700d4e20b78a713274c3ee6f"
+    },
+    {
+      "id": "IS-T1-TESTS-IDE-BACKEND-TEST",
+      "path": "tests/ide-backend.test.js",
+      "status": "PASS",
+      "durationMs": 828,
+      "logSha256": "39380cbc6732c5e6976854037b71d066127cf16584119427f5430b63edf71727"
+    }
+  ],
+  "priorRuns": [
+    {
+      "path": ".intentsmith-artifacts/ide-backend-evidence/ide-be-deterministic-20261009/report.json",
+      "sha256": "39bc7b083deb1b5933783572696682072b7102b95b5aeda68828624686a8923a",
+      "sourceRevision": "0426198053f0f6023cd1fb5a57d4d84cd73e1249",
+      "verdict": "FAIL",
+      "statusCounts": {
+        "PASS": 315,
+        "FAIL": 25,
+        "TIMEOUT": 0,
+        "BLOCKED": 3,
+        "SKIPPED": 69
+      },
+      "interruptionSignal": "SIGINT"
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-backend-evidence/ide-be-final-20261009/before-ocr-report.json",
+      "sha256": "5189073ba5adf903665b29d762837bef77e46b1036a80fd2814ee1acc6b81b0f",
+      "sourceRevision": "03abd72a61c1c59cf6535f2746d9735468683e2b",
+      "verdict": "BLOCKED",
+      "statusCounts": {
+        "PASS": 413,
+        "FAIL": 0,
+        "TIMEOUT": 0,
+        "BLOCKED": 1,
+        "SKIPPED": 0
+      },
+      "interruptionSignal": null
+    },
+    {
+      "path": ".intentsmith-artifacts/ide-backend-evidence/ide-be-product-http-20261009/report.json",
+      "sha256": "320e4b87beccdd3676bdb94a349c48b1b5584b1a9c42439662fc06565c24900d",
+      "sourceRevision": "0426198053f0f6023cd1fb5a57d4d84cd73e1249",
+      "verdict": "PASS",
+      "statusCounts": {
+        "PASS": 2,
+        "FAIL": 0,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 0
+      },
+      "interruptionSignal": null
+    }
+  ],
+  "runtime": {
+    "node": "v24.21.0",
+    "pdfPython": "/home/belphareon/.local/share/intentsmith/python/pdf/bin/python3",
+    "accountantOcrRuntime": "/home/belphareon/.local/share/ucetni",
+    "backendDependencies": "existing locked external dependencies through read-only node_modules symlink",
+    "studioDependencies": "locked external package symlinks and own workspace packages; own protocol generated",
+    "dependencyLockfiles": [
+      {
+        "path": "package-lock.json",
+        "sha256": "2d783def993594971e0eb6729d405718a83374250d4eaf86346e824619229baa"
+      },
+      {
+        "path": "intentsmith-ide/yarn.lock",
+        "sha256": "1d6d6c71df4e11db03fcfc9235031c90370ae9af797db4f18cc68100364c51fb"
+      },
+      {
+        "path": "requirements/pdf-export.lock",
+        "sha256": "b8126794c9fa898d19220335359019fd7558fd4775b17447b61d78b2acf229e2"
+      }
+    ]
+  },
+  "notExecuted": [
+    "live GPU inference and hardware context sweep",
+    "actual Discord/Telegram delivery",
+    "new frontend journeys",
+    "independent review",
+    "Gate 0 or release acceptance"
+  ],
+  "unchangedProductionRevision": "c84b88cd0c0b76639823c82c022d2feab96dfc15"
+}
