@@ -5,6 +5,25 @@ Nezakládá nový požadavek; požadavky jsou v [UI-SPEC](UI-SPEC.md), [SCM](SCM
 a [CONNECTORS](CONNECTORS.md). Popisuje, jak je vzhled Studia 2 postavený a kde
 se na něj napojuje backend.
 
+## Aktualizace 9. 10. — sjednocení skutečného frontendu
+
+Navazuje na přímé zadání operátora, ne na ukázková čísla preview.
+Kanonický zdroj zůstává `prototype/src/main.template.html` a `main.js`;
+`build-view.js` generuje React, VM a CSS. Nativní `design/tokens.css` se nemění.
+`LiveModel` napojuje `ModelWorkspaceRedesign` (rozšíření existujícího
+`ModelWorkspace`, zachované efekty a jejich ochrany), `IdeSettingsManagement`
+a čtecí `ScmReview`. Předloha Claude dodává vizuální uspořádání; její fixture
+modely a měření se do produktu nepřenášejí.
+
+Nové management endpointy odpovídají coworkerově publikované BE větvi
+`work/ide-backend-20261009`, SHA `0766a0ba73b4f25be3d6ccc507d26ba5e26ba2c6`.
+Účty/kanály, storage, retence, metadata záloh, SSH reference a modelové profily
+mají autorské skutečné HTTP průchody v oddělených runtime/DB, včetně restartu.
+Tyto průchody nespustily inferenci, doručení, SSH spojení ani obnovu databáze.
+Samostatné browser kontroly používají skutečný `StudioRoot`/`LiveModel`.
+Jejich fixture průchody dokazují ovládání a vzhled, nikoli produktová měření.
+Konečné důkazy a stav nezávislé revize eviduje navazující WP.
+
 ## Aktualizace 28. 9. — převzatá práce po limitu vizuálního workera
 
 Horní záložky relací jsou odstraněné v prototypu i generovaném Reactu.

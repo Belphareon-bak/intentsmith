@@ -17295,6 +17295,96 @@
       "quarantineExpiry": null
     },
     {
+      "id": "IS-T1-TESTS-STUDIO2-MODEL-WORKSPACE-REDESIGN-TEST",
+      "path": "tests/studio2-model-workspace-redesign.test.js",
+      "argv": [
+        "node",
+        "tests/studio2-model-workspace-redesign.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T1",
+      "fixture": "actual Studio view models, stale native picker, scoped SCM read-only response fixtures",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-IDE-FRONTEND-20261009",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-STUDIO2-SETTINGS-MANAGEMENT-TEST",
+      "path": "tests/studio2-settings-management.test.js",
+      "argv": [
+        "node",
+        "tests/studio2-settings-management.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T1",
+      "fixture": "actual Studio view models, stale native picker, scoped SCM read-only response fixtures",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-IDE-FRONTEND-20261009",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T1-TESTS-STUDIO2-IDE-REDESIGN-TEST",
+      "path": "tests/studio2-ide-redesign.test.js",
+      "argv": [
+        "node",
+        "tests/studio2-ide-redesign.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T1",
+      "fixture": "actual Studio view models, stale native picker, scoped SCM read-only response fixtures",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-IDE-FRONTEND-20261009",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
+    },
+    {
       "id": "IS-T1-TESTS-STUDIO2-MODEL-WORKSPACE-TEST",
       "path": "tests/studio2-model-workspace.test.js",
       "argv": [

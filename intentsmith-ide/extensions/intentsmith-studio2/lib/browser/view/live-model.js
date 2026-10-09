@@ -13,7 +13,9 @@ const { MEDIA_ID } = require('../catalog-store');
 const { IntentSmithBus } = require('@intentsmith/chat-panel/lib/browser/event-bus');
 const { COMMANDS: LEARNING_COMMANDS, runCommand: runLearningCommand } = require('../learning-commands');
 const { SETTINGS_FIELDS, fieldsFor, validateValue } = require('../settings-preferences');
-const { ModelWorkspace } = require('../model-workspace');
+const { ModelWorkspaceRedesign } = require('../model-workspace-redesign');
+const { IdeSettingsManagement, CATEGORIES: MANAGEMENT_CATEGORIES } = require('../ide-settings-management');
+const { ScmReview } = require('../scm-review');
 const { FeedbackWorkspace } = require('../feedback-workspace');
 const { SecurityWorkspace } = require('../security-workspace');
 const { ExpertiseSelectionClient } = require('../expertise-selection-client');
@@ -168,13 +170,18 @@ class LiveModel extends Component {
       onChange: () => this.forceUpdate() });
     this._developmentRequested = false;
     this.scmClient = new ScmClient({ backendUrl: () => widget.catalog.backendUrl(),
+      fetchImpl: (...args) => (widget.fetchImpl || fetch)(...args),
       onChange: () => this.forceUpdate() });
+    this.scmReview = new ScmReview(this.scmClient, () => this.forceUpdate());
+    this._branchDraft = null;
     this.statusClient = new StatusClient({ backendUrl: () => widget.catalog.backendUrl(),
       onChange: () => this.forceUpdate() });
     this._policyDrafts = new Map();
     this._projectConversations = new Map();
     this._specialistConversations = new Map();
     this._projectWizardStatus = { busy: false, error: '', defaultDir: '', uncertain: false };
+    this._projectWizardEpoch = 0;
+    this._projectPickerRequest = null;
     this._specialistWizardStatus = { busy: false, error: '', uncertain: false };
     this._workerWizardStatus = { busy: false, loading: false, error: '', uncertain: false,
       extensions: [], projects: [] };
@@ -217,7 +224,11 @@ class LiveModel extends Component {
     this._pairingTimer = null;
     this._pairingAlive = true;
     this.fetchImpl = widget.fetchImpl || fetch;
-    this.modelWorkspace = new ModelWorkspace({ backendUrl: () => widget.catalog.backendUrl(),
+    this.modelWorkspace = new ModelWorkspaceRedesign({ backendUrl: () => widget.catalog.backendUrl(),
+      fetchImpl: (...args) => this.fetchImpl(...args),
+      confirmAction: message => (widget.confirmAction || globalThis.confirm)?.(message) === true,
+      onChange: () => this.forceUpdate() });
+    this.settingsManagement = new IdeSettingsManagement({ backendUrl: () => widget.catalog.backendUrl(),
       fetchImpl: (...args) => this.fetchImpl(...args),
       confirmAction: message => (widget.confirmAction || globalThis.confirm)?.(message) === true,
       onChange: () => this.forceUpdate() });
@@ -274,6 +285,8 @@ class LiveModel extends Component {
     this.statusClient.start();
     this.loadChatModel();
     if (this.state.mode === 'section' && CATALOG[this.state.section]) this.widget.catalog.load(CATALOG[this.state.section]);
+    if (this.state.mode === 'section' && this.state.section === 'settings' && this.state.detail?.settings)
+      this.pSelect(this.st(), 'settings', this.state.detail.settings);
     const focused = this.widget.store.focusedSession();
     if (focused?._convId) this.expertiseSelection.load(focused);
   }
@@ -302,9 +315,11 @@ class LiveModel extends Component {
     this._mediaOutputUrls.clear();
     for (const unlisten of this._unlisten.splice(0)) unlisten();
     this.development.destroy();
+    this.scmReview.close();
     this.scmClient.destroy();
     this.statusClient.destroy();
     this.modelWorkspace.destroy();
+    this.settingsManagement.destroy();
     this.feedbackWorkspace.files = [];
     this.feedbackWorkspace.message = '';
     this.securityWorkspace.destroy();
@@ -666,7 +681,7 @@ class LiveModel extends Component {
       const open = children.length > 0 && !!s.navExp[id];
       return { label: section.label, short: section.short, icon: section.icon, tone: section.tone,
         cls: s.mode === 'section' && s.section === id ? 'on' : '',
-        go: this.run(s2 => this.pGo(s2, id)), hasBadge: count > 0, badge: String(count),
+        go: this.run(s2 => this.pGo(s2, id)), hasBadge: false, badge: String(count),
         badgeCls: '', hasAlert: id === 'chats' && items.some(item => item.state === 'wait'),
         hasKids: children.length > 0, open, kids: children,
         toggle: () => this.setState({ navExp: this.merge(this.st(), 'navExp', { [id]: !this.st().navExp[id] }) }),
@@ -955,14 +970,15 @@ class LiveModel extends Component {
     const vm = super.detailVM(s);
     if (!vm) return null;
     if (id === 'vzhled') return vm;
-    const tab = (s.dtab || {})['settings:' + id] || (id === 'system' ? 'prostredi' : 'prehled');
-    if (id === 'system' && tab === 'prostredi') return vm;
+    const flatPreferences = ['ucet', 'pamet', 'oznameni', 'vystup', 'system'].includes(id);
+    const tab = flatPreferences || id === 'modely' ? 'prehled' : (s.dtab || {})['settings:' + id] || 'prehled';
     const resourceKey = id === 'modely' && fieldsFor(id, tab).length ? 'modely:prefs'
       : id === 'uloziste' ? 'uloziste:system' : id;
     const resource = this._settingsResources.get(resourceKey);
     const state = resource?.status || 'idle';
-    const preferenceFields = fieldsFor(id, tab);
-    const connectedTab = preferenceFields.length > 0 || id === 'zabezpeceni'
+    const preferenceFields = flatPreferences ? Object.values(SETTINGS_FIELDS[id] || {}).flat() : fieldsFor(id, tab);
+    if (flatPreferences || id === 'modely') { vm.hasTabs = false; vm.tabs = []; }
+    const connectedTab = preferenceFields.length > 0 || id === 'zabezpeceni' || id === 'git'
       || (id === 'ucet' && tab === 'projekty') ||
       (id === 'prepinace' && (tab === 'prehled' || tab === 'obnoveni')) ||
       ((id === 'modely' || id === 'uloziste') && tab === 'prehled')
@@ -982,17 +998,14 @@ class LiveModel extends Component {
         if (id === 'oznameni' && tab === 'prehled') this.loadSettingsResource('oznameni:channels', true); } }];
     if (preferenceFields.length) {
       const draft = this._preferenceDrafts.get(id) || {};
-      vm.blocks = [this.blockVM({ kind: 'preferences' })];
-      if (id === 'oznameni' && tab === 'prehled') {
-        const channels = this._settingsResources.get('oznameni:channels');
-        const channelRows = channels?.status === 'ready' ? channels.data.channels.map(channel => ({
-          t: channel.name, m: channel.configured ? 'zaregistrován' : 'nenastaven',
-          s: channel.configured ? 'Doručení tím není ověřeno.' : 'Kanál není v backendu zaregistrován.' })) : [];
-        vm.blocks.push(this.blockVM(channelRows.length
-          ? { kind: 'rows', title: 'Kanály backendu', rows: channelRows }
-          : { kind: 'empty', text: channels?.status === 'error' ? channels.error
-            : channels?.status === 'ready' ? 'Backend nevrátil žádné kanály.' : 'Načítám kanály backendu…' }));
-      }
+      const categories = this.data().SET.find(item => item.id === id)?.tabs || [];
+      vm.blocks = flatPreferences ? Object.keys(SETTINGS_FIELDS[id]).map(preferenceTab => this.blockVM({
+        kind: 'preferences', preferenceTab,
+        title: categories.find(item => item[0] === preferenceTab)?.[1] || preferenceTab }))
+        : [this.blockVM({ kind: 'preferences', preferenceTab: tab })];
+      if (id === 'system') vm.blocks.push(this.blockVM({ kind: 'development', title: 'Prostředí a závislosti' }));
+      if (id === 'ucet') vm.blocks.push(this.blockVM({ kind: 'projectDirectory' }));
+      if (['ucet', 'oznameni'].includes(id)) vm.blocks.push(this.blockVM({ kind: 'management', managementCategory: id }));
       vm.hasPrimary = state === 'ready' && !this._settingsBusy && Object.keys(draft).length > 0;
       vm.primaryLabel = 'Uložit změny';
       vm.onPrimary = () => this.savePreferences(id);
@@ -1016,19 +1029,23 @@ class LiveModel extends Component {
       vm.hasPrimary = state === 'ready' && !this._settingsBusy;
       vm.primaryLabel = 'Obnovit přepínače';
       vm.onPrimary = () => this.resetFeatures();
-    } else if (id === 'modely' && tab === 'prehled') {
+    } else if (id === 'modely') {
       vm.blocks = [this.blockVM({ kind: 'modelWorkspace' })];
-      vm.props = state === 'ready' ? [{ k: 'Model CHAT', v: resource.data.current_model || '—', cls: 'mono' },
-        { k: 'Adresa Ollamy', v: resource.data.ollama_url || '—', cls: 'mono' }] : [];
-      vm.showProps = vm.props.length > 0;
-    } else if (id === 'uloziste' && tab === 'prehled') {
-      const storage = resource?.data;
-      vm.blocks = state === 'ready' ? [this.blockVM({ kind: 'rows', title: 'Databáze a historie', rows: [
-        { t: 'Databáze', m: storage.db_size_mb + ' MiB' },
-        { t: 'Zprávy v DB', m: String(storage.messages_in_db) },
-        { t: 'Historie', m: storage.history.total_mb + ' MiB' },
-        { t: 'Zálohy', m: String(storage.backups?.count ?? '—') }] })]
-        : [this.blockVM({ kind: 'empty', text: state === 'error' ? resource.error : 'Načítám stav úložiště…' })];
+      vm.secondary = [];
+      if (this.modelWorkspace.tab === 'policy') {
+        const prefs = this._settingsResources.get('modely:prefs');
+        const categories = this.data().SET.find(item => item.id === id)?.tabs || [];
+        for (const preferenceTab of Object.keys(SETTINGS_FIELDS.modely || {})) vm.blocks.push(this.blockVM({ kind: 'preferences', preferenceTab,
+          title: categories.find(item => item[0] === preferenceTab)?.[1] || preferenceTab }));
+        vm.hasPrimary = prefs?.status === 'ready' && !this._settingsBusy && Object.keys(this._preferenceDrafts.get(id) || {}).length > 0;
+        vm.primaryLabel = 'Uložit nastavení poskytovatele'; vm.onPrimary = () => this.savePreferences(id);
+        const notice = this._preferenceNotice.get(id);
+        if (notice) vm.blocks.push(this.blockVM({ kind: 'text', items: [notice] }));
+      }
+    } else if (id === 'git' || id === 'uloziste' && tab === 'prehled') {
+      vm.blocks = [this.blockVM({ kind: 'management', managementCategory: id })]; vm.secondary = [];
+      const management = this.managementVM(s, id); vm.status = management.loading ? 'načítání' : management.hasError ? 'chyba' : 'živá data';
+      vm.stCls = management.hasError ? 'warn' : 'idle';
     } else if (id === 'uloziste' && tab === 'udrzba') {
       vm.blocks = [this.blockVM({ kind: 'text', items: [
         'Optimalizace SQLite odstraní fragmentaci. Během operace mohou ostatní požadavky čekat.',
@@ -1046,9 +1063,8 @@ class LiveModel extends Component {
         rows: backups.slice(0, 30).map(item => ({ t: item.name, s: item.created_at || '',
           m: item.restorable ? item.total_size_mb + ' MiB' : 'nelze obnovit' })) })] : [])];
       if (tab === 'prehled') {
-        vm.hasPrimary = state === 'ready' && !this._maintenanceBusy;
-        vm.primaryLabel = 'Vytvořit zálohu stavu';
-        vm.onPrimary = () => this.performMaintenance('backup');
+        vm.blocks = [this.blockVM({ kind: 'management', managementCategory: 'zalohy' })];
+        vm.hasPrimary = false;
         vm.secondary.push({ label: 'Exportovat nastavení JSON', icon: this.data().I.download,
           go: () => this.exportSettings() });
       } else if (tab === 'obnova') {
@@ -1636,10 +1652,33 @@ class LiveModel extends Component {
     const currentPlan = vm.mode === 'open' && plan
       && plan.inputPath === s.projectPath.trim() && plan.inputName === s.projectName.trim() ? plan : null;
     const clearPlan = () => {
+      this._projectWizardEpoch++;
+      this._projectPickerRequest = null;
       this._projectWizardStatus = { ...this._projectWizardStatus, renamePlan: null, error: '' };
       this.widget.catalogActionError = null;
     };
-    return { ...vm, renamePlan: currentPlan, hasRenamePlan: !!currentPlan,
+    const picker = this.widget.pickProjectDirectory || globalThis.window?.electronIntentSmith?.pickProjectDirectory;
+    return { ...vm, canBrowse: typeof picker === 'function',
+      browse: async () => {
+        if (this._projectWizardStatus.busy || this._projectWizardStatus.uncertain || typeof picker !== 'function') return false;
+        const before = this.st(), epoch = this._projectWizardEpoch, token = Symbol('folder-picker');
+        this._projectPickerRequest = token;
+        try {
+          const path = await picker({ defaultPath: before.projectPath || this.projectStatus().defaultDir });
+          const current = this.st();
+          if (!path || this._projectPickerRequest !== token || this._projectWizardEpoch !== epoch
+            || current.mode !== 'section' || current.section !== 'projects' || current.detail?.projects !== '__new__'
+            || current.projectPath !== before.projectPath || current.projectMode !== before.projectMode
+            || current.projectStep !== 0 || this._projectWizardStatus.busy || this._projectWizardStatus.uncertain) return false;
+          if (!path.startsWith('/') || /[\x00-\x1f]/.test(path)) throw Error('Výběr nevrátil platnou absolutní cestu.');
+          clearPlan(); this.setState({ projectPath: path }); return true;
+        } catch (error) {
+          if (this._projectPickerRequest === token && this._projectWizardEpoch === epoch) {
+            this._projectWizardStatus.error = error?.message || 'Složku nelze vybrat.'; this.forceUpdate();
+          }
+          return false;
+        }
+      }, renamePlan: currentPlan, hasRenamePlan: !!currentPlan,
       renameNotice: currentPlan
         ? `Složka už patří projektu „${currentPlan.currentName}“ (ID ${currentPlan.projectId}). Potvrzením přejmenuješ záznam na „${currentPlan.inputName}“. Soubory se nezmění.` : '',
       submitLabel: currentPlan ? 'Potvrdit přejmenování' : vm.submitLabel,
@@ -1651,7 +1690,7 @@ class LiveModel extends Component {
 
   projectDirectoryVM() {
     return { value: this._projectsDir, status: this._projectsDirNotice ||
-      (this._projectsDir ? 'Složka je uložená lokálně. Nový projekt ji použije po kontrole backendem.'
+      (this._projectsDir ? 'Tato cesta má v tomto IDE přednost před cestou backendu. Je uložená lokálně a nový projekt ji použije po kontrole backendem.'
         : 'Nové projekty použijí výchozí složku backendu.'),
       change: event => this.setProjectsDir(event.target.value) };
   }
@@ -2213,6 +2252,7 @@ class LiveModel extends Component {
   }
 
   pFocusSession(s, sid) {
+    this.scmReview.close();
     this.widget.store.focusTab(sid);
     return { mode: 'sessions' };
   }
@@ -2392,6 +2432,10 @@ class LiveModel extends Component {
   }
 
   pGo(s, sec) {
+    this.scmReview.close();
+    this._branchDraft = null;
+    this._projectWizardEpoch++;
+    this._projectPickerRequest = null;
     this.widget.catalogActionError = null;
     if (CATALOG[sec]) this.widget.catalog.load(CATALOG[sec]);
     return super.pGo(s, sec);
@@ -2459,7 +2503,10 @@ class LiveModel extends Component {
   }
 
   pSelect(s, sec, id) {
+    this.scmReview.close();
     if (sec === 'projects' && id === '__new__') {
+      this._projectWizardEpoch++;
+      this._projectPickerRequest = null;
       this._projectWizardStatus = { busy: false, error: '', defaultDir: '', uncertain: false };
       this.loadProjectDefaults();
     } else if (sec === 'projects') { this.scmClient.load(id); this.loadProjectConversations(id); }
@@ -2487,6 +2534,7 @@ class LiveModel extends Component {
       this._developmentRequested = true; this.development.refresh();
     }
     if (sec === 'settings') {
+      if (MANAGEMENT_CATEGORIES.includes(id)) this.settingsManagement.load(id);
       this.loadSettingsResource(id);
       if (id === 'oznameni') this.loadSettingsResource('oznameni:channels');
       if (id === 'uloziste') this.loadSettingsResource('uloziste:system');
@@ -2543,6 +2591,8 @@ class LiveModel extends Component {
 
   modelWorkspaceVM() { return this.modelWorkspace.vm(); }
 
+  managementVM(s, category) { return this.settingsManagement.vm(category || s.detail.settings, s.view, s.size); }
+
   feedbackVM() { return this.feedbackWorkspace.vm(); }
 
   securityVM(s) {
@@ -2551,9 +2601,9 @@ class LiveModel extends Component {
       isAccess: tab === 'pristup', isSessions: tab === 'relace' };
   }
 
-  preferencesVM(s) {
+  preferencesVM(s, preferenceTab) {
     const id = s.detail?.settings;
-    const tab = (s.dtab || {})['settings:' + id] || 'prehled';
+    const tab = preferenceTab || (s.dtab || {})['settings:' + id] || 'prehled';
     const resource = this._settingsResources.get(id === 'modely' ? 'modely:prefs' : id), draft = this._preferenceDrafts.get(id) || {};
     const ready = resource?.status === 'ready';
     return { fields: fieldsFor(id, tab).map(definition => {
@@ -2570,7 +2620,7 @@ class LiveModel extends Component {
           ? event.target.checked : event.target.value) };
     }), status: !ready ? resource?.status === 'error' ? resource.error : 'Načítám hodnoty z backendu…'
       : Object.keys(draft).length ? 'Změny nejsou uložené. Použij tlačítko Uložit změny.'
-        : 'Hodnoty jsou načtené z backendu.' };
+        : '' };
   }
 
   changePreference(id, definition, raw) {
@@ -3268,8 +3318,9 @@ class LiveModel extends Component {
     return null;
   }
   scmPrepare(projectId, op, args = {}, next = null) {
-    this.scmClient.prepare(projectId, op, args, next);
+    const operation = this.scmClient.prepare(projectId, op, args, next);
     this.setState({ ctx: null, menu: null });
+    return operation;
   }
 
   pScmCommit(s, projectId, options = {}) {
@@ -3419,6 +3470,24 @@ class LiveModel extends Component {
     }
     const vm = super.scmVM(s, sid);
     vm.unavailable = false;
+    vm.graph.forEach((row, index) => {
+      const commit = entry.log?.commits?.[index];
+      row.open = () => commit && this.scmReview.open(projectId, commit.hash, vm.projectName);
+    });
+    const branch = this._branchDraft;
+    vm.branchForm = {
+      open: !!branch && String(branch.projectId) === String(projectId), name: branch?.name || '',
+      disabled: entry.busy || !branch?.name?.trim(), inputDisabled: entry.busy,
+      change: event => { if (!entry.busy && this._branchDraft === branch) { branch.name = event.target.value; this.forceUpdate(); } },
+      cancel: () => { this._branchDraft = null; this.forceUpdate(); },
+      create: async () => {
+        if (entry.busy || this._branchDraft !== branch || !branch?.name?.trim()) return false;
+        const name = branch.name.trim();
+        const ok = await this.scmPrepare(projectId, 'branch.create', { name });
+        if (ok && this._branchDraft === branch && branch.name.trim() === name) this._branchDraft = null;
+        this.forceUpdate(); return ok;
+      }
+    };
     if (!vm.isRepo) {
       vm.init = () => this.scmPrepare(projectId, 'init');
       vm.plan = this.planVM(s, this.gitVM(s, projectId), sid);
@@ -3596,8 +3665,10 @@ class LiveModel extends Component {
       for (const item of vm.ctxItems) {
         if (!item.isItem) continue;
         if (item.t.startsWith('Nová větev')) {
-          const name = (s.ctxQ || '').trim().replace(/\s+/g, '-') || 'work/nova-vetev';
-          item.go = () => this.scmPrepare(projectId, 'branch.create', { name });
+          item.go = () => {
+            this._branchDraft = { projectId, name: (s.ctxQ || '').trim() };
+            this.setState({ ctx: null });
+          };
         } else if (this.gitVM(s, projectId)?.remoteBranches.includes(item.t)) {
           item.cls = 'dis'; item.go = () => {};
         } else if (item.t !== 'Žádná shoda' && item.t !== this.gitVM(s, projectId)?.branch) {
@@ -3695,6 +3766,13 @@ class LiveModel extends Component {
     vm.ws.hasFileError = !!vm.ws.fileError;
     Object.assign(vm.sb, this.statusClient.vm(this.widget.transport));
     vm.sb.ctxLabel = focused && focused.chat.ctx > 0 ? Math.round(focused.chat.ctx) + ' %' : '—';
+    vm.scmReview = this.scmReview.vm();
+    vm.isScmReview = vm.scmReview.open;
+    if (vm.isScmReview) {
+      vm.isSessions = false; vm.isSection = false; vm.noSessions = false;
+      vm.mainCols = vm.mainCols.replace(/ minmax\(0, 1fr\).*/, ' minmax(0, 1fr) 0px 0px');
+      vm.tbar.viewDim = 'dimmed'; vm.tbar.colDim = 'dimmed';
+    }
     // Okno Electronu: Studio 2 kreslí vlastní titulní lištu, tlačítka ovládají skutečné okno.
     const core = typeof window !== 'undefined' ? window.electronTheiaCore : null;
     if (core) {

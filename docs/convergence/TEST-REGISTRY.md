@@ -14,10 +14,10 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 
 ## Inventory
 
-- Runnable programs: 597
+- Runnable programs: 600
 - Explicit support-module exclusions: 35
-- Profiles: offline=324, database=87, server=64, model=86, soak=16, manual=20
-- States: ACTIVE=499, HISTORICAL=15, BLOCKED=83
+- Profiles: offline=327, database=87, server=64, model=86, soak=16, manual=20
+- States: ACTIVE=502, HISTORICAL=15, BLOCKED=83
 
 ## Execution profiles
 
@@ -593,14 +593,17 @@ VRAM, post-load headroom, GPU residency and fallback policy.
 | `IS-T5-TESTS-STUDIO2-EXCLUSIVE-UI-E2E` | `tests/studio2-exclusive-ui.e2e.js` | `C3-001` | T5 | `server` | 2 min | 5 min | network:loopback, temp-db, toolchain:linux-user-network-namespace, toolchain:iproute2, toolchain:x11-display | yes | `ACTIVE` | — | WP-STUDIO-2 S2-0 |
 | `IS-T1-TESTS-STUDIO2-EXPERTISE-SELECTION-TEST` | `tests/studio2-expertise-selection.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-STUDIO2-FEEDBACK-TEST` | `tests/studio2-feedback.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
+| `IS-T1-TESTS-STUDIO2-IDE-REDESIGN-TEST` | `tests/studio2-ide-redesign.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-IDE-FRONTEND-20261009 |
 | `IS-T1-TESTS-STUDIO2-ISOLATED-STAGE-TEST` | `tests/studio2-isolated-stage.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO2-ISOLATED-STAGING-20261001 |
 | `IS-T1-TESTS-STUDIO2-LEARNING-TEST` | `tests/studio2-learning.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-STUDIO2-LIVE-MODEL-TEST` | `tests/studio2-live-model.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-STUDIO2-M2-TEST` | `tests/studio2-m2.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-STUDIO2-MEDIA-INPUT-TEST` | `tests/studio2-media-input.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none, temp-db | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
+| `IS-T1-TESTS-STUDIO2-MODEL-WORKSPACE-REDESIGN-TEST` | `tests/studio2-model-workspace-redesign.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-IDE-FRONTEND-20261009 |
 | `IS-T1-TESTS-STUDIO2-MODEL-WORKSPACE-TEST` | `tests/studio2-model-workspace.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-STUDIO2-SECURITY-TEST` | `tests/studio2-security.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-STUDIO2-SESSION-STORE-TEST` | `tests/studio2-session-store.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
+| `IS-T1-TESTS-STUDIO2-SETTINGS-MANAGEMENT-TEST` | `tests/studio2-settings-management.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-IDE-FRONTEND-20261009 |
 | `IS-T1-TESTS-STUDIO2-SPECIALIST-CREATE-TEST` | `tests/studio2-specialist-create.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-STUDIO2-TRANSPORT-TEST` | `tests/studio2-transport.test.js` | `C3-005` | T1 | `offline` | 1 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |
 | `IS-T1-TESTS-STUDIO2-VIEW-TEST` | `tests/studio2-view.test.js` | `C3-005` | T1 | `offline` | 5 s | 30 s | network:none | yes | `ACTIVE` | — | WP-STUDIO-2-20260925 |

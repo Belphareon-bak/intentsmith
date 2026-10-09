@@ -66,6 +66,16 @@ exports.preload = function preload() {
       return attachments.grantPaths(filePaths);
     },
 
+    // The user chooses a directory with the existing native Theia dialog.
+    // This grants no file bytes and performs no project or Git mutation.
+    pickProjectDirectory: async (options = {}) => {
+      const paths = await ipcRenderer.invoke(CHANNEL_SHOW_OPEN, {
+        title: 'Otevřít existující projekt', openFiles: false, openFolders: true, selectMany: false,
+        path: typeof options.defaultPath === 'string' ? options.defaultPath : undefined,
+      });
+      return Array.isArray(paths) && typeof paths[0] === 'string' ? paths[0] : null;
+    },
+
     /**
      * Spend a grant for that file's bytes, refusing above `maxBytes`.
      *

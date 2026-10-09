@@ -371,7 +371,8 @@ class Component extends DCLogic {
     ];
     const SET = [
       { id: 'ucet', name: 'Účet', icon: I.sliders, tone: 'set-ucet', desc: 'Profil a projekty.', tabs: [['prehled', 'Profil'], ['projekty', 'Projekty']] },
-      { id: 'modely', name: 'Modely a inference', icon: I.cpu, tone: 'set-modely', desc: 'Modely, inference, připojení a hardware.', tabs: [['prehled', 'Lokální modely'], ['inference', 'Inference'], ['pripojeni', 'Připojení'], ['hardware', 'Hardware']] },
+      { id: 'git', name: 'Git a repozitáře', icon: I.branch, tone: 'set-zabezpeceni', desc: 'Repozitáře, vzdálené adresy a SSH profily.', tabs: [['prehled', 'Přehled']] },
+      { id: 'modely', name: 'Modely a inference', icon: I.cpu, tone: 'set-modely', desc: 'Modely, inference, připojení a hardware.', tabs: [['prehled', 'Modely'], ['inference', 'Inference'], ['pripojeni', 'Připojení'], ['hardware', 'Hardware']] },
       { id: 'pamet', name: 'Paměť', icon: I.db, tone: 'set-pamet', desc: 'Historie, kontext a automatické učení.', tabs: [['prehled', 'Historie a kontext'], ['uceni', 'Paměť a učení'], ['retence', 'Kapacita a retence']] },
       { id: 'oznameni', name: 'Oznámení', icon: I.bell, tone: 'set-oznameni', desc: 'Kanály oznámení a čas pro soustředění.', tabs: [['prehled', 'Kanály'], ['ticho', 'Tiché hodiny']] },
       { id: 'vystup', name: 'Výstup', icon: I.code, tone: 'set-vystup', desc: 'Formátování a délka odpovědi.', tabs: [['prehled', 'Formátování'], ['delka', 'Délka odpovědi']] },
@@ -882,7 +883,7 @@ class Component extends DCLogic {
       return {
         label: x.label, short: x.short, icon: x.icon, tone: x.tone, cls: on ? 'on' : '',
         go: this.run((s2) => this.pGo(s2, x.id)),
-        hasBadge: !!badge, badge, badgeCls, hasAlert: x.id === 'chats' && nWait > 0,
+        hasBadge: false, badge, badgeCls, hasAlert: x.id === 'chats' && nWait > 0,
         hasKids, open, kids: kids.map((k) => Object.assign({ isHead: false, isItem: false, t: '', m: '', mc: '', hasNum: false, num: 0, numCls: '', hasDot: false, dot: '', hasIcon: false, icon: '', cls: '', go: () => {}, ctx: () => {} }, k)),
         toggle: () => this.setState({ navExp: this.merge(this.st(), 'navExp', { [x.id]: !this.st().navExp[x.id] }) }),
         expLabel: open ? 'Sbalit' : 'Rozbalit', chev: open ? I.down : I.right,
@@ -931,7 +932,10 @@ class Component extends DCLogic {
       hasChips: f.chips.length > 1, chips: f.chips, items,
       isTiles: s.view === 'dlazdice' && items.length > 0, isList: s.view === 'seznam' && items.length > 0, isEmpty: items.length === 0,
       emptyTitle: empty.t, emptyText: empty.x, emptyIcon: empty.i,
-      minW: [190, 250, 330][size - 1]
+      minW: [190, 250, 330][size - 1], rowHeight: [32, 42, 54][size - 1],
+      simpleList: ['settings', 'workers'].includes(sec),
+      listClass: ['settings', 'workers'].includes(sec) ? 'simple-list' : '',
+      isSettings: sec === 'settings', containerClass: sec === 'settings' ? 'settings-catalog' : ''
     };
   }
 
@@ -1160,6 +1164,7 @@ class Component extends DCLogic {
         });
       }
       if (x.id === 'system') return Object.assign(base, { blocks: { prostredi: [{ kind: 'development' }], spousteni: [{ kind: 'empty', text: 'Spouštění zatím není připojené.' }], diagnostika: [{ kind: 'empty', text: 'Diagnostika zatím není připojená.' }], limity: [{ kind: 'empty', text: 'Limity zatím nejsou připojené.' }] }, props: [] });
+      if (x.id === 'git') return Object.assign(base, { blocks: { prehled: [{ kind: 'management', managementCategory: 'git' }] }, props: [] });
       if (x.id === 'modely') return Object.assign(base, { blocks: { prehled: [{ kind: 'modelWorkspace' }] }, props: [['Model CHAT', 'qwen3.5:27b', true], ['Model FAST', 'nenastaven'], ['Server', 'Ollama 0.34'], ['Adresa', '127.0.0.1:11434', true]] });
       if (x.id === 'oznameni') return Object.assign(base, { blocks: { prehled: [{ kind: 'rows', title: 'Kanály', rows: [r('Systémová oznámení', 'zapnuto'), r('E-mail (SMTP)', 'nenastaveno'), r('ntfy.sh', 'nenastaveno'), r('Telegram', 'v M5 nepodporováno'), r('Webhook (HMAC)', 'v M5 nepodporováno')] }] }, props: [['Tichý režim', 'vypnutý'], ['Tichý režim od–do', '22:00–07:00'], ['Chyby v tichém režimu', 'projdou']] });
       if (x.id === 'uloziste') return Object.assign(base, { primary: { label: 'Vacuum DB', go: () => ({}) }, blocks: { prehled: [{ kind: 'rows', title: 'Data', rows: [r('Konverzace', '46'), r('Projekty', '6'), r('Workeři', '6'), r('Generování médií', '0')] }] }, props: [['Databáze', 'data/c3.db', true], ['Velikost', '134 MiB'], ['Retence logů', '30 dní']] });
@@ -1286,8 +1291,9 @@ class Component extends DCLogic {
       isSecurity: kind === 'security', security: this.securityVM(this.st()),
       isExpertiseSelection: kind === 'expertiseSelection', expertiseSelection: this.expertiseSelectionVM(),
       isProjectDirectory: kind === 'projectDirectory', projectDirectory: this.projectDirectoryVM(),
-      isPreferences: kind === 'preferences', preferences: this.preferencesVM(this.st()),
+      isPreferences: kind === 'preferences', preferences: this.preferencesVM(this.st(), b.preferenceTab),
       isModelWorkspace: kind === 'modelWorkspace', modelWorkspace: this.modelWorkspaceVM(),
+      isManagement: kind === 'management', management: this.managementVM(this.st(), b.managementCategory),
       isMediaForm: kind === 'mediaForm', mediaForm: this.mediaFormVM(this.st()),
       isMediaOutputs: kind === 'mediaOutputs', mediaOutputs: b.outputs || [],
       isProjectWizard: kind === 'projectWizard', projectWizard: this.projectWizardVM(this.st()),
@@ -1297,6 +1303,13 @@ class Component extends DCLogic {
       isApObecne: kind === 'apObecne', isApPismo: kind === 'apPismo', isApBarvy: kind === 'apBarvy', isApRozvrzeni: kind === 'apRozvrzeni', isApCss: kind === 'apCss'
     };
   }
+
+  managementVM() {
+  return { title: '', description: '', sections: [], primary: [], loading: false, hasError: false, error: '', busy: false,
+    refreshDisabled: true, refresh: () => {}, notice: '', hasNotice: false, layoutClass: 'im-grid', sizeClass: 'im-size-2',
+    editor: { visible: false, title: '', fields: [], notice: '', saveDisabled: true, save: () => {}, cancelDisabled: true, cancel: () => {} },
+    hasDetail: false, detail: { title: '', rows: [] }, closeDetail: () => {} };
+}
 
   mediaStatus() { return { status: 'preview', available: false, models: [], error: 'Prototyp ukazuje formulář; backend se připojuje až v IDE.' }; }
 
@@ -1348,22 +1361,12 @@ class Component extends DCLogic {
   }
 
   modelWorkspaceVM() {
-    return { tabs: ['Přehled', 'Role', 'Evaluace', 'GPU hunt', 'Historie', 'Kandidáti', 'Správce', 'Upgrady', 'Automatizace'].map((label, index) => ({ label, cls: index === 0 ? 'on' : '', go: () => {} })),
-      rows: [{ title: 'qwen3.5:27b', subtitle: 'Lokálně nainstalovaný · aktuální CHAT', meta: '26 GiB',
-        actions: [{ label: 'Podrobnosti', disabled: true, go: () => {} }] }],
-      buttons: [{ label: 'Obnovit', disabled: true, go: () => {} }],
-      status: 'Prototyp ukazuje rozvržení; data a akce připojuje živé Studio.',
-      hasRunDetail: false, runDetailLoading: false, runDetailError: '', runDetailReady: false,
-      closeRun: () => {}, runDetail: { title: '', status: '', runId: '', provenance: '', note: '', attempts: '',
-        tasks: [{ title: '', score: '', input: '', requirements: [''], attempts: [{ label: '',
-          transcript: [{ role: '', content: '' }], response: '', notes: [''],
-          reviews: [{ label: '', score: '', parts: [''] }] }] }] },
-      hasRoleForm: false, roleOptions: [], modelOptions: [], selectedRole: '', selectedModel: '',
-      setRole: () => {}, setModel: () => {}, applyRole: () => {}, applyRoleDisabled: true,
-      hasPolicyForm: false, policyFailover: false, policyCleanup: false, policyDays: 14,
-      setPolicyFailover: () => {}, setPolicyCleanup: () => {}, setPolicyDays: () => {},
-      verifyWarning: '', hasRollback: false, rollback: () => {} };
+// Insert inside Component.modelWorkspaceVM() for passive prototype shape.
+const noop = () => false;
+return {"tabs":[],"rows":[],"buttons":[],"runDetail":{"title":"","status":"","runId":"","provenance":"","note":"","attempts":"","tasks":[]},"hasRunDetail":false,"runDetailLoading":false,"runDetailError":"","runDetailReady":false,"closeRun":noop,"status":"Načítám ověřená data z backendu…","hasRoleForm":false,"roleOptions":[],"modelOptions":[],"selectedRole":"CHAT","selectedModel":"","hasPolicyForm":false,"policyFailover":false,"policyCleanup":false,"policyDays":14,"setPolicyFailover":noop,"setPolicyCleanup":noop,"setPolicyDays":noop,"verifyWarning":"","hasRollback":false,"rollback":noop,"setRole":noop,"setModel":noop,"applyRole":noop,"applyRoleDisabled":true,"summaryRoles":[],"summaryStatus":"Načítám aktuální přiřazení…","redesign":{"isOverview":true,"isRoles":false,"isInventory":false,"isEvaluations":false,"isHunt":false,"isTelemetry":false,"isPolicy":false,"isLegacy":false,"showJobs":false,"showBaseRows":true,"matrix":{"headers":[],"rows":[]},"catalog":{"rows":[],"hasSelection":false,"selected":{"name":"","family":"","size":"","vram":"","fit":"","score":"","gain":"","source":"","scope":"","quant":"","metadata":"","localQuality":"","downloadStatus":"","roles":[],"tests":[],"prepareTests":noop,"prepareTestsDisabled":true,"pull":noop,"pullDisabled":true},"variants":[],"hasVariants":false,"count":"0 modelů","unknownVram":"0 modelů bez odhadu VRAM","search":"","setSearch":noop,"roleOptions":[],"role":"CHAT","setRole":noop,"fits":true,"setFits":noop,"availability":"notInstalled","setAvailability":noop,"sort":"benefit","setSort":noop,"protocol":"","protocolOptions":[],"setProtocol":noop},"profiles":{"rows":[],"hasDraft":false,"new":noop,"queueAt":"","setQueueAt":noop,"save":noop,"close":noop,"disabled":false,"draft":{"id":"","revision":0,"name":"","kind":"hunt","roles":[],"models":[],"limit":1,"enabled":false,"modelsPath":"","scheduleType":"manual","at":"","intervalMinutes":60,"time":"","timezone":"Europe/Prague","weekDays":[],"modelA":"","modelB":"","disabled":true,"isHunt":false,"isChallenge":false,"dateEnabled":false,"timeEnabled":false,"dayEnabled":false,"intervalEnabled":false,"dateDisabled":true,"timeDisabled":true,"dayDisabled":true,"intervalDisabled":true,"roleOptions":[],"dayOptions":[],"modelOptions":[],"kindOptions":[],"scheduleOptions":[],"setName":noop,"setKind":noop,"setLimit":noop,"setEnabled":noop,"setModelsPath":noop,"setSchedule":noop,"setAt":noop,"setInterval":noop,"setTime":noop,"setTimezone":noop,"setModelA":noop,"setModelB":noop}},"jobs":[],"huntOverview":false,"huntCatalog":false,"huntProfiles":false,"huntHistory":false,"huntTabs":[],"huntState":"—","huntModel":"—","huntPhase":"—","hold":"","recent":[],"activeQueue":[],"scheduledProfiles":[],"operationsTabs":[],"progressDetail":"","progressAt":"","inventory":[],"history":[],"telemetry":[],"telemetryNote":"Telemetrie neměří správnost odpovědí. Skóre pochází pouze z evaluací.","days":7,"setDays":noop,"roleRuntime":{"hasDraft":false,"draft":{"role":"","model":"","digestSha256":"","revision":0,"contextWindowTokens":"","maxOutputTokens":"","setContext":noop,"setOutput":noop,"save":noop,"close":noop,"disabled":true}},"showRoleSettings":false,"settings":[],"profileStatus":"","jobStatus":"","settingsStatus":"","hasProfileApi":false,"noProfileApi":true,"capabilityNote":"Discovery limit 1–10; evaluace používá kontext 4 096 tokenů a dostupné sady serveru. Jen při volné GPU. Bez automatické změny role. Rozpočty volání/VRAM/disku, editace pořadí a test největší HW dvojice zde ještě nemají API."}};
+
   }
+
 
   projectStatus() { return { busy: false, error: 'Prototyp ukazuje průvodce; backend se připojuje až v IDE.', defaultDir: '' }; }
 
@@ -1543,6 +1546,7 @@ class Component extends DCLogic {
       isForm: s.projectStep === 0, isReview: s.projectStep === 1,
       name: s.projectName, setName: e => this.setState({ projectName: e.target.value }),
       path: s.projectPath, setPath: e => this.setState({ projectPath: e.target.value }),
+      canBrowse: false, browse: () => {},
       description: s.projectDescription, setDescription: e => this.setState({ projectDescription: e.target.value }),
       type: s.projectType, types: [
         { value: 'general', label: 'Obecný' }, { value: 'desktop', label: 'Desktop' },
@@ -2727,6 +2731,7 @@ class Component extends DCLogic {
     const rootCls = ['ide', this.themeClass(style.id, mode), mode, style.pro ? 'pro' : '', style.id === 'studio' ? 'toned' : '', 'ff-' + s.ff, 'fs-' + s.fs, 'ti-' + s.ti, 'ai-' + s.ai, 'pa-' + s.pa, 'ta-' + s.ta, 'bd-' + s.bd, 'den-' + s.density, 'sep-' + s.sep].filter(Boolean).join(' ') + cleanCls;
     const dyn = this.dynCss(s, mode);
     const dt = !isSessions ? this.detailVM(s) : null;
+    const hasModelsSummary = !isSessions && s.section === 'settings' && s.detail.settings === 'modely' && !!dt && winW - navWidth > 1250;
     const emptyDt = { badges: [], hasBadges: false, icon: I.file, tone: 'none', icls: '', title: '', type: '', idText: '', hasStatus: false, status: '', stCls: '', hasPrimary: false, primaryLabel: '', onPrimary: () => {}, secondary: [], more: () => {}, hasTabs: false, tabs: [], hasDesc: false, desc: '', showProps: false, props: [], blocks: [], development: this.developmentVM(s), scmPolicy: this.scmPolicyVM(s, null), hasRelated: false, related: [] };
     const colTpl = lay.map((x, i) => (i ? '4px ' : '') + 'minmax(0, ' + (s.colFr[i] || 1) + 'fr)').join(' ') || 'minmax(0, 1fr)';
     const nRun = s.tabs.filter((x) => this.sstate(x, s) === 'run').length;
@@ -2735,6 +2740,10 @@ class Component extends DCLogic {
     const sessWord = n === 1 ? '1 relace' : (n >= 2 && n <= 4 ? n + ' relace' : n + ' relací');
     const pal = this.palVM(s, fsid);
     const ctx = this.ctxVM(s);
+    const ws = this.wsVM(s, fsid);
+    ws.scm.branchForm = ws.scm.branchForm || { open: false, name: '', disabled: true, inputDisabled: false,
+      change: () => {}, cancel: () => {}, create: () => {} };
+    ws.scm.graph.forEach(row => { row.open = row.open || (() => {}); });
     return {
       I,
       rootCls, rootW: 'calc(100vw / ' + z + ')', rootH: 'calc(100vh / ' + z + ')', zoom: String(z), filter: s.bright === 100 ? 'none' : 'brightness(' + (s.bright / 100).toFixed(2) + ')',
@@ -2767,14 +2776,25 @@ class Component extends DCLogic {
       navSet: { cls: !isSessions && s.section === 'settings' ? 'on' : '', go: this.run((s2) => this.pGo(s2, 'settings')) },
       newSession: this.run((s2) => this.pNewSession(s2, {})),
       isSessions, isSection: !isSessions, secLabel: this.sec(s.section).label,
+      isScmReview: false, scmReview: { project: '', title: '', identity: '', author: '',
+        base: '', head: '', loading: false, hasError: false, error: '', hasData: false,
+        files: [], lines: [], empty: false, compareDisabled: true, close: () => {},
+        setBase: () => {}, setHead: () => {}, compare: () => {}, refresh: () => {}, all: () => {} },
       columns: isSessions ? this.columnsVM(s, lay, fidx) : [], colTpl, noSessions: isSessions && lay.length === 0,
-      sectCols: dt ? 'minmax(0, 1fr) 4px ' + s.detailW + 'px' : 'minmax(0, 1fr) 0px 0px',
+      sectCls: !isSessions && s.section === 'settings' && dt ? 'settings-workspace' + (s.detail.settings === 'modely' ? ' models-workspace' : '') : '',
+      sectCols: dt && s.section === 'settings'
+        ? (s.detail.settings === 'modely' ? '0px 0px minmax(0, 1fr)' + (hasModelsSummary ? ' 1px 280px' : '') : '220px 4px minmax(0, 1fr)')
+        : dt ? 'minmax(0, 1fr) 4px ' + s.detailW + 'px' : 'minmax(0, 1fr) 0px 0px',
+      backSettings: this.run((s2) => ({ ...this.pGo(s2, 'settings'),
+        detail: this.merge(s2, 'detail', { settings: null }), q: '' })),
+      hasModelsSummary, modelSummary: this.modelWorkspaceVM(),
+      hasSettingsWorkspace: !isSessions && s.section === 'settings' && !!dt,
       cg: this.catalogVM(s), q: s.q, setQ: (e) => this.setState({ q: e.target.value }),
       size: s.size, setSize: (e) => this.setState({ size: Number(e.target.value) }),
       hasDetail: !!dt, noDetail: false, dt: dt || emptyDt,
       closeDetail: () => { const s2 = this.st(); this.setState({ detail: this.merge(s2, 'detail', { [s2.section]: null }) }); },
       ap: this.apVM(s, mode),
-      ws: this.wsVM(s, fsid),
+      ws,
       hasToast: !!s.toast, toastText: s.toast ? s.toast.t : '', toastCls: s.toast ? 't-' + (s.toast.tone || 'info') : '', toastIcon: s.toast && s.toast.tone === 'warn' ? I.info : I.check,
       closeToast: () => this.setState({ toast: null }),
       sb: { sessions: sessWord + ' · ' + nRun + ' pracuje · ' + nWait + ' čeká', ctx: fsid ? this.ctxOf(fsid, s) : 0, ctxLabel: (fsid ? this.ctxOf(fsid, s) : 0) + ' %', connection: 'Připojeno', dot: 'ok', backend: 'backend 136.1.0', ws: 'ws :3335', db: 'DB 134 MiB', gpu: 'GPU 18,3 / 24,0 GiB · 57 °C' }
