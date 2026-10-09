@@ -43,6 +43,12 @@ Další skutečné funkční nálezy a jejich opravy:
 - Nativní editor workera: ID instance se předává přímo při asynchronním
   otevření a po readbacku; test odkládá React state a stále načte správnou
   existující instanci. Původní synchronní mock tento problém zakrýval.
+- Účinek specialisty: prázdné rozpoznávací vzory posílaly vytvořený balíček
+  do gap otázky, takže uložená doménová konfigurace vůbec nedošla k modelu.
+  Lokální nástroj pro přípravu kontextu nyní rozpozná i krátký vstup; aktuální
+  požadavek, prompt, pravidla a omezení přecházejí přes existující M3 wrapper.
+  Skutečný HTTP payload před restartem i po něm a nativní průvodce ověřují
+  účinek, ne pouze zapsané soubory. Nástroj neprovádí externí akce.
 - Generovaný specialista: platný deklarovaný nástroj pro přípravu doménového
   kontextu, registrace přes ExtensionContext V1, zachovaný prompt/pravidla/
   omezení. Nástroj pouze připravuje kontext, neprovádí inference ani efekty.

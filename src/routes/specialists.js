@@ -400,7 +400,8 @@ export async function register(ctx) {
     tools: [{ id: toolId, name: 'Připravit doménový kontext',
       description: 'Připraví požadavek, systémový prompt, pravidla a omezení pro doménovou odpověď.',
       modulePath: fileURLToPath(import.meta.url), functionName: 'prepareContext',
-      patterns: [], extractParams: input => ({ request: input }) }],
+      patterns: [{ patterns: [/./s], priority: 1 }], acceptsAllInput: true,
+      extractParams: input => ({ request: input }) }],
   });
   ctx.getCapability('specialist.registry.expertise.v1')?.addCustom(EXPERTISE);
   ctx.getCapability('specialist.registry.cre.v1')?.registerToolType?.(toolId);

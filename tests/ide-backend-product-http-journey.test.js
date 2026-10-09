@@ -134,3 +134,38 @@ test('actual Studio controllers save CHAT settings then chat, recover validation
   models.openExternalReference();Object.assign(models.externalDraft,{model,role:'CHAT',metric:'controlled reference',score:'75',minimum:'0',maximum:'100',sourceUrl:'https://example.invalid/reference',measuredAt:'2026-10-08T12:00:00.000Z',referenceModel:'Fixture public'});
   assert.equal(await models.saveExternalReference(),true,models.notice);assert.equal(calls.length,inferenceCount);
 });
+
+test('generated specialist applies its prompt, rules and constraints to actual turns across restart', {timeout:180000},async t=>{
+  const {rm,stat}=await import('node:fs/promises');
+  const runtime=createOwnedJourneyRuntime(isolatedTestRuntime),model='fixture:1b',digest='a'.repeat(64),calls=[];
+  const name='studio-flow-'+randomBytes(5).toString('hex'),packagePath=path.join(runtime.repositoryRoot,'specialists',name);
+  assert.equal(await stat(packagePath).then(()=>true,()=>false),false);
+  let product;
+  const provider=http.createServer(async(req,res)=>{
+    const chunks=[];for await(const chunk of req)chunks.push(chunk);res.setHeader('content-type','application/json');
+    if(req.url==='/api/tags')return res.end(JSON.stringify({models:[{name:model,digest}]}));
+    if(req.url==='/api/show')return res.end(JSON.stringify({model_info:{'fixture.context_length':16384}}));
+    if(req.url!=='/api/chat')return res.writeHead(503).end('{}');
+    const body=JSON.parse(Buffer.concat(chunks));calls.push(body);
+    res.end(JSON.stringify({model,model_digest_sha256:digest,done:true,done_reason:'stop',message:{role:'assistant',content:'Ověřená doménová odpověď.'},prompt_eval_count:40,eval_count:8}));
+  });
+  await new Promise(resolve=>provider.listen(0,'127.0.0.1',resolve));
+  t.after(async()=>{try{if(product)await stopProduct(product);}finally{await new Promise(resolve=>provider.close(resolve));await rm(packagePath,{recursive:true,force:true});}});
+  const launch=()=>startProduct(runtime,`http://127.0.0.1:${provider.address().port}`,model,
+    {productionAdminToken:randomBytes(32).toString('base64url')});
+  product=await launch();
+  const markers=['SPECIALIST_PROMPT_CANARY','SPECIALIST_RULE_CANARY','SPECIALIST_CONSTRAINT_CANARY'];
+  await expectJson(product,'POST','/api/specialists',{name,domain:'general',systemPrompt:markers[0],domainRules:[markers[1]],constraints:[markers[2]]},201);
+  const conversation=await expectJson(product,'POST','/api/conversations',{title:'Generated specialist runtime',mode:'chat'},201);
+  const id=conversation.conversation.id;
+  for(const input of ['Vysvětli dodaný podklad.','?']){
+    if(calls.length){await stopProduct(product);product=null;product=await launch();}
+    await expectJson(product,'POST','/api/chat/specialist',{sessionId:id,specialistId:name},200);
+    const before=calls.length;
+    const reply=await expectJson(product,'POST','/api/chat',{conversation_id:id,message:input},200);
+    assert.equal(reply.response,'Ověřená doménová odpověď.');assert.equal(calls.length,before+1);
+    const wire=JSON.stringify(calls.at(-1).messages);
+    for(const marker of markers)assert(wire.includes(marker),'configured specialist context is absent from actual provider payload: '+marker);
+    assert(wire.includes(input),'current input must replace cached parameters');
+  }
+});

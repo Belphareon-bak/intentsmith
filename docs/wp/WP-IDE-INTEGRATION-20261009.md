@@ -101,3 +101,9 @@ pojmenované lokální toolchainy požadované aktuálním registrem (python3, t
 iproute2, nftables). Každý stále prochází původním preflightem; nevzniká
 autorita pro GPU, server ani externí síť. Starý Gate 0 v1 běh je pouze
 diagnostika, podle Decision 036 není release řetězem M6.
+
+Ověření další zprávy odhalilo také nulový účinek vytvořeného specialisty:
+prázdné rozpoznávací vzory nabízely gap namísto doménové odpovědi. Příprava
+kontextu nyní používá existující M3 dispatcher a wrapper. Povinný důkaz je
+prompt/pravidla/omezení ve skutečném provider payloadu, krátký další vstup a
+readback po restartu. Kvalifikace `0efdf04a` zůstává historická.

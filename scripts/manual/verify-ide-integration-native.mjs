@@ -12,7 +12,7 @@ const root=process.cwd(),output=path.resolve('.intentsmith-artifacts/ide-integra
 await fs.mkdir(output,{recursive:true,mode:0o700});
 const runtime=createOwnedJourneyRuntime({artifacts:output,repositoryRoot:root}),profile=path.join(runtime.root,'electron-profile');
 const electronTmp=await fs.mkdtemp('/tmp/is-ide-integration-');
-const checks=[],requests=[],pageErrors=[],model='fixture:1b',digest='a'.repeat(64);
+const checks=[],requests=[],generationRequests=[],pageErrors=[],model='fixture:1b',digest='a'.repeat(64);
 let backend,electron,browser,provider,error;
 const launchBackend=()=>startProduct(runtime,`http://127.0.0.1:${provider.address().port}`,model,{enableAgents:true});
 const written={};
@@ -28,7 +28,7 @@ try {
   if(req.url==='/api/tags')return res.end(JSON.stringify({models:[{name:model,digest,details:{quantization_level:'Q4_K_M'}}]}));
   if(req.url==='/api/show')return res.end(JSON.stringify({model_info:{'fixture.context_length':16384}}));
   if(req.url!=='/api/chat')return res.writeHead(503).end('{}');
-  const body=JSON.parse(Buffer.concat(chunks)),classifier=body.messages?.some(m=>m.role==='system'&&m.content.includes('Klasifikuj'));
+  const body=JSON.parse(Buffer.concat(chunks));generationRequests.push(body);const classifier=body.messages?.some(m=>m.role==='system'&&m.content.includes('Klasifikuj'));
   res.end(JSON.stringify({model,model_digest_sha256:digest,done:true,done_reason:'stop',message:{role:'assistant',content:classifier?JSON.stringify({intent:'CONVERSATIONAL',confidence:.99,requestedOperation:'none'}):'Ověřená odpověď řízeného poskytovatele.'},eval_count:8,prompt_eval_count:40}));
  });await new Promise(resolve=>provider.listen(0,'127.0.0.1',resolve));
  backend=await launchBackend();
@@ -93,6 +93,15 @@ try {
  await page.waitForFunction(name=>document.body.innerText.includes(name)&&!document.querySelector('[aria-label="Průvodce specialistou"]'),{timeout:20000},specialistName);
  const savedSpecialist=await expectJson(backend,'GET','/api/specialists/'+specialistName,null,200);const specialistModule=await fs.readFile(path.join(specialistPath,'index.js'),'utf8');
  check('native specialist saves advanced fields and actual package readback',savedSpecialist.id===specialistName&&specialistModule.includes('Odpovídej stručně a nevymýšlej provedené kroky.')&&specialistModule.includes('Vyžaduj doložený zdroj.')&&specialistModule.includes('Bez ověřených výsledků nehlaš úspěch.'));written.specialist=specialistName;await screenshot('specialist');
+ const specialistConversation=await expectJson(backend,'POST','/api/conversations',{title:'Native configured specialist turn',mode:'chat'},201);
+ async function verifySpecialistTurn(input,label){
+  await expectJson(backend,'POST','/api/chat/specialist',{sessionId:specialistConversation.conversation.id,specialistId:specialistName},200);
+  const before=generationRequests.length;
+  const reply=await expectJson(backend,'POST','/api/chat',{conversation_id:specialistConversation.conversation.id,message:input},200);
+  const wire=JSON.stringify(generationRequests.at(-1)?.messages);
+  check(label,reply.response==='Ověřená odpověď řízeného poskytovatele.'&&generationRequests.length===before+1&&['Odpovídej stručně a nevymýšlej provedené kroky.','Vyžaduj doložený zdroj.','Bez ověřených výsledků nehlaš úspěch.'].every(marker=>wire.includes(marker)));
+ }
+ await verifySpecialistTurn('Vysvětli dodaný podklad.','native-created specialist context reaches actual provider');
  await clickText('Nastavení');await clickText('Účet');
  await clickText('+ Přidat propojení');await editField('Název','Native disabled Telegram');await editField('Proměnná s přihlašovacím údajem','INTENTSMITH_TELEGRAM_NATIVE_FIXTURE');await editField('Příjemce / kanál','123456');await clickText('Uložit změny');
  await page.waitForFunction(()=>!document.querySelector('.im-editor'),{timeout:15000});
@@ -106,6 +115,7 @@ try {
   &&(await expectJson(backend,'GET','/api/settings',null,200))['intentsmith.memory.ltmEnabled']===false
   &&(await expectJson(backend,'GET','/api/agent-extensions/instances/native-owned-worker/config',null,200)).name==='Nativní upravená kontrola'
   &&(await expectJson(backend,'GET','/api/accounts',null,200)).accounts.some(a=>a.id===written.account&&a.enabled===false));
+ await verifySpecialistTurn('?','native-created specialist context is applied after restart and to short input');
  await openEditor();await clickText('Nastavení');await clickText('Modely a inference');await clickText('Role');
  await page.waitForFunction(()=>[...document.querySelectorAll('tr')].some(n=>n.querySelector('th')?.innerText.startsWith('CHAT · ')&&n.innerText.includes('8192')&&n.innerText.includes('64')),{timeout:15000});check('fresh native renderer reads saved role after backend restart',true);
  await clickText('Nastavení');await clickText('Paměť');
@@ -121,7 +131,7 @@ finally {
  if(provider)await new Promise(resolve=>provider.close(resolve));
  await fs.rm(electronTmp,{recursive:true,force:true});
  if(ownsSpecialist)await fs.rm(specialistPath,{recursive:true,force:true});
- const result={probeSha256:createHash('sha256').update(await fs.readFile(new URL(import.meta.url))).digest('hex'),scope:'PACKAGED_NATIVE_OWNED_BACKEND_CONTROLLED_PROVIDER_NO_GPU_NO_RELEASE_ACCEPTANCE',sourceRevision,sourceClean,appimage:{path:path.join(root,'intentsmith-ide/applications/electron/dist/IntentSmith-0.1.0.AppImage'),sha256:createHash('sha256').update(await fs.readFile(path.join(root,'intentsmith-ide/applications/electron/dist/IntentSmith-0.1.0.AppImage'))).digest('hex')},bundleSha256:createHash('sha256').update(bundle).digest('hex'),node:process.version,written,status:error?'FAIL':'PASS',checks,requests,pageErrors,error:error?.message||null};
+ const result={probeSha256:createHash('sha256').update(await fs.readFile(new URL(import.meta.url))).digest('hex'),scope:'PACKAGED_NATIVE_OWNED_BACKEND_CONTROLLED_PROVIDER_NO_GPU_NO_RELEASE_ACCEPTANCE',sourceRevision,sourceClean,appimage:{path:path.join(root,'intentsmith-ide/applications/electron/dist/IntentSmith-0.1.0.AppImage'),sha256:createHash('sha256').update(await fs.readFile(path.join(root,'intentsmith-ide/applications/electron/dist/IntentSmith-0.1.0.AppImage'))).digest('hex')},bundleSha256:createHash('sha256').update(bundle).digest('hex'),generationRequestCount:generationRequests.length,node:process.version,written,status:error?'FAIL':'PASS',checks,requests,pageErrors,error:error?.message||null};
  await fs.writeFile(path.join(output,'result.json'),JSON.stringify(result,null,2)+'\n',{mode:0o600});console.log(JSON.stringify({status:result.status,checks:checks.length,error:result.error,artifact:path.join(output,'result.json')}));
 }
 if(error)throw error;
