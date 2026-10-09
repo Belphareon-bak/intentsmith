@@ -1,0 +1,191 @@
+{
+  "schemaVersion": 1,
+  "manifestType": "intentsmith.audit-report",
+  "runId": "ide-integration-server-c47d1883",
+  "sourceRevision": "c47d18839bea6c8481c75506f914e7acfc48d710",
+  "startedAt": "2026-10-09T22:17:15.947Z",
+  "endedAt": "2026-10-09T22:17:19.755Z",
+  "dryRun": false,
+  "options": {
+    "concurrency": 1,
+    "failFast": false,
+    "timeoutMs": 600000,
+    "deadlineMs": 28800000,
+    "profiles": [],
+    "ids": [
+      "IS-T1-TESTS-IDE-BACKEND-TEST",
+      "IS-T3-TESTS-IDE-BACKEND-PRODUCT-HTTP-JOURNEY-TEST"
+    ],
+    "exclude": [],
+    "allowBlockers": [
+      "toolchain:git"
+    ],
+    "noBlock": false
+  },
+  "paths": {
+    "sourceRoot": "/home/belphareon/Projects/intentsmith-ide-backend-20261009",
+    "runDir": ".intentsmith-artifacts/test-runs/ide-integration-server-c47d1883",
+    "report": ".intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/report.json",
+    "checkpoint": ".intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/checkpoint.json",
+    "inventory": ".intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/inventory.json"
+  },
+  "inventoryFingerprint": "2f9e67783858ba949b77e6ea4435cdc062a463efefe25361547bf5c0ae2d119b",
+  "optionsFingerprint": "599a2637e0b6681a75c67a04aa6fe8bc79ebed4eae626b1e2912d4b1b832a6dc",
+  "registryHash": "1cf9d212eb90e52c42da8f18962e0121de577c3adccb579785078626150d4780",
+  "interruptionSignal": null,
+  "inventory": {
+    "total": 2,
+    "counts": {
+      "offline": 0,
+      "database": 1,
+      "server": 1,
+      "model": 0,
+      "soak": 0,
+      "manual": 0
+    },
+    "blockerCounts": {
+      "toolchain:git": 2
+    }
+  },
+  "statusCounts": {
+    "PASS": 2,
+    "FAIL": 0,
+    "TIMEOUT": 0,
+    "BLOCKED": 0,
+    "SKIPPED": 0
+  },
+  "verdict": "PASS",
+  "exitCode": 0,
+  "requiredFailureCount": 0,
+  "requiredBlockedCount": 0,
+  "results": [
+    {
+      "id": "IS-T3-TESTS-IDE-BACKEND-PRODUCT-HTTP-JOURNEY-TEST",
+      "path": "tests/ide-backend-product-http-journey.test.js",
+      "profile": "server",
+      "category": "server",
+      "command": [
+        "node",
+        "tests/ide-backend-product-http-journey.test.js"
+      ],
+      "blockers": [
+        "toolchain:git"
+      ],
+      "required": true,
+      "start": "2026-10-09T22:17:15.948Z",
+      "end": "2026-10-09T22:17:19.047Z",
+      "durationMs": 3099,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "status": "PASS",
+      "retryCount": 0,
+      "logPath": ".intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/logs/tests_ide-backend-product-http-journey.test.js.92a481f8.log",
+      "sourceRevision": "c47d18839bea6c8481c75506f914e7acfc48d710",
+      "modelFixturePreflight": null,
+      "environment": {
+        "inheritedKeys": [
+          "PATH",
+          "LANG",
+          "LC_ALL"
+        ],
+        "forwardedRuntimeKeys": [],
+        "forwardedToolchainKeys": [],
+        "sourceRevision": "c47d18839bea6c8481c75506f914e7acfc48d710",
+        "home": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/runtime/tests_ide-backend-product-http-journey.test.js.92a481f8/home",
+        "temp": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/runtime/tests_ide-backend-product-http-journey.test.js.92a481f8/tmp",
+        "database": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/runtime/tests_ide-backend-product-http-journey.test.js.92a481f8/runtime/intentsmith-test.sqlite",
+        "projects": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/runtime/tests_ide-backend-product-http-journey.test.js.92a481f8/projects",
+        "artifacts": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/runtime/tests_ide-backend-product-http-journey.test.js.92a481f8/artifacts",
+        "npmCache": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/runtime/tests_ide-backend-product-http-journey.test.js.92a481f8/artifacts/npm-cache",
+        "portFile": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/runtime/tests_ide-backend-product-http-journey.test.js.92a481f8/runtime/intentsmith.port",
+        "pdfPython": null,
+        "pythonNoUserSite": true,
+        "xdg": {
+          "config": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/runtime/tests_ide-backend-product-http-journey.test.js.92a481f8/xdg/config",
+          "cache": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/runtime/tests_ide-backend-product-http-journey.test.js.92a481f8/xdg/cache",
+          "data": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/runtime/tests_ide-backend-product-http-journey.test.js.92a481f8/xdg/data",
+          "state": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/runtime/tests_ide-backend-product-http-journey.test.js.92a481f8/xdg/state"
+        }
+      },
+      "cleanup": {
+        "checked": true,
+        "leakDetected": false,
+        "terminated": true
+      },
+      "sourceTree": {
+        "checked": true,
+        "clean": true,
+        "porcelain": null,
+        "head": "c47d18839bea6c8481c75506f914e7acfc48d710"
+      },
+      "logError": null,
+      "outputError": null,
+      "logSha256": "913468113bca234090f4f3ea4d1de849636f264c27561c34c693c83071a3678e"
+    },
+    {
+      "id": "IS-T1-TESTS-IDE-BACKEND-TEST",
+      "path": "tests/ide-backend.test.js",
+      "profile": "database",
+      "category": "database",
+      "command": [
+        "node",
+        "tests/ide-backend.test.js"
+      ],
+      "blockers": [
+        "toolchain:git"
+      ],
+      "required": true,
+      "start": "2026-10-09T22:17:19.048Z",
+      "end": "2026-10-09T22:17:19.753Z",
+      "durationMs": 705,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "status": "PASS",
+      "retryCount": 0,
+      "logPath": ".intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/logs/tests_ide-backend.test.js.55bd976d.log",
+      "sourceRevision": "c47d18839bea6c8481c75506f914e7acfc48d710",
+      "modelFixturePreflight": null,
+      "environment": {
+        "inheritedKeys": [
+          "PATH",
+          "LANG",
+          "LC_ALL"
+        ],
+        "forwardedRuntimeKeys": [],
+        "forwardedToolchainKeys": [],
+        "sourceRevision": "c47d18839bea6c8481c75506f914e7acfc48d710",
+        "home": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/runtime/tests_ide-backend.test.js.55bd976d/home",
+        "temp": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/runtime/tests_ide-backend.test.js.55bd976d/tmp",
+        "database": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/runtime/tests_ide-backend.test.js.55bd976d/runtime/intentsmith-test.sqlite",
+        "projects": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/runtime/tests_ide-backend.test.js.55bd976d/projects",
+        "artifacts": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/runtime/tests_ide-backend.test.js.55bd976d/artifacts",
+        "npmCache": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/runtime/tests_ide-backend.test.js.55bd976d/artifacts/npm-cache",
+        "portFile": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/runtime/tests_ide-backend.test.js.55bd976d/runtime/intentsmith.port",
+        "pdfPython": null,
+        "pythonNoUserSite": true,
+        "xdg": {
+          "config": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/runtime/tests_ide-backend.test.js.55bd976d/xdg/config",
+          "cache": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/runtime/tests_ide-backend.test.js.55bd976d/xdg/cache",
+          "data": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/runtime/tests_ide-backend.test.js.55bd976d/xdg/data",
+          "state": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/test-runs/ide-integration-server-c47d1883/runtime/tests_ide-backend.test.js.55bd976d/xdg/state"
+        }
+      },
+      "cleanup": {
+        "checked": true,
+        "leakDetected": false,
+        "terminated": true
+      },
+      "sourceTree": {
+        "checked": true,
+        "clean": true,
+        "porcelain": null,
+        "head": "c47d18839bea6c8481c75506f914e7acfc48d710"
+      },
+      "logError": null,
+      "outputError": null,
+      "logSha256": "fc9f77cce4dc55769d9741551fa331c97882141e74465745554f6c69a4e50281"
+    }
+  ]
+}

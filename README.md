@@ -72,6 +72,13 @@ fetch cesty bez deklarované autority selžou před spojením. Současný
 autoritativní IntentSmith Studio runtime už neobsahuje implicitní Google Fonts egress.
 Studio používá Theia runtime s motivy a ovládáním IntentSmithu.
 
+**IDE/BE integrace 10. 10.:** [předání pro Opuse](docs/review/ide-integration-handoff-20261009.md)
+váže kód `c47d1883` na celý profil 415/415, skutečný HTTP/FE průchod a nativní
+AppImage 9/9. Stav je `REVIEW_PENDING_WITH_OPEN_SETTINGS_FINDINGS`: obecná
+teplota a kontext se ukládají, ale jejich runtime účinek není zapojený; editor
+konkrétních rolí účinek prokazuje. Před finálními úpravami se čeká na nezávislý
+verdikt Opuse. Produkční release ani automatika Huntu se tím nemění.
+
 **Verze:** 136.1.0, vývojový kandidát 1.0. Počty registru pro
 spojený IDE/BE kandidát 2026-10-09 jsou odvozené z [generovaného registru](docs/convergence/TEST-REGISTRY.md)
 a při další změně registrace se znovu přeměří:

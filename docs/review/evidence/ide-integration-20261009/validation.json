@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "status": "REVIEW_PENDING_WITH_OPEN_SETTINGS_FINDINGS",
+  "codeRevision": "c47d18839bea6c8481c75506f914e7acfc48d710",
+  "baseRevision": "138e958be927df9835c091d3ad41d44b347e85b5",
+  "files": [
+    {
+      "path": "docs/review/evidence/ide-integration-20261009/appimage-build.json",
+      "sha256": "8c67a225ad19540c04c8203e50774410e3cc344cfc1df9eb51a6aec045c451fc",
+      "bytes": 66978
+    },
+    {
+      "path": "docs/review/evidence/ide-integration-20261009/ci-code-c47d1883.json",
+      "sha256": "d68e5e90fbf655628aafa407696b210182e92ec7a1eecca5f70fb2f304fd3017",
+      "bytes": 2746
+    },
+    {
+      "path": "docs/review/evidence/ide-integration-20261009/ide-integration-full-20261009-v3-report.json",
+      "sha256": "01f9957344859c7fa5abcaff8fd93b1dec63cfdad4a4261681a20809fe9ed00b",
+      "bytes": 1672808
+    },
+    {
+      "path": "docs/review/evidence/ide-integration-20261009/ide-integration-server-c47d1883-report.json",
+      "sha256": "3e45a553e8b65f1122c85705d9886a7acc0262077b70978833f31c2a5d4be64d",
+      "bytes": 9704
+    },
+    {
+      "path": "docs/review/evidence/ide-integration-20261009/native-result.json",
+      "sha256": "ceac1fd6950687ecff2578f4d4f0ff7c7251330283b53fe05921e9b82c46c0a3",
+      "bytes": 4656
+    },
+    {
+      "path": "docs/review/evidence/ide-integration-20261009/ordinary-preferences.json",
+      "sha256": "f1bef210680a1ad5bb677ce1d6656dbdb177eb77bb48b388f84df8644cf5c61a",
+      "bytes": 10390
+    },
+    {
+      "path": "docs/review/evidence/ide-integration-20261009/provider-storage.json",
+      "sha256": "970076ea1aad28689a709bfd6a5e633c96e39c5be9d095069d2d077fc1382097",
+      "bytes": 433
+    }
+  ],
+  "originalPreferencesProbeSha256": "eb2fdfaa677055b80e90826378c84837ec0c21a20be0639ff1a523dd40e3c5f1",
+  "huntContractSha256": "fadcf68f6ae591f3ccc646193e6d5ae0d1abeacaca39a696fd0c4fff011b63d4",
+  "conversationalPromptBlockSha256": "c3181fd658e99d6bbe14eff3c2a340bf1dfb407869554290e558355358a9cec1",
+  "releaseAcceptance": "NOT_ACCEPTED",
+  "gpuInference": "NOT_RUN",
+  "externalDelivery": "NOT_RUN",
+  "productionRevisionObserved": "c84b88cd0c0b76639823c82c022d2feab96dfc15"
+}

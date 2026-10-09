@@ -1,0 +1,13 @@
+{
+  "observedAt": "2026-10-09T22:15:19.462Z",
+  "sourceRevision": "c47d18839bea6c8481c75506f914e7acfc48d710",
+  "scope": "READ_ONLY_LOCAL_PROVIDER_STORAGE_NO_INFERENCE",
+  "configuredBackendHint": "/usr/share/ollama/.ollama/models",
+  "observed": {
+    "path": "/mnt/vi7000/ollama/models",
+    "status": "CONFIGURED",
+    "source": "LOCAL_PROVIDER_SERVICE",
+    "providerUnit": "ollama.service",
+    "backendHintDiffers": true
+  }
+}

@@ -46,3 +46,13 @@ nejasná autorita skutečného efektu; jiná nezávislá práce pokračuje.
 
 Publikovat samostatnou větev a ověřit vzdálené SHA. Zdrojové změny tohoto WP
 vyžadují novou nezávislou revizi; review původních dvou větví se na ně nepřenáší.
+
+10. 10. předáno: aplikační kandidát `c47d1883`; kompletní offline/database
+415/415, registrované IDE HTTP/BE 2/2 programy, nativní AppImage 9/9 kontrol,
+CI 19/19. **REVIEW_PENDING_WITH_OPEN_SETTINGS_FINDINGS**: dodatečná sonda bodu
+f) prokázala persistenci 35 obecných polí, ale neúčinnou obecnou teplotu a
+globální kontext; další účinky této sondě nepřísluší označit za PASS.
+[Předání](../review/ide-integration-handoff-20261009.md) obsahuje důkazy,
+reprodukce a limity. Podle doplňujícího zadání operátora se po publikování
+čeká na nezávislý verdikt Opuse pro finální úpravy. CHAT styl/vlastní prompt
+a související měření patří po releasu; žádný hold ani binding se nemění.

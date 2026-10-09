@@ -1724,4 +1724,10 @@ M3 editor a specialistická pravidla, veřejné reference a důvody čekání Hu
 [WP](docs/wp/WP-IDE-INTEGRATION-20261009.md),
 [API](docs/development/ide-management-api.md),
 [self-review hranic](docs/review/ide-integration-boundaries-20261009.md).
-Kandidát REVIEW_PENDING; produkce ani automation hold se nemění.
+[předání pro Opuse](docs/review/ide-integration-handoff-20261009.md) váže kód
+c47d1883 na 415/415 offline/database programů, 2/2 IDE HTTP/BE programy,
+nativní AppImage 9/9 a CI 19/19. Dodatečná sonda ověřila persistenci/restart
+35 obecných polí; obecná teplota a globální kontext se v dalším CHAT nepoužijí.
+Kandidát REVIEW_PENDING_WITH_OPEN_SETTINGS_FINDINGS; bod f) není plný PASS.
+Finální úpravy čekají na nezávislý verdikt Opuse; produkce ani automation hold
+se nemění. CHAT personalizace podle nového doplnění patří po releasu.

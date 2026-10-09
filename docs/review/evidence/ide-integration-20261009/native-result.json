@@ -1,0 +1,220 @@
+{
+  "probeSha256": "0c914743ed49447b9e2cbe5183d270df427e834c8bce40ed6dec4d21b9a34fe3",
+  "scope": "PACKAGED_NATIVE_OWNED_BACKEND_CONTROLLED_PROVIDER_NO_GPU_NO_RELEASE_ACCEPTANCE",
+  "sourceRevision": "c47d18839bea6c8481c75506f914e7acfc48d710",
+  "sourceClean": true,
+  "appimage": {
+    "path": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/intentsmith-ide/applications/electron/dist/IntentSmith-0.1.0.AppImage",
+    "sha256": "a99dbd2cb225ae859f2ca12f8c34296d82bb53ceb76378f188f8386c5aaab4db"
+  },
+  "bundleSha256": "209dfda0169114588dc21732c9631ad062a952587b6c2c560fe6ed8bc6aae1a1",
+  "node": "v24.21.0",
+  "status": "PASS",
+  "checks": [
+    {
+      "name": "native preload uses owned backend capability",
+      "status": "PASS"
+    },
+    {
+      "name": "native inventory renders UNKNOWN provider path",
+      "status": "PASS"
+    },
+    {
+      "name": "native CHAT role editor available",
+      "status": "PASS"
+    },
+    {
+      "name": "native role minimum is visible",
+      "status": "PASS"
+    },
+    {
+      "name": "native SSH form loads real backend",
+      "status": "PASS"
+    },
+    {
+      "name": "native custom worker/editor controls mounted",
+      "status": "PASS"
+    },
+    {
+      "name": "native specialist advanced fields mounted",
+      "status": "PASS"
+    },
+    {
+      "name": "new worker wizard does not request a nonexistent instance",
+      "status": "PASS"
+    },
+    {
+      "name": "no renderer errors in integration navigation",
+      "status": "PASS"
+    }
+  ],
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/api/conversations",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/health",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/specialists",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/gpu",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/info",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/expertises",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/specialists",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/upgrades/bindings",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/agents",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/media/history",
+      "status": 404
+    },
+    {
+      "method": "GET",
+      "path": "/api/conversations",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/conversations",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/conversations",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/conversations",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/storage/paths",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/storage",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/storage/inventory",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/role-settings",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/upgrades/bindings",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/evaluations",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/overview",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/scm/repositories",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/scm/profiles",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/agents",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/agent-extensions",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/agent-extensions/project-health",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/specialists",
+      "status": 200
+    }
+  ],
+  "pageErrors": [],
+  "error": null
+}

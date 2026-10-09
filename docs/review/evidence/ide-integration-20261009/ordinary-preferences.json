@@ -1,0 +1,366 @@
+{
+  "status": "ROUNDTRIP_PASS_EFFECT_COVERAGE_INCOMPLETE",
+  "scope": "OWNED_ACTUAL_HTTP_FRONTEND_CONTROLLERS_SQLITE_RESTART_CONTROLLED_PROVIDER",
+  "sourceRevision": "c47d18839bea6c8481c75506f914e7acfc48d710",
+  "records": [
+    {
+      "category": "modely",
+      "key": "intentsmith.llm.temperature",
+      "label": "Teplota generování",
+      "value": 0.7999999999999999,
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_APPLIED"
+    },
+    {
+      "category": "modely",
+      "key": "intentsmith.llm.contextWindow",
+      "label": "Kontextové okno v tokenech",
+      "value": 33792,
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_APPLIED"
+    },
+    {
+      "category": "modely",
+      "key": "intentsmith.llm.timeoutChat",
+      "label": "Časový limit chatu v ms",
+      "value": 95000,
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "modely",
+      "key": "intentsmith.llm.timeoutCode",
+      "label": "Časový limit kódu v ms",
+      "value": 95000,
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "modely",
+      "key": "intentsmith.llm.ollamaUrl",
+      "label": "Adresa lokální Ollamy",
+      "value": "http://127.0.0.1:12345",
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "modely",
+      "key": "intentsmith.llm.numGpu",
+      "label": "Počet vrstev v GPU (-1 = automaticky)",
+      "value": 0,
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "ucet",
+      "key": "intentsmith.account.displayName",
+      "label": "Zobrazované jméno",
+      "value": "Owned settings fixture",
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "ucet",
+      "key": "intentsmith.account.description",
+      "label": "Popis / Bio",
+      "value": "Owned settings fixture",
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "ucet",
+      "key": "intentsmith.language",
+      "label": "Jazyk rozhraní",
+      "value": "en",
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "pamet",
+      "key": "intentsmith.memory.conversationMaxTurns",
+      "label": "Max. turnů konverzace",
+      "value": 550,
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "pamet",
+      "key": "intentsmith.memory.compactThreshold",
+      "label": "Práh kompakce",
+      "value": 0.8,
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "pamet",
+      "key": "intentsmith.memory.compactKeepTurns",
+      "label": "Uchované turny",
+      "value": 7,
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "pamet",
+      "key": "intentsmith.memory.ltmEnabled",
+      "label": "Dlouhodobá paměť",
+      "value": false,
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "pamet",
+      "key": "intentsmith.memory.learningEnabled",
+      "label": "Učení z preferencí",
+      "value": false,
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "pamet",
+      "key": "intentsmith.memory.feedbackDetection",
+      "label": "Detekce zpětné vazby",
+      "value": false,
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "pamet",
+      "key": "intentsmith.memory.patternTracking",
+      "label": "Sledování vzorců",
+      "value": false,
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "pamet",
+      "key": "intentsmith.memory.ltmMaxEntries",
+      "label": "Max. LTM záznamů",
+      "value": 1100,
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "pamet",
+      "key": "intentsmith.memory.ltmDecayHalfLife",
+      "label": "Poločas LTM ve dnech",
+      "value": 76,
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "pamet",
+      "key": "intentsmith.memory.contextBudgetChat",
+      "label": "Rozpočet kontextu chat %",
+      "value": 65,
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "pamet",
+      "key": "intentsmith.memory.contextBudgetCode",
+      "label": "Rozpočet kontextu kód %",
+      "value": 45,
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "pamet",
+      "key": "intentsmith.memory.contextBudgetMaxTokens",
+      "label": "Tvrdý limit tokenů",
+      "value": 25600,
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "oznameni",
+      "key": "intentsmith.notif.desktopEnabled",
+      "label": "Oznámení na ploše",
+      "value": false,
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "oznameni",
+      "key": "intentsmith.notif.quietEnabled",
+      "label": "Tichý režim",
+      "value": true,
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "oznameni",
+      "key": "intentsmith.notif.quietFrom",
+      "label": "Ticho od",
+      "value": "12:34",
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "oznameni",
+      "key": "intentsmith.notif.quietTo",
+      "label": "Ticho do",
+      "value": "12:34",
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "vystup",
+      "key": "intentsmith.output.codeBlocks",
+      "label": "Bloky kódu",
+      "value": false,
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "vystup",
+      "key": "intentsmith.output.syntaxHighlight",
+      "label": "Zvýrazňování syntaxe",
+      "value": false,
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "vystup",
+      "key": "intentsmith.output.markdownRendering",
+      "label": "Markdown",
+      "value": false,
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "vystup",
+      "key": "intentsmith.output.maxResponseLength",
+      "label": "Max. délka odpovědi v tokenech",
+      "value": 8704,
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "system",
+      "key": "intentsmith.account.timezone",
+      "label": "Časové pásmo",
+      "value": "Europe/London",
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "system",
+      "key": "intentsmith.account.currency",
+      "label": "Měna",
+      "value": "EUR",
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "system",
+      "key": "intentsmith.system.logLevel",
+      "label": "Úroveň logování",
+      "value": "debug",
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "system",
+      "key": "intentsmith.system.logRetentionDays",
+      "label": "Retence logů ve dnech",
+      "value": 37,
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "system",
+      "key": "intentsmith.system.maxFileSize",
+      "label": "Max. velikost přílohy v bajtech",
+      "value": 1150976,
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    },
+    {
+      "category": "system",
+      "key": "intentsmith.system.rateLimit",
+      "label": "Limit požadavků za minutu",
+      "value": 130,
+      "controllerSave": "PASS",
+      "httpReadback": "PASS",
+      "restartReadback": "PASS",
+      "runtimeEffect": "NOT_VERIFIED"
+    }
+  ],
+  "providerAnswerOptions": {
+    "temperature": 0.7,
+    "top_p": 0.75,
+    "repeat_penalty": 1.1,
+    "num_predict": 1200,
+    "num_ctx": 32768
+  },
+  "inferenceCalls": 2,
+  "completedAt": "2026-10-09T22:18:13.540Z"
+}

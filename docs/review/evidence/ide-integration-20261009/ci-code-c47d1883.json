@@ -1,0 +1,107 @@
+{
+  "job_id": 114046305441,
+  "run_id": 37997242415,
+  "head_sha": "c47d18839bea6c8481c75506f914e7acfc48d710",
+  "status": "completed",
+  "conclusion": "success",
+  "html_url": "https://github.com/Belphareon-bak/intentsmith/actions/runs/37997242415/job/114046305441",
+  "started_at": "2026-10-09T22:05:13Z",
+  "completed_at": "2026-10-09T22:09:13Z",
+  "steps": [
+    {
+      "name": "Set up job",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Run actions/checkout@v5",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Run actions/setup-node@v5",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Install locked backend dependencies",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Install locked Studio workspace dependencies",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Validate registry and module boundaries",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Verify generated Studio view",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Verify privacy at the HTTP boundary",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Install chat and M2 isolation tools",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Prepare Ubuntu namespace policy for M2 sandbox tests",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Verify chat context and approved effects (offline)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Verify functional M2 application controls (offline)",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Verify IDE management and authenticated restart journey",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Preserve chat, M2 and IDE audit reports",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Verify Studio 2 stores, rendering and authority adapters",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Verify source hygiene",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Post Run actions/setup-node@v5",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Post Run actions/checkout@v5",
+      "status": "completed",
+      "conclusion": "success"
+    },
+    {
+      "name": "Complete job",
+      "status": "completed",
+      "conclusion": "success"
+    }
+  ]
+}
