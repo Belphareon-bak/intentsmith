@@ -2735,6 +2735,8 @@ return {"tabs":[],"rows":[],"buttons":[],"runDetail":{"title":"","status":"","ru
     const sessWord = n === 1 ? '1 relace' : (n >= 2 && n <= 4 ? n + ' relace' : n + ' relací');
     const pal = this.palVM(s, fsid);
     const ctx = this.ctxVM(s);
+    // Build approval cards before wsVM records presentation of the visible M2 plan.
+    const columns = isSessions ? this.columnsVM(s, lay, fidx) : [];
     const ws = this.wsVM(s, fsid);
     ws.scm.branchForm = ws.scm.branchForm || { open: false, name: '', disabled: true, inputDisabled: false,
       change: () => {}, cancel: () => {}, create: () => {} };
@@ -2775,7 +2777,7 @@ return {"tabs":[],"rows":[],"buttons":[],"runDetail":{"title":"","status":"","ru
         base: '', head: '', loading: false, hasError: false, error: '', hasData: false,
         files: [], lines: [], empty: false, compareDisabled: true, close: () => {},
         setBase: () => {}, setHead: () => {}, compare: () => {}, refresh: () => {}, all: () => {} },
-      columns: isSessions ? this.columnsVM(s, lay, fidx) : [], colTpl, noSessions: isSessions && lay.length === 0,
+      columns, colTpl, noSessions: isSessions && lay.length === 0,
       sectCls: !isSessions && s.section === 'settings' && dt ? 'settings-workspace' + (s.detail.settings === 'modely' ? ' models-workspace' : '') : '',
       sectCols: dt && s.section === 'settings'
         ? (s.detail.settings === 'modely' ? '0px 0px minmax(0, 1fr)' + (hasModelsSummary ? ' 1px 280px' : '') : '220px 4px minmax(0, 1fr)')
