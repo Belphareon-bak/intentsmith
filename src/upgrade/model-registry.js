@@ -31,9 +31,9 @@ const OVERVIEW_CACHE_TTL = 30_000; // 30s
 const DELETE_SOURCES = new Set(['USER_REQUEST', 'USER_HTTP', 'USER_CHAT', 'AUTO_CLEANUP']);
 export const AUTO_CLEANUP_MIN_FREE_BYTES = 40 * 1_073_741_824;
 
-async function readModelStorageFreeBytes() {
+async function readModelStorageFreeBytes(observedStorage = null) {
   try {
-    const storage=await resolveOllamaStorage(config.ollama);
+    const storage=observedStorage || await resolveOllamaStorage(config.ollama);
     if(!storage.path)return null;
     const stats = fs.statfsSync(storage.path);
     const freeBytes = Number(stats.bavail) * Number(stats.bsize);
@@ -160,7 +160,8 @@ export class ModelRegistry {
     this._modelUseAuthority = modelUseAuthority;
     this._modelArtifactAuthorityRepository = null;
     this._requireDurableModelUseAuthority = false;
-    this._modelStorageFreeBytes = readModelStorageFreeBytes;
+    this._modelStorageResolver = () => resolveOllamaStorage(config.ollama);
+    this._modelStorageFreeBytes = async storage => readModelStorageFreeBytes(storage || await this._modelStorageResolver());
   }
 
   /** Wire dependencies (called once in server.js) */
@@ -178,6 +179,7 @@ export class ModelRegistry {
     modelArtifactAuthorityRepository,
     requireDurableModelUseAuthority = false,
     modelStorageFreeBytes,
+    modelStorageResolver,
     modelMutationBaseUrl,
   }) {
     this._db = db;
@@ -236,9 +238,10 @@ export class ModelRegistry {
     this._modelUseAuthority = injectedModelUseAuthority || modelUseAuthority;
     this._modelArtifactAuthorityRepository = modelArtifactAuthorityRepository || null;
     this._requireDurableModelUseAuthority = requireDurableModelUseAuthority === true;
+    this._modelStorageResolver = typeof modelStorageResolver === 'function' ? modelStorageResolver : () => resolveOllamaStorage(config.ollama);
     this._modelStorageFreeBytes = typeof modelStorageFreeBytes === 'function'
       ? modelStorageFreeBytes
-      : readModelStorageFreeBytes;
+      : async storage => readModelStorageFreeBytes(storage || await this._modelStorageResolver());
     if (typeof this._modelUseAuthority?.acquireShared !== 'function'
       || typeof this._modelUseAuthority?.acquireExclusive !== 'function') {
       registryFail(
@@ -612,14 +615,15 @@ export class ModelRegistry {
     const ollamaAvailable = installed.length > 0 || Object.keys(bindings).length > 0;
 
     // Disk usage
+    const modelStorage = await this._modelStorageResolver();
     let diskUsage = { totalBytes: 0, totalGB: '0', freeBytes: null, freeGB: null,
-      modelsPath: (await resolveOllamaStorage(config.ollama)).path };
+      modelsPath: modelStorage.path };
     const totalBytes = installed.reduce((sum, m) => sum + (m.size || 0), 0);
     diskUsage.totalBytes = totalBytes;
     diskUsage.totalGB = (totalBytes / 1_073_741_824).toFixed(1);
     // Use the same user-available capacity as cleanup. A missing model mount
     // must remain unknown; capacity on / says nothing about a separate disk.
-    const freeBytes = await this._modelStorageFreeBytes();
+    const freeBytes = await this._modelStorageFreeBytes(modelStorage);
     if (Number.isSafeInteger(freeBytes) && freeBytes >= 0) {
       diskUsage.freeBytes = freeBytes;
       diskUsage.freeGB = (freeBytes / 1_073_741_824).toFixed(1);

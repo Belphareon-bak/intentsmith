@@ -77,7 +77,8 @@ test('actual Studio controllers save CHAT settings then chat, recover validation
   t.after(async()=>{try{if(product)await stopProduct(product);}finally{await new Promise(resolve=>provider.close(resolve));}});
   product=await startProduct(runtime,`http://127.0.0.1:${provider.address().port}`,model,{enableAgents:true,productionAdminToken:randomBytes(32).toString('base64url')});
   const backendUrl=()=>`http://127.0.0.1:${product.port}`;
-  const fetchImpl=(url,options={})=>fetch(url,{...options,headers:{...options.headers,'X-IntentSmith-Local-Capability':product.capability}});
+  const httpRequests=[];
+  const fetchImpl=(url,options={})=>{httpRequests.push(new URL(url).pathname);return fetch(url,{...options,headers:{...options.headers,'X-IntentSmith-Local-Capability':product.capability}});};
   const models=new ModelWorkspaceRedesign({backendUrl,fetchImpl,onChange(){},confirmAction:()=>true});t.after(()=>models.destroy());
   await models.loadExtra('settings');models.editRoleRuntime('CHAT');models.roleRuntimeDraft.contextWindowTokens=2048;models.roleRuntimeDraft.maxOutputTokens=32;
   assert.equal(await models.saveRoleRuntime(),false);assert.equal(calls.length,0);
@@ -98,6 +99,7 @@ test('actual Studio controllers save CHAT settings then chat, recover validation
   const catalog=new CatalogStore({backendUrl,fetchImpl}),store=new SessionStore(storage),appearance=new AppearanceStore(storage);
   const live=new LiveModel({catalog,store,appearance,workspace:{entry:()=>({tree:[],editor:null})},m2:{entry:()=>({})}});live.fetchImpl=fetchImpl;t.after(()=>live.componentWillUnmount());
   const project=await expectJson(product,'POST','/api/projects',{name:'Owned IDE fixture',type:'general'},201);
+  live.setState(live.pSelect(live.st(),'workers','__new__'));
   await live.loadWorkerWizard();
   const manifest=JSON.parse(readFileSync(new URL('../agent-extensions/project-health/agent.json',import.meta.url),'utf8'));
   manifest.id='studio-custom';manifest.payload.definition.id='studio-custom';manifest.payload.definition.name='Studio custom';
@@ -109,6 +111,7 @@ test('actual Studio controllers save CHAT settings then chat, recover validation
   live.setState({workerStep:1,workerName:'Edited in Studio'});assert.equal(await live.previewWorker(live.st()),true,live.workerStatus().error);
   assert.equal(await live.submitWorker(live.st()),true,live.workerStatus().error);
   const edited=await expectJson(product,'GET','/api/agent-extensions/instances/studio-owned/config',null,200);assert.equal(edited.name,'Edited in Studio');assert.equal(edited.enabled,false);
+  assert(!httpRequests.includes('/api/agents/__new__'),'creation sentinel must not become a backend instance request');
   const inferenceCount=calls.length;
   models.openExternalReference();Object.assign(models.externalDraft,{model,role:'CHAT',metric:'controlled reference',score:'75',minimum:'0',maximum:'100',sourceUrl:'https://example.invalid/reference',measuredAt:'2026-10-08T12:00:00.000Z',referenceModel:'Fixture public'});
   assert.equal(await models.saveExternalReference(),true,models.notice);assert.equal(calls.length,inferenceCount);

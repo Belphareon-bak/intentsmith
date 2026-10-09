@@ -378,27 +378,28 @@ for (const scenario of ['allow', 'proof-changed', 'binding-changed', 'digest-cha
 
 suite('registry evaluation and retention read path');
 
-await testAsync('overview uses the configured model mount and never substitutes root capacity', async () => {
+await testAsync('overview uses one resolved provider mount despite a different backend hint and never substitutes root capacity', async () => {
   const db = createTestDb(), previousPath = config.ollama.modelsPath, previousStat = fs.statfsSync;
   globalThis.fetch = async () => ({ok:true,json:async()=>({version:'fixture'})});
   try {
     config.ollama.modelsPath = '/fixture/new-model-disk';
-    let available = 755 * GiB;
+    let available = 755 * GiB, observations=0;
     fs.statfsSync = target => {
-      assertEqual(target, config.ollama.modelsPath);
+      assertEqual(target, '/fixture/provider-model-disk');
       if (available === null) throw Object.assign(new Error('model mount missing'), {code:'ENOENT'});
       return {bavail: available / 4096, bfree: (available + GiB) / 4096, bsize: 4096};
     };
     const registry = new ModelRegistry();
-    registry.init({db,modelEvaluationReadModel:completeEvaluationReadModel()});
+    registry.init({db,modelEvaluationReadModel:completeEvaluationReadModel(),modelStorageResolver:async()=>{observations++;return {path:'/fixture/provider-model-disk'};}});
     registry.getInstalled = async () => [];
     for (const free of [755 * GiB, 0, null]) {
       available = free; registry._overviewCache = null;
       const result = (await registry.getOverview()).diskUsage;
-      assertEqual(result.modelsPath, '/fixture/new-model-disk');
+      assertEqual(result.modelsPath, '/fixture/provider-model-disk');
       assertEqual(result.freeBytes, free);
       assertEqual(result.freeGB, free === null ? null : (free / GiB).toFixed(1));
     }
+    assertEqual(observations,3,'One provider-path observation per overview');
   } finally { db.close(); config.ollama.modelsPath = previousPath; fs.statfsSync = previousStat; globalThis.fetch = originalFetch; }
 });
 

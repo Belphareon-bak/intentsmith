@@ -17,3 +17,8 @@ Resolver nenabízí shell, přepis konfigurace, efekt nebo novou síťovou autor
 Úložiště i měření prostoru při pull/cleanup tak používají stejné ověření.
 Pozitivní fixture i odmítnutí remote/jiného portu/chybějící služby jsou v
 ide-backend.test.js. Odebrání artefaktu nadále vyžaduje vlastní autoritu.
+
+Přehled ModelRegistry předává jeden snímek provider cesty také měření kapacity.
+Test prokazuje odlišný backend hint, tři různé hodnoty volného místa a přesně
+jedno pozorování cesty na přehled. Testovací resolver je interní DI, žádné HTTP
+nepřijímá cestu ani spustitelný příkaz.

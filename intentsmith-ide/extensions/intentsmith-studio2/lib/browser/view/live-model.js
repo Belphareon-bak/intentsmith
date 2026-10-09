@@ -2565,7 +2565,7 @@ class LiveModel extends Component {
         extensions: [], projects: [] };
       this.loadWorkerWizard();
     }
-    if (sec === 'workers') this.loadWorkerDetail(id);
+    if (sec === 'workers' && id !== '__new__') this.loadWorkerDetail(id);
     if (sec === 'expertises') {
       const focused = this.widget.store.focusedSession();
       if (focused?._convId) this.expertiseSelection.load(focused);
