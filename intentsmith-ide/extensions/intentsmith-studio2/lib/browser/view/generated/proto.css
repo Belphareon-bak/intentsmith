@@ -727,6 +727,10 @@
 .intentsmith-studio2-widget .simple-list .c-group,.intentsmith-studio2-widget .simple-list .c-sub,.intentsmith-studio2-widget .simple-list .c-state{display:none}
 .intentsmith-studio2-widget .simple-list .lico,.intentsmith-studio2-widget .settings-workspace .dico,.intentsmith-studio2-widget .settings-workspace .tico{background:none;border:0;border-radius:0;color:var(--tc,var(--acct))}
 .intentsmith-studio2-widget .cat.settings-catalog .tico,.intentsmith-studio2-widget .cat.settings-catalog .lico{background:none;border:0;border-radius:0;color:var(--tc,var(--acct))}
+.intentsmith-studio2-widget .cat.settings-catalog .tile-s,.intentsmith-studio2-widget .cat.settings-catalog .tile-f{display:none}
+.intentsmith-studio2-widget .cat.settings-catalog .tile{border:0;box-shadow:none;background:none}
+.intentsmith-studio2-widget .cat.settings-catalog .tile:hover{background:var(--hover)}
+.intentsmith-studio2-widget .cat.settings-catalog .tile.on{background:var(--acc-soft)}
 .intentsmith-studio2-widget .settings-workspace .cat-h{padding:18px 14px}
 .intentsmith-studio2-widget .settings-workspace .cat-h .search,.intentsmith-studio2-widget .settings-workspace .cchips{display:none}
 .intentsmith-studio2-widget .settings-workspace .cat-h .cat-t>div{display:none}

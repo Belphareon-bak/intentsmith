@@ -979,7 +979,7 @@ jejich zachování při upgrade má samostatnou evidenci a nemění kanonický
 zdrojový počet `109`.
 
 Aktuální registry fingerprint referenčního zdroje je
-`0ce9d57a7fa983f4fe1c8ce26e5a56576ca13cd8a1e94ab3d5b57ca845cd9b8a`.
+`48ffb34d7c8c27e79abb6ea824cd130ada380837e5ffed3272c10aa0b11deba6`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 Worker-soak absolvoval fyzický pětiminutový běh na `bf7dc31f`; nové druhé
