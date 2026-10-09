@@ -4113,7 +4113,7 @@ Sdílejí produkční extrakci JSON podle explicitního zadání operátora; nem
 ### IDE backend — implementační checkpoint 2026-10-09
 
 WP-IDE-BACKEND-20261009 přidává trvalá správcovská API bez zásahu do UI či
-produkce. Současný module graph má 1 554 hran, 3 cykly / 28 členů;
+produkce. Historický backend module graph má 1 554 hran, 3 cykly / 28 členů;
 self-review 42 přidaných a 5 odstraněných hran je zaznamenané v samostatné
 baseline změně `04261980` nad zdrojem `29c8ba1c`. Nejde o nezávislé přijetí.
 Doplněná migrace 123 znamená 110 migrací pro nový kandidát; dřívější release
@@ -4121,3 +4121,5 @@ receipts se nepřebírají jako jeho důkaz. Pro napojení Studia platí
 [API kontrakt](docs/development/ide-management-api.md). Discord/Telegram
 jsou podle přímého rozhodnutí operátora před-release scope; produkční M5/M6
 journey, credentials a přejímka zůstávají otevřené.
+
+Integrační IDE/BE kandidát WP-IDE-INTEGRATION-20261009 má 1557 hran, 3 cykly / 28 členů. Tři importy společného resolveru mají vlastní self-review a samostatný baseline commit; nezávislé přijetí zůstává pending.
