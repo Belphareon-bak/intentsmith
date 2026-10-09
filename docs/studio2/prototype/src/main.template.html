@@ -121,16 +121,15 @@ html,body{margin:0;height:100%;overflow:hidden}
 .main{display:grid;min-height:0;min-width:0}
 .navcol{min-width:0;min-height:0;overflow:hidden;background:var(--panel);border-right:1px solid var(--soft)}
 .nav{display:flex;flex-direction:column;height:100%;min-width:0}
-.nav-l{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;padding:8px 6px;min-height:0}
-.nav-b{border-top:1px solid var(--soft);padding:6px}
-.nrow{display:flex;align-items:center;border-radius:6px;min-width:0}
+.nav-l{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;padding:8px 0;min-height:0}
+.nav-b{border-top:1px solid var(--soft);padding:6px 0}
+.nrow{display:flex;align-items:center;border-radius:0;min-width:0}
 .nrow:hover{background:var(--hover)}
 .nrow.on{background:var(--acc-soft)}
-.nbtn{flex:1 1 auto;display:flex;align-items:center;gap:10px;min-height:36px;padding:0 6px;border:0;background:none;color:var(--text);font-size:var(--fs);cursor:pointer;text-align:left;min-width:0}
+.nbtn{flex:1 1 auto;display:flex;align-items:center;gap:10px;min-height:40px;padding:0 14px;border:0;background:none;color:var(--text);font-size:var(--fs);cursor:pointer;text-align:left;min-width:0}
 .nrow.on .nbtn{color:var(--acct);font-weight:600}
-.nico{display:grid;place-items:center;width:26px;height:26px;border-radius:6px;flex:0 0 auto;color:var(--dim)}
-.nrow.on .nico,.rail.on .nico{color:var(--acct)}
-.toned .nico,.toned .nrow .nico,.toned .rail .nico{color:var(--tc);background:color-mix(in srgb,var(--tc) 12%,transparent)}
+.nico{display:grid;place-items:center;width:22px;height:26px;border:0;border-radius:0;flex:0 0 auto;color:var(--tc,var(--dim));background:none}
+.nrow.on .nico,.rail.on .nico,.toned .nico,.toned .nrow .nico,.toned .rail .nico{color:var(--tc,var(--acct));background:none}
 .nlbl{flex:1 1 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 .nbadge{font-size:10.5px;padding:0 6px;border-radius:9px;background:var(--panel3);color:var(--dim);line-height:17px;font-weight:500;flex:0 0 auto}
 .nbadge.warn{background:color-mix(in srgb,var(--warn) 20%,transparent);color:var(--warn)}
@@ -150,7 +149,7 @@ html,body{margin:0;height:100%;overflow:hidden}
 .den-minimalni .nbtn{min-height:26px}
 .den-minimalni .nkid{min-height:21px}
 .railw{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 0;height:100%;background:var(--bg2)}
-.rail{position:relative;width:calc(100% - 8px);min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:0;background:none;color:var(--faint);border-radius:6px;cursor:pointer;padding:3px 2px}
+.rail{position:relative;width:100%;min-height:52px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border:0;background:none;color:var(--faint);border-radius:0;cursor:pointer;padding:3px 2px}
 .rail:hover{background:var(--hover);color:var(--text)}
 .rail.on{background:var(--panel)}
 .rail-lbl{font-family:"Inter","Noto Sans",system-ui,sans-serif;font-size:var(--rfs);letter-spacing:-.1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
@@ -281,14 +280,14 @@ html,body{margin:0;height:100%;overflow:hidden}
 .tile-f span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .ltbl{border:1px solid var(--soft);border-radius:9px;overflow:hidden;background:var(--panel)}
 .sep-linky .ltbl{border:0;border-radius:0;background:none;border-top:1px solid var(--soft)}
-.lrow{display:grid;grid-template-columns:30px minmax(0,1.1fr) 160px 150px minmax(0,1.5fr) 110px;gap:14px;align-items:center;width:100%;padding:0 14px;min-height:42px;border:0;border-bottom:1px solid var(--soft);background:none;color:var(--text);text-align:left;font-size:var(--fs);cursor:pointer}
+.lrow{display:grid;grid-template-columns:30px minmax(0,1.1fr) 160px 150px minmax(0,1.5fr) 110px;gap:14px;align-items:center;width:100%;padding:0 14px;min-height:var(--list-row-height,42px);border:0;border-bottom:1px solid var(--soft);background:none;color:var(--text);text-align:left;font-size:var(--fs);cursor:pointer}
 .lrow:hover{background:var(--hover)}
 .lrow.on{background:var(--acc-soft)}
 .lrow.th{min-height:30px;cursor:default;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);background:var(--title)}
 .lrow.th:hover{background:var(--title)}
 @container (max-width: 820px){.lrow{grid-template-columns:30px minmax(0,1fr) 130px 100px}.lrow .c-sub,.lrow .c-desc{display:none}}
-.den-kompaktni .lrow{min-height:32px}
-.den-minimalni .lrow{min-height:26px}
+.den-kompaktni .lrow{min-height:calc(var(--list-row-height,42px)*.8)}
+.den-minimalni .lrow{min-height:calc(var(--list-row-height,42px)*.65)}
 .cell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lico{width:26px;height:26px;border-radius:6px;background:var(--acc-soft);color:var(--acct);display:grid;place-items:center}
 .toned .lico,.lico.always{color:var(--tc);background:color-mix(in srgb,var(--tc) 12%,transparent)}
@@ -593,6 +592,173 @@ textarea.fv-ed{font-family:var(--font-mono)}
 .gref.remote{border-color:var(--info);color:var(--info)}
 .gref.tag{border-color:var(--warn);color:var(--warn)}
 .gl-m{font-size:10.5px;color:var(--faint);white-space:nowrap;flex:0 0 auto}
+
+/* Schválený vzor: nativní palety, ploché kolekce a sekční nastavení. */
+.simple-list{border:0;border-radius:0;background:none}
+.simple-list .lrow{grid-template-columns:26px minmax(140px,.6fr) minmax(0,1fr)}
+.simple-list .c-group,.simple-list .c-sub,.simple-list .c-state{display:none}
+.simple-list .lico,.settings-workspace .dico,.settings-workspace .tico{background:none;border:0;border-radius:0;color:var(--tc,var(--acct))}
+.cat.settings-catalog .tico,.cat.settings-catalog .lico{background:none;border:0;border-radius:0;color:var(--tc,var(--acct))}
+.cat.settings-catalog .tile-s,.cat.settings-catalog .tile-f{display:none}
+.cat.settings-catalog .tile{border:0;box-shadow:none;background:none}
+.cat.settings-catalog .tile:hover{background:var(--hover)}
+.cat.settings-catalog .tile.on{background:var(--acc-soft)}
+.settings-workspace .cat-h{padding:18px 14px}
+.settings-workspace .cat-h .search,.settings-workspace .cchips{display:none}
+.settings-workspace .cat-h .cat-t>div{display:none}
+.settings-workspace .cat-b{padding:0}
+.settings-workspace .cat .tiles{display:flex;flex-direction:column;gap:0}
+.settings-workspace .cat .tile,.settings-workspace .cat .lrow{display:flex;align-items:center;gap:10px;padding:10px 14px;min-height:42px;border:0;border-radius:0;box-shadow:none;background:none}
+.settings-workspace .cat .tile:hover,.settings-workspace .cat .lrow:hover{background:var(--hover)}
+.settings-workspace .cat .tile.on,.settings-workspace .cat .lrow.on{background:var(--acc-soft)}
+.settings-workspace .cat .tile-top{display:contents}
+.settings-workspace .cat .tile-top>.grow,.settings-workspace .cat .tile-s,.settings-workspace .cat .tile-d,.settings-workspace .cat .tile-f,.settings-workspace .cat .tag,.settings-workspace .cat .lrow.th,.settings-workspace .cat .c-desc{display:none}
+.settings-workspace .cat .tile-n,.settings-workspace .cat .lrow .cell{font-size:var(--fs);font-weight:500}
+.settings-workspace .dside{background:var(--bg);container-type:inline-size}
+.settings-workspace .dh{padding:8px 28px 10px;align-items:center}
+.settings-workspace .dh-title{font-size:22px;letter-spacing:-.3px}
+.settings-workspace .dh-sub,.settings-workspace .dact>.iconbtn{display:none}
+.settings-workspace .dact,.settings-workspace .dbody{padding-left:28px;padding-right:28px}
+.settings-workspace .dbody{max-width:1100px;padding-top:16px}
+.settings-workspace .dbody>section{margin:0 0 16px}
+.settings-workspace .blk-h{margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--soft)}
+.settings-workspace .aps .blk-h{border:0}
+.settings-workspace .aps{padding:0;border:0;background:none;gap:8px}
+.settings-workspace .aps>.aph:empty{display:none}
+.settings-workspace .arow2{grid-template-columns:minmax(160px,1fr) minmax(150px,1fr);max-width:820px;gap:24px;padding:6px 0}
+.settings-crumb{display:flex;align-items:center;gap:8px;color:var(--faint);padding:18px 28px 8px;font-size:12px}
+.settings-crumb .btn{height:24px;padding:0;border:0;background:none;color:var(--dim)}
+.models-workspace .cat{visibility:hidden}
+.models-workspace .dbody{max-width:none}
+@container (max-width:520px){.settings-workspace .arow2{grid-template-columns:minmax(0,1fr);gap:6px}.settings-workspace .dh-title{font-size:19px}}
+
+
+.scm-review{height:100%;min-height:0;display:flex;flex-direction:column;padding:24px 28px;gap:16px;background:var(--bg);user-select:text}
+.scm-review-head{display:flex;gap:20px;justify-content:space-between;align-items:flex-start}.scm-review-head h1{font-size:22px;margin:4px 0 8px}.scm-review-head p{margin:4px 0;color:var(--dim);overflow-wrap:anywhere}
+.scm-compare{display:flex;align-items:end;gap:12px;flex-wrap:wrap}.scm-compare label{display:flex;flex-direction:column;gap:5px;min-width:180px}.scm-compare input{height:30px}
+.scm-review-body{display:grid;grid-template-columns:minmax(180px,250px) minmax(0,1fr);flex:1;min-height:0;border-top:1px solid var(--soft)}.scm-review-body nav{overflow:auto;border-right:1px solid var(--soft);padding:8px 0}
+.scm-review-file{display:flex;align-items:center;gap:12px;padding:10px 12px;width:100%;border:0;border-radius:0;background:none;color:var(--text);text-align:left;font-size:var(--fs)}.scm-review-file>span:first-child{flex:1;overflow-wrap:anywhere}.scm-review-file:hover{background:var(--hover)}.scm-review-file.on{background:var(--acc-soft)}.scm-review-file i{color:var(--ok);font-style:normal}.scm-review-file b{color:var(--bad);font-weight:400;margin-left:6px}
+.scm-review-diff{overflow:auto;user-select:text;font:12px/1.65 var(--font-mono);padding:8px 0;min-width:0}.scm-diff-line{white-space:pre;padding:0 16px;min-width:max-content;min-height:1.65em}.scm-diff-line.added{background:color-mix(in srgb,var(--ok) 12%,transparent);color:var(--text)}.scm-diff-line.removed{background:color-mix(in srgb,var(--bad) 12%,transparent);color:var(--text)}.scm-diff-line.hunk{background:var(--acc-soft);color:var(--acct)}
+.scm-branch-form{display:flex;flex-direction:column;gap:8px;padding:12px 0;margin-bottom:16px;border-bottom:1px solid var(--soft)}.scm-branch-form label{display:flex;flex-direction:column;gap:6px}
+.glog .gl-r{width:100%;border:0;border-radius:0;color:var(--text);background:none;text-align:left;font-size:var(--fs);cursor:pointer}.glog .gl-r:hover{background:var(--hover)}
+
+
+/* Append to canonical prototype <style>; build-view scopes it to the native widget. */
+.mw-redesign{display:flex;flex-direction:column;gap:16px;min-width:0;padding:4px 0 12px;color:var(--text)}
+.mw-redesign h2{font-size:21px;line-height:1.25;margin:0;font-weight:600}
+.mw-redesign h3{font-size:16px;margin:0 0 10px;font-weight:600}
+.mw-redesign h4{font-size:13px;margin:18px 0 10px}
+.mw-redesign p{font-size:12px;line-height:1.6;margin:6px 0;color:var(--dim);overflow-wrap:anywhere}
+.mw-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.mw-status{min-height:1.5em}
+.mw-card,.mw-note{background:none;border:0;border-bottom:1px solid var(--soft);border-radius:0;padding:16px 0;min-width:0}
+.mw-note[role="alert"]{border-color:var(--warn)}
+.mw-table-wrap{overflow-x:auto;max-width:100%;margin-top:12px;border:0;border-radius:0}
+.mw-table{border-collapse:collapse;width:100%;text-align:left;font-size:12px;background:none}
+.mw-table th,.mw-table td{padding:10px 12px;border-bottom:1px solid var(--soft);vertical-align:middle;max-width:280px;overflow-wrap:anywhere}
+.mw-table thead th{color:var(--dim);background:var(--title);font-weight:600;font-size:11px;white-space:nowrap}
+.mw-table tbody th{font-weight:500;text-align:left}
+.mw-table tr:last-child td,.mw-table tr:last-child th{border-bottom:0}
+.mw-matrix{min-width:820px}
+.mw-matrix tbody th{min-width:170px;max-width:210px}
+.mw-matrix td{min-width:76px;text-align:center;padding:9px 6px}
+.mw-digest{display:block;overflow-wrap:anywhere;font-size:10px;line-height:1.5;color:var(--faint);font-family:var(--font-mono)}
+.mw-plain,.mw-score,.mw-test{border:0;background:none;cursor:pointer;color:inherit;font:inherit}
+.mw-plain{color:var(--dim);font-weight:600;padding:0;min-height:24px}
+.mw-score{display:block;min-height:28px;width:100%;border-radius:4px;font-weight:600}
+.mw-score:hover,.mw-score[aria-pressed="true"]{background:color-mix(in srgb,var(--acc) 22%,transparent);outline:0}
+.mw-test{display:block;font-size:10px;color:var(--dim);margin:3px auto 0;padding:3px}
+.mw-test:disabled{opacity:.4;cursor:default}
+.mw-score-low{background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--text)}
+.mw-score-low-middle{background:color-mix(in srgb,color-mix(in srgb,var(--bad) 55%,var(--warn)) 14%,transparent);color:var(--text)}
+.mw-score-middle{background:color-mix(in srgb,var(--warn) 14%,transparent);color:var(--text)}
+.mw-score-middle-high{background:color-mix(in srgb,color-mix(in srgb,var(--ok) 55%,var(--warn)) 14%,transparent);color:var(--text)}
+.mw-score-high{background:color-mix(in srgb,var(--ok) 14%,transparent);color:var(--text)}
+.mw-unmeasured{color:var(--faint)}
+.mw-hunt{display:flex;flex-direction:column;gap:16px;min-width:0}
+.mw-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin:12px 0}
+.mw-fields label,.mw-queue-at{display:flex;flex-direction:column;gap:6px;font-size:11px;color:var(--dim);min-width:0}
+.mw-redesign input,.mw-redesign select{width:100%;min-width:0;box-sizing:border-box;padding:7px 9px;border:1px solid var(--border);border-radius:5px;background:var(--panel);color:var(--text);font:inherit;font-size:12px}
+.mw-redesign input:focus,.mw-redesign select:focus{outline:1px solid var(--acc);outline-offset:1px}
+.mw-redesign input:disabled,.mw-redesign select:disabled{opacity:.5}
+.mw-redesign .mw-check{display:flex;flex-direction:row;align-items:center;gap:8px;font-size:12px;min-width:0;line-height:1.4}
+.mw-redesign input[type="checkbox"]{width:15px;height:15px;min-width:15px;flex:0 0 15px;margin:0;padding:0;accent-color:var(--acc)}
+.mw-checks{display:flex;flex-wrap:wrap;gap:12px 16px;border:1px solid var(--soft);border-radius:6px;padding:12px;margin:12px 0}
+.mw-checks legend{font-size:11px;color:var(--dim);padding:0 4px}
+.mw-wide{grid-column:1/-1}
+.mw-catalog-grid{display:grid;grid-template-columns:minmax(250px,1fr) minmax(260px,1fr);gap:16px;min-width:0;margin-top:14px}
+.mw-catalog-list{display:flex;flex-direction:column;gap:0;border:0;border-radius:0;overflow:hidden;min-width:0}
+.mw-candidate{display:flex;flex-direction:column;gap:5px;padding:13px 14px;text-align:left;border:0;border-bottom:1px solid var(--soft);background:var(--panel);color:var(--text);cursor:pointer;min-width:0;font:inherit;font-size:12px;overflow-wrap:anywhere}
+.mw-candidate:last-child{border-bottom:0}
+.mw-candidate:hover{background:var(--hover)}
+.mw-candidate.on{background:color-mix(in srgb,var(--acc) 14%,transparent);box-shadow:none}
+.mw-candidate small{color:var(--faint);font-size:10px}
+.mw-candidate>span{font-size:11px;color:var(--dim)}
+.mw-role-tags{display:flex;flex-wrap:wrap;gap:4px}
+.mw-catalog-detail{min-width:0;position:sticky;top:0;align-self:start;padding:0 0 0 14px;background:none;border:0;border-radius:0}
+.mw-catalog-detail h3{overflow-wrap:anywhere}
+.mw-facts{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px 12px;margin:12px 0;font-size:12px}
+.mw-facts dt{color:var(--dim)}
+.mw-facts dd{margin:0;text-align:right;overflow-wrap:anywhere}
+.mw-profile-list{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.mw-profile{display:flex;align-items:start;justify-content:space-between;gap:14px;padding:12px 0;border:0;border-bottom:1px solid var(--soft);border-radius:0;background:none;min-width:0}
+.mw-profile>div{min-width:0}
+.mw-profile small{display:block;color:var(--faint);font-size:10px;margin-top:5px;overflow-wrap:anywhere}
+.mw-profile .model-actions{flex-shrink:0;max-width:260px}
+.mw-editor{margin-top:20px;padding-top:16px;border-top:1px solid var(--border)}
+.mw-queue-at{max-width:360px;margin-top:14px}
+.mw-muted{color:var(--faint)}
+@container(max-width:740px){.mw-catalog-grid{grid-template-columns:minmax(0,1fr)}.mw-catalog-detail{position:static}.mw-profile{flex-wrap:wrap}.mw-fields{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}}
+
+/* Native Studio tokens only; no palette, shell or global tab overrides. */
+.ide-management{min-width:0;display:flex;flex-direction:column;gap:18px;color:var(--text);container-type:inline-size;container-name:ide-settings}
+.ide-management h2,.ide-management h3,.ide-management h4{margin:0 0 6px}
+.ide-management p{margin:4px 0;color:var(--dim);line-height:1.5}
+.im-heading,.im-item-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;min-width:0}
+.im-heading>div:first-child,.im-item-head>div{min-width:0}
+.im-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.im-section{min-width:0;padding:0;border:0;border-radius:0;background:none}
+.im-collection{display:grid;gap:12px;margin-top:12px;min-width:0}
+.im-grid .im-collection{grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr))}
+.im-list .im-collection{grid-template-columns:minmax(0,1fr);gap:0}
+.im-item{padding:13px;border:1px solid var(--soft);border-radius:5px;min-width:0;background:var(--bg)}
+.im-item .mono,.im-properties dd{overflow-wrap:anywhere;white-space:pre-wrap;user-select:text}
+.im-status{font-size:.846em;line-height:1.4;padding:3px 6px;border:1px solid var(--soft);color:var(--dim);flex-shrink:0;max-width:50%}
+.im-properties{margin:10px 0 12px;display:grid;gap:6px;font-size:.923em;line-height:1.45}
+.im-properties>div{display:grid;grid-template-columns:minmax(90px,30%) minmax(0,1fr);gap:9px}
+.im-properties dt{color:var(--dim)}
+.im-properties dd{margin:0;min-width:0}
+.im-list .im-item{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) auto;gap:10px 16px;align-items:start;padding:13px 0;border:0;border-bottom:1px solid var(--soft);border-radius:0;background:none}
+.im-list .im-item .im-item-head{display:block}
+.im-list .im-properties{margin:0}
+.im-list .im-capacity,.im-list .im-web-link{grid-column:2}
+.im-list .im-item>.im-actions{grid-column:3;grid-row:1;justify-content:flex-end}
+.im-editor,.im-detail{padding:16px;border:1px solid var(--acc);border-radius:6px;background:var(--bg)}
+.im-editor-fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:13px 18px;margin:14px 0}
+.im-field{display:flex;flex-direction:column;align-items:stretch;gap:5px;min-width:0;font-size:inherit}
+.im-field input,.im-field select{width:100%;min-width:0;border:1px solid var(--soft);border-radius:4px;padding:7px;background:var(--bg);color:var(--text)}
+.im-field input[type=checkbox]{width:16px;height:16px;align-self:flex-start;accent-color:var(--acc)}
+.im-field small{color:var(--dim);line-height:1.45}
+.im-field input:focus-visible,.im-field select:focus-visible,.im-actions button:focus-visible,.im-web-link:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+.im-warning,.im-notice{padding:9px 11px;border:1px solid var(--soft);border-left:3px solid var(--acc);border-radius:4px}
+.im-capacity{display:flex;flex-direction:column;gap:6px;margin:9px 0;font-size:.923em;color:var(--dim)}
+.im-capacity progress{width:100%;height:7px;accent-color:var(--acc)}
+.im-web-link{display:inline-block;overflow-wrap:anywhere;color:var(--acc);font-size:.923em;margin-bottom:10px}
+.im-actions .danger{color:var(--warn,var(--text))}
+.im-grid.im-size-1 .im-item{padding:10px}.im-grid.im-size-3 .im-item{padding:18px}.im-list.im-size-1 .im-item{padding:10px 0}.im-list.im-size-3 .im-item{padding:18px 0}
+@container ide-settings (max-width:760px){.im-list .im-item{grid-template-columns:minmax(0,1fr) minmax(0,1.3fr)}.im-list .im-item>.im-actions{grid-column:1/-1;grid-row:auto;justify-content:flex-start}.im-heading{flex-wrap:wrap}}
+@container ide-settings (max-width:520px){.im-list .im-item{grid-template-columns:minmax(0,1fr)}.im-list .im-capacity,.im-list .im-web-link,.im-list .im-item>.im-actions{grid-column:1;grid-row:auto}.im-list .im-item .im-item-head{display:flex}.im-item-head{flex-wrap:wrap}.im-status{max-width:100%}.im-editor,.im-detail{padding:12px}.im-properties>div{grid-template-columns:minmax(80px,34%) minmax(0,1fr)}}
+
+
+.model-summary-divider{background:var(--soft)}
+.model-summary{overflow:auto;min-width:0;background:var(--s1);padding:22px 18px}
+.model-summary h3{font-size:14px;font-weight:600;margin:0 0 12px}
+.model-summary section{padding:16px 0;border-bottom:1px solid var(--soft);display:flex;flex-direction:column;gap:6px}
+.model-summary b{font-size:12px;overflow-wrap:anywhere;font-weight:500}
+.model-summary small{color:var(--dim);font-size:11px;line-height:1.5}
+
+.mw-role-tags .tag.on{background:var(--acc-soft);color:var(--acct);border-color:var(--acc)}
+.models-workspace .dact{padding-bottom:0}
 </style>
 </helmet>
 <div class="{{rootCls}}" data-studio-ui="studio2" style="width: {{rootW}}; height: {{rootH}}; zoom: {{zoom}}; filter: {{filter}};">
@@ -679,6 +845,14 @@ textarea.fv-ed{font-family:var(--font-mono)}
 
 <section class="ctr">
 <div class="view">
+<sc-if value="{{isScmReview}}" hint-placeholder-val="{{false}}">
+<section class="scm-review" aria-label="Změny v Gitu">
+<header class="scm-review-head"><div><span class="aph">{{scmReview.project}}</span><h1>{{scmReview.title}}</h1><p class="mono">{{scmReview.identity}}</p><p>{{scmReview.author}}</p></div><button class="btn" onClick="{{scmReview.close}}">Zpět do IDE</button></header>
+<div class="scm-compare"><label>Základ<input value="{{scmReview.base}}" onChange="{{scmReview.setBase}}" placeholder="main nebo přesný commit"></label><label>Cíl<input value="{{scmReview.head}}" onChange="{{scmReview.setHead}}" placeholder="větev nebo přesný commit"></label><button class="btn" disabled="{{scmReview.compareDisabled}}" onClick="{{scmReview.compare}}">Porovnat</button></div>
+<sc-if value="{{scmReview.loading}}" hint-placeholder-val="{{false}}"><p role="status">Načítám změny…</p></sc-if>
+<sc-if value="{{scmReview.hasError}}" hint-placeholder-val="{{false}}"><div role="alert" class="fsec-e">{{scmReview.error}} <button class="btn" onClick="{{scmReview.refresh}}">Obnovit</button></div></sc-if>
+<sc-if value="{{scmReview.hasData}}" hint-placeholder-val="{{false}}"><div class="scm-review-body"><nav aria-label="Změněné soubory"><button class="scm-review-file" onClick="{{scmReview.all}}">Všechny změny</button><sc-for list="{{scmReview.files}}" as="file" hint-placeholder-count="3"><button class="scm-review-file {{file.selected}}" onClick="{{file.go}}"><span>{{file.path}}</span><span class="num"><i>{{file.added}}</i><b>{{file.removed}}</b></span></button></sc-for></nav><div class="scm-review-diff" aria-label="Diff"><sc-for list="{{scmReview.lines}}" as="line" hint-placeholder-count="5"><div class="scm-diff-line {{line.cls}}">{{line.text}}</div></sc-for><sc-if value="{{scmReview.empty}}" hint-placeholder-val="{{false}}"><p>Mezi zvolenými revizemi nejsou textové změny.</p></sc-if></div></div></sc-if>
+</section></sc-if>
 <sc-if value="{{isSessions}}" hint-placeholder-val="{{true}}">
 <div class="cols" style="grid-template-columns: {{colTpl}};">
 <sc-for list="{{columns}}" as="c" hint-placeholder-count="1">
@@ -774,8 +948,8 @@ textarea.fv-ed{font-family:var(--font-mono)}
 
 <sc-if value="{{hasToast}}" hint-placeholder-val="{{false}}"><div class="toast {{toastCls}}" role="status"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="{{toastIcon}}"></path></svg><span class="toast-t">{{toastText}}</span><button class="iconbtn sm" aria-label="Zavřít hlášení" title="Zavřít" onClick="{{closeToast}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.x}}"></path></svg></button></div></sc-if>
 <sc-if value="{{isSection}}" hint-placeholder-val="{{false}}">
-<div class="sect" style="grid-template-columns: {{sectCols}};">
-<div class="cat">
+<div class="sect {{sectCls}}" style="grid-template-columns: {{sectCols}};">
+<div class="cat {{cg.containerClass}}">
 <div class="cat-h">
 <div class="cat-t"><h1><span class="nico tone-{{cg.tone}}" style="width: 30px; height: 30px;"><svg class="ic" width="17" height="17" viewBox="0 0 24 24"><path d="{{cg.icon}}"></path></svg></span>{{cg.title}}</h1><div>{{cg.summary}}</div></div>
 <label class="search" style="width: 230px;"><svg class="ic" width="13" height="13" viewBox="0 0 24 24"><path d="{{I.search}}"></path></svg><input aria-label="Hledat v katalogu" placeholder="Hledat…" value="{{q}}" onChange="{{setQ}}"></label>
@@ -800,10 +974,10 @@ textarea.fv-ed{font-family:var(--font-mono)}
 </div>
 </sc-if>
 <sc-if value="{{cg.isList}}" hint-placeholder-val="{{false}}">
-<div class="ltbl">
-<div class="lrow th"><span></span><span>Název</span><span>Skupina</span><span class="c-sub">Podrobnosti</span><span class="c-desc">Popis</span><span>{{cg.stateHeading}}</span></div>
+<div class="ltbl {{cg.listClass}}" style="--list-row-height: {{cg.rowHeight}}px;">
+<div class="lrow th"><span></span><span>Název</span><span class="c-group">Skupina</span><span class="c-sub">Podrobnosti</span><span class="c-desc">Popis</span><span class="c-state">{{cg.stateHeading}}</span></div>
 <sc-for list="{{cg.items}}" as="e" hint-placeholder-count="8">
-<button class="lrow {{e.cls}}" onClick="{{e.go}}" onDoubleClick="{{e.dbl}}" onContextMenu="{{e.ctx}}"><span class="lico tone-{{e.tone}} {{e.icls}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{e.icon}}"></path></svg></span><span class="cell" style="font-weight: 600;">{{e.name}}</span><span class="cell"><sc-if value="{{e.hasBadges}}" hint-placeholder-val="{{false}}"><span class="category-badges"><sc-for list="{{e.badges}}" as="badge" hint-placeholder-count="1"><span class="category-label tone-{{badge.tone}}" title="{{badge.title}}">{{badge.label}}</span></sc-for></span></sc-if><sc-if value="{{e.noBadges}}" hint-placeholder-val="{{true}}">{{e.catLabel}}</sc-if></span><span class="cell mono c-sub" style="font-size: 11.5px; color: var(--faint);">{{e.sub}}</span><span class="cell c-desc" style="color: var(--dim);">{{e.desc}}</span><span class="cell"><sc-if value="{{e.hasUsed}}" hint-placeholder-val="{{false}}"><span class="last-used" title="{{e.usedTitle}}">{{e.usedText}}</span></sc-if><sc-if value="{{e.noUsed}}" hint-placeholder-val="{{true}}">{{e.state}}</sc-if></span></button>
+<button class="lrow {{e.cls}}" onClick="{{e.go}}" onDoubleClick="{{e.dbl}}" onContextMenu="{{e.ctx}}"><span class="lico tone-{{e.tone}} {{e.icls}}"><svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="{{e.icon}}"></path></svg></span><span class="cell" style="font-weight: 600;">{{e.name}}</span><span class="cell c-group"><sc-if value="{{e.hasBadges}}" hint-placeholder-val="{{false}}"><span class="category-badges"><sc-for list="{{e.badges}}" as="badge" hint-placeholder-count="1"><span class="category-label tone-{{badge.tone}}" title="{{badge.title}}">{{badge.label}}</span></sc-for></span></sc-if><sc-if value="{{e.noBadges}}" hint-placeholder-val="{{true}}">{{e.catLabel}}</sc-if></span><span class="cell mono c-sub" style="font-size: 11.5px; color: var(--faint);">{{e.sub}}</span><span class="cell c-desc" style="color: var(--dim);">{{e.desc}}</span><span class="cell c-state"><sc-if value="{{e.hasUsed}}" hint-placeholder-val="{{false}}"><span class="last-used" title="{{e.usedTitle}}">{{e.usedText}}</span></sc-if><sc-if value="{{e.noUsed}}" hint-placeholder-val="{{true}}">{{e.state}}</sc-if></span></button>
 </sc-for>
 </div>
 </sc-if>
@@ -812,6 +986,7 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <div class="splx" onPointerDown="{{dragDetail.down}}" onPointerMove="{{dragDetail.move}}" onPointerUp="{{dragDetail.up}}" title="Táhnutím změníš šířku detailu"></div>
 <aside class="dside" aria-label="Detail">
 <sc-if value="{{hasDetail}}" hint-placeholder-val="{{false}}">
+<sc-if value="{{hasSettingsWorkspace}}" hint-placeholder-val="{{false}}"><div class="settings-crumb"><button class="btn" onClick="{{backSettings}}">Nastavení</button><span> / </span><span>{{dt.title}}</span></div></sc-if>
 <div class="dh">
 <span class="dico tone-{{dt.tone}} {{dt.icls}}"><svg class="ic" width="20" height="20" viewBox="0 0 24 24"><path d="{{dt.icon}}"></path></svg></span>
 <div class="dh-m"><div class="dh-title">{{dt.title}}<sc-if value="{{dt.hasStatus}}" hint-placeholder-val="{{true}}"><span class="st {{dt.stCls}}">{{dt.status}}</span></sc-if></div><div class="dh-sub">{{dt.type}} · <span class="mono">{{dt.idText}}</span></div></div>
@@ -885,27 +1060,65 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <div style="display:flex;gap:8px"><button class="btn" onClick="{{b.expertiseSelection.refresh}}">Obnovit</button><button class="btn" disabled="{{b.expertiseSelection.clearDisabled}}" onClick="{{b.expertiseSelection.clear}}">Výchozí expertýza</button></div>
 </div></sc-if>
 <sc-if value="{{b.isProjectDirectory}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Výchozí složka projektů">
-<div class="blk-h"><span class="lbl-acc">Výchozí složka nových projektů</span></div>
+<div class="blk-h"><span class="lbl-acc">Přednostní složka v tomto IDE</span></div>
 <label class="arow2"><span>Absolutní cesta ve tvé domácí složce</span><input class="mono" value="{{b.projectDirectory.value}}" onChange="{{b.projectDirectory.change}}" placeholder="/home/user/Projects"></label>
 <p class="aph" role="status">{{b.projectDirectory.status}}</p>
 </div></sc-if>
-<sc-if value="{{b.isModelWorkspace}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Modelové pracoviště">
-<div class="blk-h"><span class="lbl-acc">Modely a inference</span></div>
-<div class="dtabs model-tabs"><sc-for list="{{b.modelWorkspace.tabs}}" as="tab" hint-placeholder-count="7"><button class="dtab {{tab.cls}}" onClick="{{tab.go}}">{{tab.label}}</button></sc-for></div>
-<p class="aph" role="status">{{b.modelWorkspace.status}}</p>
-<sc-if value="{{b.modelWorkspace.verifyWarning}}" hint-placeholder-val="{{false}}"><div class="note" role="alert">{{b.modelWorkspace.verifyWarning}} <sc-if value="{{b.modelWorkspace.hasRollback}}" hint-placeholder-val="{{false}}"><button class="btn" onClick="{{b.modelWorkspace.rollback}}">Vrátit předchozí model</button></sc-if></div></sc-if>
-<sc-if value="{{b.modelWorkspace.hasPolicyForm}}" hint-placeholder-val="{{false}}"><div class="note" aria-label="Politika automatizace modelů">
-<label class="arow2"><span>Automatické přepnutí při výpadku</span><input type="checkbox" checked="{{b.modelWorkspace.policyFailover}}" onChange="{{b.modelWorkspace.setPolicyFailover}}"></label>
-<label class="arow2"><span>Automatický úklid nepoužívaných modelů</span><input type="checkbox" checked="{{b.modelWorkspace.policyCleanup}}" onChange="{{b.modelWorkspace.setPolicyCleanup}}"></label>
-<label class="arow2"><span>Úklid po dnech</span><input type="number" min="1" max="3650" value="{{b.modelWorkspace.policyDays}}" onChange="{{b.modelWorkspace.setPolicyDays}}"></label>
-</div></sc-if>
-<sc-if value="{{b.modelWorkspace.hasRoleForm}}" hint-placeholder-val="{{false}}"><div class="note">
-<label class="arow2"><span>Role</span><select value="{{b.modelWorkspace.selectedRole}}" onChange="{{b.modelWorkspace.setRole}}"><sc-for list="{{b.modelWorkspace.roleOptions}}" as="option" hint-placeholder-count="7"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
-<label class="arow2"><span>Model</span><select value="{{b.modelWorkspace.selectedModel}}" onChange="{{b.modelWorkspace.setModel}}"><sc-for list="{{b.modelWorkspace.modelOptions}}" as="option" hint-placeholder-count="4"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
-<button class="btn btn-acc" disabled="{{b.modelWorkspace.applyRoleDisabled}}" onClick="{{b.modelWorkspace.applyRole}}">Přiřadit model roli</button>
-</div></sc-if>
+<sc-if value="{{b.isModelWorkspace}}" hint-placeholder-val="{{false}}"><div class="mw-redesign" aria-label="Modely a inference">
+
+<nav class="dtabs model-tabs" aria-label="Modelové pracoviště"><sc-for list="{{b.modelWorkspace.tabs}}" as="tab" hint-placeholder-count="7"><button class="dtab {{tab.cls}}" onClick="{{tab.go}}">{{tab.label}}</button></sc-for></nav>
+<p class="mw-status" role="status">{{b.modelWorkspace.status}}</p>
+<sc-if value="{{b.modelWorkspace.verifyWarning}}" hint-placeholder-val="{{false}}"><div class="mw-note" role="alert">{{b.modelWorkspace.verifyWarning}}<sc-if value="{{b.modelWorkspace.hasRollback}}" hint-placeholder-val="{{false}}"><button class="btn" onClick="{{b.modelWorkspace.rollback}}">Vrátit předchozí model</button></sc-if></div></sc-if>
 <div class="model-actions"><sc-for list="{{b.modelWorkspace.buttons}}" as="action" hint-placeholder-count="2"><button class="btn" disabled="{{action.disabled}}" onClick="{{action.go}}">{{action.label}}</button></sc-for></div>
-<div class="rows"><sc-for list="{{b.modelWorkspace.rows}}" as="row" hint-placeholder-count="3"><div class="row model-row"><span class="row-tt"><strong class="row-t">{{row.title}}</strong><span class="row-s">{{row.subtitle}}</span></span><span class="row-m">{{row.meta}}</span><span class="model-row-actions"><sc-for list="{{row.actions}}" as="action" hint-placeholder-count="2"><button class="btn" disabled="{{action.disabled}}" onClick="{{action.go}}">{{action.label}}</button></sc-for></span></div></sc-for></div>
+<sc-if value="{{b.modelWorkspace.redesign.isOverview}}" hint-placeholder-val="{{false}}"><section class="mw-card"><h3>Aktivní role</h3><p>{{b.modelWorkspace.summaryStatus}}</p><div class="mw-table-wrap"><table class="mw-table"><thead><tr><th>Role</th><th>Přiřazený model</th><th>Kontext / výstup</th><th>Místní skóre</th></tr></thead><tbody><sc-for list="{{b.modelWorkspace.summaryRoles}}" as="role" hint-placeholder-count="7"><tr><th>{{role.role}}</th><td>{{role.model}}</td><td>{{role.settingsText}}</td><td>{{role.measuredText}}</td></tr></sc-for></tbody></table></div></section></sc-if>
+<sc-if value="{{b.modelWorkspace.hasRoleForm}}" hint-placeholder-val="{{false}}"><section class="mw-card"><h3>Přiřazení role</h3><div class="mw-fields">
+<label>Role<select value="{{b.modelWorkspace.selectedRole}}" onChange="{{b.modelWorkspace.setRole}}"><sc-for list="{{b.modelWorkspace.roleOptions}}" as="option" hint-placeholder-count="7"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
+<label>Model<select value="{{b.modelWorkspace.selectedModel}}" onChange="{{b.modelWorkspace.setModel}}"><sc-for list="{{b.modelWorkspace.modelOptions}}" as="option" hint-placeholder-count="2"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
+</div><button class="btn btn-acc" disabled="{{b.modelWorkspace.applyRoleDisabled}}" onClick="{{b.modelWorkspace.applyRole}}">Přiřadit model roli</button></section></sc-if>
+<sc-if value="{{b.modelWorkspace.redesign.showBaseRows}}" hint-placeholder-val="{{false}}"><div class="rows"><sc-for list="{{b.modelWorkspace.rows}}" as="row" hint-placeholder-count="2"><div class="row model-row"><span class="row-tt"><strong class="row-t">{{row.title}}</strong><span class="row-s">{{row.subtitle}}</span></span><span class="row-m">{{row.meta}}</span><span class="model-row-actions"><sc-for list="{{row.actions}}" as="action" hint-placeholder-count="1"><button class="btn" disabled="{{action.disabled}}" onClick="{{action.go}}">{{action.label}}</button></sc-for></span></div></sc-for></div></sc-if>
+<sc-if value="{{b.modelWorkspace.redesign.isInventory}}" hint-placeholder-val="{{false}}"><section class="mw-card"><h3>Nainstalované modely</h3><p>Skutečný místní inventář. Dostupné kandidáty najdete v GPU Hunt → Katalog.</p><div class="mw-table-wrap"><table class="mw-table"><thead><tr><th>Model</th><th>Velikost</th><th>Kvantizace</th><th>Role a místní skóre</th><th>Digest artefaktu</th></tr></thead><tbody><sc-for list="{{b.modelWorkspace.redesign.inventory}}" as="model" hint-placeholder-count="2"><tr><th>{{model.name}}</th><td>{{model.size}}</td><td>{{model.quant}}</td><td><span class="mw-role-tags"><sc-for list="{{model.roleTags}}" as="role" hint-placeholder-count="0"><span class="tag {{role.cls}}">{{role.label}}</span></sc-for></span></td><td class="mw-digest">{{model.digest}}</td></tr></sc-for></tbody></table></div></section></sc-if>
+<sc-if value="{{b.modelWorkspace.redesign.isEvaluations}}" hint-placeholder-val="{{false}}"><section class="mw-card"><h3>Evaluace podle rolí</h3><p>Kliknutím na záhlaví seřadíte doložená skóre; neměřené hodnoty zůstávají na konci. Řádek identifikuje přesný digest.</p><div class="mw-table-wrap"><table class="mw-table mw-matrix"><thead><tr><th>Model / artefakt</th><sc-for list="{{b.modelWorkspace.redesign.matrix.headers}}" as="header" hint-placeholder-count="7"><th aria-sort="{{header.ariaSort}}"><button class="mw-plain" onClick="{{header.sort}}">{{header.role}}</button></th></sc-for></tr></thead><tbody><sc-for list="{{b.modelWorkspace.redesign.matrix.rows}}" as="model" hint-placeholder-count="2"><tr><th>{{model.model}}<small class="mw-digest">{{model.digest}}</small></th><sc-for list="{{model.cells}}" as="cell" hint-placeholder-count="7"><td class="{{cell.cls}}"><button class="mw-score" aria-pressed="{{cell.selected}}" title="{{cell.status}}" onClick="{{cell.select}}">{{cell.text}}</button><button class="mw-test" disabled="{{cell.testDisabled}}" onClick="{{cell.test}}">Testovat</button></td></sc-for></tr></sc-for></tbody></table></div></section></sc-if>
+<sc-if value="{{b.modelWorkspace.redesign.isHunt}}" hint-placeholder-val="{{false}}"><div class="mw-hunt">
+<nav class="dtabs" aria-label="GPU Hunt"><sc-for list="{{b.modelWorkspace.redesign.huntTabs}}" as="tab" hint-placeholder-count="4"><button class="dtab {{tab.cls}}" onClick="{{tab.select}}">{{tab.label}}</button></sc-for></nav>
+<sc-if value="{{b.modelWorkspace.redesign.huntOverview}}" hint-placeholder-val="{{false}}"><section class="mw-card"><h3>Aktuální běh</h3><dl class="mw-facts"><dt>Stav</dt><dd>{{b.modelWorkspace.redesign.huntState}}</dd><dt>Model</dt><dd>{{b.modelWorkspace.redesign.huntModel}}</dd><dt>Fáze</dt><dd>{{b.modelWorkspace.redesign.huntPhase}}</dd></dl><p>{{b.modelWorkspace.redesign.hold}}</p><p class="mw-muted">Poslední hlášení · {{b.modelWorkspace.redesign.progressAt}}</p><p>{{b.modelWorkspace.redesign.progressDetail}}</p><div class="mw-profile-list"><sc-for list="{{b.modelWorkspace.redesign.activeQueue}}" as="task" hint-placeholder-count="0"><article class="mw-profile"><strong>{{task.name}}</strong><span>{{task.roles}} · {{task.state}}</span></article></sc-for></div></section></sc-if>
+<sc-if value="{{b.modelWorkspace.redesign.huntCatalog}}" hint-placeholder-val="{{false}}"><section class="mw-card"><div class="mw-fields mw-filter">
+<label>Hledat model<input type="search" value="{{b.modelWorkspace.redesign.catalog.search}}" onChange="{{b.modelWorkspace.redesign.catalog.setSearch}}"></label>
+<label>Role pro veřejný podklad<select value="{{b.modelWorkspace.redesign.catalog.role}}" onChange="{{b.modelWorkspace.redesign.catalog.setRole}}"><sc-for list="{{b.modelWorkspace.redesign.catalog.roleOptions}}" as="option" hint-placeholder-count="7"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
+<label>Dostupnost<select value="{{b.modelWorkspace.redesign.catalog.availability}}" onChange="{{b.modelWorkspace.redesign.catalog.setAvailability}}"><option value="notInstalled">Ke stažení</option><option value="installed">Nainstalované</option><option value="all">Všechny</option></select></label>
+<label>Řadit<select value="{{b.modelWorkspace.redesign.catalog.sort}}" onChange="{{b.modelWorkspace.redesign.catalog.setSort}}"><option value="benefit">Srovnatelný veřejný přínos</option><option value="score">Skóre vybraného protokolu</option><option value="name">Název</option></select></label>
+<label class="mw-check"><input type="checkbox" checked="{{b.modelWorkspace.redesign.catalog.fits}}" onChange="{{b.modelWorkspace.redesign.catalog.setFits}}">V odhadovaném limitu VRAM</label>
+<label class="mw-wide">Srovnávací protokol a datum<select value="{{b.modelWorkspace.redesign.catalog.protocol}}" onChange="{{b.modelWorkspace.redesign.catalog.setProtocol}}"><sc-for list="{{b.modelWorkspace.redesign.catalog.protocolOptions}}" as="option" hint-placeholder-count="1"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
+</div><p>{{b.modelWorkspace.redesign.catalog.count}} · {{b.modelWorkspace.redesign.catalog.unknownVram}}</p><p class="mw-muted">Veřejné reference slouží k prioritě stažení a testu. Nenahrazují místní evaluaci ani nepovolují přiřazení role.</p>
+<div class="mw-catalog-grid"><div class="mw-catalog-list"><sc-for list="{{b.modelWorkspace.redesign.catalog.rows}}" as="model" hint-placeholder-count="2"><button class="mw-candidate {{model.cls}}" onClick="{{model.select}}"><strong>{{model.name}}</strong><span>{{model.family}} · {{model.size}} · {{model.fit}}</span><span class="mw-role-tags"><sc-for list="{{model.roles}}" as="role" hint-placeholder-count="2"><span class="tag {{role.cls}}">{{role.role}}<sc-if value="{{role.active}}" hint-placeholder-val="{{false}}"><span> · aktivní</span></sc-if></span></sc-for></span><span>Skóre: {{model.score}}</span><span>Přínos: {{model.gain}}</span><small>{{model.source}} · {{model.scope}}</small></button></sc-for></div>
+<sc-if value="{{b.modelWorkspace.redesign.catalog.hasSelection}}" hint-placeholder-val="{{false}}"><article class="mw-catalog-detail"><h3>{{b.modelWorkspace.redesign.catalog.selected.name}}</h3><dl class="mw-facts"><dt>Rodina</dt><dd>{{b.modelWorkspace.redesign.catalog.selected.family}}</dd><dt>Disk</dt><dd>{{b.modelWorkspace.redesign.catalog.selected.size}}</dd><dt>Odhad VRAM</dt><dd>{{b.modelWorkspace.redesign.catalog.selected.vram}}</dd><dt>Kvantizace</dt><dd>{{b.modelWorkspace.redesign.catalog.selected.quant}}</dd><dt>Metadata ověřena</dt><dd>{{b.modelWorkspace.redesign.catalog.selected.metadata}}</dd><dt>Veřejné skóre</dt><dd>{{b.modelWorkspace.redesign.catalog.selected.score}}</dd><dt>Prior pro test</dt><dd>{{b.modelWorkspace.redesign.catalog.selected.gain}}</dd></dl><p>{{b.modelWorkspace.redesign.catalog.selected.localQuality}}</p><p class="mw-muted">{{b.modelWorkspace.redesign.catalog.selected.source}} · {{b.modelWorkspace.redesign.catalog.selected.scope}}</p><p>{{b.modelWorkspace.redesign.catalog.selected.downloadStatus}}</p><button class="btn btn-acc" disabled="{{b.modelWorkspace.redesign.catalog.selected.pullDisabled}}" onClick="{{b.modelWorkspace.redesign.catalog.selected.pull}}">Stáhnout přesný tag</button><div class="model-actions"><button class="btn" disabled="{{b.modelWorkspace.redesign.catalog.selected.prepareTestsDisabled}}" onClick="{{b.modelWorkspace.redesign.catalog.selected.prepareTests}}">Vybrat sady pro test</button><p class="mw-muted">Po stažení lze připravit profil pro všechny dostupné role nebo upravit výběr sad.</p></div>
+<sc-if value="{{b.modelWorkspace.redesign.catalog.hasVariants}}" hint-placeholder-val="{{false}}"><h4>Související skutečné tagy</h4><div class="model-actions"><sc-for list="{{b.modelWorkspace.redesign.catalog.variants}}" as="variant" hint-placeholder-count="2"><button class="btn" onClick="{{variant.select}}">{{variant.name}}</button></sc-for></div></sc-if></article></sc-if></div></section></sc-if>
+<sc-if value="{{b.modelWorkspace.redesign.huntProfiles}}" hint-placeholder-val="{{false}}"><section class="mw-card"><h3>Uložené profily</h3><p>{{b.modelWorkspace.redesign.profileStatus}}</p><p>{{b.modelWorkspace.redesign.capabilityNote}}</p>
+<sc-if value="{{b.modelWorkspace.redesign.hasProfileApi}}" hint-placeholder-val="{{false}}"><button class="btn btn-acc" disabled="{{b.modelWorkspace.redesign.profiles.disabled}}" onClick="{{b.modelWorkspace.redesign.profiles.new}}">Nový profil</button><label class="mw-queue-at">Termín ručního zařazení (prázdné = nyní)<input type="datetime-local" value="{{b.modelWorkspace.redesign.profiles.queueAt}}" onChange="{{b.modelWorkspace.redesign.profiles.setQueueAt}}" disabled="{{b.modelWorkspace.redesign.profiles.disabled}}"></label>
+<div class="mw-profile-list"><sc-for list="{{b.modelWorkspace.redesign.profiles.rows}}" as="profile" hint-placeholder-count="2"><article class="mw-profile"><div><strong>{{profile.name}}</strong><small>{{profile.id}} · {{profile.kind}} · {{profile.state}}</small><p>{{profile.roles}} · {{profile.models}}</p><p>{{profile.schedule}}</p><p>{{profile.scheduleError}}</p></div><div class="model-actions"><button class="btn" onClick="{{profile.edit}}">Upravit</button><button class="btn" disabled="{{profile.disabled}}" onClick="{{profile.queue}}">Zařadit snímek</button><button class="btn" disabled="{{profile.deleteDisabled}}" onClick="{{profile.remove}}">Smazat</button></div></article></sc-for></div></sc-if>
+<sc-if value="{{b.modelWorkspace.redesign.profiles.hasDraft}}" hint-placeholder-val="{{false}}"><div class="mw-editor"><h4>Editor profilu</h4><p>Snímek již zařazeného úkolu se při úpravě profilu nemění.</p><div class="mw-fields">
+<label>Název<input value="{{b.modelWorkspace.redesign.profiles.draft.name}}" onChange="{{b.modelWorkspace.redesign.profiles.draft.setName}}" disabled="{{b.modelWorkspace.redesign.profiles.disabled}}"></label>
+<label>Typ<select value="{{b.modelWorkspace.redesign.profiles.draft.kind}}" onChange="{{b.modelWorkspace.redesign.profiles.draft.setKind}}" disabled="{{b.modelWorkspace.redesign.profiles.disabled}}"><sc-for list="{{b.modelWorkspace.redesign.profiles.draft.kindOptions}}" as="option" hint-placeholder-count="3"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
+<label class="mw-check"><input type="checkbox" checked="{{b.modelWorkspace.redesign.profiles.draft.enabled}}" onChange="{{b.modelWorkspace.redesign.profiles.draft.setEnabled}}" disabled="{{b.modelWorkspace.redesign.profiles.disabled}}">Povolit automatický rozvrh</label>
+<label>První model<select value="{{b.modelWorkspace.redesign.profiles.draft.modelA}}" disabled="{{b.modelWorkspace.redesign.profiles.draft.isHunt}}" onChange="{{b.modelWorkspace.redesign.profiles.draft.setModelA}}"><option value="">Vyberte model</option><sc-for list="{{b.modelWorkspace.redesign.profiles.draft.modelOptions}}" as="option" hint-placeholder-count="2"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
+<sc-if value="{{b.modelWorkspace.redesign.profiles.draft.isChallenge}}" hint-placeholder-val="{{false}}"><label>Druhý model<select value="{{b.modelWorkspace.redesign.profiles.draft.modelB}}" onChange="{{b.modelWorkspace.redesign.profiles.draft.setModelB}}" disabled="{{b.modelWorkspace.redesign.profiles.disabled}}"><option value="">Vyberte jiný model</option><sc-for list="{{b.modelWorkspace.redesign.profiles.draft.modelOptions}}" as="option" hint-placeholder-count="2"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label></sc-if>
+<sc-if value="{{b.modelWorkspace.redesign.profiles.draft.isHunt}}" hint-placeholder-val="{{false}}"><label>Discovery limit<input type="number" min="1" max="10" value="{{b.modelWorkspace.redesign.profiles.draft.limit}}" onChange="{{b.modelWorkspace.redesign.profiles.draft.setLimit}}" disabled="{{b.modelWorkspace.redesign.profiles.disabled}}"></label><label>Cesta pro discovery modely (volitelná)<input value="{{b.modelWorkspace.redesign.profiles.draft.modelsPath}}" onChange="{{b.modelWorkspace.redesign.profiles.draft.setModelsPath}}" disabled="{{b.modelWorkspace.redesign.profiles.disabled}}"></label></sc-if>
+<label>Rozvrh<select value="{{b.modelWorkspace.redesign.profiles.draft.scheduleType}}" onChange="{{b.modelWorkspace.redesign.profiles.draft.setSchedule}}" disabled="{{b.modelWorkspace.redesign.profiles.disabled}}"><sc-for list="{{b.modelWorkspace.redesign.profiles.draft.scheduleOptions}}" as="option" hint-placeholder-count="5"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
+<label>První termín<input type="datetime-local" disabled="{{b.modelWorkspace.redesign.profiles.draft.dateDisabled}}" value="{{b.modelWorkspace.redesign.profiles.draft.at}}" onChange="{{b.modelWorkspace.redesign.profiles.draft.setAt}}"></label>
+<label>Interval v minutách<input type="number" min="60" max="10080" disabled="{{b.modelWorkspace.redesign.profiles.draft.intervalDisabled}}" value="{{b.modelWorkspace.redesign.profiles.draft.intervalMinutes}}" onChange="{{b.modelWorkspace.redesign.profiles.draft.setInterval}}"></label>
+<label>Čas<input type="time" disabled="{{b.modelWorkspace.redesign.profiles.draft.timeDisabled}}" value="{{b.modelWorkspace.redesign.profiles.draft.time}}" onChange="{{b.modelWorkspace.redesign.profiles.draft.setTime}}"></label>
+<label>Časové pásmo<input disabled="{{b.modelWorkspace.redesign.profiles.draft.timeDisabled}}" value="{{b.modelWorkspace.redesign.profiles.draft.timezone}}" onChange="{{b.modelWorkspace.redesign.profiles.draft.setTimezone}}"></label>
+</div><fieldset class="mw-checks"><legend>Role a dostupné sady</legend><sc-for list="{{b.modelWorkspace.redesign.profiles.draft.roleOptions}}" as="role" hint-placeholder-count="7"><label class="mw-check"><input type="checkbox" checked="{{role.checked}}" onChange="{{role.change}}" disabled="{{b.modelWorkspace.redesign.profiles.disabled}}">{{role.role}}</label></sc-for></fieldset><fieldset class="mw-checks"><legend>Dny v týdnu</legend><sc-for list="{{b.modelWorkspace.redesign.profiles.draft.dayOptions}}" as="day" hint-placeholder-count="7"><label class="mw-check"><input type="checkbox" disabled="{{b.modelWorkspace.redesign.profiles.draft.dayDisabled}}" checked="{{day.checked}}" onChange="{{day.change}}">{{day.label}}</label></sc-for></fieldset><div class="model-actions"><button class="btn btn-acc" disabled="{{b.modelWorkspace.redesign.profiles.disabled}}" onClick="{{b.modelWorkspace.redesign.profiles.save}}">Uložit a ověřit revizi</button><button class="btn" disabled="{{b.modelWorkspace.redesign.profiles.disabled}}" onClick="{{b.modelWorkspace.redesign.profiles.close}}">Zavřít editor</button></div></div></sc-if></section></sc-if>
+<sc-if value="{{b.modelWorkspace.redesign.showJobs}}" hint-placeholder-val="{{false}}"><section class="mw-card"><h3>Fronta a stav úkolů</h3><p>{{b.modelWorkspace.redesign.jobStatus}}</p><p>Každý úkol uchovává vlastní revizi profilu, modelové digesty a kontrakty sad. Zrušit lze pouze čekající úkol.</p><div class="mw-profile-list"><sc-for list="{{b.modelWorkspace.redesign.jobs}}" as="job" hint-placeholder-count="2"><article class="mw-profile"><div><strong>{{job.name}}</strong><small>{{job.id}} · {{job.revision}}</small><p>{{job.state}} · {{job.at}} · {{job.roles}}</p><p class="mw-digest">{{job.models}}</p><p>{{job.deferred}} · {{job.result}}</p></div><button class="btn" disabled="{{job.cancelDisabled}}" onClick="{{job.cancel}}">Zrušit čekající</button></article></sc-for></div></section></sc-if>
+<sc-if value="{{b.modelWorkspace.redesign.huntOverview}}" hint-placeholder-val="{{false}}"><section class="mw-card"><h3>Pravidelné plány</h3><p>{{b.modelWorkspace.redesign.profileStatus}}</p><div class="mw-profile-list"><sc-for list="{{b.modelWorkspace.redesign.scheduledProfiles}}" as="profile" hint-placeholder-count="0"><article class="mw-profile"><strong>{{profile.name}}</strong><span>{{profile.kind}} · {{profile.schedule}}</span><span>{{profile.error}}</span></article></sc-for></div></section></sc-if>
+<sc-if value="{{b.modelWorkspace.redesign.showJobs}}" hint-placeholder-val="{{false}}"><section class="mw-card"><h3>Poslední závěry běhů</h3><p class="mw-muted">Backend poskytuje posledních pět dokončených běhů. Historie evaluací a naplánovaných úkolů je samostatná.</p><div class="mw-profile-list"><sc-for list="{{b.modelWorkspace.redesign.recent}}" as="run" hint-placeholder-count="0"><article class="mw-profile"><div><strong>{{run.kind}} · {{run.status}}</strong><small>{{run.id}} · {{run.at}}</small><p>{{run.conclusion}}</p><sc-for list="{{run.models}}" as="model" hint-placeholder-count="0"><p>{{model.name}} · {{model.stage}} · {{model.results}}</p></sc-for></div></article></sc-for></div></section></sc-if>
+<sc-if value="{{b.modelWorkspace.redesign.huntHistory}}" hint-placeholder-val="{{false}}"><section class="mw-card"><h3>Historie evaluací</h3><div class="mw-table-wrap"><table class="mw-table"><thead><tr><th>Model</th><th>Role</th><th>Datum</th><th>Stav</th><th>Skóre</th><th>Akce</th></tr></thead><tbody><sc-for list="{{b.modelWorkspace.redesign.history}}" as="run" hint-placeholder-count="2"><tr><th>{{run.model}}</th><td>{{run.role}}</td><td>{{run.at}}</td><td>{{run.status}}</td><td>{{run.score}}</td><td><button class="btn" onClick="{{run.detail}}">Odpovědi</button><button class="btn" disabled="{{run.gradeDisabled}}" onClick="{{run.grade}}">Ohodnotit</button></td></tr></sc-for></tbody></table></div></section></sc-if>
+</div></sc-if>
+<sc-if value="{{b.modelWorkspace.redesign.isTelemetry}}" hint-placeholder-val="{{false}}"><section class="mw-card"><h3>Telemetrie inference</h3><label class="mw-queue-at">Období<select value="{{b.modelWorkspace.redesign.days}}" onChange="{{b.modelWorkspace.redesign.setDays}}"><option value="1">1 den</option><option value="7">7 dní</option><option value="30">30 dní</option><option value="90">90 dní</option></select></label><p>{{b.modelWorkspace.redesign.telemetryNote}}</p><div class="mw-table-wrap"><table class="mw-table"><thead><tr><th>Model / digest</th><th>Role</th><th>Požadavky</th><th>Latence p95</th><th>Generování</th><th>Vzorky rychlosti</th><th>Výstup</th></tr></thead><tbody><sc-for list="{{b.modelWorkspace.redesign.telemetry}}" as="model" hint-placeholder-count="2"><tr><th>{{model.model}}<small class="mw-digest">{{model.digest}}</small></th><td>{{model.role}}</td><td>{{model.requests}}</td><td>{{model.latency}}</td><td>{{model.speed}}</td><td>{{model.samples}}</td><td>{{model.length}}</td></tr></sc-for></tbody></table></div></section></sc-if>
+<sc-if value="{{b.modelWorkspace.redesign.isPolicy}}" hint-placeholder-val="{{false}}"><nav class="dtabs" aria-label="Provoz modelů"><sc-for list="{{b.modelWorkspace.redesign.operationsTabs}}" as="tab" hint-placeholder-count="0"><button class="dtab {{tab.cls}}" onClick="{{tab.select}}">{{tab.label}}</button></sc-for></nav></sc-if>
+<sc-if value="{{b.modelWorkspace.redesign.showRoleSettings}}" hint-placeholder-val="{{false}}"><section class="mw-card"><h3>Požadované parametry rolí</h3><p>{{b.modelWorkspace.redesign.settingsStatus}}</p><p>Požadovaný kontext a výstup jsou konfigurace; ověřená HW dvojice je samostatný údaj. Není to absolutní maximum modelu.</p><div class="mw-table-wrap"><table class="mw-table"><thead><tr><th>Role</th><th>Model</th><th>Stav</th><th>Kontext</th><th>Výstup</th><th>HW důkaz</th><th>Autorita výstupu</th><th>Úprava</th></tr></thead><tbody><sc-for list="{{b.modelWorkspace.redesign.settings}}" as="setting" hint-placeholder-count="7"><tr><th>{{setting.role}}</th><td>{{setting.model}}</td><td>{{setting.status}}</td><td>{{setting.context}}</td><td>{{setting.output}}</td><td>{{setting.hardware}}</td><td>{{setting.authority}}</td><td><button class="btn" disabled="{{setting.editDisabled}}" onClick="{{setting.edit}}">Upravit</button></td></tr></sc-for></tbody></table></div>
+<sc-if value="{{b.modelWorkspace.redesign.roleRuntime.hasDraft}}" hint-placeholder-val="{{false}}"><div class="mw-editor"><h4>Parametry role {{b.modelWorkspace.redesign.roleRuntime.draft.role}}</h4><p>{{b.modelWorkspace.redesign.roleRuntime.draft.model}} · revize {{b.modelWorkspace.redesign.roleRuntime.draft.revision}}</p><p class="mw-digest">{{b.modelWorkspace.redesign.roleRuntime.draft.digestSha256}}</p><div class="mw-fields"><label>Požadovaný kontext v tokenech<input type="number" min="512" max="262144" value="{{b.modelWorkspace.redesign.roleRuntime.draft.contextWindowTokens}}" disabled="{{b.modelWorkspace.redesign.roleRuntime.draft.disabled}}" onChange="{{b.modelWorkspace.redesign.roleRuntime.draft.setContext}}"></label><label>Požadovaný výstup v tokenech<input type="number" min="1" max="6000" value="{{b.modelWorkspace.redesign.roleRuntime.draft.maxOutputTokens}}" disabled="{{b.modelWorkspace.redesign.roleRuntime.draft.disabled}}" onChange="{{b.modelWorkspace.redesign.roleRuntime.draft.setOutput}}"></label></div><p>Backend ověří aktuální vazbu, povolený runtime kontext a případný pevný CODE profil. Požadavek nemění tyto limity.</p><div class="model-actions"><button class="btn btn-acc" disabled="{{b.modelWorkspace.redesign.roleRuntime.draft.disabled}}" onClick="{{b.modelWorkspace.redesign.roleRuntime.draft.save}}">Uložit a ověřit parametry role</button><button class="btn" onClick="{{b.modelWorkspace.redesign.roleRuntime.draft.close}}">Zavřít editor</button></div></div></sc-if>
+</section></sc-if>
+<sc-if value="{{b.modelWorkspace.hasPolicyForm}}" hint-placeholder-val="{{false}}"><section class="mw-card"><h3>Politika automatizace</h3><div class="mw-fields"><label class="mw-check"><input type="checkbox" checked="{{b.modelWorkspace.policyFailover}}" onChange="{{b.modelWorkspace.setPolicyFailover}}">Automatické přepnutí při výpadku</label><label class="mw-check"><input type="checkbox" checked="{{b.modelWorkspace.policyCleanup}}" onChange="{{b.modelWorkspace.setPolicyCleanup}}">Automatický úklid nepoužívaných modelů</label><label>Úklid po dnech<input type="number" min="1" max="3650" value="{{b.modelWorkspace.policyDays}}" onChange="{{b.modelWorkspace.setPolicyDays}}"></label></div></section></sc-if>
 <sc-if value="{{b.modelWorkspace.hasRunDetail}}" hint-placeholder-val="{{false}}"><div class="note model-detail" aria-label="Detail uloženého měření">
 <button class="btn" onClick="{{b.modelWorkspace.closeRun}}">Zavřít detail</button>
 <sc-if value="{{b.modelWorkspace.runDetailLoading}}" hint-placeholder-val="{{false}}"><p role="status">Načítám uložené odpovědi…</p></sc-if>
@@ -925,8 +1138,40 @@ textarea.fv-ed{font-family:var(--font-mono)}
 </div></sc-if>
 </div></sc-if>
 </div></sc-if>
+
+<sc-if value="{{b.isManagement}}" hint-placeholder-val="{{false}}"><div class="ide-management {{b.management.layoutClass}} {{b.management.sizeClass}}">
+<div class="im-heading"><div><p>{{b.management.description}}</p></div><div class="im-actions">
+<sc-for list="{{b.management.primary}}" as="action" hint-placeholder-count="1"><button class="btn {{action.cls}}" disabled="{{action.disabled}}" onClick="{{action.go}}">{{action.label}}</button></sc-for>
+<button class="btn" disabled="{{b.management.refreshDisabled}}" onClick="{{b.management.refresh}}">Obnovit stav</button></div></div>
+<sc-if value="{{b.management.loading}}" hint-placeholder-val="{{false}}"><p role="status">Načítám skutečné hodnoty backendu…</p></sc-if>
+<sc-if value="{{b.management.hasError}}" hint-placeholder-val="{{false}}"><p class="im-warning" role="alert">{{b.management.error}}</p></sc-if>
+<sc-if value="{{b.management.hasNotice}}" hint-placeholder-val="{{false}}"><p class="im-notice" role="status">{{b.management.notice}}</p></sc-if>
+<sc-if value="{{b.management.editor.visible}}" hint-placeholder-val="{{false}}"><section class="im-editor">
+<h3>{{b.management.editor.title}}</h3><p class="im-warning" role="status">{{b.management.editor.notice}}</p>
+<div class="im-editor-fields"><sc-for list="{{b.management.editor.fields}}" as="field" hint-placeholder-count="4"><label class="im-field"><span>{{field.label}}</span>
+<sc-if value="{{field.isText}}" hint-placeholder-val="{{true}}"><input value="{{field.value}}" disabled="{{field.disabled}}" onChange="{{field.change}}" autocomplete="off"></sc-if>
+<sc-if value="{{field.isNumber}}" hint-placeholder-val="{{false}}"><input type="number" value="{{field.value}}" min="{{field.min}}" max="{{field.max}}" disabled="{{field.disabled}}" onChange="{{field.change}}"></sc-if>
+<sc-if value="{{field.isToggle}}" hint-placeholder-val="{{false}}"><input type="checkbox" checked="{{field.checked}}" disabled="{{field.disabled}}" onChange="{{field.change}}"></sc-if>
+<sc-if value="{{field.isSelect}}" hint-placeholder-val="{{false}}"><select value="{{field.value}}" disabled="{{field.disabled}}" onChange="{{field.change}}"><sc-for list="{{field.options}}" as="option" hint-placeholder-count="2"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></sc-if>
+<sc-if value="{{field.hasHint}}" hint-placeholder-val="{{false}}"><small>{{field.hint}}</small></sc-if>
+</label></sc-for></div>
+<div class="im-actions"><button class="btn btn-acc" disabled="{{b.management.editor.saveDisabled}}" onClick="{{b.management.editor.save}}">Uložit změny</button><button class="btn" disabled="{{b.management.editor.cancelDisabled}}" onClick="{{b.management.editor.cancel}}">Zavřít editor</button></div>
+</section></sc-if>
+<sc-if value="{{b.management.hasDetail}}" hint-placeholder-val="{{false}}"><section class="im-detail"><div class="im-heading"><h3>{{b.management.detail.title}}</h3><button class="btn" onClick="{{b.management.closeDetail}}">Zavřít detail</button></div><dl class="im-properties"><sc-for list="{{b.management.detail.rows}}" as="property" hint-placeholder-count="4"><div><dt>{{property.label}}</dt><dd>{{property.value}}</dd></div></sc-for></dl></section></sc-if>
+<sc-for list="{{b.management.sections}}" as="section" hint-placeholder-count="2"><section class="im-section">
+<div class="im-heading"><div><h3>{{section.title}}</h3><sc-if value="{{section.hasDescription}}" hint-placeholder-val="{{true}}"><p>{{section.description}}</p></sc-if></div><div class="im-actions"><sc-for list="{{section.actions}}" as="action" hint-placeholder-count="1"><button class="btn {{action.cls}}" disabled="{{action.disabled}}" onClick="{{action.go}}">{{action.label}}</button></sc-for></div></div>
+<div class="im-collection"><sc-for list="{{section.items}}" as="item" hint-placeholder-count="3"><article class="im-item">
+<div class="im-item-head"><div><h4>{{item.title}}</h4><sc-if value="{{item.hasSubtitle}}" hint-placeholder-val="{{true}}"><p class="mono">{{item.subtitle}}</p></sc-if></div><span class="im-status">{{item.status}}</span></div>
+<sc-if value="{{item.hasProgress}}" hint-placeholder-val="{{false}}"><label class="im-capacity"><span>{{item.progressLabel}}</span><progress max="100" value="{{item.progress}}"></progress></label></sc-if>
+<dl class="im-properties"><sc-for list="{{item.properties}}" as="property" hint-placeholder-count="3"><div><dt>{{property.label}}</dt><dd>{{property.value}}</dd></div></sc-for></dl>
+<sc-if value="{{item.hasWebUrl}}" hint-placeholder-val="{{false}}"><a class="im-web-link" href="{{item.webUrl}}" target="_blank" rel="noopener noreferrer">Otevřít repozitář na webu</a></sc-if>
+<div class="im-actions"><sc-for list="{{item.actions}}" as="action" hint-placeholder-count="2"><button class="btn {{action.cls}}" disabled="{{action.disabled}}" onClick="{{action.go}}">{{action.label}}</button></sc-for></div>
+</article></sc-for></div>
+</section></sc-for>
+</div></sc-if>
+
 <sc-if value="{{b.isPreferences}}" hint-placeholder-val="{{false}}"><div class="aps" aria-label="Uživatelské nastavení">
-<div class="blk-h"><span class="lbl-acc">Uživatelské volby</span></div>
+
 <sc-for list="{{b.preferences.fields}}" as="field" hint-placeholder-count="3"><label class="arow2"><span>{{field.label}}</span>
 <sc-if value="{{field.isToggle}}" hint-placeholder-val="{{false}}"><input type="checkbox" checked="{{field.checked}}" disabled="{{field.disabled}}" onChange="{{field.change}}"></sc-if>
 <sc-if value="{{field.isText}}" hint-placeholder-val="{{false}}"><input value="{{field.value}}" disabled="{{field.disabled}}" onChange="{{field.change}}"></sc-if>
@@ -963,6 +1208,7 @@ textarea.fv-ed{font-family:var(--font-mono)}
 <label class="arow2"><span>Postup</span><select value="{{b.projectWizard.mode}}" onChange="{{b.projectWizard.setMode}}"><sc-for list="{{b.projectWizard.modes}}" as="option" hint-placeholder-count="2"><option value="{{option.value}}">{{option.label}}</option></sc-for></select></label>
 <label class="arow2"><span>Název</span><input value="{{b.projectWizard.name}}" onChange="{{b.projectWizard.setName}}" maxLength="120" placeholder="Název projektu"></label>
 <label class="arow2"><span>{{b.projectWizard.pathLabel}}</span><input value="{{b.projectWizard.path}}" onChange="{{b.projectWizard.setPath}}" placeholder="Prázdné = výchozí složka; pro otevření zadej absolutní cestu"></label>
+<sc-if value="{{b.projectWizard.canBrowse}}" hint-placeholder-val="{{false}}"><button class="btn" onClick="{{b.projectWizard.browse}}">Vybrat složku…</button></sc-if>
 <sc-if value="{{b.projectWizard.isCreate}}" hint-placeholder-val="{{true}}"><label class="arow2"><span>Typ</span><select value="{{b.projectWizard.type}}" onChange="{{b.projectWizard.setType}}"><sc-for list="{{b.projectWizard.types}}" as="type" hint-placeholder-count="6"><option value="{{type.value}}">{{type.label}}</option></sc-for></select></label>
 <label class="arow2"><span>Popis</span><textarea rows="3" value="{{b.projectWizard.description}}" onChange="{{b.projectWizard.setDescription}}" placeholder="Co má projekt řešit"></textarea></label></sc-if>
 <button class="btn btn-acc" disabled="{{b.projectWizard.nextDisabled}}" onClick="{{b.projectWizard.next}}">Pokračovat na kontrolu</button>
@@ -1162,6 +1408,7 @@ textarea.fv-ed{font-family:var(--font-mono)}
 </sc-if>
 <sc-if value="{{noDetail}}" hint-placeholder-val="{{false}}"><div class="rp-empty"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="{{I.info}}"></path></svg><b>Vyber položku</b><span>Detail se otevře tady, katalog zůstane vlevo.</span></div></sc-if>
 </aside>
+<sc-if value="{{hasModelsSummary}}" hint-placeholder-val="{{false}}"><div class="model-summary-divider"></div><aside class="model-summary" aria-label="Aktuální modely pro role"><h3>Aktuální přiřazení</h3><p class="aph">{{modelSummary.summaryStatus}}</p><sc-for list="{{modelSummary.summaryRoles}}" as="role" hint-placeholder-count="0"><section><span class="lbl-acc">{{role.role}}</span><b>{{role.model}}</b><small>{{role.settingsText}}</small><small>Místní skóre: {{role.measuredText}}</small></section></sc-for></aside></sc-if>
 </div>
 </sc-if>
 </div>
@@ -1246,7 +1493,8 @@ textarea.fv-ed{font-family:var(--font-mono)}
 </sc-for>
 <sc-if value="{{ws.scm.clean}}" hint-placeholder-val="{{false}}"><div class="fsec-e">Pracovní strom je čistý – nic k potvrzení.</div></sc-if>
 <div class="fsec-h scm-gh"><span class="lbl">Historie</span></div>
-<div class="glog"><sc-for list="{{ws.scm.graph}}" as="r" hint-placeholder-count="6"><div class="gl-r" title="{{r.title}}"><svg class="gl-g" width="30" height="26" viewBox="0 0 30 26" aria-hidden="true"><path d="{{r.p1}}" stroke="var(--violet)"></path><path d="{{r.p0}}" stroke="var(--acct)"></path><circle cx="{{r.cx}}" cy="13" r="3.6" fill="{{r.dc}}"></circle></svg><span class="gl-s">{{r.s}}</span><sc-for list="{{r.refs}}" as="rf" hint-placeholder-count="1"><span class="gref {{rf.cls}}">{{rf.t}}</span></sc-for><span class="gl-m mono">{{r.hash}} · {{r.when}}</span></div></sc-for></div>
+<sc-if value="{{ws.scm.branchForm.open}}" hint-placeholder-val="{{false}}"><div class="scm-branch-form"><label>Název nové větve<input aria-label="Název nové větve" disabled="{{ws.scm.branchForm.inputDisabled}}" value="{{ws.scm.branchForm.name}}" onChange="{{ws.scm.branchForm.change}}" placeholder="work/moje-zmena"></label><button class="btn btn-acc" disabled="{{ws.scm.branchForm.disabled}}" onClick="{{ws.scm.branchForm.create}}">Připravit vytvoření větve</button><button class="btn" onClick="{{ws.scm.branchForm.cancel}}">Zrušit</button></div></sc-if>
+<div class="glog"><sc-for list="{{ws.scm.graph}}" as="r" hint-placeholder-count="6"><button class="gl-r" title="{{r.title}}" onClick="{{r.open}}"><svg class="gl-g" width="30" height="26" viewBox="0 0 30 26" aria-hidden="true"><path d="{{r.p1}}" stroke="var(--violet)"></path><path d="{{r.p0}}" stroke="var(--acct)"></path><circle cx="{{r.cx}}" cy="13" r="3.6" fill="{{r.dc}}"></circle></svg><span class="gl-s">{{r.s}}</span><sc-for list="{{r.refs}}" as="rf" hint-placeholder-count="1"><span class="gref {{rf.cls}}">{{rf.t}}</span></sc-for><span class="gl-m mono">{{r.hash}} · {{r.when}}</span></button></sc-for></div>
 </sc-if>
 </sc-if>
 <sc-if value="{{ws.isScmFile}}" hint-placeholder-val="{{false}}">

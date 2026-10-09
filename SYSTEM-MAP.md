@@ -957,7 +957,7 @@ Tlačítka a filtry odpovídají motivu; chyby testu jsou přímo u modelu a rol
 **REVIEW_PENDING** — [aktuální UI oprava a evidence](docs/review/2026-09-17-HUNT-MODEL-CONTROLS-FOLLOWUP.md).
 
 Následující LOC census je přeměřený 9. 10. 2026 přímo na zdroji
-pracovního kandidátu WP-IDE-BACKEND-20261009 (self-review, bez nezávislé přejímky),
+spojeného kandidátu backendu a frontendu (bez integrační přejímky),
 přes stejný algoritmus jako `tests/artifact-validation.test.js`:
 počet skutečných `.js` souborů a počet znaků nového řádku v jejich bytech.
 Při další integraci se přeměří znovu.
@@ -965,8 +965,8 @@ Při další integraci se přeměří znovu.
 | | |
 |---|---:|
 | `src/**/*.js` | **238 572 ř.**, 698 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **272 984 ř.**, 607 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **599** (`501 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
+| `tests/**/*.js` | **273 348 ř.**, 610 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **602** (`504 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **187 / 110** |
 | HTTP rout | **308 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |
@@ -979,7 +979,7 @@ jejich zachování při upgrade má samostatnou evidenci a nemění kanonický
 zdrojový počet `109`.
 
 Aktuální registry fingerprint referenčního zdroje je
-`0ce9d57a7fa983f4fe1c8ce26e5a56576ca13cd8a1e94ab3d5b57ca845cd9b8a`.
+`48ffb34d7c8c27e79abb6ea824cd130ada380837e5ffed3272c10aa0b11deba6`.
 Historický post-fix scan na `a85c344f` zůstává platný pouze pro tehdejší
 fingerprint; současný registry řádek sám není akceptační důkaz.
 Worker-soak absolvoval fyzický pětiminutový běh na `bf7dc31f`; nové druhé

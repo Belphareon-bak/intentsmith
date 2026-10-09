@@ -467,76 +467,77 @@ test('user preferences use the prototype form and verify saved backend values', 
   assert.match(model._preferenceNotice.get('ucet'), /mezitím změnilo/);
 });
 
-test('notification settings read backend channels without claiming delivery or sending a test notification', async () => {
+test('notification sections read real channels, reject malformed data and never send without a user action', async () => {
   const paths = [];
   let channels = { channels: [{ name: 'desktop', configured: true }, { name: 'email', configured: false }] };
   const fetchImpl = async (url, options = {}) => {
     const path = new URL(url).pathname;
     paths.push([path, options.method || 'GET']);
-    return { ok: true, json: async () => path === '/api/settings'
-      ? { 'intentsmith.notif.desktopEnabled': true } : channels };
+    const values = { '/api/settings': { 'intentsmith.notif.desktopEnabled': true },
+      '/api/accounts': { accounts: [], supportedEvents: ['worker', 'lifecycle'] },
+      '/api/notifications/config': { emailEnabled: false, smtpHost: '', emailRecipient: '', smtpPort: 587 },
+      '/api/notifications/channels': channels };
+    assert.ok(Object.hasOwn(values, path), 'unknown endpoint: ' + path);
+    return { ok: true, json: async () => values[path] };
   };
   const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335', fetchImpl });
-  const { model } = setup({ catalog });
+  const { model } = setup({ catalog }); model.fetchImpl = fetchImpl;
   model.setState({ mode: 'section', section: 'settings', detail: { settings: 'oznameni' } });
-  await Promise.all([model.loadSettingsResource('oznameni'), model.loadSettingsResource('oznameni:channels')]);
-  let vm = model.detailVM(model.st());
-  let rows = vm.blocks.find(block => block.title === 'Kanály backendu').rows;
-  assert.deepEqual(rows.map(row => [row.t, row.m]), [
-    ['desktop', 'zaregistrován'], ['email', 'nenastaven']]);
-  assert.match(rows[0].s, /Doručení tím není ověřeno/);
-
+  await Promise.all([model.loadSettingsResource('oznameni'), model.settingsManagement.load('oznameni')]);
+  const management = () => model.detailVM(model.st()).blocks.find(block => block.isManagement).management;
+  let section = management().sections.find(s => s.title === 'Kanály zaregistrované v backendu');
+  assert.deepEqual(section.items.map(row => [row.title, row.status]), [['desktop', 'Zaregistrován'], ['email', 'Nenastaven']]);
+  assert.match(section.description, /sama neprokazuje doručení/);
   channels = { channels: [{ name: 'email', configured: 'yes' }] };
-  await model.loadSettingsResource('oznameni:channels', true);
-  vm = model.detailVM(model.st());
-  assert.match(vm.blocks.find(block => block.isEmpty).empty, /neplatný seznam kanálů/);
-
+  await model.settingsManagement.load('oznameni', true);
+  assert.equal(management().hasError, true);
+  assert.match(management().error, /IDE_RESPONSE_INVALID/);
   channels = { channels: [{ name: 'email', configured: true }] };
-  vm.secondary.find(action => action.label === 'Obnovit').go();
-  await tick();
-  rows = model.detailVM(model.st()).blocks.find(block => block.title === 'Kanály backendu').rows;
-  assert.deepEqual(rows.map(row => [row.t, row.m]), [['email', 'zaregistrován']]);
-  assert.deepEqual(paths.map(([path]) => path), ['/api/settings', '/api/notifications/channels',
-    '/api/notifications/channels', '/api/settings', '/api/notifications/channels']);
+  await management().refresh();
+  section = management().sections.find(s => s.title === 'Kanály zaregistrované v backendu');
+  assert.deepEqual(section.items.map(row => [row.title, row.status]), [['email', 'Zaregistrován']]);
   assert.equal(paths.every(([, method]) => method === 'GET'), true);
+  assert.equal(paths.filter(([path]) => path === '/api/notifications/channels').length, 3);
 });
 
-test('storage and backup settings show backend data and verify a confirmed backup', async () => {
+test('storage and backup sections show real metadata and retain confirmed maintenance and backup readback', async () => {
   let approve = false, backedUp = false;
-  const calls = [];
+  const calls = [], policy = { max_daily: 7, max_weekly: 4, on_startup: false, on_shutdown: false };
+  const backup = { name: 'state-20260926', revision: 0, note: '', archived: false, sections: ['database', 'config', 'skills', 'specialists'],
+    restore_scope: ['database'], content_fingerprint: 'a'.repeat(64), total_size_bytes: 4 * 1048576, db_size_bytes: 3 * 1048576, restorable: true };
   const fetchImpl = async (url, options = {}) => {
-    const path = new URL(url).pathname, method = options.method || 'GET';
-    calls.push([method, path]);
-    if (path === '/api/system/storage') return { ok: true, json: async () => ({
-      db_size_mb: 21, messages_in_db: 42, history: { total_mb: 7 }, backups: { count: backedUp ? 1 : 0 } }) };
-    if (path === '/api/system/backups' && method === 'GET') return { ok: true, json: async () => ({
-      backups: backedUp ? [{ name: 'state-20260926', total_size_mb: 4, restorable: true }] : [] }) };
-    if (path === '/api/system/backup' && method === 'POST') {
-      backedUp = true; return { ok: true, json: async () => ({ ok: true, name: 'state-20260926' }) };
-    }
-    if (path === '/api/system/vacuum' && method === 'POST') return { ok: true,
-      json: async () => ({ ok: true }) };
+    const path = new URL(url).pathname, method = options.method || 'GET'; calls.push([method, path]);
+    const values = {
+      '/api/system/storage': { db_size_mb: 21, messages_in_db: 42, history: { total_mb: 7 }, backups: { count: backedUp ? 1 : 0 } },
+      '/api/system/storage/inventory': { disks: [], locations: [], databases: [{ name: 'Main', engine: 'SQLite', version: '3.51.0', allocatedBytes: 21 * 1048576, path: '/fixture/main.db', usedBytes: 20 * 1048576, walBytes: 0, tableCount: 42, journalMode: 'wal' }] },
+      '/api/system/storage/paths': { id: 'default', revision: 0, projects: '/fixture/Projects' },
+      '/api/settings': {}, '/api/system/storage/settings': { backup: policy },
+      '/api/system/backups': { backups: backedUp ? [backup] : [] }
+    };
+    if (method === 'GET' && Object.hasOwn(values, path)) return { ok: true, json: async () => values[path] };
+    if (path === '/api/system/backup' && method === 'POST') { backedUp = true; return { ok: true, json: async () => ({ ok: true, name: backup.name }) }; }
+    if (path === '/api/system/vacuum' && method === 'POST') return { ok: true, json: async () => ({ ok: true }) };
     throw Error('Unexpected ' + method + ' ' + path);
   };
   const catalog = new CatalogStore({ backendUrl: () => 'http://127.0.0.1:3335', fetchImpl });
-  const { model, widget } = setup({ catalog });
-  widget.confirmAction = () => approve;
-  model.fetchImpl = fetchImpl;
+  const { model, widget } = setup({ catalog }); widget.confirmAction = () => approve; model.fetchImpl = fetchImpl;
   model.setState({ mode: 'section', section: 'settings', detail: { settings: 'uloziste' } });
-  await model.loadSettingsResource('uloziste:system');
-  assert.equal(model.detailVM(model.st()).blocks[0].rows[0].m, '21 MiB');
+  await Promise.all([model.loadSettingsResource('uloziste:system'), model.settingsManagement.load('uloziste')]);
+  const manager = () => model.detailVM(model.st()).blocks.find(block => block.isManagement).management;
+  assert.match(manager().sections.find(s => s.title === 'Databáze').items[0].status, /SQLite 3\.51\.0/);
+  assert.equal(manager().sections.find(s => s.title === 'Databáze').items[0].properties[0].value, '21 MiB');
   model.setState({ dtab: { 'settings:uloziste': 'udrzba' } });
   assert.equal(await model.detailVM(model.st()).onPrimary(), false);
   assert.equal(calls.some(([method]) => method === 'POST'), false);
   approve = true;
   assert.equal(await model.detailVM(model.st()).onPrimary(), true);
-  assert.equal(calls.filter(([method]) => method === 'POST').length, 1);
   model.setState({ detail: { settings: 'zalohy' }, dtab: { 'settings:zalohy': 'prehled' } });
-  await model.loadSettingsResource('zalohy');
-  assert.equal(await model.detailVM(model.st()).onPrimary(), true);
-  assert.equal(model.detailVM(model.st()).blocks.find(block => block.isRows).rows[0].t, 'state-20260926');
-  assert.deepEqual(calls.filter(([method]) => method === 'POST').map(([, path]) => path),
-    ['/api/system/vacuum', '/api/system/backup']);
+  await model.settingsManagement.load('zalohy');
+  manager().primary[0].go();
+  assert.equal(manager().editor.visible, true);
+  assert.equal(await manager().editor.save(), true);
+  assert.equal(manager().sections.find(s => s.title === 'Zálohy stavu').items[0].title, backup.name);
+  assert.deepEqual(calls.filter(([method]) => method === 'POST').map(([, path]) => path), ['/api/system/vacuum', '/api/system/backup']);
 });
 
 test('settings import previews a bounded JSON file and confirms backend readback', async () => {
@@ -682,7 +683,7 @@ test('preference fields reject out-of-range values before POST', async () => {
   assert.match(model._preferenceNotice.get('vystup'), /Neplatná hodnota/);
 });
 
-test('settings preserve twelve prototype categories and verify live feature changes against backend', async () => {
+test('settings include the requested Git category and preserve verified feature changes', async () => {
   let features = { skills: true, agents: false };
   let fail = false, approved = false;
   const calls = [];
@@ -706,9 +707,9 @@ test('settings preserve twelve prototype categories and verify live feature chan
   model.fetchImpl = fetchImpl;
   widget.confirmAction = () => approved;
   assert.deepEqual(model.data().SET.map(category => category.name), [
-    'Účet', 'Modely a inference', 'Paměť', 'Oznámení', 'Výstup', 'Vzhled',
+    'Účet', 'Git a repozitáře', 'Modely a inference', 'Paměť', 'Oznámení', 'Výstup', 'Vzhled',
     'Systém', 'Úložiště', 'Zálohy', 'Funkční přepínače', 'Zabezpečení', 'O aplikaci']);
-  assert.deepEqual(model.data().SET.map(category => category.tabs.length), [2, 4, 3, 2, 2, 5, 4, 2, 3, 2, 3, 2]);
+  assert.deepEqual(model.data().SET.map(category => category.tabs.length), [2, 1, 4, 3, 2, 2, 5, 4, 2, 3, 2, 3, 2]);
   model.setState({ mode: 'section', section: 'settings', detail: { settings: 'prepinace' } });
   await model.loadSettingsResource('prepinace');
   assert.equal(model.detailVM(model.st()).blocks[0].rows[0].m, 'vypnuto');
@@ -728,10 +729,13 @@ test('settings preserve twelve prototype categories and verify live feature chan
   model.setState({ detail: { settings: 'modely' } });
   await model.loadSettingsResource('modely');
   assert.equal(model.detailVM(model.st()).blocks[0].isModelWorkspace, true);
-  assert.equal(model.detailVM(model.st()).props.find(prop => prop.k === 'Model CHAT').v, 'local-model:latest');
+  assert.equal(model.detailVM(model.st()).showProps, false, 'provider and role details belong to the model workspace');
+  model.modelWorkspace.select('inventory');
+  await model.modelWorkspace.load('inventory', true);
+  assert.equal(model.modelWorkspace.vm().redesign.inventory[0].name, 'local-model:latest');
   model.setState({ detail: { settings: 'uloziste' } });
   await model.loadSettingsResource('uloziste:system');
-  assert.equal(model.detailVM(model.st()).blocks[0].rows[0].m, '1 MiB');
+  assert.equal(model.detailVM(model.st()).blocks[0].isManagement, true, 'storage uses the typed inventory adapter');
 });
 
 test('marketplace detail uses confirmed backend mutations and never claims success after failure', async () => {

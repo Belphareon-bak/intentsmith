@@ -4,6 +4,41 @@ Stav: podklad k [WP-STUDIO-2](../wp/WP-STUDIO-2-20260925.md). Vizuální a
 interakční předloha je klikací prototyp ([README](README.md)); kde se text a
 prototyp liší, platí tento text.
 
+## Přijaté upřesnění operátora 9. 10. 2026
+
+Přímé zadání operátora z této konverzace má přednost před staršími popisy
+níže: převzít katalog, plochou evaluaci a sjednocené členění Claude preview,
+se zachováním původního rámu, písem a nativních palet IntentSmithu.
+Implementaci vymezuje [WP-IDE-FRONTEND](../wp/WP-IDE-FRONTEND-20261009.md).
+
+- Aktivní položka levé navigace vyplní celou šířku panelu; obrysové barevné
+  ikony nemají podklad ani rámeček. Platí i pro Nastavení a jeho kategorie.
+  Souhrnné počty sekcí se v levé liště neopakují.
+- Nastavení mají vedle základního katalogu vlastní plochou navigaci kategorií.
+  Paměť, Výstup, Systém, Účet a Oznámení sdružují formuláře do pojmenovaných
+  sekcí na jedné stránce. Git a repozitáře tvoří samostatnou kategorii.
+- Modelové pracoviště používá střední plochu. Pravý stručný přehled rolí se
+  zobrazí při dostatečné šířce; v užším okně zůstane hlavní pracoviště.
+  Modely, Role, Evaluace, GPU Hunt, Telemetrie a Provoz používají skutečné API.
+  Pokročilá správa hardwaru a změny modelů zůstávají dostupné v Provozu.
+- Matice je jednoduchá tabulka s tříděním rolí a pěti pásmy červená až zelená.
+  Nezměřené a neuzavřené výsledky nemají číselnou známku. Řádek drží přesný
+  modelový digest; historický digest nesmí spustit test jiného artefaktu.
+- Hunt: Přehled, Katalog, Nastavení Huntu a Challenge, Historie. Katalog má
+  horní filtry, seznam modelů a vedle jejich detail. Výchozí výběr jsou modely
+  ke stažení s kladným odhadem ve VRAM; neznámé odhady lze zpřístupnit filtrem.
+  Rodina, skutečné varianty, role a srovnatelné veřejné podklady jsou oddělené
+  od místního skóre. Test modelu lze připravit pro všechny nebo vybrané role
+  prostřednictvím uloženého profilu a následného potvrzení spuštění.
+- Požadované tokeny, doložená HW dvojice a místní skóre jsou různé údaje.
+  Účty/kanály, cesty, metadata záloh a SSH reference používají revize a nové
+  čtení výsledku. Formuláře se upravují inline. Dlaždice i seznam a jejich
+  velikost zůstávají přepínatelné. Retence přes staré celé settings API nemá
+  atomické serverové CAS; preflight a readback tento limit nezastírají.
+- Výběr existující složky použije nativní dialog. Nová Git větev přijímá název
+  uživatele; historie otevře commit a porovnání referencí v hlavní ploše.
+  Efektové Git operace dál procházejí existujícím plánem a potvrzením.
+
 ## 1. Zásady
 
 - Rodina ShellSmith/SystemSmith: tenké 1px linky, 5/9px rádiusy, nadpisy sekcí
