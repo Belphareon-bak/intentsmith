@@ -94,6 +94,8 @@ Queue vyžaduje přesnou revizi, ISO `at` a `confirm: true`. Změna profilu již
 zařazený job nemění. Limit patří discovery Huntu; evaluation má jeden model,
 challenge dva. Kontext evaluace zůstává 4096 podle suite contractu. Scheduler
 se aktivuje během běhu serveru, dohání nejvýše jednu zmeškanou periodu.
+Nedostupná evaluace jednoho profilu nezastaví ostatní joby; profil ukazuje
+historický `lastScheduleError` s revizí a časem, nejde o aktuální GPU měření.
 
 GPU admission, provider lease, automation hold a systemd limity zůstávají
 povinné. Evaluation/challenge drží přesný digest a suite contract pro každou

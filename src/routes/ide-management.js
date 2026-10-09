@@ -35,7 +35,7 @@ export function createIdeManagementRoutes({db,config,parseBody,sendJSON,notifica
       settings:current?{contextWindowTokens:saved.contextWindowTokens,maxOutputTokens:saved.maxOutputTokens}:
         {contextWindowTokens:getNumCtx(artifact.model,4096),maxOutputTokens:null},
       outputAuthority:'CALL_SITE_AND_AUTH_TOKEN_CEILING',
-      verifiedHardwareMaximum:null,approvedRuntimeProfile:profile||null};
+      verifiedHardwareMaximum:null,approvedRuntimeProfile:profile?.digestSha256===artifact.digestSha256?profile:null};
   }
   async function repositories() {
     const rows=raw.prepare("SELECT id,name,path FROM projects WHERE status='active' ORDER BY name").all();

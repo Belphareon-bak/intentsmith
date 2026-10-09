@@ -450,7 +450,10 @@ try {
   // 142 -> 143: chat-context-interpretation adds its owned M1/SQLite journey.
   // 143 -> 144: project-app-provider-relay imports the real Fan runtime graph
   // after its static isolation bootstrap. Its in-memory tests need no live DB.
-  const expectedDatabaseReachableRootTests = 144;
+  // 144 -> 145: IDE backend management imports the real routes/services after
+  // its first isolated-test-db import. The separate product journey starts
+  // owned child processes rather than adding a static database import path.
+  const expectedDatabaseReachableRootTests = 145;
   assert.equal(
     databaseBootstrapAnalysis.databaseReachable.length,
     expectedDatabaseReachableRootTests,

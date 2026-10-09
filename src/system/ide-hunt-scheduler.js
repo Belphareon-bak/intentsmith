@@ -74,7 +74,9 @@ export function createIdeHuntScheduler({store,control,evaluations,clock=Date.now
     if(confirm!==true||!iso(at))throw ideError('IDE_CONFIRMATION_REQUIRED',409);
     const profile=store.get('hunt-profile',identifier(profileId));
     if(!profile||profile.revision!==revision)throw ideError('IDE_REVISION_STALE',409);
-    const job={profileId,profileRevision:revision,profile:structuredClone(profile),pins:await pin(profile),
+    const pins=await pin(profile);
+    if(store.get('hunt-profile',profileId)?.revision!==revision)throw ideError('IDE_REVISION_STALE',409);
+    const job={profileId,profileRevision:revision,profile:structuredClone(profile),pins,
       at,state:'QUEUED',actor,createdAt:clock(),step:0,startedAt:null,runId:null,result:null,results:[]};
     return store.put('hunt-job',idFactory(),0,job,actor);
   }
@@ -82,6 +84,7 @@ export function createIdeHuntScheduler({store,control,evaluations,clock=Date.now
     if(ticking)return;ticking=true;
     try {
       for(const profile of store.list('hunt-profile')) {
+        try {
         if(!profile.enabled||profile.schedule.type==='manual')continue;
         const storedCursor=store.get('hunt-cursor',profile.id),cursor=storedCursor?.profileRevision===profile.revision?storedCursor:null;
         if(['daily','weekly'].includes(profile.schedule.type)&&!cursor) {
@@ -98,6 +101,11 @@ export function createIdeHuntScheduler({store,control,evaluations,clock=Date.now
         store.put('hunt-cursor',profile.id,storedCursor?.revision??0,{profileRevision:profile.revision,
           nextAt:occurrence?.at??(profile.schedule.type==='once'?null:initial+(Math.floor((clock()-initial)/step)+1)*step),
           ...(occurrence?{day:occurrence.day}:{})},'ide-hunt-schedule');
+        }catch(error) {
+          const previous=store.get('hunt-schedule-error',profile.id),code=error.code||'IDE_HUNT_SCHEDULE_FAILED';
+          if(previous?.code!==code||previous?.profileRevision!==profile.revision)
+            store.put('hunt-schedule-error',profile.id,previous?.revision??0,{code,profileRevision:profile.revision},'ide-hunt-schedule');
+        }
       }
       const active=store.list('hunt-job').find(job=>['LAUNCHING','RUNNING'].includes(job.state));
       if(active) {
@@ -152,6 +160,7 @@ export function createIdeHuntScheduler({store,control,evaluations,clock=Date.now
     if(job.state!=='QUEUED')throw ideError('IDE_HUNT_JOB_NOT_QUEUED',409);
     return store.put('hunt-job',id,revision,{...data(job),state:'CANCELLED'},actor);
   }
-  return {enqueue,tick,cancel,list:()=>store.list('hunt-job'),profiles:()=>store.list('hunt-profile')};
+  return {enqueue,tick,cancel,list:()=>store.list('hunt-job'),profiles:()=>store.list('hunt-profile')
+    .map(profile=>({...profile,lastScheduleError:store.get('hunt-schedule-error',profile.id)}))};
 }
 export const IDE_HUNT_TERMINAL_STATES=Object.freeze(['COMPLETE','FAILED','CANCELLED','INTERRUPTED','BLOCKED','PARTIAL','SKIPPED','AWAITING_REVIEW']);

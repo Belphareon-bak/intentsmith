@@ -172,7 +172,7 @@ export function createHuntControl({ installationFile = process.env.INTENTSMITH_I
         }
       }
       const status = await control.status({ freshGpu: true });
-      if(status.hold)throw Object.assign(new Error('HUNT_AUTOMATION_HELD'),{httpStatus:409,code:'HUNT_AUTOMATION_HELD'});
+      if(jobId!==null&&status.hold)throw Object.assign(new Error('HUNT_AUTOMATION_HELD'),{httpStatus:409,code:'HUNT_AUTOMATION_HELD'});
       if (['RUNNING','STOPPING'].includes(status.state)) throw Object.assign(new Error('HUNT_ALREADY_RUNNING'), { httpStatus: 409 });
       if (!status.gpu.available) throw Object.assign(new Error(status.gpu.message), { httpStatus: 503, code: status.gpu.code });
       const installed = await installation();

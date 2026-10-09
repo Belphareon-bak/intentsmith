@@ -12,10 +12,10 @@
     "clientProjection": "src/mobile/client/m7-runtime-contract-v1.js",
     "requirementsStage": "CANDIDATE_NOT_ACCEPTED"
   },
-  "routeDigest": "8798ce81cfebacf9a3051a46c0cb90505114b90ac2a13aebab48caba4ddb04a8",
-  "inventoryDigest": "a00eaab933d8baab0b7fabe03b00231860c574ad3a53a19d712f35a0820f408a",
+  "routeDigest": "f35e574f3e765f8b98d04cba02cbfbd1da788e8bb1200db1618c4c5ff394132b",
+  "inventoryDigest": "13f731489ac22824f659c3c7bc75bab0651d09e0975e5e7dcfb38d178a8b0909",
   "summary": {
-    "desktopRouteDeclarations": 275,
+    "desktopRouteDeclarations": 308,
     "legacyM1Declarations": 0,
     "m7TransportRoutes": 7,
     "m7Operations": 17,
@@ -31,6 +31,34 @@
     "controlPlaneOperations": 3
   },
   "desktopRoutes": [
+    {
+      "method": "GET",
+      "path": "/api/accounts",
+      "sources": [
+        "src/routes/ide-management.js"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/accounts/:id",
+      "sources": [
+        "src/routes/ide-management.js"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/accounts/:id",
+      "sources": [
+        "src/routes/ide-management.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/accounts/:id/test",
+      "sources": [
+        "src/routes/ide-management.js"
+      ]
+    },
     {
       "method": "GET",
       "path": "/api/agent-extensions",
@@ -74,6 +102,20 @@
       ]
     },
     {
+      "method": "PUT",
+      "path": "/api/agent-extensions/instances/:agentId",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/agent-extensions/instances/:agentId/config",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
       "method": "POST",
       "path": "/api/agent-extensions/instances/:agentId/disable",
       "sources": [
@@ -90,6 +132,20 @@
     {
       "method": "POST",
       "path": "/api/agent-extensions/instances/:agentId/run",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/agent-extensions/templates/:id",
+      "sources": [
+        "src/routes/agents.js"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/agent-extensions/templates/:id",
       "sources": [
         "src/routes/agents.js"
       ]
@@ -1231,6 +1287,20 @@
     },
     {
       "method": "GET",
+      "path": "/api/scm/commit",
+      "sources": [
+        "src/routes/scm.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/scm/compare",
+      "sources": [
+        "src/routes/scm.js"
+      ]
+    },
+    {
+      "method": "GET",
       "path": "/api/scm/diff",
       "sources": [
         "src/routes/scm.js"
@@ -1276,6 +1346,41 @@
       "path": "/api/scm/prepare",
       "sources": [
         "src/routes/scm.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/scm/profiles",
+      "sources": [
+        "src/routes/ide-management.js"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/scm/profiles/:id",
+      "sources": [
+        "src/routes/ide-management.js"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/scm/profiles/:id",
+      "sources": [
+        "src/routes/ide-management.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/scm/repositories",
+      "sources": [
+        "src/routes/ide-management.js"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/scm/repositories/:projectId",
+      "sources": [
+        "src/routes/ide-management.js"
       ]
     },
     {
@@ -1576,6 +1681,7 @@
       "method": "POST",
       "path": "/api/system/backup",
       "sources": [
+        "src/routes/ide-management.js",
         "src/routes/system.js"
       ]
     },
@@ -1583,7 +1689,29 @@
       "method": "GET",
       "path": "/api/system/backups",
       "sources": [
+        "src/routes/ide-management.js",
         "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/system/backups/:name",
+      "sources": [
+        "src/routes/ide-management.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/backups/:name",
+      "sources": [
+        "src/routes/ide-management.js"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/system/backups/:name",
+      "sources": [
+        "src/routes/ide-management.js"
       ]
     },
     {
@@ -1741,6 +1869,27 @@
       ]
     },
     {
+      "method": "GET",
+      "path": "/api/system/models/external-signals",
+      "sources": [
+        "src/routes/ide-management.js"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/system/models/external-signals/:id",
+      "sources": [
+        "src/routes/ide-management.js"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/system/models/external-signals/:id",
+      "sources": [
+        "src/routes/ide-management.js"
+      ]
+    },
+    {
       "method": "POST",
       "path": "/api/system/models/grade",
       "sources": [
@@ -1766,6 +1915,48 @@
       "path": "/api/system/models/hunt/control",
       "sources": [
         "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt/jobs",
+      "sources": [
+        "src/routes/ide-management.js"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/system/models/hunt/jobs/:id",
+      "sources": [
+        "src/routes/ide-management.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt/profiles",
+      "sources": [
+        "src/routes/ide-management.js"
+      ]
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/system/models/hunt/profiles/:id",
+      "sources": [
+        "src/routes/ide-management.js"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/system/models/hunt/profiles/:id",
+      "sources": [
+        "src/routes/ide-management.js"
+      ]
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/models/hunt/profiles/:id/queue",
+      "sources": [
+        "src/routes/ide-management.js"
       ]
     },
     {
@@ -1805,6 +1996,27 @@
     },
     {
       "method": "GET",
+      "path": "/api/system/models/role-settings",
+      "sources": [
+        "src/routes/ide-management.js"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/system/models/role-settings/:role",
+      "sources": [
+        "src/routes/ide-management.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/telemetry",
+      "sources": [
+        "src/routes/ide-management.js"
+      ]
+    },
+    {
+      "method": "GET",
       "path": "/api/system/models/universe",
       "sources": [
         "src/routes/system.js"
@@ -1836,6 +2048,27 @@
       "path": "/api/system/storage",
       "sources": [
         "src/routes/system.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/storage/inventory",
+      "sources": [
+        "src/routes/ide-management.js"
+      ]
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/storage/paths",
+      "sources": [
+        "src/routes/ide-management.js"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/system/storage/paths",
+      "sources": [
+        "src/routes/ide-management.js"
       ]
     },
     {

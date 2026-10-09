@@ -197,8 +197,9 @@ test('model and runner-owned server phases cover every runnable required program
   const byId = new Map(registry.suites.map(program => [program.id, program]));
   const modelPhase = plan.phases.find(item => item.id === 'model-without-server');
   // Literal/repeat save and the grounded VAT journey own isolated servers:
-  // the exact registry contains 44 model + 19 server programs.
-  assert.equal(modelPhase.programIds.length, 63);
+  // the exact registry contains 44 model + 20 server programs, including the
+  // owned IDE management product/restart journey added by this WP.
+  assert.equal(modelPhase.programIds.length, 64);
   assert(modelPhase.programIds.includes('IS-T1-TESTS-PROJECT-COLLABORATION-TEST'));
   assert(modelPhase.programIds.includes('IS-T3-TESTS-CHAT-PRIVACY-HTTP-TEST'));
   assert(modelPhase.programIds.includes('IS-T3-TESTS-CHAT-PROJECT-EXPERTISE-HTTP-TEST'));
@@ -228,7 +229,7 @@ test('model and runner-owned server phases cover every runnable required program
   }
   assert.equal(modelPhase.programIds.filter(id => byId.get(id).profile === 'model').length, 44);
   assert(modelPhase.programIds.includes('IS-T3-TESTS-M2-CODE-DRAFT-MODEL-TEST'));
-  assert.equal(modelPhase.programIds.filter(id => byId.get(id).profile === 'server').length, 19);
+  assert.equal(modelPhase.programIds.filter(id => byId.get(id).profile === 'server').length, 20);
   assert(modelPhase.programIds.every(id => byId.get(id).requirements.server === false));
   assert(modelPhase.programIds.every(id => byId.get(id).requirements.network !== 'external'));
 

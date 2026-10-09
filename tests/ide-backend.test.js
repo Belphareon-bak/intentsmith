@@ -264,6 +264,32 @@ test('daily Hunt uses local 24-hour time through DST and skips a repeated local 
   assert.equal(next.day,'2026-10-25');
 });
 
+test('an unavailable automatic evaluation leaves other queued jobs runnable',async()=>{
+  const f=await fixture(),now=Date.now();let launches=0;
+  const profile={name:'Unavailable',kind:'evaluation',roles:['CHAT'],models:['missing:latest'],limit:1,
+    schedule:{type:'once',at:new Date(now).toISOString()},modelsPath:null,enabled:true};
+  f.store.put('hunt-profile','unavailable',0,validateHuntProfile(profile),'operator');
+  f.store.put('hunt-profile','manual',0,validateHuntProfile({...profile,kind:'hunt',models:[],enabled:false,schedule:{type:'manual'}}),'operator');
+  const scheduler=createIdeHuntScheduler({store:f.store,clock:()=>now,evaluations:async()=>({roles:{}}),
+    control:{async status(){return {state:'WAITING',gpu:{available:true},recent:[]};},async hunt(){launches++;return {accepted:true};}}});
+  await scheduler.enqueue('manual',{revision:1,at:new Date(now).toISOString(),confirm:true},'operator');
+  await scheduler.tick();assert.equal(launches,1);
+  assert.equal(scheduler.profiles().find(p=>p.id==='unavailable').lastScheduleError.code,'IDE_HUNT_EVALUATION_UNAVAILABLE');
+});
+
+test('queue confirmation refuses a profile changed while evaluation identity was read',async()=>{
+  const f=await fixture(),now=Date.now();
+  const profile=validateHuntProfile({name:'Original',kind:'evaluation',roles:['CHAT'],models:['one:latest'],limit:1,
+    schedule:{type:'manual'},modelsPath:null,enabled:false});
+  f.store.put('hunt-profile','race',0,profile,'operator');
+  const scheduler=createIdeHuntScheduler({store:f.store,control:{},evaluations:async()=>{
+    f.store.put('hunt-profile','race',1,{...profile,name:'Changed'},'operator');
+    return {roles:{CHAT:{suiteContractSha256:'c'.repeat(64),artifacts:[{model:'one:latest',digestSha256:digest}]}}};
+  }});
+  await assert.rejects(scheduler.enqueue('race',{revision:1,at:new Date(now).toISOString(),confirm:true},'operator'),{code:'IDE_REVISION_STALE'});
+  assert.equal(scheduler.list().length,0);
+});
+
 test('configured role limits reach the provider and telemetry keeps its served digest',async()=>{
   const f=await fixture(),oldFetch=globalThis.fetch,oldModels={...runtimeConfig.models},oldDb=llmGateway._usageDb;
   try {
