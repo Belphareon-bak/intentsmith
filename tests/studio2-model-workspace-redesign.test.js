@@ -43,7 +43,11 @@ test('public score sorting uses a single comparable protocol instead of mixed be
 
 test('role parameters repair a current STALE binding with exact artifact CAS and readback',async()=>{
  const w=workspace();let row={role:'CHAT',model:'model:tag',digestSha256:D,revision:3,status:'STALE',settings:{contextWindowTokens:8192,maxOutputTokens:null},verifiedHardwareMaximum:null,outputAuthority:'CALL_SITE_AND_AUTH_TOKEN_CEILING'},writes=0;
- extra(w,'settings',{roles:[copy(row)]});assert.equal(w.editRoleRuntime('CHAT'),true);w.setRoleRuntime('maxOutputTokens',{target:{value:'1024'}});
+ extra(w,'settings',{roles:[copy(row)]});assert.equal(w.editRoleRuntime('CHAT'),true);
+ assert.equal(w.roleRuntimeVM().draft.name,'Rozhovor');assert.match(w.roleRuntimeVM().draft.description,/uživateli/);
+ assert.equal(w.roleRuntimeVM().draft.digestShort,D.slice(0,12)+'…');assert.equal(w.roleRuntimeVM().draft.digestSha256,D);
+ assert.equal(w.vm().redesign.settings[0].status,'Model se změnil');
+ w.setRoleRuntime('maxOutputTokens',{target:{value:'1024'}});
  w.request=async(route,options={})=>{if(options.method==='PUT'){writes++;const body=JSON.parse(options.body);assert.deepEqual(Object.keys(body).sort(),['revision','model','digestSha256','contextWindowTokens','maxOutputTokens'].sort());assert.equal(body.digestSha256,D);assert.equal(body.revision,3);row={...row,revision:4,status:'CONFIGURED',settings:{contextWindowTokens:body.contextWindowTokens,maxOutputTokens:body.maxOutputTokens}};return copy(row);}return{roles:[copy(row)]};};
  assert.equal(await w.saveRoleRuntime(),true);assert.equal(writes,1);assert.equal(w.roleRuntimeDraft,null);w.destroy();
 });

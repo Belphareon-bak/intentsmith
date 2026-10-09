@@ -757,7 +757,7 @@ export async function analyzeImages(prompt, images, systemPrompt = '', options =
     stream: false,
     options: {
       temperature: 0.3,
-      num_predict: Math.min(2048,options.purpose==='answer'&&!options.format?roleSettings?.maxOutputTokens??Infinity:Infinity),
+      num_predict: Math.min(2048,['answer','refine'].includes(options.purpose)&&!options.format?roleSettings?.maxOutputTokens??Infinity:Infinity),
       num_ctx: roleSettings?llmGateway.getRoleContextWindow('VISION',model,4096):4096,
     },
   };

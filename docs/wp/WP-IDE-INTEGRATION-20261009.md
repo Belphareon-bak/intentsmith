@@ -61,8 +61,10 @@ a související měření patří po releasu; žádný hold ani binding se nemě
 
 Autorita: přímé zadání operátora zapracovat důležité změny doladěného preview,
 projít nezávislou revizi a dokončit nedodělky bránící releasu. Dostupný
-nezávislý posudek je `review-integration-c47d1883.md`; identita použitého modelu
-není v souboru uvedená. Nejde o přejímku nových následných oprav.
+nezávislý posudek je nyní doložen od Claude (Opus) pro `230f657f`, verdikt
+`NEEDS_CHANGES`; přesná kopie je
+[uložena v repozitáři](../review/opus-ide-integration-230f657f-20261010.md).
+Tři importní hrany resolveru jsou schválené. Nejde o přejímku následných oprav.
 
 Rozsah dokončení: bezpečné rozpočty CHAT a strukturovaných rolí (N1/N2),
 skutečný pull endpoint a disková inventura Huntu (N3/N8), formulářový průvodce

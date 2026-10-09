@@ -1,13 +1,16 @@
 # Dokončení revize integrace a preview V4
 
 Stav: **IMPLEMENTED / FULL_VALIDATION_PENDING / INDEPENDENT_REVIEW_REQUIRED**.
-Navazuje na publikovaný `230f657f` a nezávislou revizi `c47d1883` od Claude
-v `~/Projects/docs/reviewer-tools/ide-redesign-20261009/review-integration-c47d1883.md`.
-Posudek neuvádí model; jeho obsah nepřejímáme jako nezávislé schválení těchto
-nových oprav. Produkční release zůstává `NOT_ACCEPTED`.
+Navazuje na publikovaný `230f657f` a nezávislou revizi Claude (Opus),
+10. 10. ~01:00, [přesná kopie posudku](opus-ide-integration-230f657f-20261010.md).
+Verdikt pro původní kód je **NEEDS_CHANGES**. Opus schválil tři nové importní
+hrany resolveru úložiště; toto schválení není přejímkou následných oprav.
+Produkční release zůstává `NOT_ACCEPTED`.
 
 | Nález / požadavek | Změna | Kontrola |
 |---|---|---|
+| Opus P2 | České názvy a jednořádkový účel všech sedmi rolí; popsaný zkrácený SHA-256 s celým otiskem v tooltipu | Kanonický render a nativní editor |
+| Opus P3 | ID SSH profilu pouze pro čtení; limit odpovědi i pro explicitní textový `refine` | SSH renderer a skutečný payload gateway |
 | N1, CHAT | Minimum 8192; dlouhý vstup vrací bezpečnou českou 413 bez odpovědi modelu | Skutečný produkt: minimum + 2000 znaků, přetečení bez inference/assistant zprávy |
 | N2, ostatní role | Přijímací kontrola textového rozpočtu v gateway i VISION; interní JSON neomezuje délka běžné odpovědi | D2 a VISION: vlastní výstupní rozpočet, malý kontext odmítnut před providerem |
 | N3/N8, pull a cesta | Resolver skutečného pull endpointu i v Hunt skriptu; absolutní systemctl | Rozdílné inference/pull porty, UNKNOWN bez pull efektu, lokální service autorita |
@@ -31,6 +34,16 @@ Dosavadní průchody jsou dílčí; celý nový čistý offline/database profil,
 registrované HTTP programy, AppImage, nativní zápis/restart a přesné CI se
 doplní po commitu. Původních 415/415 a 9/9 na `c47d1883` není důkazem nové
 aplikační revize. Neúspěšné meziběhy se nepřepisují na PASS.
+
+Čistý `fc22a2e1`: HTTP 3/3, CI 38002233484 19/19, AppImage sestaven;
+celý profil **414/415 FAIL**. Jediná chyba je zastaralý generovaný mobilní
+inventář po přidání retention-preview API. Inventář byl znovu vygenerován
+ze zdrojů; následující kvalifikace ověří tuto opravu i zbývající body Opuse.
+
+Refiner je od rozhodnutí 024 v chat finalizeru vypnutý. Tato oprava jej
+neobnovuje; i případné explicitní textové volání `purpose:refine` používá
+stejný limit uživatelského výstupu. Strukturovaný JSON má nadále vlastní
+interní rozpočet.
 
 Externí release podmínky: nová nezávislá revize; aktuální release soak a
 propustnost/restore na finálním kandidátu; M5 úschova a 13 podepsaných záznamů;

@@ -157,3 +157,9 @@ Příští krok: Opus posoudí publikovaný kandidát, bod f), tři importní hr
 výše uvedené limity. Worker provede finální opravy až podle tohoto verdiktu a
 na novém aplikačním SHA zopakuje dotčené brány. Nejde o merge do main,
 deployment, Gate 0 ani konečnou přejímku operátora.
+
+
+Aktualizace 10. 10.: nezávislý Claude (Opus) posoudil `230f657f`, verdikt
+NEEDS_CHANGES; tři nové importní hrany schválil. Přesný posudek a následné
+opravy jsou v [novém paketu](ide-integration-remediation-20261010.md).
+Staré výsledky uvedené výše platí pouze pro své připnuté revize.

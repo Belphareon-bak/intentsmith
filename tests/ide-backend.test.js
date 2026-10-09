@@ -315,6 +315,9 @@ test('configured role limits reach the provider and telemetry keeps its served d
     await callWithAuth(token,'Check the role settings',{model:runtimeConfig.models.CHAT,maxTokens:256,
       correlation:{modelRole:'CHAT',purpose:'answer'},retries:1});
     assert.equal(body.options.num_ctx,8192);assert.equal(body.options.num_predict,128);
+    await callWithAuth(token,'Refine a user-visible answer',{model:runtimeConfig.models.CHAT,maxTokens:256,
+      correlation:{modelRole:'CHAT',purpose:'refine'},retries:1});
+    assert.equal(body.options.num_predict,128);
     await generateChatResponse('Check actual chat adapter','',{maxTokens:256,retries:1});
     assert.equal(body.options.num_ctx,8192);assert.equal(body.options.num_predict,128);
     assert.equal(getCompactionBudget(runtimeConfig.models.CHAT).contextWindow,8192);

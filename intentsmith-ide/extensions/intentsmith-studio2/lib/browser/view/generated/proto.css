@@ -806,6 +806,7 @@
 .intentsmith-studio2-widget .mw-matrix{min-width:820px}
 .intentsmith-studio2-widget .mw-matrix tbody th{min-width:170px;max-width:210px}
 .intentsmith-studio2-widget .mw-matrix td{min-width:76px;text-align:center;padding:9px 6px}
+.intentsmith-studio2-widget .mw-role-purpose{display:block;font-weight:400;white-space:normal;max-width:260px;line-height:1.5;color:var(--faint)}
 .intentsmith-studio2-widget .mw-digest{display:block;overflow-wrap:anywhere;font-size:10px;line-height:1.5;color:var(--faint);font-family:var(--font-mono)}
 .intentsmith-studio2-widget .mw-plain,.intentsmith-studio2-widget .mw-score,.intentsmith-studio2-widget .mw-test{border:0;background:none;cursor:pointer;color:inherit;font:inherit}
 .intentsmith-studio2-widget .mw-plain{color:var(--dim);font-weight:600;padding:0;min-height:24px}

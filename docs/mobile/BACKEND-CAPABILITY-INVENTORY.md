@@ -12,14 +12,14 @@ remote-health.read is a public GET /remote/v1/health prerequisite, not one of th
 The underlying requirements retain their own candidate stage. Availability and scopes must
 still be validated against the actual server/session; desktop route existence grants no remote authority.
 
-- Desktop route declarations: 308
+- Desktop route declarations: 309
 - Legacy /m1 declarations: 0
 - M7 HTTP routes: 7
 - M7 invocation operations: 17
 - Capability areas: approvals, conversations, events, notifications, projects, settings, stored_information
 - Control-plane operations (not another capability): 3
-- Desktop route digest: `f35e574f3e765f8b98d04cba02cbfbd1da788e8bb1200db1618c4c5ff394132b`
-- Combined inventory digest: `13f731489ac22824f659c3c7bc75bab0651d09e0975e5e7dcfb38d178a8b0909`
+- Desktop route digest: `bfd39e44c463aa6180f2cbba67af9159e637074331e9de4c4c74b28f597ad133`
+- Combined inventory digest: `a95484d5cb18f20168ef8cdbc4c13927deea588e8d8c05d2b3c7dc3ae325d152`
 
 Workers, specialists and device management have no M7 operation in this projection.
 Their desktop route declarations must not be mistaken for a mobile capability.
@@ -302,6 +302,7 @@ Their desktop route declarations must not be mistaken for a mobile capability.
 | DELETE | `/api/system/backups/:name` | src/routes/ide-management.js |
 | GET | `/api/system/backups/:name` | src/routes/ide-management.js |
 | PUT | `/api/system/backups/:name` | src/routes/ide-management.js |
+| POST | `/api/system/backups/retention-preview` | src/routes/ide-management.js |
 | GET | `/api/system/catalog` | src/routes/system.js |
 | POST | `/api/system/clean` | src/routes/system.js |
 | GET | `/api/system/diagnostics` | src/routes/system.js |
