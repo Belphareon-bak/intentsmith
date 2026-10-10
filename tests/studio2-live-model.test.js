@@ -710,7 +710,7 @@ test('settings include the requested Git category and preserve verified feature 
   model.fetchImpl = fetchImpl;
   widget.confirmAction = () => approved;
   assert.deepEqual(model.data().SET.map(category => category.name), [
-    'Účet', 'Git a repozitáře', 'Modely a inference', 'Paměť', 'Oznámení', 'Výstup', 'Vzhled',
+    'Účet a propojení', 'Repozitáře a přístupy', 'Modely a inference', 'Paměť', 'Oznámení', 'Výstup', 'Vzhled',
     'Systém', 'Úložiště', 'Zálohy', 'Funkční přepínače', 'Zabezpečení', 'O aplikaci']);
   assert.deepEqual(model.data().SET.map(category => category.tabs.length), [2, 1, 4, 3, 2, 2, 5, 4, 2, 3, 2, 3, 2]);
   model.setState({ mode: 'section', section: 'settings', detail: { settings: 'prepinace' } });

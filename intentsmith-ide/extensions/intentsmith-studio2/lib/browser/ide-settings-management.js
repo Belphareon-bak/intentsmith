@@ -26,6 +26,7 @@ function emptyManagementVM() {
   return { title: '', description: '', sections: [], primary: [], loading: false, hasError: false, error: '', busy: false,
     refreshDisabled: true, refresh: noop, notice: '', hasNotice: false, layoutClass: 'im-grid', sizeClass: 'im-size-2',
     editor: { visible: false, title: '', fields: [], notice: '', saveDisabled: true, save: noop, cancelDisabled: true, cancel: noop },
+    identity:{visible:false,name:'',email:'',description:'',state:'',edit:noop,disabled:true},
     hasDetail: false, detail: { title: '', rows: [] }, closeDetail: noop };
 }
 
@@ -115,7 +116,9 @@ class IdeSettingsManagement {
       const data = await get('/api/accounts');
       const accounts = assertList(data, 'accounts', accountValid);
       if (!equal(data.supportedEvents, ACCOUNT_EVENTS)) throw fail('IDE_RESPONSE_INVALID');
-      return { accounts };
+      const profile=data.profile;
+      if(profile!==undefined&&(!plain(profile)||profile.id!=='default'||!revision(profile.revision)||!text(profile.displayName,200)||!text(profile.email,254)||!text(profile.description,2000)))throw fail('IDE_RESPONSE_INVALID');
+      return { accounts, profile };
     }
     if (category === 'oznameni') {
       const [accounts, channels, email] = await Promise.all([this.read('ucet', source), get('/api/notifications/channels'), get('/api/notifications/config')]);
@@ -263,7 +266,13 @@ class IdeSettingsManagement {
         success: 'Pravidla záloh byla uložená a znovu načtená z backendu. Uložení pravidel žádné zálohy nesmazalo.' });
     }
     let kind, route, body, identity, fields;
-    if (editor.kind === 'account') {
+    if (editor.kind === 'identity') {
+      identity='default';fields=['displayName','email','description'];
+      if(!text(d.displayName,200)||!d.displayName.trim()||!text(d.email,254)||d.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email)||!text(d.description,2000)){
+        this.notice(category,'Vyplňte jméno a platný e-mail, nebo e-mail ponechte prázdný. Rozepsané údaje zůstaly.');return false;
+      }
+      body={revision:rev,...Object.fromEntries(fields.map(k=>[k,d[k].trim()]))};kind='identity';route='/api/accounts/profile';
+    } else if (editor.kind === 'account') {
       identity = original?.id || d.id;
       if (!ID.test(identity || '') || !['telegram', 'discord'].includes(d.provider) || !text(d.name, 200) || !d.name.trim()
         || !new RegExp('^INTENTSMITH_' + d.provider.toUpperCase() + '_[A-Z0-9_]+$').test(d.credentialEnv || '')
@@ -307,7 +316,7 @@ class IdeSettingsManagement {
     const name = kind === 'backups' ? 'name' : 'id';
     return this.mutate(category, { method: 'PUT', route, body,
       checkResponse: r => { try { assertDocument(r); return r.id === identity && r.revision === rev + 1 && (kind === 'paths' ? text(r.projects) && r.projects.startsWith('/') && r.projects !== '/' : fields.every(k => equal(r[k], body[k]))); } catch { return false; } },
-      verify: (data, response) => { const row = kind === 'paths' ? data.paths : kind === 'repositories' ? data.repositories.find(p => String(p.id) === identity)?.profile : data[kind]?.find(p => p[name] === identity);
+      verify: (data, response) => { const row = kind === 'identity' ? data.profile : kind === 'paths' ? data.paths : kind === 'repositories' ? data.repositories.find(p => String(p.id) === identity)?.profile : data[kind]?.find(p => p[name] === identity);
         return row && (row.id || row.name) === identity && row.revision === rev + 1 && fields.every(k => equal(row[k], kind === 'paths' ? response[k] : body[k])); },
       success: 'Změna byla zapsaná a znovu přečtená z backendu.' });
   }
@@ -355,6 +364,7 @@ class IdeSettingsManagement {
     if (!editor) return emptyManagementVM().editor;
     const f = (label, key, type, extra) => this.field(category, label, key, type, extra);
     let fields = [], title = '';
+    if(editor.kind==='identity'){title='Upravit lokální profil';fields=[f('Zobrazované jméno','displayName'),f('E-mail (volitelný)','email'),f('Popis profilu','description','text',{hint:'Pouze popis v IDE. Není systémovým promptem ani přihlášením k externí službě.'})];}
     if (editor.kind === 'account') { title = editor.original ? 'Upravit doručovací propojení' : 'Nové doručovací propojení'; fields = [
       f('ID propojení', 'id', 'text', { disabled: true, hint: 'ID se vytváří automaticky. Nové propojení dostane nové ID.' }), f('Název', 'name'),
       f('Služba', 'provider', 'select', { options: [['telegram', 'Telegram'], ['discord', 'Discord']] }),
@@ -385,7 +395,7 @@ class IdeSettingsManagement {
     if (category === 'ucet' || category === 'oznameni') {
       sections.push(this.section(category === 'ucet' ? 'Propojené doručovací účty' : 'Doručovací kanály', 'Telegram a Discord používají odkaz na proměnnou prostředí. Uložení konfigurace a ověřené doručení jsou různé stavy.', accountRows,
         [a('+ Přidat propojení', () => this.openAccount(category), { primary: true })]));
-      if (category === 'ucet') sections.push(this.section('Identita a další poskytovatelé', 'Starší zobrazované jméno a popis zatím nemají připojený účinek a jsou pouze pro čtení. Další propojení, nový přihlašovací účet a osobní/pracovní/anonymní identita zatím nejsou dostupné.', []));
+      if (category === 'ucet') sections.push(this.section('Repozitářové účty a přístupy', 'GitHub, GitLab a další Git hosty používají přístupové profily v Repozitáře a přístupy. Uložení SSH reference není OAuth přihlášení. Google a Microsoft zatím připojení nemají.', []));
       if (category === 'oznameni') {
         sections.push(this.section('Kanály zaregistrované v backendu', 'Registrace kanálu sama neprokazuje doručení. Parametry Telegramu a Discordu upravíte výše.', (data.channels || []).map(c => this.row(c.name, '', c.configured ? 'Zaregistrován' : 'Nenastaven', []))));
         if (data.email) sections.push(this.section('E-mail', 'Současné parametry SMTP jsou zde jen pro čtení. Přihlašovací údaj zůstává v prostředí a do formuláře se nevkládá.', [this.row('SMTP', data.email.smtpHost || 'Server není nastaven', data.email.emailEnabled ? 'Povoleno' : 'Vypnuto', [meta('Příjemce', data.email.emailRecipient || 'Nenastaven'), meta('Port', data.email.smtpPort), meta('Odesílatel', data.email.smtpFrom || 'Nenastaven')])]));
@@ -410,7 +420,7 @@ class IdeSettingsManagement {
       sections.push(this.section('Zálohy stavu', 'Archivace chrání před automatickou retencí. Nová záloha použije aktuální pravidla backendu; náhled úklidu je součástí změny pravidel. Vlastní časový plán zatím není dostupný.', (data.backups || []).map(b => this.row(b.name, b.created_at || 'Čas není známý', b.archived ? 'Archiv' : 'Běžná záloha',
         [meta('Poznámka', b.note || 'Bez poznámky'), meta('Celkem', bytes(b.total_size_bytes)), meta('Databáze', bytes(b.db_size_bytes)), meta('Rozsah', b.sections.join(', ')), meta('Obnova', b.restorable ? 'Podporovaný formát; validační kontrola zde neproběhla' : 'Nepodporovaný formát')],
         [a('Poznámka / archivace', () => this.editor(category, 'backup', b, { note: b.note, archived: b.archived })), a('Manifest', () => { this.details.set(category, { title: 'Metadata zálohy · ' + b.name, rows: [meta('Formát', b.format_version), meta('Schema', b.schema_version), meta('Otisk obsahu', b.content_fingerprint || 'Chybí'), meta('Obnovitelný rozsah', b.restore_scope.join(', ') || 'Žádný'), meta('Archivní rozsah', b.sections.filter(s => !b.restore_scope.includes(s)).join(', ') || 'Žádný')] }); this.changed(); }), a('Smazat…', () => this.remove(category, 'backups', b), { danger: true, disabled: !ready || b.archived || (data.backups || []).length <= 1 })]))));
-      sections.push(this.section('Obnova a plánování', 'Obnova databáze probíhá při zastavené aplikaci přes podporovaný restore příkaz. Projekty a přílohy záloha stavu nezahrnuje. Pravidelný časový plán a náhled úklidu zatím nejsou dostupné.', []));
+      sections.push(this.section('Obnova a plánování', 'Obnova databáze probíhá při zastavené aplikaci přes podporovaný restore příkaz. Projekty a přílohy záloha stavu nezahrnuje. Pravidelný časový plán zatím není dostupný. Náhled úklidu je dostupný před potvrzením retence.', []));
     }
     if (category === 'git') {
       sections.push(this.section('Repozitáře projektů', 'Skutečné active projekty a jejich remotes. Pracovní Git změny patří do projektu; zde nastavíte SSH reference.', (data.repositories || []).map(r => {
@@ -426,14 +436,17 @@ class IdeSettingsManagement {
       }), [a('+ SSH profil', () => this.openSsh(), { primary: true })]));
       sections.push(this.section('Remote a HTTPS přístup', 'Adresa repozitáře je čtená z Gitu a není zde editovatelná. Webový odkaz se poskytne jen pro bezpečně rozpoznaný veřejný host. Editor HTTPS tokenových profilů zatím není dostupný.', []));
     }
-    const labels = { ucet: ['Účet a propojení', 'Skutečné doručovací účty a jejich ověřitelný stav.'], oznameni: ['Oznámení', 'Kanály, příjemci a výslovně potvrzené zkoušky.'], uloziste: ['Úložiště', 'Skutečné kapacity, databáze a cesty backendu.'], zalohy: ['Zálohy', 'Poznámky, archivace a přesně potvrzené operace.'], git: ['Repozitáře a přístup', 'Projektový registr a SSH reference.'] };
+    const labels = { ucet: ['Účet a propojení', 'Skutečné doručovací účty a jejich ověřitelný stav.'], oznameni: ['Oznámení', 'Kanály, příjemci a výslovně potvrzené zkoušky.'], uloziste: ['Úložiště', 'Skutečné kapacity, databáze a cesty backendu.'], zalohy: ['Zálohy', 'Poznámky, archivace a přesně potvrzené operace.'], git: ['Repozitáře a přístupy', 'Projektový registr a SSH reference.'] };
+    const identity=category==='ucet'&&data.profile?{visible:true,name:data.profile.displayName||'Lokální profil není vyplněný',email:data.profile.email,description:data.profile.description,
+      state:'Lokální profil · '+(data.profile.revision?'revize '+data.profile.revision:'výchozí'),disabled:!ready,
+      edit:()=>this.editor(category,'identity',data.profile,pick(data.profile,['displayName','email','description']))}:emptyManagementVM().identity;
     const detail = this.details.get(category);
     return { title: labels[category]?.[0] || '', description: labels[category]?.[1] || '', sections, primary, editor: this.editorVM(category),
       loading: !sourceChanged && (resource?.status === 'loading' || !resource), hasError: sourceChanged || resource?.status === 'error', error: sourceChanged ? 'Backend se změnil. Nejdřív načti jeho stav; rozepsané hodnoty se do jiného backendu neposílají.' : resource?.error || '',
       busy: this.isBusy(category), refreshDisabled: this.isBusy(category), refresh: () => this.load(category, true),
       notice: this.notices.get(category) || '', hasNotice: this.notices.has(category),
       layoutClass: view === 'seznam' ? 'im-list' : 'im-grid', sizeClass: 'im-size-' + Math.min(3, Math.max(1, Number(size) || 2)),
-      hasDetail: !!detail, detail: detail || { title: '', rows: [] }, closeDetail: () => { this.details.delete(category); this.changed(); } };
+      identity,hasDetail: !!detail, detail: detail || { title: '', rows: [] }, closeDetail: () => { this.details.delete(category); this.changed(); } };
   }
 }
 

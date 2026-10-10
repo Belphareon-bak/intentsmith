@@ -133,4 +133,22 @@ vstupů sestavení byla odmítnuta kvůli odlišnému pořadí `git ls-files` a
 `localeCompare`. Oprava porovnává stejnou úplnou sadu cest; stále odmítá
 chybějící/duplicitní soubory, změněné bajty i neshodný AppImage. Vlastněné jsou
 packager, samostatný review spouštěč, jeho místní balík/profil/menu a důkazy.
-Zmrazený zdroj probíhajícího 24h soaku, produkce a cizí procesy se nemění.
+Zmrazený zdroj probíhajícího 24h soaku a cizí procesy se nemění.
+
+## Oprava skutečně spouštěného IDE podle zadání 10. 10.
+
+Operátor odmítl další spouštěč a označení dokončeného V4. Samostatná položka
+`intentsmith-candidate.desktop` byla odstraněna; její historický důkaz není
+ověření běžné instalace. Tento dodatek nahrazuje zákaz lokálního deploymentu
+výše: výsledné UI/BE se mají ověřit a nasadit do stávajícího IDE 2.0, se
+zachováním původní druhé aplikace, DB/historie, profilu, modelových vazeb a
+persistentního Hunt hold. Lokální aktualizace není formální M6 přejímka.
+
+Vlastněné: kanonická šablona a její generátor, stávající správci nastavení a
+modelů, odpovídající API a pozitivní/negativní user journeys, balík a instalace
+stávajícího IDE 2.0. Nejprve skutečně porovnat obrazovky proti V4 (včetně
+Huntu), přenést důležité funkce bez nové palety/alternativní aplikace, odstranit
+modrý rámeček po kliknutí a zachovat viditelný focus při práci klávesnicí.
+Doložit živé údaje Ollamy, všechny dotčené obrazovky na 1366/1920, zápis,
+readback/restart a skutečné běžné spuštění. Preview čísla nejsou měření.
+Konečný stav čeká na novou nezávislou revizi přesného publikovaného SHA.

@@ -16,7 +16,10 @@ test('ordinary settings expose every preference section and retain edits across 
     model.setState({ mode: 'section', section: 'settings', detail: { settings: id } });
     const vm = model.settingsDetailVM(model.st(), id);
     assert.equal(vm.hasTabs, false);
-    assert.deepEqual(vm.blocks.filter(b => b.isPreferences).flatMap(b => b.preferences.fields.map(f => f.label)),
+    if(['ucet','oznameni'].includes(id)){
+      assert.equal(vm.blocks.length,id==='ucet'?2:1);assert.equal(vm.blocks[0].isManagement,true);
+      assert.equal(vm.blocks.some(b=>b.isPreferences),false,'live account/channel pages replace inert legacy preferences');
+    }else assert.deepEqual(vm.blocks.filter(b => b.isPreferences).flatMap(b => b.preferences.fields.map(f => f.label)),
       Object.values(SETTINGS_FIELDS[id]).flat().map(f => f.label));
   }
   model.setState({ detail: { settings: 'pamet' } });

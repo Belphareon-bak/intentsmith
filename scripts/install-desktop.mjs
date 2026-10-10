@@ -8,6 +8,7 @@ import { homedir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import Database from 'better-sqlite3';
 import { runMigrations } from '../src/db/migrate.js';
+import { resolveOllamaStorage } from '../src/system/ollama-storage.js';
 import { ROOT, hashDesktopExecutable, normalizeAdminEnvironment, refreshDesktopCaches, renderDesktopInstallation, restoreDesktopInstallation, restoreHuntTimerState, seedDesktopProfile, verifyDesktopUnits, writePrivate, waitForBackend } from './desktop-runtime.mjs';
 const exec = promisify(execFile);
 const arg = name => process.argv.find(v => v.startsWith(`--${name}=`))?.slice(name.length + 3);
@@ -27,16 +28,20 @@ let previousConfig;
 try { previousConfig = JSON.parse(await readFile(join(configDirectory,'installation.json'),'utf8')); }
 catch (error) { if (error.code !== 'ENOENT') throw error; }
 const projectsDirectory = resolve(arg('projects') || previousConfig?.projectsDirectory || join(dirname(dirname(dbPath)), 'projects'));
+const modelStorage = await resolveOllamaStorage({ baseUrl:process.env.OLLAMA_BASE_URL,
+  modelsPath:process.env.OLLAMA_MODELS || previousConfig?.ollamaModelsPath });
 const config = { schemaVersion: 1, revision, sourceRoot, node: process.execPath, dbPath, configDirectory, stateDirectory,
   projectsDirectory,
-  icon: join(sourceRoot,'intentsmith-ide/applications/electron/resources/intentsmith-icon.png'), pdfPython: process.env.INTENTSMITH_PDF_PYTHON || null };
+  ollamaModelsPath:modelStorage.path,
+  icon: join(sourceRoot,'intentsmith-ide/applications/electron/resources/intentsmith-icon.png'),
+  pdfPython: process.env.INTENTSMITH_PDF_PYTHON || previousConfig?.pdfPython || null };
 if (arg('appimage')) {
   const appImage = await realpath(arg('appimage'));
   const expected = arg('appimage-sha256');
   if (!/^[a-f0-9]{64}$/.test(expected || '') || await hashDesktopExecutable(appImage) !== expected) throw new Error('STUDIO2_APPIMAGE_DIGEST_MISMATCH');
   config.studioAppImage = { path: appImage, sha256: expected };
   config.userDataDirectory = join(homedir(), '.config/intentsmith-studio2');
-  config.accountantRuntime = process.env.UCETNI_RUNTIME_DIR || null;
+  config.accountantRuntime = process.env.UCETNI_RUNTIME_DIR || previousConfig?.accountantRuntime || null;
   if (previousConfig) config.legacy = previousConfig.legacy || {
     sourceRoot: previousConfig.sourceRoot, node: previousConfig.node, icon: previousConfig.icon,
     userDataDirectory: previousConfig.userDataDirectory || join(homedir(), '.config/intentsmith-ide-electron'),
@@ -110,7 +115,12 @@ for (let i=0;i<targets.length;i++) {
   catch(error) { if(error.code!=='ENOENT')throw error; previous.push({file,backup:null}); }
 }
 await writePrivate(join(backup,'files.json'),JSON.stringify(previous,null,2)+'\n');
-if (config.studioAppImage && config.legacy) {
+let targetProfileExists = false;
+if (config.userDataDirectory) {
+  try { targetProfileExists = (await lstat(config.userDataDirectory)).isDirectory(); }
+  catch(error) { if(error.code!=='ENOENT')throw error; }
+}
+if (config.studioAppImage && config.legacy && !targetProfileExists) {
   const sourceProfile = config.legacy.userDataDirectory;
   let owner;
   try { owner = await readlink(join(sourceProfile, 'SingletonLock')); } catch (error) { if (error.code !== 'ENOENT' && error.code !== 'EINVAL') throw error; }

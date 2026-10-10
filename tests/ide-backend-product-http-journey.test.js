@@ -23,6 +23,15 @@ test('IDE management uses the actual authenticated product and durable restart',
   product=await launch();
   const unauthorized=await fetch(`http://127.0.0.1:${product.port}/api/accounts`);
   assert.equal(unauthorized.status,401);
+  const initialIdentity=(await expectJson(product,'GET','/api/accounts',null,200)).profile;
+  assert.equal(initialIdentity.revision,0);
+  const identity={revision:0,displayName:'Lokální operátor',email:'operator@example.test',description:'Osobní pracovní prostor'};
+  const identityWrite=await expectJson(product,'PUT','/api/accounts/profile',identity,200);
+  assert.equal(identityWrite.revision,1);
+  const identityUnauthorized=await fetch(`http://127.0.0.1:${product.port}/api/accounts/profile`,{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify(identity)});
+  assert.equal(identityUnauthorized.status,401);
+  await expectJson(product,'PUT','/api/accounts/profile',{...identity,revision:1,email:'invalid'},422);
+  await expectJson(product,'PUT','/api/accounts/profile',identity,409);
   const projects=path.join(runtime.projects,'new-default');mkdirSync(projects);
   await expectJson(product,'PUT','/api/system/storage/paths',{revision:0,projects},200);
   const roles=await expectJson(product,'GET','/api/system/models/role-settings',null,200);
@@ -49,6 +58,8 @@ test('IDE management uses the actual authenticated product and durable restart',
   assert.deepEqual(restored.settings,{contextWindowTokens:8192,maxOutputTokens:256});
   await expectJson(product,'PUT','/api/system/models/role-settings/CHAT',pair,409);
   assert.equal((await expectJson(product,'GET','/api/accounts',null,200)).accounts[0].credentialConfigured,false);
+  const identityRestored=(await expectJson(product,'GET','/api/accounts',null,200)).profile;
+  assert.equal(identityRestored.revision,1);assert.equal(identityRestored.displayName,identity.displayName);assert.equal(identityRestored.email,identity.email);
   assert.equal((await expectJson(product,'GET','/api/system/models/hunt/profiles',null,200)).profiles[0].name,'Nightly');
   const backups=(await expectJson(product,'GET','/api/system/backups',null,200)).backups;
   assert(backups.some(b=>b.name===backup.name&&b.note==='Product HTTP fixture'));

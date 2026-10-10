@@ -30,7 +30,7 @@ import {directoryUsage} from '../src/system/ide-storage.js';
 import {config as runtimeConfig} from '../src/config.js';
 import {llmGateway,callWithAuth} from '../src/llm/gateway.js';
 import {createAuthToken} from '../src/llm/auth-types.js';
-import {externalSignalsForCandidate} from '../src/system/ide-external-signals.js';
+import {externalSignalsForCandidate,publicReferenceSignals} from '../src/system/ide-external-signals.js';
 import {pruneAllData,DEFAULT_STORAGE_CONFIG} from '../src/db/data-retention.js';
 import {generateChatResponse,analyzeImages} from '../src/llm/cre-bridge.js';
 import {getCompactionBudget} from '../src/chat/context-compact.js';
@@ -480,4 +480,19 @@ test('missing Hunt installation is a durable queue reason and known SCM/backup v
   assert.equal(missing.status,404);assert.equal(missing.body.code,'SCM_PROJECT_NOT_FOUND');
   const invalid=await f.request('POST /api/system/backup',{sections:['skills']});
   assert.equal(invalid.status,422);assert.equal(invalid.body.code,'BACKUP_SCOPE_INVALID');
+});
+
+
+test('bundled primary references work offline without inventing local quality or cross-source gains',()=>{
+  const store={list:()=>[]},bindings={CHAT:'gemma3:27b',CODE:'qwen3.5:27b'};
+  const gemma=externalSignalsForCandidate(store,{name:'gemma4:26b'},bindings).find(s=>s.role==='CHAT');
+  assert.equal(gemma.score,82.6);assert.equal(gemma.measuredAt,null);assert.ok(Date.parse(gemma.observedAt));
+  assert.equal(gemma.evidence,'BUNDLED_PRIMARY_SOURCE_REFERENCE');assert.match(gemma.sourceSha256,/^[a-f0-9]{64}$/);
+  assert.equal(gemma.identityScope,'MODEL_REFERENCE_NOT_LOCAL_DIGEST');assert.equal(gemma.localQuality,null);
+  assert.ok(Math.abs(gemma.estimatedGainPoints-15)<1e-10);
+  const code=externalSignalsForCandidate(store,{name:'qwen3.6:27b'},bindings).find(s=>s.role==='CODE');
+  assert.ok(Math.abs(code.estimatedGainPoints-3.2)<1e-10);
+  assert.equal(externalSignalsForCandidate(store,{name:'gemma4:26b'},bindings).find(s=>s.role==='CODE').estimatedGainPoints,null);
+  assert.deepEqual(externalSignalsForCandidate(store,{name:'gemma4:26b-q8_0'},bindings),[]);
+  const rows=publicReferenceSignals();rows[0].score=-99;assert.notEqual(publicReferenceSignals()[0].score,-99);
 });

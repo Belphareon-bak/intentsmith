@@ -11,9 +11,10 @@ import { backupManagement } from '../system/ide-backups.js';
 import { notificationAccountFetch } from '../network/outbound-policy.js';
 import { git, projectRoot, remoteHost } from '../scm/git-runner.js';
 import { validateHuntProfile, IDE_HUNT_TERMINAL_STATES } from '../system/ide-hunt-scheduler.js';
-import { validateExternalSignal } from '../system/ide-external-signals.js';
+import { validateExternalSignal, publicReferenceSignals } from '../system/ide-external-signals.js';
 
 const ERROR_MESSAGES={
+  IDE_PROFILE_EMAIL_INVALID:'Zadejte platnou e-mailovou adresu, nebo pole ponechte prázdné.',
   IDE_CONTEXT_TOO_SMALL:'Kontext je pro interní interpretaci příliš malý. CHAT potřebuje nejméně 8192 tokenů.',
   IDE_SSH_FILE_MISSING:'Soubor SSH klíče nebo known_hosts neexistuje. Opravte cestu.',
   IDE_SSH_FILE_ACCESS_DENIED:'Backend nemá přístup k SSH souboru. Zkontrolujte jeho vlastníka a oprávnění.',
@@ -144,13 +145,20 @@ export function createIdeManagementRoutes({db,config,parseBody,sendJSON,notifica
       store.put('role',p.role,body.revision,validateRoleSettings(raw,config,p.role,body),actor(req));return roleView(p.role);}),
     'GET /api/system/models/telemetry':local(telemetry),
     'POST /api/system/backups/retention-preview':local(async req=>backups.retentionPreview(await parseBody(req))),
-    'GET /api/system/models/external-signals':local(()=>({signals:store.list('external-signal'),
+    'GET /api/system/models/external-signals':local(()=>({signals:[...store.list('external-signal'),...publicReferenceSignals()],
       use:'DOWNLOAD_AND_TEST_PRIORITY_ONLY',localQualityAuthority:false})),
     'PUT /api/system/models/external-signals/:id':local(async(req,p)=>{const body=await parseBody(req);
       return store.put('external-signal',identifier(p.id),body.revision,validateExternalSignal(body),actor(req));}),
     'DELETE /api/system/models/external-signals/:id':local(async(req,p)=>{const body=record(await parseBody(req),['revision']);
       return store.remove('external-signal',identifier(p.id),body.revision,actor(req));}),
-    'GET /api/accounts':local(()=>({accounts:store.list('account').map(a=>accountView(a,environment)),supportedEvents:['worker','lifecycle']})),
+    'GET /api/accounts':local(()=>({accounts:store.list('account').map(a=>accountView(a,environment)),supportedEvents:['worker','lifecycle'],
+      profile:store.get('local-profile','default')||{id:'default',revision:0,displayName:'',email:'',description:''}})),
+    'PUT /api/accounts/profile':local(async req=>{
+      const body=record(await parseBody(req),['revision','displayName','email','description']);
+      const displayName=textField(body.displayName,200),email=textField(body.email,254,true),description=textField(body.description,2000,true);
+      if(email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw ideError('IDE_PROFILE_EMAIL_INVALID',422);
+      return store.put('local-profile','default',body.revision,{displayName,email,description},actor(req));
+    }),
     'PUT /api/accounts/:id':local(async(req,p)=>{const body=await parseBody(req);
       const account=store.put('account',identifier(p.id),body.revision,validateAccount(body),actor(req));
       registerAccountChannels(notificationRouter,store,accountFetch,environment);return accountView(account,environment);}),

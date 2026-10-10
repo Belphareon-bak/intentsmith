@@ -1,0 +1,84 @@
+{
+  "schemaVersion": 1,
+  "observedAt": "2026-10-10T09:13:40Z",
+  "measuredAt": null,
+  "roleMapping": "APPLICATION_PROXY_NOT_ROLE_BENCHMARK",
+  "sources": [
+    {
+      "id": "gemma4-card-20260730",
+      "sourceUrl": "https://ai.google.dev/gemma/docs/core/model_card_4?hl=zh-cn",
+      "sourceSha256": "a9f84cb36d7dd83f36119080334efef763908c1b9bc01499982582d49d47a6ff",
+      "sourceUpdatedAt": "2026-07-30",
+      "models": [
+        {
+          "model": "gemma4:26b",
+          "referenceModel": "Gemma 4 26B A4B",
+          "scores": {
+            "MMLU Pro": 82.6,
+            "GPQA Diamond": 82.3,
+            "LiveCodeBench v6": 77.1,
+            "MMMU Pro": 73.8
+          }
+        },
+        {
+          "model": "gemma4:31b",
+          "referenceModel": "Gemma 4 31B",
+          "scores": {
+            "MMLU Pro": 85.2,
+            "GPQA Diamond": 84.3,
+            "LiveCodeBench v6": 80.0,
+            "MMMU Pro": 76.9
+          }
+        },
+        {
+          "model": "gemma3:27b",
+          "referenceModel": "Gemma 3 27B (non-thinking)",
+          "scores": {
+            "MMLU Pro": 67.6,
+            "GPQA Diamond": 42.4,
+            "LiveCodeBench v6": 29.1,
+            "MMMU Pro": 49.7
+          }
+        }
+      ]
+    },
+    {
+      "id": "qwen36-card-snapshot-20261010",
+      "sourceUrl": "https://huggingface.co/Qwen/Qwen3.6-27B/raw/main/README.md",
+      "sourceSha256": "bb936d6da51014f1edc9aa4cf9abf28d98695b7616ad56adfeeebfa752051d3d",
+      "sourceUpdatedAt": null,
+      "models": [
+        {
+          "model": "qwen3.5:27b",
+          "referenceModel": "Qwen3.5-27B",
+          "scores": {
+            "MMLU Pro": 86.1,
+            "GPQA Diamond": 85.5,
+            "LiveCodeBench v6": 80.7,
+            "MMMU Pro": 75.0
+          }
+        },
+        {
+          "model": "qwen3.6:27b",
+          "referenceModel": "Qwen3.6-27B",
+          "scores": {
+            "MMLU Pro": 86.2,
+            "GPQA Diamond": 87.8,
+            "LiveCodeBench v6": 83.9,
+            "MMMU Pro": 75.8
+          }
+        },
+        {
+          "model": "gemma4:31b",
+          "referenceModel": "Gemma4-31B",
+          "scores": {
+            "MMLU Pro": 85.2,
+            "GPQA Diamond": 84.3,
+            "LiveCodeBench v6": 80.0,
+            "MMMU Pro": 76.9
+          }
+        }
+      ]
+    }
+  ]
+}

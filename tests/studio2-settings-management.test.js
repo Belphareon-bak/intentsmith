@@ -143,3 +143,16 @@ test('definite validation rejection preserves an editable draft for correction',
   assert.equal(await c.save('ucet'),false);assert.equal(c.editors.get('ucet').blocked,false);assert.equal(c.editors.get('ucet').draft.name,'Moje rozepsaná změna');
   reject=false;assert.equal(await c.save('ucet'),true);assert.equal(f.accounts[0].name,'Moje rozepsaná změna');
 });
+
+test('local profile editor preserves invalid fields and displays the exact persisted identity',async()=>{
+  let identity={id:'default',revision:0,displayName:'',email:'',description:''};
+  const f=fixture({handle:(p,m,b,respond)=>{
+    if(p==='/api/accounts'&&m==='GET')return respond(200,{accounts:[],supportedEvents:['worker','lifecycle'],profile:identity});
+    if(p==='/api/accounts/profile'&&m==='PUT'){assert.equal(b.revision,identity.revision);identity={...identity,...b,revision:b.revision+1};return respond(200,identity);}
+  }}),c=f.controller;
+  await c.load('ucet');c.vm('ucet').identity.edit();
+  const editor=c.editors.get('ucet');Object.assign(editor.draft,{displayName:'Operátor',email:'invalid',description:'Vlastní prostor'});
+  assert.equal(await c.save('ucet'),false);assert.equal(editor.draft.email,'invalid');assert.equal(f.calls.filter(c=>c.method==='PUT').length,0);
+  editor.draft.email='operator@example.test';assert.equal(await c.save('ucet'),true);
+  assert.equal(c.vm('ucet').identity.name,'Operátor');assert.equal(c.vm('ucet').identity.email,'operator@example.test');assert.equal(identity.revision,1);c.destroy();
+});

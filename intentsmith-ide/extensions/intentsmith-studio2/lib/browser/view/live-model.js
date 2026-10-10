@@ -1006,7 +1006,12 @@ class LiveModel extends Component {
     if (connectedTab && id !== 'zabezpeceni' && state !== 'loading') vm.secondary = [{ label: 'Obnovit', icon: this.data().I.refresh,
       go: () => { this.loadSettingsResource(resourceKey, true);
         if (id === 'oznameni' && tab === 'prehled') this.loadSettingsResource('oznameni:channels', true); } }];
-    if (preferenceFields.length) {
+    if(['ucet','oznameni'].includes(id)){
+      vm.blocks=[this.blockVM({kind:'management',managementCategory:id})];
+      if(id==='ucet')vm.blocks.push(this.blockVM({kind:'projectDirectory'}));vm.secondary=[];
+      const management=this.managementVM(s,id);vm.status=management.loading?'načítání':management.hasError?'chyba':'živá data';
+      vm.stCls=management.hasError?'warn':'idle';
+    } else if (preferenceFields.length) {
       const draft = this._preferenceDrafts.get(id) || {};
       const categories = this.data().SET.find(item => item.id === id)?.tabs || [];
       vm.blocks = flatPreferences ? Object.keys(SETTINGS_FIELDS[id]).map(preferenceTab => this.blockVM({

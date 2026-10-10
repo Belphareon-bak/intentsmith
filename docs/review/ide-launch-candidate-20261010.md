@@ -1,7 +1,11 @@
 # Proč běžně spuštěné IDE ještě ukazuje starý vzhled
 
-Stav: **CANDIDATE_PREVIEW_AVAILABLE / INDEPENDENT_REVIEW_REQUIRED /
-RELEASE_NOT_ACCEPTED**. Autorita: operátorův snímek IDE 2.0 z 10. 10. 2026.
+Stav: **WITHDRAWN_BY_OPERATOR / HISTORICAL_EVIDENCE / RELEASE_NOT_ACCEPTED**.
+
+Operátor další spouštěč odmítl. Je odstraněn z nabídky aplikací a pomocný
+skript je stažen. Níže uvedené snímky jsou historický důkaz dílčí opravy;
+neprokazují dokončení preview ani funkčnost Huntu. Aktuální práce upravuje
+původní IDE 2.0: [doplnění preview](ide-preview-completion-20261010.md). Autorita: operátorův snímek IDE 2.0 z 10. 10. 2026.
 
 ## Příčina a ověřený výsledek
 
@@ -24,29 +28,12 @@ nikoli z HTML preview:
 Původní komentář agenta o chybě nového přehledu byl chybný: kanonické CSS
 sloupce již skrývalo. Zobrazení produktu se v tomto dodatku nemění.
 
-## Jak nové IDE otevřít
+## Historický izolovaný pokus — stažen
 
-V nabídce aplikací je nová položka **IntentSmith IDE 2.0 – kandidát**.
-Stejný spouštěč z terminálu:
-
-```sh
-gtk-launch intentsmith-candidate
-```
-
-Balík je v `~/.local/share/intentsmith/ide-candidate-387a490f`; obsahuje
-ověřený AppImage, vlastní kopii backendových závislostí a Node 24.
-Profil je v `~/.local/share/intentsmith/ide-candidate-review-387a490f`.
-Má vlastní DB a adresář projektů; neimportuje provozní historii ani cesty
-provozních projektů. Motiv Studio byl zvolen skutečným ovladačem vzhledu
-v tomto novém profilu. Modelový provider je odpojený, takže toto okno slouží
-k prohlédnutí a přípravě IDE, nikoli ke GPU měření nebo běžnému modelovému
-chatu. Backend při chybě poskytovatele nevyrábí falešnou odpověď.
-
-Spouštěč kontroluje otisk AppImage a vlastnictví profilu, ověří autentizované
-API a po zavření okna ukončí své procesy. `flock` brání souběžným startům
-téhož profilu. Běžná položka nemá diagnostický CDP listener.
-Chromium používá již existující místní volbu sandboxu; nevzniká nové
-oprávnění ani změna systémové politiky.
+Třetí položka „IntentSmith IDE 2.0 – kandidát“ se již nepoužívá.
+Soukromá data pokusu zůstala zachována. Pokus používal odpojený provider,
+proto prázdný katalog a chybové přiřazení rolí nelze vydávat za funkční
+provozní ověření. Menu nemá dostat další IDE.
 
 ## Oprava balení a ověření
 
@@ -78,17 +65,9 @@ Předchozí 415/415, HTTP/restart a 27 nativních kontrol zůstávají důkazy
 svého zdroje `387a490f`, nikoli automaticky všech nových pomocných skriptů.
 Zmrazený 24h soak tohoto zdroje pokračuje; jeho start nebyl změněn.
 
-## Co dál zbývá
+## Nahrazení postupu
 
-Výchozí položka **IntentSmith IDE 2.0** stále patří staré nasazené dvojici.
-Přepnutí produkce je další krok po přejímce, s ověřeným backupem a migrací;
-publikace není nasazení podle `CONTRACT.md §11`. Nový spouštěč přejímku
-nenahrazuje. Přetrvávající release podmínky a dostupná nezávislá revize jsou
-v [integračním předání](ide-integration-remediation-20261010.md).
-
-Součástí tohoto dodatku není uvolnění automatiky Huntu, výběr/aktivace modelů
-ani změna provozní DB, původního menu či instalace. Provozní PID a otisky
-instalační konfigurace, původního menu a automation holdu se kontrolují
-odděleně od nového kandidáta.
-[Receipt běžného spuštění](evidence/ide-launch-candidate-20261010/menu-launch.json)
-dokládá vlastní backend a zachování provozního PID i tří chráněných souborů.
+Aktualizace se provádí do stávajícího IDE 2.0 při zachování databáze,
+profilu, Legacy a výslovného automation holdu. Formální přejímku ani
+nezávislou revizi tím nelze nahradit. Tento historický report nesmí být
+použit jako verdikt dokončení všech změn V4.

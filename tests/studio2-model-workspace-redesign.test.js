@@ -117,3 +117,38 @@ test('catalog prepares a selectable evaluation profile without mutating or start
  assert.equal(w.profileDraft.kind,'evaluation');assert.deepEqual(w.profileDraft.models,['installed:tag']);
  assert.deepEqual(w.profileDraft.roles,['CHAT','CODE']);w.destroy();
 });
+
+test('Hunt and Challenge groups create distinct drafts and preserve schedule semantics',()=>{
+ const w=workspace();extra(w,'profiles',{profiles:[{id:'h',name:'Hunt',kind:'hunt',roles:['CHAT'],models:[],schedule:{type:'manual'}},{id:'c',name:'Challenge',kind:'challenge',roles:['CHAT'],models:['one','two'],schedule:{type:'manual'}}]});
+ const groups=w.profileVM().groups;assert.equal(groups.length,2);assert.equal(groups[0].rows[0].id,'h');assert.equal(groups[1].rows[0].id,'c');
+ groups[1].create();assert.equal(w.profileDraft.kind,'challenge');assert.equal(w.profileDraft.enabled,false);
+ let vm=w.profileVM().draft;assert(vm.dateDisabled&&vm.timeDisabled&&vm.dayDisabled&&vm.intervalDisabled);
+ vm.setSchedule({target:{value:'once'}});vm=w.profileVM().draft;assert.equal(vm.dateDisabled,false);assert(vm.timeDisabled&&vm.dayDisabled&&vm.intervalDisabled);
+ vm.setSchedule({target:{value:'weekly'}});vm=w.profileVM().draft;assert.equal(vm.timeDisabled,false);assert.equal(vm.dayDisabled,false);assert.equal(vm.dateDisabled,true);w.destroy();
+});
+
+test('local model detail separates role configuration from verified hardware capacity',()=>{
+ const w=workspace();extra(w,'inventory',{models:[{name:'real:tag',digestSha256:D,size:1073741824,details:{family:'family',parameter_size:'1B',quantization_level:'Q4_K_M'}}]});
+ extra(w,'settings',{roles:[{role:'CHAT',model:'real:tag',settings:{contextWindowTokens:8192,maxOutputTokens:256},verifiedHardwareMaximum:null}]});
+ const view=w.inventoryVM();assert.equal(view.hasSelection,false);view.rows[0].select();
+ const detail=w.inventoryVM();assert.equal(detail.hasSelection,true);assert.equal(detail.selected.quant,'Q4_K_M');assert.equal(detail.selected.digest,D);
+ assert.equal(detail.selected.roleSettings[0].requested,'8192 / 256 tok.');assert.equal(detail.selected.roleSettings[0].hardware,'Dosud neověřeno');
+ detail.close();assert.equal(w.inventoryVM().hasSelection,false);w.destroy();
+});
+
+test('provider failure retains configured bindings without inventing health or measured scores',async()=>{
+ const w=workspace();w.request=async p=>{if(p.endsWith('/bindings'))return{bindings:{CHAT:'configured:tag'}};throw Error('Provider unavailable');};
+ assert.equal(await w.loadExtra('bindings'),true);w.resources.set('roles',{status:'error',error:'Provider unavailable'});
+ const summary=w.summary();assert.equal(summary.roles.find(r=>r.role==='CHAT').model,'configured:tag');assert.equal(summary.roles.find(r=>r.role==='CHAT').measuredText,'—');
+ assert.match(summary.status,/nejsou ověřeny/);w.destroy();
+});
+
+
+test('catalog explains all roles, source provenance and real variant selection without activating a model',()=>{
+ const w=workspace();const candidates=[{name:'gemma4:26b',fitsVram:true,installed:false,eligibleRoles:['CHAT','CODE'],quantization:'Q4_K_M',externalSignals:[{role:'CODE',metric:'LiveCodeBench v6',score:77.1,sourceUrl:'https://ai.google.dev/gemma/docs/core/model_card_4',minimum:0,maximum:100,measuredAt:null,observedAt:'2026-10-10T09:00:00.000Z',protocolId:'pinned',sourceSha256:D,roleMapping:'APPLICATION_PROXY_NOT_ROLE_BENCHMARK',comparisonModel:'current',comparisonEvidenceId:null,estimatedGainPoints:null}]},{name:'gemma4:31b',fitsVram:false,installed:false,eligibleRoles:['CODE']}];
+ w.resources.set('candidates',{status:'ready',data:[{candidates},{downloads:[]}]});w.catalogFilter.role='CODE';
+ const v=w.catalogVM();assert.equal(v.selected.comparisonRows.length,7);const code=v.selected.comparisonRows.find(r=>r.role==='CODE');
+ assert.equal(code.gain,'—');assert.equal(code.hasSource,true);assert.match(code.scope,/Pomocná/);assert.match(v.selected.scope,/Ověřeno ve zdroji/);
+ assert.equal(v.hasVariants,true);v.setVariant({target:{value:'unknown:tag'}});assert.equal(w.catalogName,'');
+ v.setVariant({target:{value:'gemma4:31b'}});assert.equal(w.catalogName,'gemma4:31b');v.showUnknown();assert.equal(w.catalogFilter.fits,false);w.destroy();
+});

@@ -221,9 +221,10 @@ test('desktop and hunt use one environment, bounded commands, and persistent sch
   assert.doesNotMatch(files.hunt,/--prune-rejected|--allow-removal/,
     'installation must preserve the grading-validity pause on unattended removal');
   assert.match(files.environment,/INTENTSMITH_PROJECTS_DIR="\/data\/projects"/);
-  const customRoot=renderDesktopInstallation({sourceRoot:'/opt/next-release',node:'/usr/bin/node',dbPath:'/data/user/intentsmith.db',projectsDirectory:'/data/IntentSmith/projects',
+  const customRoot=renderDesktopInstallation({sourceRoot:'/opt/next-release',node:'/usr/bin/node',dbPath:'/data/user/intentsmith.db',projectsDirectory:'/data/IntentSmith/projects',ollamaModelsPath:'/mnt/models/ollama',
     configDirectory:'/home/user/.config/intentsmith',stateDirectory:'/home/user/.local/state/intentsmith',icon:'/opt/icon.png'});
   assert.match(customRoot.environment,/INTENTSMITH_PROJECTS_DIR="\/data\/IntentSmith\/projects"/);
+  assert.match(customRoot.environment,/OLLAMA_MODELS="\/mnt\/models\/ollama"/);
   assert.match(files.environment,/\nNODE_ENV=production\n/);
   for(const unit of [files.backend,files.hunt]) {
     assert.match(unit,/WorkingDirectory=\/opt\/Intent Smith\n/);

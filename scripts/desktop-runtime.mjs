@@ -48,6 +48,7 @@ export function renderDesktopInstallation(config) {
     INTENTSMITH_INSTALLATION_FILE: join(configDirectory, 'installation.json'),
     INTENTSMITH_HUNT_STATE_DIR: join(stateDirectory, 'model-hunt'),
     INTENTSMITH_PDF_PYTHON: config.pdfPython,
+    OLLAMA_MODELS: config.ollamaModelsPath,
     UCETNI_RUNTIME_DIR: config.accountantRuntime,
   }).filter(([,v]) => v).map(([k,v]) => `${k}=${quotedPath(v)}`).join('\n') + '\nNODE_ENV=production\nINTENTSMITH_HOST=127.0.0.1\nINTENTSMITH_PORT=0\n';
   // These directives consume a single literal path, not ExecStart's argv grammar.
