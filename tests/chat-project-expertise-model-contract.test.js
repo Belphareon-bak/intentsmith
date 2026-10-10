@@ -49,6 +49,19 @@ async function startProvider() {
       let prompt;
       try { prompt = JSON.parse(payload.messages.at(-1).content); }
       catch { prompt = {}; }
+      // A named file bypasses the lexical project-status shortcut. Supply the
+      // real classifier contract before the read-only project planner reply;
+      // a planner-shaped classifier reply would force an unrelated SEARCH.
+      if (payload.format === 'json') {
+        assert.equal(typeof prompt.request, 'string');
+        response.end(JSON.stringify({ model: MODEL, digest: DIGEST, done: true, done_reason: 'stop',
+          message: { role: 'assistant', content: JSON.stringify({ intent: 'CONVERSATIONAL',
+            confidence: 0.95, fileTarget: null, question: null, continuesPending: false,
+            responseScope: 'project_status', briefResponse: false, responseWordCount: null,
+            requestedOperation: 'none', unavailableAction: null }) },
+          prompt_eval_count: 100, eval_count: 40 }));
+        return;
+      }
       const fileText = prompt.analysis?.excerpts?.map(item => item.text).join('\n') || '';
       const code = /(?:ORION_A_FILE_391|LYRA_B_FILE_752)/u.exec(fileText)?.[0] || 'FILE_CODE_MISSING';
       response.end(JSON.stringify({ model: MODEL, digest: DIGEST, done: true, done_reason: 'stop',
@@ -96,9 +109,13 @@ test('A→B→A M1 project expertise uses exact file data in the final provider 
     assert(!ids.has(command.requestId)); ids.add(command.requestId);
     const before = provider.requests.length;
     const result = await expectJson(product, 'POST', '/api/chat', command, 200);
-    assert.equal(provider.requests.length, before + 1,
-      `${step.label}: expected exactly one final model request`);
+    assert.equal(provider.requests.length, before + 2,
+      `${step.label}: expected exactly one classifier and one final model request`);
+    const classification = provider.requests[before];
+    assert.equal(classification.format, 'json');
+    assert.equal(JSON.parse(classification.messages.at(-1).content).request, step.input);
     const request = provider.requests.at(-1);
+    assert.equal(typeof request.format, 'object', 'final reply must use the project discussion schema');
     assertFinalTurn(request, result, step);
     if (first === null) first = { request, result, step };
     turns.push({ label: step.label, requestId: command.requestId,
@@ -133,6 +150,6 @@ test('A→B→A M1 project expertise uses exact file data in the final provider 
     `${JSON.stringify({ schemaVersion: 1,
       sourceRevision,
       fixture: 'owned-fake-provider', projectIds: [a.id, b.id],
-      m1Turns: turns, providerCalls,
+      m1Turns: turns, providerCalls, classifierCalls: turns.length, finalProviderCalls: turns.length,
       status: 'PASS' }, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
 });
