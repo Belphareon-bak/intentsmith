@@ -187,3 +187,33 @@ required offline/database a strukturální kontroly, následně aktualizace stej
 hlavní instalace a push. Nová paleta, aplikace ani desktopová položka nevzniká.
 Hunt hold, Legacy, původní DB/profil, cizí checkouty a GPU kvalifikace zachovány.
 Formální release a nová nezávislá revize nejsou nahrazeny lokálním nasazením.
+
+## Dokončení skutečného preview po předání Opusových rozpracovaných změn
+
+Autorita: operátor 10. 10. „tak to dotahni co nejlepe dovedes“. Převzaté
+rozpracované soubory byly nejprve evidované otisky ve vlastním checkoutu;
+pět designových CSS je přesný zdroj doladěného V4. Opusův později doručený
+posudek `37ee6177` je technická přijatelnost pro místní provoz, bod f)
+nesplněný, release nepřijatý. Původní tvrzení úplného V4 se opravuje.
+
+Nový source `3c804a8a859a9f44efd200585795f5373e85fc3c` připojuje kompozici do
+stávajícího widgetu, motivu a HTTP/M1 klientů. Účty, repozitáře, sedm modelových
+záložek a čtyři části Huntu používají skutečné služby; katalog, varianty,
+matice, plánování a nejisté formulářové zápisy mají samostatné negativní
+ověření. Neúčinné obecné formuláře byly odstraněné. Nepodporované identity,
+OAuth, fallback seznam a libovolné benchmarkové parametry nejsou předstírané
+hotové funkce; úplná produktová přejímka bodu f) zůstává otevřená.
+
+416/416 offline/database, 3/3 skutečné HTTP programy, artifact/census 161,
+registr 603, hranice 1557 beze změny, nový build, 53 nativních snímků a 10
+zápis/readback/restart kontrol, CI 19/19 PASS na přesném source. HTTP fixture
+byl opraven pro existující klasifikátor před plánovačem; nedošlo k oslabení
+oracle ani backendové autority. První audit s nepovolenými toolchainy a
+přerušený meziběh zůstávají neúspěšné diagnostiky, nikoli finální PASS.
+
+Hlavní `intentsmith.desktop` a backend jsou aktualizované na tentýž source.
+Běžné nové okno má původní profil a fialový motiv, DB/doménové počty/role,
+Legacy i hold zachované; cizí 24h soak se nepřerušil. Nejde o třetí aplikaci
+ani nový kandidátní launcher. [Aktuální předání a důkazy](../review/settings-v4-completion-20261010.md)
+rozlišují implementaci, lokální provoz, nepodporované funkce a release.
+Nový nezávislý verdikt Opuse není k dispozici; čeká se na něj pro další opravy.

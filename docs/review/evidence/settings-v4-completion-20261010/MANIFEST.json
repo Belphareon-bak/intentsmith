@@ -1,0 +1,417 @@
+{
+  "schemaVersion": 1,
+  "sourceRevision": "3c804a8a859a9f44efd200585795f5373e85fc3c",
+  "evidenceRole": "integration and local-operation measurements; independent review pending",
+  "files": [
+    {
+      "path": "README.md",
+      "size": 1561,
+      "sha256": "cb4cd8513ba3cf9017db0ff621db8c54799f9689b825a48fe5fa8f1e28783a20"
+    },
+    {
+      "path": "appimage-build.json",
+      "size": 68554,
+      "sha256": "1796e8c7781d6c2aebd3ebbc6c0e023225cd8e230d36133ce15dcb24ed4d83fc"
+    },
+    {
+      "path": "artifact-checks.txt",
+      "size": 13512,
+      "sha256": "f374540aa8042b6ce301608eaec716fb44509e31287cc21f0764f3960e73e192"
+    },
+    {
+      "path": "audit-failed-8ffc1778.json",
+      "size": 1635675,
+      "sha256": "a084913c81bf9bcc05ea18044782b0810ac0e32acf9cd4ae82ed7a2a24abf709"
+    },
+    {
+      "path": "audit-interrupted-8a66d331.json",
+      "size": 889497,
+      "sha256": "e1d40bd256536942e7cb2a5f2b78bceb6efe9929e4bb63e104dc42ba984b4728"
+    },
+    {
+      "path": "audit-inventory.json",
+      "size": 383074,
+      "sha256": "00cb0428e76ef9f0e23961502bc1c0c201d339cffa48cd36cb8d6b4fec983d19"
+    },
+    {
+      "path": "audit.json",
+      "size": 1801292,
+      "sha256": "d48b5c03843b06b73843cbf363766ccfeaa02955ee16bd0eff175d5ee35c72c6"
+    },
+    {
+      "path": "baseline-model-contract-failed.txt",
+      "size": 1405,
+      "sha256": "7aa42a0a61e0222b6b5fe42a3f7b6e112f28f616b02d87c57f3b8058e7ef72c6"
+    },
+    {
+      "path": "boundary.txt",
+      "size": 741,
+      "sha256": "142f845d093c163267f0feeb94dc8be3afec037218565e81232d8191e717ce9e"
+    },
+    {
+      "path": "ci.json",
+      "size": 3203,
+      "sha256": "4f31591e03d13edb0482de216ce314546811e2c2c2a9c44d13b6ba3e16ac7d31"
+    },
+    {
+      "path": "consumer-build.txt",
+      "size": 862,
+      "sha256": "2bdcb44e150c13685de62939e7bec02e09b29b374e0677cfd879ea3508d4dc78"
+    },
+    {
+      "path": "design-provenance.json",
+      "size": 1043,
+      "sha256": "724253370387bb12f1187c11a9143d8c0faadaedd06b3ced8872b4bc21f20b35"
+    },
+    {
+      "path": "http.json",
+      "size": 1168,
+      "sha256": "e29fb12f066895bb1bc8e3ae778b2c3d1895d770193b05a1dbbb2de83ac15391"
+    },
+    {
+      "path": "migration.json",
+      "size": 694,
+      "sha256": "318eeae1996c8f740ff2a736d8d816bb20f66a8cc6f7317cd3279ca89eb61e62"
+    },
+    {
+      "path": "native-probe-identity.json",
+      "size": 518,
+      "sha256": "fe6fd6375eb3db40ce5cb5ce9351b2d41dd0c3c1b1ca7fc744b0b81f5af7363d"
+    },
+    {
+      "path": "native-probe.mjs",
+      "size": 15819,
+      "sha256": "359d78c735883eb37a5a54c0879bc1eb592643748589fdec44955f8d1c83e904"
+    },
+    {
+      "path": "native.json",
+      "size": 26471,
+      "sha256": "890283973ce8b24e59c461dec12678185b100edbe84712f02225e1636380e12d"
+    },
+    {
+      "path": "operational-blockers.json",
+      "size": 998,
+      "sha256": "1a570c3334e0a295d6af51414515ded8808bdc667dc2302709ee973d77201dd4"
+    },
+    {
+      "path": "opus-review-37ee6177.md",
+      "size": 3914,
+      "sha256": "b4897adf6be38cfe7d4b1803291d6fa5e2119edfb3a209bdf457036f8e557b14"
+    },
+    {
+      "path": "opus-review-identity.json",
+      "size": 355,
+      "sha256": "71df16f2b4fad547428b70bd310d006c2cd7c392a30a592df964b1eef51588ab"
+    },
+    {
+      "path": "primary-installation.json",
+      "size": 2724,
+      "sha256": "83952b1535c00cced744271e9647158f7c4b1a89be0fab07f36d067bd7fc7c77"
+    },
+    {
+      "path": "production-copy.json",
+      "size": 838,
+      "sha256": "ffe113528dbd4955e8460d035496f27243d0cc3c754709cbe4c00de403df28d1"
+    },
+    {
+      "path": "registry.txt",
+      "size": 116,
+      "sha256": "dc87aaa159c5b3d55c38ee6843b0d44064f38680e3a99b80d37871434b29d26a"
+    },
+    {
+      "path": "screenshots/about-1366.png",
+      "size": 103355,
+      "sha256": "3b320926a99c1e738fed55460ffef3bc916ec3e99720ccca569869402d040bb5"
+    },
+    {
+      "path": "screenshots/about-1920.png",
+      "size": 104871,
+      "sha256": "9d53e67c6e13a2346c33c8dba9958973dc12587836b1b5dcac4f4f20c6cc7f7f"
+    },
+    {
+      "path": "screenshots/accounts-1366.png",
+      "size": 169759,
+      "sha256": "45a16e1ce758b93287278368175cb1f44461914993093282e6ae89dbe35b1a75"
+    },
+    {
+      "path": "screenshots/accounts-1920.png",
+      "size": 167927,
+      "sha256": "d2250b3dbfff0402e5b169c5a37d079dba4fa53c170267b5bffa2a864d8bf513"
+    },
+    {
+      "path": "screenshots/appearance-1366.png",
+      "size": 108237,
+      "sha256": "937c463c3d4d1f7bc19365b6ea73f0db31b796a3f8a47a876f7b8b728fcaa739"
+    },
+    {
+      "path": "screenshots/appearance-1920.png",
+      "size": 110584,
+      "sha256": "403fc191a2bef2a458170d7ed33cb008dc42203f693ac40bae7a3e3c5958f2ad"
+    },
+    {
+      "path": "screenshots/appearance-applied-1366.png",
+      "size": 94657,
+      "sha256": "87ac89325ac452127d605b5a3c91e8a414cb0f9d782dbcf0b7ad0276611b59c3"
+    },
+    {
+      "path": "screenshots/backups-1366.png",
+      "size": 181235,
+      "sha256": "f192762a3ee6c369ab2ecc2a76612cd7fa5dfadbc60ff6cce294785ccda48df1"
+    },
+    {
+      "path": "screenshots/backups-1920.png",
+      "size": 182663,
+      "sha256": "4a9d8290d5a7520981e1a17cbb43186825fccee208195495e037762802bbd5e6"
+    },
+    {
+      "path": "screenshots/catalog-1366.png",
+      "size": 201154,
+      "sha256": "b198621ba44a68c952d8acd3e8c17c941bf5a3c650f64569da7163e7249e5cea"
+    },
+    {
+      "path": "screenshots/catalog-1920.png",
+      "size": 190643,
+      "sha256": "326b72172aa1b9f9f3a9d9fbf1d1143d9edf2caa080b44672512668ceb652e17"
+    },
+    {
+      "path": "screenshots/catalog-detail-1366.png",
+      "size": 201626,
+      "sha256": "08769571865c9db8db76ce0fa895535b360b55e381566d565d0e788d2fd3a3e3"
+    },
+    {
+      "path": "screenshots/catalog-detail-1920.png",
+      "size": 227143,
+      "sha256": "25c09692ad478ad737b8a732a7734ee4c84fd4998f966c7fda4d604293255977"
+    },
+    {
+      "path": "screenshots/challenge-draft-1366.png",
+      "size": 175252,
+      "sha256": "e148b9c19a54a352948b1024a5aa68a8dcf994ea7fe7cb43a5de869c9198d7f5"
+    },
+    {
+      "path": "screenshots/challenge-draft-1920.png",
+      "size": 178788,
+      "sha256": "891c9137501f00c1be984ff3f8da41696271e4a4bfeff8a6b9ea42986d3d6505"
+    },
+    {
+      "path": "screenshots/features-1366.png",
+      "size": 120331,
+      "sha256": "e0dadf72f7e3cf4596a9ef0a59c01ce45cccc7c41bd020f9f597afc3ca985c56"
+    },
+    {
+      "path": "screenshots/features-1920.png",
+      "size": 123564,
+      "sha256": "cd678302e23b91f35b1585d78a7dc97c0b2894cc1cfe4eba4fb69173c31b8883"
+    },
+    {
+      "path": "screenshots/hunt-1366.png",
+      "size": 169260,
+      "sha256": "dbc702030ca881eb7b691c62e48fd4e3ea531dab9bd209f5b839afdd1818ff0a"
+    },
+    {
+      "path": "screenshots/hunt-1920.png",
+      "size": 170492,
+      "sha256": "69ef3e02411c27540d47dee6dea1451f6c080b9c1efa2e8f35cf063d7adf564a"
+    },
+    {
+      "path": "screenshots/hunt-history-1366.png",
+      "size": 164262,
+      "sha256": "6611dacbe8daf1912700ffdf9f10841fabecd6441a72899bc0e70b3d01891512"
+    },
+    {
+      "path": "screenshots/hunt-history-1920.png",
+      "size": 168081,
+      "sha256": "1852aec53dc30c752e56487704c87eefb767834fc3f71f0b27f49a86bd2fc446"
+    },
+    {
+      "path": "screenshots/hunt-settings-1366.png",
+      "size": 169271,
+      "sha256": "872f2ad73d1497445288af60f7a62e196391c17c6d6608664c67668925b4eeea"
+    },
+    {
+      "path": "screenshots/hunt-settings-1920.png",
+      "size": 172280,
+      "sha256": "25624a91dc92476e533db38370a8550ffbd61da8e36003ce27291dcabba61cdc"
+    },
+    {
+      "path": "screenshots/inventory-1366.png",
+      "size": 234961,
+      "sha256": "bf07bdfa4169080d4882060a6eca83b01f808500456c55b4a3d8ef3cc820e57d"
+    },
+    {
+      "path": "screenshots/inventory-1920.png",
+      "size": 243288,
+      "sha256": "22505cf2bf8aebda6622da1b0f4df16ac5a53de6a21bcfd0ab054f9cc7e5bf56"
+    },
+    {
+      "path": "screenshots/matrix-1366.png",
+      "size": 200799,
+      "sha256": "f30691e5c7adcdbcd92f5b45aff25f08bcefcb539948813adeea00535a60be79"
+    },
+    {
+      "path": "screenshots/matrix-1920.png",
+      "size": 212420,
+      "sha256": "0c00d28af8846c1dd11de70983f7ac6a556d199c9687d8a1a1df0a2934fb79cc"
+    },
+    {
+      "path": "screenshots/memory-1366.png",
+      "size": 107686,
+      "sha256": "1b6235b975b1d0f4a396ddd3e150e2e4555dbc622533cf14a5d97cc79186ffbd"
+    },
+    {
+      "path": "screenshots/memory-1920.png",
+      "size": 110873,
+      "sha256": "d484b821355eeee7d828ff25d241aff30b9a1d30aec71cdb3aa945b992417b6e"
+    },
+    {
+      "path": "screenshots/model-overview-1366.png",
+      "size": 215408,
+      "sha256": "79ecdd083d88b704f508df1980d64d10185f2b72d06d09c6d60f870e288ab161"
+    },
+    {
+      "path": "screenshots/model-overview-1920.png",
+      "size": 249392,
+      "sha256": "799b7accbef8be27295fed8bfcfcd0f02b30812eb6ad36adfb7074fc66a60576"
+    },
+    {
+      "path": "screenshots/notifications-1366.png",
+      "size": 130110,
+      "sha256": "65bf7862fcb03721c0cfc1c0ba59db29b9c91bc5444df0e3db84b88b2bc88c02"
+    },
+    {
+      "path": "screenshots/notifications-1920.png",
+      "size": 133373,
+      "sha256": "7c8e513936db48abf15b81f6ae30dce76c5d93d01d96323605b001dbcd3fdcca"
+    },
+    {
+      "path": "screenshots/operations-1366.png",
+      "size": 188999,
+      "sha256": "a69e8abb92b29629d5f383a2f73ddccb40b2fa9f6fd9758ff9ebfaaa93a6af06"
+    },
+    {
+      "path": "screenshots/operations-1920.png",
+      "size": 192809,
+      "sha256": "252a287a8c61cd9d5122938978f2c41449579965fa9b915881e53e9b843d9ac4"
+    },
+    {
+      "path": "screenshots/output-1366.png",
+      "size": 98029,
+      "sha256": "e75a20b303e95f49275d42454ded538378f8c7feb6922eccac9f532c11c0adcf"
+    },
+    {
+      "path": "screenshots/output-1920.png",
+      "size": 100659,
+      "sha256": "fd0ea6ef13ed8eb140a6d6778f0d51e886a05b403417a63ed5b6b09bde6dac2a"
+    },
+    {
+      "path": "screenshots/primary-accounts.png",
+      "size": 255748,
+      "sha256": "7b7382a42b43a6ce608e443ba17031a77f6d7753deab8e6bc625d093fe398f16"
+    },
+    {
+      "path": "screenshots/primary-hunt.png",
+      "size": 297429,
+      "sha256": "567b76b289144e4d930960331e69e4018ff577c32b719616c524c987c3a7324b"
+    },
+    {
+      "path": "screenshots/primary-models-overview.png",
+      "size": 351793,
+      "sha256": "d46ee428fc5df5f476dd3414dd59c8fd5859634d8aea496c2119956830e842ef"
+    },
+    {
+      "path": "screenshots/primary-settings.png",
+      "size": 169194,
+      "sha256": "949f5e37c447c41440eba7f08e2cafd7a59787bed2608eecd7393a97d1cce0a6"
+    },
+    {
+      "path": "screenshots/profiles-list-1366.png",
+      "size": 175741,
+      "sha256": "823e2a50a188659a7dc2bf794e69f3dad807c5649b39febc4a5b0aeed1b6b409"
+    },
+    {
+      "path": "screenshots/profiles-tiles-1366.png",
+      "size": 175817,
+      "sha256": "38de319935db5a75c40b66dfe37e291a7b068814b545e731738fde03a826c51c"
+    },
+    {
+      "path": "screenshots/repositories-1366.png",
+      "size": 170082,
+      "sha256": "39aad9bac04b98f4c3f7dfdd33ef408dd66cf21ed496b4f4c5c7a3e4bfa06cd3"
+    },
+    {
+      "path": "screenshots/repositories-1920.png",
+      "size": 172395,
+      "sha256": "0ab81630eda32a207d49a18726c093ac3e0e5d2a2358b9376364881399ac066a"
+    },
+    {
+      "path": "screenshots/roles-1366.png",
+      "size": 223503,
+      "sha256": "0935ead63a377d898f955623e66698c868e6aca874efe87db137a91299b9c2aa"
+    },
+    {
+      "path": "screenshots/roles-1920.png",
+      "size": 240266,
+      "sha256": "e2ff733de16073de9a0d95f0403a1aa21be621a359acc2333684a4a0717512e8"
+    },
+    {
+      "path": "screenshots/security-1366.png",
+      "size": 129897,
+      "sha256": "a21707b97800a12643129275408982f2df5349ba5dfdf8b0d6bdc6634477e5b4"
+    },
+    {
+      "path": "screenshots/security-1920.png",
+      "size": 132563,
+      "sha256": "9e6114c5d0d97877e52e13a4eb1e1292cc232b31a4816f687df0aea0d3e8c213"
+    },
+    {
+      "path": "screenshots/settings-1366.png",
+      "size": 129374,
+      "sha256": "97612edabf2de04738d73b15394703550ce3c7fec1ba5bd4f14732ea5bf5447a"
+    },
+    {
+      "path": "screenshots/settings-1920.png",
+      "size": 133292,
+      "sha256": "a8f16e3158cc2f912fa93f42dc5fb5b4fabfb08d090f27e57c50fc4785ed1aa3"
+    },
+    {
+      "path": "screenshots/storage-1366.png",
+      "size": 159103,
+      "sha256": "3c22c3394befc5e89e1e81d3d1d578ee7a6a8d5b177649c855c4934db9315de3"
+    },
+    {
+      "path": "screenshots/storage-1920.png",
+      "size": 161347,
+      "sha256": "e35f156480f9023f63d21c4c660cd22b2931d734706d18c26a37293c8caa94fd"
+    },
+    {
+      "path": "screenshots/system-1366.png",
+      "size": 140651,
+      "sha256": "0c53186aa9a2468aa829f878710e34e3ea4466da134ef9702db299a26a805a3e"
+    },
+    {
+      "path": "screenshots/system-1920.png",
+      "size": 140904,
+      "sha256": "b4ae47d14f55dee7beccccfa4ce90fb4be7662d8f4e34d613d806cc70820312e"
+    },
+    {
+      "path": "screenshots/telemetry-1366.png",
+      "size": 153550,
+      "sha256": "0a101876758ee312d97802db736fa3b862850d07150085475b8cd48803d2a3cf"
+    },
+    {
+      "path": "screenshots/telemetry-1920.png",
+      "size": 156359,
+      "sha256": "12e3a00bd1dab8ef9c7a94ab1e2261025e5577f77fe5528984913da48e43a4b7"
+    },
+    {
+      "path": "ui-tests.txt",
+      "size": 3357,
+      "sha256": "35e584f336a08f599d5217a726928dd147f1c8d87cc1b303e6adbe0858d10050"
+    },
+    {
+      "path": "view-check.txt",
+      "size": 44,
+      "sha256": "0d7e021dce02d98e64d0f4473aafe14f2ae7ebe77e331b6a91df00fecdb91a85"
+    }
+  ]
+}

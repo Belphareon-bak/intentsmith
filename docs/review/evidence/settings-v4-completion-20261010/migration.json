@@ -1,0 +1,24 @@
+{
+  "status": "PASS",
+  "sourceRevision": "3c804a8a859a9f44efd200585795f5373e85fc3c",
+  "oldRevision": "37ee6177f7cf8e5e4509c5860474e8dca2ce0e8e",
+  "dbPath": "/home/belphareon/Projects/intentsmith/data/c3.db",
+  "scope": "consistent SQLite backup; migration mutates private copy only",
+  "quick": "ok",
+  "foreignKeyViolations": 0,
+  "before": {
+    "conversations": 52,
+    "messages": 0,
+    "projects": 16,
+    "specialists": 5,
+    "model_evaluation_runs": 1012
+  },
+  "after": {
+    "conversations": 52,
+    "messages": 0,
+    "projects": 16,
+    "specialists": 5,
+    "model_evaluation_runs": 1012
+  },
+  "holdSha256": "9502664935823f42aff92cc64a7f01b86d2d6abcb30ef164b2400f334b17f2d7"
+}

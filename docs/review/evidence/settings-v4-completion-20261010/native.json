@@ -1,0 +1,1289 @@
+{
+  "status": "PASS",
+  "sourceRevision": "3c804a8a859a9f44efd200585795f5373e85fc3c",
+  "backendRevision": "3c804a8a859a9f44efd200585795f5373e85fc3c",
+  "appimageSha256": "2a9946879e468a723f62ac6e846d484601be518b3b2687df6c4cc8a2c62efc44",
+  "scope": "native existing Studio2, owned fresh DB and profile; Ollama metadata only; no inference/outbound delivery",
+  "screens": [
+    {
+      "name": "settings",
+      "width": 1920,
+      "title": "Nastavení",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 0,
+      "tables": 1,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    },
+    {
+      "name": "accounts",
+      "width": 1920,
+      "title": "Účet a propojení",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 2,
+      "tables": 1,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    },
+    {
+      "name": "repositories",
+      "width": 1920,
+      "title": "Repozitáře a přístup",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 3,
+      "tables": 2,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    },
+    {
+      "name": "memory",
+      "width": 1920,
+      "title": "Paměť",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 1,
+      "tables": 0,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    },
+    {
+      "name": "notifications",
+      "width": 1920,
+      "title": "Oznámení",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 3,
+      "tables": 0,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    },
+    {
+      "name": "output",
+      "width": 1920,
+      "title": "Výstup",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 1,
+      "tables": 0,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    },
+    {
+      "name": "appearance",
+      "width": 1920,
+      "title": "Vzhled",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 3,
+      "tables": 0,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    },
+    {
+      "name": "system",
+      "width": 1920,
+      "title": "Systém",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 4,
+      "tables": 0,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    },
+    {
+      "name": "storage",
+      "width": 1920,
+      "title": "Úložiště a databáze",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 8,
+      "tables": 0,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    },
+    {
+      "name": "backups",
+      "width": 1920,
+      "title": "Zálohy a archiv",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 3,
+      "tables": 1,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    },
+    {
+      "name": "features",
+      "width": 1920,
+      "title": "Funkční přepínače",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 1,
+      "tables": 0,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    },
+    {
+      "name": "security",
+      "width": 1920,
+      "title": "Zabezpečení",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 5,
+      "tables": 0,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    },
+    {
+      "name": "about",
+      "width": 1920,
+      "title": "O aplikaci",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 2,
+      "tables": 0,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    },
+    {
+      "name": "model-overview",
+      "width": 1920,
+      "title": "Modely a inference",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 2,
+      "tables": 1,
+      "selectedTabs": [
+        {
+          "action": "sv4-model-tab",
+          "tab": "overview"
+        }
+      ],
+      "expectedDegraded": []
+    },
+    {
+      "name": "roles",
+      "width": 1920,
+      "title": "Modely a inference",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 2,
+      "tables": 1,
+      "selectedTabs": [
+        {
+          "action": "sv4-model-tab",
+          "tab": "roles"
+        }
+      ],
+      "expectedDegraded": []
+    },
+    {
+      "name": "inventory",
+      "width": 1920,
+      "title": "Modely a inference",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 1,
+      "tables": 2,
+      "selectedTabs": [
+        {
+          "action": "sv4-model-tab",
+          "tab": "inventory"
+        },
+        {
+          "action": "sv4-model-detail-tab",
+          "tab": "hardware"
+        }
+      ],
+      "expectedDegraded": []
+    },
+    {
+      "name": "matrix",
+      "width": 1920,
+      "title": "Modely a inference",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 0,
+      "tables": 1,
+      "selectedTabs": [
+        {
+          "action": "sv4-model-tab",
+          "tab": "evaluations"
+        }
+      ],
+      "expectedDegraded": []
+    },
+    {
+      "name": "hunt",
+      "width": 1920,
+      "title": "Modely a inference",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 3,
+      "tables": 0,
+      "selectedTabs": [
+        {
+          "action": "sv4-model-tab",
+          "tab": "hunt"
+        },
+        {
+          "action": "sv4-hunt-tab",
+          "tab": "overview"
+        }
+      ],
+      "expectedDegraded": [
+        "DESKTOP_NOT_INSTALLEDObnovit"
+      ]
+    },
+    {
+      "name": "catalog",
+      "width": 1920,
+      "title": "Modely a inference",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 1,
+      "tables": 0,
+      "selectedTabs": [
+        {
+          "action": "sv4-model-tab",
+          "tab": "hunt"
+        },
+        {
+          "action": "sv4-hunt-tab",
+          "tab": "catalog"
+        }
+      ],
+      "expectedDegraded": []
+    },
+    {
+      "name": "catalog-detail",
+      "width": 1920,
+      "title": "Modely a inference",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 1,
+      "tables": 1,
+      "selectedTabs": [
+        {
+          "action": "sv4-model-tab",
+          "tab": "hunt"
+        },
+        {
+          "action": "sv4-hunt-tab",
+          "tab": "catalog"
+        }
+      ],
+      "expectedDegraded": []
+    },
+    {
+      "name": "hunt-settings",
+      "width": 1920,
+      "title": "Modely a inference",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 2,
+      "tables": 0,
+      "selectedTabs": [
+        {
+          "action": "sv4-model-tab",
+          "tab": "hunt"
+        },
+        {
+          "action": "sv4-hunt-tab",
+          "tab": "profiles"
+        }
+      ],
+      "expectedDegraded": [
+        "DESKTOP_NOT_INSTALLEDObnovit"
+      ]
+    },
+    {
+      "name": "hunt-history",
+      "width": 1920,
+      "title": "Modely a inference",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 1,
+      "tables": 1,
+      "selectedTabs": [
+        {
+          "action": "sv4-model-tab",
+          "tab": "hunt"
+        },
+        {
+          "action": "sv4-hunt-tab",
+          "tab": "history"
+        }
+      ],
+      "expectedDegraded": []
+    },
+    {
+      "name": "telemetry",
+      "width": 1920,
+      "title": "Modely a inference",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 1,
+      "tables": 1,
+      "selectedTabs": [
+        {
+          "action": "sv4-model-tab",
+          "tab": "telemetry"
+        }
+      ],
+      "expectedDegraded": []
+    },
+    {
+      "name": "operations",
+      "width": 1920,
+      "title": "Modely a inference",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 1,
+      "tables": 1,
+      "selectedTabs": [
+        {
+          "action": "sv4-model-tab",
+          "tab": "policy"
+        },
+        {
+          "action": "sv4-operation-tab",
+          "tab": "policy"
+        }
+      ],
+      "expectedDegraded": []
+    },
+    {
+      "name": "challenge-draft",
+      "width": 1920,
+      "title": "Modely a inference",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 3,
+      "tables": 0,
+      "selectedTabs": [
+        {
+          "action": "sv4-model-tab",
+          "tab": "hunt"
+        },
+        {
+          "action": "sv4-hunt-tab",
+          "tab": "profiles"
+        }
+      ],
+      "expectedDegraded": [
+        "DESKTOP_NOT_INSTALLEDObnovit"
+      ]
+    },
+    {
+      "name": "settings",
+      "width": 1366,
+      "title": "Nastavení",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 0,
+      "tables": 1,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    },
+    {
+      "name": "accounts",
+      "width": 1366,
+      "title": "Účet a propojení",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 2,
+      "tables": 1,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    },
+    {
+      "name": "repositories",
+      "width": 1366,
+      "title": "Repozitáře a přístup",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 3,
+      "tables": 2,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    },
+    {
+      "name": "memory",
+      "width": 1366,
+      "title": "Paměť",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 1,
+      "tables": 0,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    },
+    {
+      "name": "notifications",
+      "width": 1366,
+      "title": "Oznámení",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 3,
+      "tables": 0,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    },
+    {
+      "name": "output",
+      "width": 1366,
+      "title": "Výstup",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 1,
+      "tables": 0,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    },
+    {
+      "name": "appearance",
+      "width": 1366,
+      "title": "Vzhled",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 3,
+      "tables": 0,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    },
+    {
+      "name": "system",
+      "width": 1366,
+      "title": "Systém",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 4,
+      "tables": 0,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    },
+    {
+      "name": "storage",
+      "width": 1366,
+      "title": "Úložiště a databáze",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 8,
+      "tables": 0,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    },
+    {
+      "name": "backups",
+      "width": 1366,
+      "title": "Zálohy a archiv",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 3,
+      "tables": 1,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    },
+    {
+      "name": "features",
+      "width": 1366,
+      "title": "Funkční přepínače",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 1,
+      "tables": 0,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    },
+    {
+      "name": "security",
+      "width": 1366,
+      "title": "Zabezpečení",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 5,
+      "tables": 0,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    },
+    {
+      "name": "about",
+      "width": 1366,
+      "title": "O aplikaci",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 2,
+      "tables": 0,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    },
+    {
+      "name": "model-overview",
+      "width": 1366,
+      "title": "Modely a inference",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 2,
+      "tables": 1,
+      "selectedTabs": [
+        {
+          "action": "sv4-model-tab",
+          "tab": "overview"
+        }
+      ],
+      "expectedDegraded": []
+    },
+    {
+      "name": "roles",
+      "width": 1366,
+      "title": "Modely a inference",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 2,
+      "tables": 1,
+      "selectedTabs": [
+        {
+          "action": "sv4-model-tab",
+          "tab": "roles"
+        }
+      ],
+      "expectedDegraded": []
+    },
+    {
+      "name": "inventory",
+      "width": 1366,
+      "title": "Modely a inference",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 1,
+      "tables": 2,
+      "selectedTabs": [
+        {
+          "action": "sv4-model-tab",
+          "tab": "inventory"
+        },
+        {
+          "action": "sv4-model-detail-tab",
+          "tab": "hardware"
+        }
+      ],
+      "expectedDegraded": []
+    },
+    {
+      "name": "matrix",
+      "width": 1366,
+      "title": "Modely a inference",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 0,
+      "tables": 1,
+      "selectedTabs": [
+        {
+          "action": "sv4-model-tab",
+          "tab": "evaluations"
+        }
+      ],
+      "expectedDegraded": []
+    },
+    {
+      "name": "hunt",
+      "width": 1366,
+      "title": "Modely a inference",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 3,
+      "tables": 0,
+      "selectedTabs": [
+        {
+          "action": "sv4-model-tab",
+          "tab": "hunt"
+        },
+        {
+          "action": "sv4-hunt-tab",
+          "tab": "overview"
+        }
+      ],
+      "expectedDegraded": [
+        "DESKTOP_NOT_INSTALLEDObnovit"
+      ]
+    },
+    {
+      "name": "catalog",
+      "width": 1366,
+      "title": "Modely a inference",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 1,
+      "tables": 1,
+      "selectedTabs": [
+        {
+          "action": "sv4-model-tab",
+          "tab": "hunt"
+        },
+        {
+          "action": "sv4-hunt-tab",
+          "tab": "catalog"
+        }
+      ],
+      "expectedDegraded": []
+    },
+    {
+      "name": "catalog-detail",
+      "width": 1366,
+      "title": "Modely a inference",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 1,
+      "tables": 1,
+      "selectedTabs": [
+        {
+          "action": "sv4-model-tab",
+          "tab": "hunt"
+        },
+        {
+          "action": "sv4-hunt-tab",
+          "tab": "catalog"
+        }
+      ],
+      "expectedDegraded": []
+    },
+    {
+      "name": "hunt-settings",
+      "width": 1366,
+      "title": "Modely a inference",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 2,
+      "tables": 0,
+      "selectedTabs": [
+        {
+          "action": "sv4-model-tab",
+          "tab": "hunt"
+        },
+        {
+          "action": "sv4-hunt-tab",
+          "tab": "profiles"
+        }
+      ],
+      "expectedDegraded": [
+        "DESKTOP_NOT_INSTALLEDObnovit"
+      ]
+    },
+    {
+      "name": "hunt-history",
+      "width": 1366,
+      "title": "Modely a inference",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 1,
+      "tables": 1,
+      "selectedTabs": [
+        {
+          "action": "sv4-model-tab",
+          "tab": "hunt"
+        },
+        {
+          "action": "sv4-hunt-tab",
+          "tab": "history"
+        }
+      ],
+      "expectedDegraded": []
+    },
+    {
+      "name": "telemetry",
+      "width": 1366,
+      "title": "Modely a inference",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 1,
+      "tables": 1,
+      "selectedTabs": [
+        {
+          "action": "sv4-model-tab",
+          "tab": "telemetry"
+        }
+      ],
+      "expectedDegraded": []
+    },
+    {
+      "name": "operations",
+      "width": 1366,
+      "title": "Modely a inference",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 1,
+      "tables": 1,
+      "selectedTabs": [
+        {
+          "action": "sv4-model-tab",
+          "tab": "policy"
+        },
+        {
+          "action": "sv4-operation-tab",
+          "tab": "policy"
+        }
+      ],
+      "expectedDegraded": []
+    },
+    {
+      "name": "challenge-draft",
+      "width": 1366,
+      "title": "Modely a inference",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 3,
+      "tables": 0,
+      "selectedTabs": [
+        {
+          "action": "sv4-model-tab",
+          "tab": "hunt"
+        },
+        {
+          "action": "sv4-hunt-tab",
+          "tab": "profiles"
+        }
+      ],
+      "expectedDegraded": [
+        "DESKTOP_NOT_INSTALLEDObnovit"
+      ]
+    },
+    {
+      "name": "profiles-list",
+      "width": 1366,
+      "title": "Modely a inference",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 2,
+      "tables": 0,
+      "selectedTabs": [
+        {
+          "action": "sv4-model-tab",
+          "tab": "hunt"
+        },
+        {
+          "action": "sv4-hunt-tab",
+          "tab": "profiles"
+        }
+      ],
+      "expectedDegraded": [
+        "DESKTOP_NOT_INSTALLEDObnovit"
+      ]
+    },
+    {
+      "name": "profiles-tiles",
+      "width": 1366,
+      "title": "Modely a inference",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 2,
+      "tables": 0,
+      "selectedTabs": [
+        {
+          "action": "sv4-model-tab",
+          "tab": "hunt"
+        },
+        {
+          "action": "sv4-hunt-tab",
+          "tab": "profiles"
+        }
+      ],
+      "expectedDegraded": [
+        "DESKTOP_NOT_INSTALLEDObnovit"
+      ]
+    },
+    {
+      "name": "appearance-applied",
+      "width": 1366,
+      "title": "Vzhled",
+      "outerOverflow": 0,
+      "error": false,
+      "cards": 4,
+      "tables": 0,
+      "selectedTabs": [],
+      "expectedDegraded": []
+    }
+  ],
+  "checks": [
+    "profile: invalid draft retained, exactly one valid PUT and durable readback",
+    "SSH 422 preserves inline draft",
+    "role runtime: actual UI PUT and readback",
+    "weekly Hunt profile: conditional fields, disabled save and readback, no GPU job",
+    "Hunt profiles: actual list vs tile DOM and grid layout",
+    "memory form: real save/readback of feedback detection",
+    "feature toggle: confirmed UI write and effective backend readback",
+    "appearance: saved controls change actual native theme, font and size",
+    "backup: confirmed native creation and manifest list readback",
+    "actual backend restart preserves profile and Hunt plan"
+  ],
+  "errors": [],
+  "calls": [
+    {
+      "method": "GET",
+      "path": "/api/conversations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects"
+    },
+    {
+      "method": "GET",
+      "path": "/api/specialists"
+    },
+    {
+      "method": "GET",
+      "path": "/api/expertises"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agents"
+    },
+    {
+      "method": "GET",
+      "path": "/api/media/history"
+    },
+    {
+      "method": "GET",
+      "path": "/api/health"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/info"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/gpu"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/upgrades/bindings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects"
+    },
+    {
+      "method": "GET",
+      "path": "/api/specialists"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects/1/conversations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/conversations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/conversations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/conversations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/conversations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/accounts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/accounts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/channels"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/config"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/backups"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/storage/settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/scm/repositories"
+    },
+    {
+      "method": "GET",
+      "path": "/api/scm/profiles"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/storage/inventory"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/storage/paths"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/storage/settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/channels"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/log"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/development/environment"
+    },
+    {
+      "method": "GET",
+      "path": "/api/development/policy"
+    },
+    {
+      "method": "GET",
+      "path": "/api/development/installations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/info"
+    },
+    {
+      "method": "GET",
+      "path": "/api/health"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/gpu"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/storage"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/storage"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/backups"
+    },
+    {
+      "method": "GET",
+      "path": "/api/features"
+    },
+    {
+      "method": "GET",
+      "path": "/api/features"
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/audit"
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/tokens"
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/sessions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/webhook-secret"
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/audit"
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/tokens"
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/sessions"
+    },
+    {
+      "method": "GET",
+      "path": "/api/security/webhook-secret"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/overview"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/role-settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/upgrades/bindings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/upgrades/bindings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/evaluations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/evaluations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt/jobs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt/profiles"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/candidates"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/downloads"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt"
+    },
+    {
+      "method": "GET",
+      "path": "/api/health"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/info"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/gpu"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/evaluations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/telemetry"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/policy"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/channels"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/accounts/profile"
+    },
+    {
+      "method": "GET",
+      "path": "/api/accounts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/health"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/info"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/gpu"
+    },
+    {
+      "method": "GET",
+      "path": "/api/accounts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/channels"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/config"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/scm/profiles/ssh_71538197-8a82-401c-9490-2a9e1ccd6c08"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/role-settings"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/system/models/role-settings/CHAT"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/role-settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt/profiles"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/system/models/hunt/profiles/profile_mv2hhth7_3"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt/profiles"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings"
+    },
+    {
+      "method": "POST",
+      "path": "/api/settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/storage/settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/storage/settings"
+    },
+    {
+      "method": "POST",
+      "path": "/api/features/telemetry"
+    },
+    {
+      "method": "GET",
+      "path": "/api/features"
+    },
+    {
+      "method": "POST",
+      "path": "/api/system/backup"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/backups"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/storage/settings"
+    }
+  ]
+}

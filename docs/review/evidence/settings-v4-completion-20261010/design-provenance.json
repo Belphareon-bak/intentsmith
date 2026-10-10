@@ -1,0 +1,32 @@
+{
+  "sourceRevision": "3c804a8a859a9f44efd200585795f5373e85fc3c",
+  "previewSource": "/home/belphareon/Projects/docs/reviewer-tools/ide-redesign-20261009/preview-v4-claude/src",
+  "files": [
+    {
+      "file": "styles.css",
+      "sha256": "6b0df039109c7cf14d1af57e9cbd4a5af1a7390e5c5051f4f43f5ffcd8566e5d",
+      "identical": true
+    },
+    {
+      "file": "model-v2.css",
+      "sha256": "898f7ab5d55c8b259e453bfb34cbdea7031bea878b6ac5a7763e9ff9bdca4c4a",
+      "identical": true
+    },
+    {
+      "file": "settings-v2.css",
+      "sha256": "fcdf8a12a47129dc3353bdf063e6f494cff04930982daca2f332ae0a0df85414",
+      "identical": true
+    },
+    {
+      "file": "hunt-v2.css",
+      "sha256": "01aaa7c27a2930cee10e6d30a91361d428d3581c7c6a75aac621339de0d719f6",
+      "identical": true
+    },
+    {
+      "file": "fixes-v4.css",
+      "sha256": "22a2a3629c8440a8f40ed3d1ba82651f95c3ca2af6f7fca1f233893aa2b395d2",
+      "identical": true
+    }
+  ],
+  "integration": "selectors scoped to existing Studio2 widget; existing theme and API data"
+}

@@ -1,0 +1,27 @@
+{
+  "at": "2026-10-10T14:26:07.117990+00:00",
+  "status": "GPU_HUNT_NOT_VERIFIED",
+  "nvidiaSmiExitCode": 18,
+  "diagnostic": "Failed to initialize NVML: Driver/library version mismatch\nNVML library version: 595.99",
+  "loadedDriver": "NVRM version: NVIDIA UNIX Open Kernel Module for x86_64  595.91.07  Release Build  (dvs-builder@U22-I3-B08-02-2)  Wed Jul 29 03:01:16 UTC 2026",
+  "services": {
+    "intentsmith-backend.service": [
+      "ActiveState=active",
+      "UnitFileState=enabled"
+    ],
+    "intentsmith-model-hunt.service": [
+      "ActiveState=inactive",
+      "UnitFileState=static"
+    ],
+    "intentsmith-model-evaluation.service": [
+      "ActiveState=inactive",
+      "UnitFileState="
+    ],
+    "intentsmith-model-hunt.timer": [
+      "ActiveState=inactive",
+      "UnitFileState=disabled"
+    ]
+  },
+  "holdSha256": "9502664935823f42aff92cc64a7f01b86d2d6abcb30ef164b2400f334b17f2d7",
+  "scope": "read-only inventory; no inference, role activation or automation hold release"
+}

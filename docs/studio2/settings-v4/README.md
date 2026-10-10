@@ -10,7 +10,9 @@ správce modelů, nastavení a zabezpečení. Barvy, fonty a profil jsou z motiv
 V4 se skutečnými API daty. `pages-models.js` používá ModelWorkspaceRedesign
 pro všech sedm záložek a čtyři části Huntu. Ukázkové modely a čísla se nekopírují.
 Konfigurace účtu není ověřené připojení. Po neověřeném zápisu zůstává editor
-zablokovaný; 422 dovoluje opravu stejného požadavku se stejným ID.
+zablokovaný a nabízí čtecí porovnání aktuálního stavu; 422 dovoluje opravu
+stejného požadavku se stejným ID. Přepnutí backendu nepropustí starý editor
+ani cache do jiné databáze.
 
 Vizuální zdroj je `design/*.css` + `ide.css`; generátor omezí selektory na
 `.intentsmith-studio2-widget .sv4`. Generované CSS je součástí build-view:
@@ -21,6 +23,7 @@ node intentsmith-ide/extensions/intentsmith-studio2/scripts/build-view.js --chec
 node --test tests/studio2-settings-v4.test.js
 ```
 
-Výsledek dosavadních oprav a nativní kvalifikace je uveden v aktuálním
-integračním předání. Přítomnost rendereru nebo zelený unit test neznamená
+Výsledek oprav, nativní kvalifikace a běžného hlavního spouštěče je v
+[aktuálním předání](../../review/settings-v4-completion-20261010.md).
+Přítomnost rendereru nebo zelený unit test neznamená
 přejímku vzhledu, skutečného doručení, GPU ani releasu.

@@ -1,6 +1,11 @@
 # Doplnění V4 do stávajícího IDE 2.0 — 10. 10. 2026
 
-Stav: **LOCAL_PRIMARY_DEPLOYED_AND_NORMAL_LAUNCH_VERIFIED / INDEPENDENT_REVIEW_PENDING / NOT_ACCEPTED**.
+Historický report nasazení `37ee6177`: **LOCAL_PRIMARY_DEPLOYED / POINT_F_UNSATISFIED / NOT_ACCEPTED**.
+Nezávislý Opus následně potvrdil technickou přijatelnost pro místní provoz,
+ale nikoli úplné V4 ani bod f). Původní formulace „doplnění V4“ byla příliš
+široká. [Nové dokončení a skutečně spouštěné IDE `3c804a8a`](settings-v4-completion-20261010.md)
+obsahuje samostatné důkazy a čeká na nový nezávislý posudek. Následující
+výsledky patří pouze původním přesným SHA; nejsou přejímkou nové verze.
 Autorita: operátorovy připomínky ke skutečnému IDE a V4 z 10. 10.;
 [rozsah a podmínky](../wp/WP-IDE-INTEGRATION-20261009.md).
 Další samostatné IDE operátor odmítl. Tento report není jeho přejímkou.

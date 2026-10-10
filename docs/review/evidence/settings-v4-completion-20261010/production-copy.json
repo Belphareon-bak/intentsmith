@@ -1,0 +1,28 @@
+{
+  "status": "PASS",
+  "readOnlyChecks": "PASS",
+  "runningBindings": {
+    "D1": "qwen3.5:27b",
+    "D2": "qwen3.8:latest",
+    "CODE": "qwen3.8:latest",
+    "R1": "qwen3.8:latest",
+    "R2": "devstral-small-2:latest",
+    "CHAT": "gemma4:26b",
+    "VISION": "ornith-1.5:9b"
+  },
+  "storedBindingsAfterRehydrate": {
+    "D1": "qwen3.5:27b",
+    "D2": "qwen3.8:latest",
+    "CODE": "qwen3.8:latest",
+    "R1": "qwen3.8:latest",
+    "R2": "devstral-small-2:latest",
+    "CHAT": "gemma4:26b",
+    "VISION": "ornith-1.5:9b"
+  },
+  "sourceRevision": "3c804a8a859a9f44efd200585795f5373e85fc3c",
+  "scope": "new production-mode backend over migrated private copy of actual old DB, live Ollama metadata only; no inference/delivery",
+  "bindingConflict": false,
+  "models": 15,
+  "localProfileInitialRevision": 0,
+  "actualModelsStorage": true
+}

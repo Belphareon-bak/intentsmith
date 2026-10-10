@@ -1,0 +1,42 @@
+✔ flat evaluation matrix keeps exact artifact identities and missing/awaiting scores last (8.128603ms)
+✔ telemetry chart uses observed timestamps and latency, bounds points and does not invent unknown values (4.740078ms)
+✔ optional management endpoint failure leaves supported overview usable (1.766972ms)
+✔ public score sorting uses a single comparable protocol instead of mixed benchmark scores (0.649712ms)
+✔ role parameters repair a current STALE binding with exact artifact CAS and readback (1.102448ms)
+✔ changed role artifact or backend cannot authorize a write from an older editor (0.245948ms)
+✔ ambiguous profile readback does not resend the mutation (0.447203ms)
+✔ queued profile captures exact model/suite pins and immutable profile revision (0.654426ms)
+✔ job leaving QUEUED state between view and confirmation is not cancelled (0.213534ms)
+✔ invalid role-settings are an error state; valid unavailable bindings remain renderable (0.90993ms)
+✔ profile editor locks every draft callback and opening action while a write is pending (3.92345ms)
+✔ historical matrix cells cannot test another digest selected only by the same tag (0.365996ms)
+✔ catalog prepares a selectable evaluation profile without mutating or starting GPU (0.489503ms)
+✔ Hunt and Challenge groups create distinct drafts and preserve schedule semantics (0.33284ms)
+✔ local model detail separates role configuration from verified hardware capacity (0.380518ms)
+✔ provider failure retains configured bindings without inventing health or measured scores (0.137941ms)
+✔ catalog explains all roles, source provenance and real variant selection without activating a model (0.354018ms)
+✔ all V4 settings and model pages render unavailable states without fabricated scores (14.631591ms)
+✔ HTTP 503 after a committed account create blocks a second PUT and preserves the identity (13.502129ms)
+✔ HTTP 422 permits correction in the same account editor with the same generated ID (0.669584ms)
+✔ configured credentials and SSH references do not claim verified external connection (0.291997ms)
+✔ catalog filter excludes incompatible roles and searches verified quantization metadata (1.5103ms)
+✔ matrix keeps pending and old-digest evidence distinct and renders a genuine complete score (0.7661ms)
+✔ read-only reconciliation preserves a blocked account ID and explicitly closes the editor without another PUT (3.278614ms)
+✔ base model cache reloads after backend switch and rejects a result arriving from the old backend (0.668923ms)
+✔ V4 catalog preparation copies planning defaults and only selected role suites into a new disabled draft (4.147073ms)
+PASS Studio 2 is the sole renderer for new and existing profiles
+PASS source and packaged startup choose the custom frame before Theia
+PASS custom window initialization preserves Legacy preferences and host restart handlers
+PASS vizuální vrstva odpovídá prototypu
+PASS prototype scenarios and fuzz on repository sources
+PASS generated React view renders sessions, column picker, files, source control, catalog and all styles
+PASS category labels, activity dates and distinct settings palette survive canonical rendering
+✔ tests/studio2-view.test.js (6447.11785ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 27
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6459.626144

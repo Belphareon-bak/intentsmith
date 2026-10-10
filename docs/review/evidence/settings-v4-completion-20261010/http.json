@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "runId": "2026-10-10T14-20-18-225Z",
+  "sourceRevision": "3c804a8a859a9f44efd200585795f5373e85fc3c",
+  "evidenceType": "intentsmith.suite-run",
+  "gateEvidence": false,
+  "note": "Běhový režim mimo Gate 0. Neaktualizuje registr ani lastGreen.",
+  "summary": {
+    "PASS": 3
+  },
+  "results": [
+    {
+      "id": "IS-T3-TESTS-CHAT-PROJECT-EXPERTISE-HTTP-TEST",
+      "path": "tests/chat-project-expertise-http.test.js",
+      "status": "PASS",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 7087,
+      "detail": null,
+      "stepsPassed": 0
+    },
+    {
+      "id": "IS-T3-TESTS-CHAT-PROJECT-EXPERTISE-MODEL-CONTRACT-TEST",
+      "path": "tests/chat-project-expertise-model-contract.test.js",
+      "status": "PASS",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 1161,
+      "detail": null,
+      "stepsPassed": 0
+    },
+    {
+      "id": "IS-T3-TESTS-IDE-BACKEND-PRODUCT-HTTP-JOURNEY-TEST",
+      "path": "tests/ide-backend-product-http-journey.test.js",
+      "status": "PASS",
+      "exitCode": 0,
+      "signal": null,
+      "durationMs": 4869,
+      "detail": null,
+      "stepsPassed": 0
+    }
+  ]
+}

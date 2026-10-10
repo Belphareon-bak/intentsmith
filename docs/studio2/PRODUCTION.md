@@ -15,9 +15,10 @@ nejsou automaticky výsledkem pozdějšího frontendu.
 | 28. 9. — poslední relace 1–5, kategorie a časy | `79c19096` | [Report relací a kategorií](../review/2026-09-28-STUDIO2-RECENCY-CATEGORIES.md): původní datové konektory a AppImage; celý profil 385 PASS / 1 FAIL Gate 0. |
 | 28. 9. — neutrální konverzace a projektové časy | `32361710` | [Report vzhledu a časů](../review/2026-09-28-STUDIO2-PALETTE-PROJECT-DATES.md): AppImage, tři Electron scénáře a 11 motivů PASS; celý profil 385 PASS / 1 FAIL Gate 0 běžel na předchozím integračně shodném `b5fda0f1`. |
 | 29. 9. — operátorem vybraná paleta nastavení B + 20 % | `fddfe996` | [Report palety B](../review/2026-09-29-STUDIO2-SETTINGS-PALETTE-B.md): AppImage, reálný Electron, běžný start a 11 motivů PASS; nový celý profil na `fddfe996` report nedokládá. |
-| 10. 10. — V4 v existujícím IDE, společná aktualizace backendu | `37ee6177` | [Aktuální report](../review/ide-preview-completion-20261010.md): stávající instalátor, původní DB/profil/Legacy/hold, operátorem povolená obnova uložených rolí, běžná položka nabídky a skutečné nové okno PASS. |
+| 10. 10. — dílčí V4 a společná aktualizace backendu | `37ee6177` | [Historický report](../review/ide-preview-completion-20261010.md): původní DB/profil/Legacy/hold, obnova uložených rolí a běžný start PASS; následný Opus verdict je místní technická přijatelnost, bod f) nesplněný. |
+| 10. 10. — kompozice doladěného V4, katalog a plánování v původním Studiu 2 | `3c804a8a` | [Aktuální report](../review/settings-v4-completion-20261010.md): 416/416 offline/database, 3/3 HTTP, 53 nativních snímků s readbackem/restartem, CI 19/19 a běžný hlavní launcher PASS. Nová nezávislá revize pending. |
 
-Poslední doložená instalace z 10. 10. používá frontend i backend `37ee6177`,
+Poslední doložená instalace z 10. 10. používá frontend i backend `3c804a8a`,
 původní DB a profil IDE; cíl Legacy je zachovaný. **LOCAL_PRIMARY_DEPLOYED /
 NORMAL_LAUNCH_VERIFIED / REVIEW_PENDING**. Nezávislé přijetí a Gate 0 PASS
 z těchto místních zkoušek neplynou.
@@ -63,15 +64,15 @@ nezávislé přijetí zůstávají odlišné výsledky.
 
 Další samostatný spouštěč kandidáta byl na pokyn operátora odstraněn.
 Dokončení se provádí v existujícím IDE 2.0; Legacy a provozní data zůstávají
-zachována. [Aktuální práce, ověření a meze](../review/ide-preview-completion-20261010.md)
+zachována. [Aktuální práce, ověření a meze](../review/settings-v4-completion-20261010.md)
 rozlišují zdroj, skutečný AppImage, místní instalaci a formální přejímku.
 
-Aktualizace z 10. 10. má ověřený AppImage `37ee6177`, 39 nativních snímků,
-415/415 offline/database na předchozím `3f9410cc` a 47/47 dotčených UI testů
-po doplnění popisků a opravě focusu vybrané záložky. **Je lokálně nasazená**
-ve stávající hlavní instalaci; nabídka `intentsmith.desktop` i backend nyní
-používají `37ee6177`. Běžné spuštění s původním profilem prošlo a má vlastní
-[receipt a snímky](../review/evidence/ide-preview-completion-20261010/primary-installation-37ee6177.json).
+Aktualizace z 10. 10. má ověřený AppImage `3c804a8a`, 53 nativních snímků,
+416/416 offline/database a 3/3 HTTP programy na přesném SHA. **Je lokálně
+nasazená** ve stávající hlavní instalaci; nabídka `intentsmith.desktop` i
+backend nyní používají `3c804a8a`. Běžné spuštění s původním profilem a motivem
+prošlo a má vlastní
+[receipt a snímky](../review/evidence/settings-v4-completion-20261010/primary-installation.json).
 Jedna položka IDE 2.0 a samostatný Legacy zůstávají. Nasazení neuděluje
 formální přejímku; nový nezávislý verdikt, GPU, doručení a release důkazy
 stále potřebují vlastní ověření.

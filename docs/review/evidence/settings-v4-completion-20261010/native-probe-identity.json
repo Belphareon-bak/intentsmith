@@ -1,0 +1,8 @@
+{
+  "sourceRevision": "3c804a8a859a9f44efd200585795f5373e85fc3c",
+  "observedAfterRun": "2026-10-10T14:40:02.975603+00:00",
+  "executedProbeSha256": "700884ac59ac431fd45844def09a0a38ae285ee78580a8e788a6594bae7d0cc8",
+  "publishedProbeSha256": "359d78c735883eb37a5a54c0879bc1eb592643748589fdec44955f8d1c83e904",
+  "publicationAdjustment": "only relative test helper import depth, from ignored artifact directory to docs/review/evidence directory",
+  "scope": "manual native fixture probe, not independent acceptance"
+}
