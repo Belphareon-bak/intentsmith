@@ -257,6 +257,20 @@ test('trusted worker waits for a real five-minute due time and notifies once', {
   assert(dueEpochMs - Date.now() > INTERVAL_MS - 20_000,
     'baseline observation must leave almost a full real interval');
 
+  const instanceRoute = '/api/agent-extensions/instances/' + instanceId;
+  const configuration = await expectJson(product, 'GET', instanceRoute + '/config', null, 200);
+  const renamed = await expectJson(product, 'PUT', instanceRoute, {
+    params: configuration.params, name: 'Renamed scheduled Project Health',
+    expectedDefinitionDigest: configuration.definition.m3_extension.definitionDigest,
+    expectedConfigDigest: configuration.configDigest,
+  }, 200);
+  assert.deepEqual(renamed.state, configuration.state,
+    'renaming a scheduled worker must retain its baseline and last run');
+  const afterRename = await waitForNextRun(product, instanceId);
+  assert.equal(afterRename.nextRun, scheduled.nextRun,
+    'renaming must preserve the existing due time');
+  assert.equal(afterRename.lastRun, scheduled.lastRun);
+
   const changedContent =
     'export const health = false; // FIXME REAL_SCHEDULED_REVISION_402\n';
   writeFileSync(projectFile, changedContent, { mode: 0o600 });
@@ -370,6 +384,7 @@ test('trusted worker waits for a real five-minute due time and notifies once', {
     'source revision changed during the wall-clock soak');
   successfulEvidence = {
       schemaVersion: 1, sourceRevision, executionMode: 'test',
+      presentationEditPreservedState: true, presentationEditPreservedSchedule: true,
       intervalMs: INTERVAL_MS, projectId, instanceId, initialProductPid,
       restartedProductPid: product.child.pid,
       baselineRunId: baseline.id, changedRunId: changed.id,

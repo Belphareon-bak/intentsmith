@@ -113,6 +113,22 @@ test('Project Health runs through the product HTTP server and survives restart',
   assert(scheduler.scheduled.some(agent => agent.id === instanceId && agent.enabled),
     'the product scheduler must own the enabled extension instance');
 
+  const configuration = await expectJson(product, 'GET', `${route}/config`, null, 200);
+  const renamed = await expectJson(product, 'PUT', route, {
+    params: configuration.params, name: 'Renamed Project Health',
+    description: 'Presentation changed; the monitored project is the same.',
+    expectedDefinitionDigest: configuration.definition.m3_extension.definitionDigest,
+    expectedConfigDigest: configuration.configDigest,
+  }, 200);
+  assert.deepEqual(renamed.state, configuration.state,
+    'name and description edits must preserve the project baseline and trigger history');
+  assert.equal(renamed.enabled, true);
+  await expectJson(product, 'PUT', route, {
+    params: configuration.params, name: 'Stale rename',
+    expectedDefinitionDigest: configuration.definition.m3_extension.definitionDigest,
+    expectedConfigDigest: configuration.configDigest,
+  }, 409);
+
   const changedContent = 'export const healthProbe = false; // FIXME PRODUCT_WORKER_CHANGED_714\n';
   writeFileSync(projectFile, changedContent, { mode: 0o600 });
   const changed = await expectJson(product, 'POST', `${route}/run`, null, 200);
@@ -191,6 +207,27 @@ test('Project Health runs through the product HTTP server and survives restart',
     `/api/notifications?agent=${encodeURIComponent(instanceId)}`, null, 200))
     .notifications.length, 1);
   assert.equal(provider.modelCalls, 0);
+  const restoredConfiguration = await expectJson(product, 'GET', `${route}/config`, null, 200);
+  assert.equal(restoredConfiguration.name, renamed.name);
+  assert.equal(restoredConfiguration.description, renamed.description);
+
+  const otherProject = await expectJson(product, 'POST', '/api/projects', {
+    name: `worker-retarget-${randomBytes(4).toString('hex')}`,
+  }, 201);
+  writeFileSync(path.join(otherProject.project.path, 'different.js'),
+    'export const different = true; // FIXME RETARGETED_PROJECT\n', { mode: 0o600 });
+  const retargeted = await expectJson(product, 'PUT', route, {
+    params: { project_id: otherProject.project.id },
+    expectedDefinitionDigest: restoredConfiguration.definition.m3_extension.definitionDigest,
+    expectedConfigDigest: restoredConfiguration.configDigest,
+  }, 200);
+  assert.deepEqual(retargeted.state, {}, 'a changed source must discard the previous baseline');
+  const newBaseline = await expectJson(product, 'POST', `${route}/run`, null, 200);
+  assert.equal(newBaseline.run_state, 'INIT_BASELINE');
+  assert.equal(newBaseline.explain.sources[0].evidence.projectId, otherProject.project.id);
+  assert.equal((await expectJson(product, 'GET', `/api/agents/${instanceId}`, null, 200))
+    .notifications.length, 1, 'retargeting must not invent a project-change notification');
+  assert.equal(provider.modelCalls, 0);
   writeFileSync(path.join(parentRuntime.artifacts, 'm3-agent-product-http-journey.json'),
     `${JSON.stringify({ schemaVersion: 1, status: 'PASS',
       sourceRevision: process.env.INTENTSMITH_TEST_SOURCE_REVISION || null,
@@ -202,5 +239,7 @@ test('Project Health runs through the product HTTP server and survives restart',
       failClosedSourceCode: sourceFailure.sourceErrors[0].errorCode,
       providerModelCalls: provider.modelCalls, productRestarted: true,
       unauthenticatedRejected: true, localCapabilityAccepted: true,
+      presentationEditPreservedState: true, renamedConfigurationPersisted: true,
+      staleEditRejected: true, changedParametersResetBaseline: true,
     }, null, 2)}\n`, { flag: 'wx', mode: 0o600 });
 });

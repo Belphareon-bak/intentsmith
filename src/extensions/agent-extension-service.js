@@ -317,9 +317,13 @@ export class AgentExtensionService {
     const preview=this.preview(extension.manifest.id,{instanceId,params},true);
     if(name!==undefined&&(typeof name!=='string'||!name.trim()||name.length>120)
       ||description!==undefined&&(typeof description!=='string'||description.length>4000))fail('Invalid worker description');
+    const parametersChanged = canonicalJson(preview.params) !== canonicalJson(agent.params);
     const updated=this.repository.updateAgent(instanceId,{params:preview.params,
-      ...(name!==undefined?{name:name.trim()}:{}),...(description!==undefined?{description}:{}),state:{}});
-    if(updated.enabled&&updated.definition.schedule?.type!=='manual')this.scheduler?.rescheduleAgent(instanceId);
+      ...(name!==undefined?{name:name.trim()}:{}),...(description!==undefined?{description}:{}),
+      ...(parametersChanged ? { state: {} } : {})});
+    // Presentation edits retain the baseline, cooldowns and pending due time.
+    // A new source needs its own baseline before detecting changes.
+    if(parametersChanged&&updated.enabled&&updated.definition.schedule?.type!=='manual')this.scheduler?.rescheduleAgent(instanceId);
     return this.instanceConfiguration(instanceId);
   }
 
