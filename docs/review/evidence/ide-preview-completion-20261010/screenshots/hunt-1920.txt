@@ -1,0 +1,123 @@
+Soubor
+Úpravy
+Zobrazení
+Relace
+Agent
+Nápověda
+Hledat, přepnout relaci, spustit příkaz…
+Ctrl K
+1
+2
+3
+Konverzace
+OTEVŘENÉ RELACE
+1
+Relace 1
+nečinná
+Projekty
+Specialisté
+Expertýzy
+Workeři
+Obchod
+Multimédia
+Nastavení
+Nastavení
+/
+Modely a inference
+Modely a inference
+živá data
+Přehled
+Role
+Modely
+Evaluace
+GPU Hunt
+Telemetrie
+Provoz
+
+Načtení selhalo: DESKTOP_NOT_INSTALLED
+
+Obnovit
+GPU Hunt
+
+Kandidáti, plánování, průběh a historie.
+
+Přehled
+Katalog
+Nastavení Huntu a Challenge
+Historie
+Aktuální běh
+Stav
+—
+Model
+—
+Fáze
+—
+
+Poslední hlášení · —
+
+Backend nemá aktuální hlášení.
+
+Fronta a stav úkolů
+
+Každý úkol uchovává vlastní revizi profilu, modelové digesty a kontrakty sad. Zrušit lze pouze čekající úkol.
+
+Pravidelné plány
+
+Poslední závěry běhů
+
+Backend poskytuje posledních pět dokončených běhů. Historie evaluací a naplánovaných úkolů je samostatná.
+
+Aktuální přiřazení
+
+Aktuální přiřazení z backendu.
+
+D1
+qwen3.8:latest
+Nastaveno · 8192 / — tok.
+Ověřený strop HW · Dosud neověřeno
+Místní skóre: —
+D2
+qwen3.8:latest
+Nastaveno · 8192 / — tok.
+Ověřený strop HW · Dosud neověřeno
+Místní skóre: —
+R1
+qwen3.8:latest
+Nastaveno · 8192 / — tok.
+Ověřený strop HW · Dosud neověřeno
+Místní skóre: —
+R2
+qwen3.8:latest
+Nastaveno · 8192 / — tok.
+Ověřený strop HW · Dosud neověřeno
+Místní skóre: —
+CODE
+qwen3.8:latest
+Nastaveno · 8192 / — tok.
+Ověřený strop HW · Dosud neověřeno
+Místní skóre: —
+CHAT
+qwen3.8:latest
+Nastaveno · 8192 / — tok.
+Ověřený strop HW · Dosud neověřeno
+Místní skóre: —
+VISION
+qwen3.8:latest
+Nastaveno · 8192 / — tok.
+Ověřený strop HW · Dosud neověřeno
+Místní skóre: —
+Změny
+Soubory
+Správa zdrojů
+Kontext
+1
+Nic nečeká na schválení
+V režimu Kontrola se sem dostanou změny souborů, než se zapíšou.
+Připojeno
+backend 136.1.0
+ws :34201
+1 relace · 0 pracuje · 0 čeká
+kontext
+—
+DB 3,02 MiB
+GPU nedostupné

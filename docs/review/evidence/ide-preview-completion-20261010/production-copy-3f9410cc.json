@@ -1,0 +1,28 @@
+{
+  "status": "BLOCKED_LIVE_UPGRADE_BINDING_CONFLICT",
+  "readOnlyChecks": "PASS",
+  "runningBindings": {
+    "D1": "qwen3.5:27b",
+    "D2": "qwen3.8:latest",
+    "CODE": "qwen3.5:27b",
+    "R1": "qwen3.8:latest",
+    "R2": "qwen3:14b",
+    "CHAT": "qwen3.5:27b",
+    "VISION": "llava-llama3:8b"
+  },
+  "storedBindingsAfterRehydrate": {
+    "D1": "qwen3.5:27b",
+    "D2": "qwen3.8:latest",
+    "CODE": "qwen3.8:latest",
+    "R1": "qwen3.8:latest",
+    "R2": "devstral-small-2:latest",
+    "CHAT": "gemma4:26b",
+    "VISION": "ornith-1.5:9b"
+  },
+  "sourceRevision": "3f9410cc9b36559ad2817474f90bb5a8782cc55e",
+  "scope": "new production-mode backend over migrated private copy of actual old DB, live Ollama metadata only; no inference/delivery",
+  "bindingConflict": true,
+  "models": 15,
+  "localProfileInitialRevision": 0,
+  "actualModelsStorage": true
+}

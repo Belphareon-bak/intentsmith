@@ -1,0 +1,66 @@
+Soubor
+Úpravy
+Zobrazení
+Relace
+Agent
+Nápověda
+Hledat, přepnout relaci, spustit příkaz…
+Ctrl K
+1
+2
+3
+Konverzace
+OTEVŘENÉ RELACE
+1
+Relace 1
+nečinná
+Projekty
+Specialisté
+Expertýzy
+Workeři
+Obchod
+Multimédia
+Nastavení
+Nastavení
+Všechna nastavení IntentSmithu na jednom místě
+Účet a propojení
+Lokální profil, propojené služby a doručovací účty.
+Repozitáře a přístupy
+Repozitáře, vzdálené adresy a SSH profily.
+Modely a inference
+Modely, inference, připojení a hardware.
+Paměť
+Historie, kontext a automatické učení.
+Oznámení
+Kanály oznámení a čas pro soustředění.
+Výstup
+Formátování a délka odpovědi.
+Vzhled
+Paleta, písmo a rozvržení pracovního prostředí.
+Systém
+Prostředí, spouštění, diagnostika a limity.
+Úložiště
+Přehled databáze a údržba.
+Zálohy
+Export, obnova a výchozí hodnoty.
+Funkční přepínače
+Dostupné subsystémy a jejich běhové přepínače.
+Zabezpečení
+Audit, přístup a relace.
+O aplikaci
+Verze aplikace, protokol a stav backendu.
+Změny
+Soubory
+Správa zdrojů
+Kontext
+1
+Nic nečeká na schválení
+V režimu Kontrola se sem dostanou změny souborů, než se zapíšou.
+Připojeno
+backend 136.1.0
+ws :34201
+1 relace · 0 pracuje · 0 čeká
+kontext
+—
+DB 3,02 MiB
+GPU nedostupné

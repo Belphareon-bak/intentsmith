@@ -1,0 +1,40 @@
+Found cached ffmpeg library.
+Hashes are equal, not replacing the ffmpeg library.
+"/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules/electron/dist/libffmpeg.so" does not contain proprietary codecs (13 found).
+[build/browser] Build started
+
+▲ [WARNING] Duplicate key "constraints" in object literal [duplicate-object-key]
+
+    ../../extensions/intentsmith-studio2/lib/browser/view/generated/model.js:1458:6:
+      1458 │       constraints: s.specialistConstraints, setConstraints: e =>...
+           ╵       ~~~~~~~~~~~
+
+  The original key "constraints" is here:
+
+    ../../extensions/intentsmith-studio2/lib/browser/view/generated/model.js:1444:6:
+      1444 │       constraints: s.expertiseConstraints, setConstraints: e => ...
+           ╵       ~~~~~~~~~~~
+
+▲ [WARNING] Duplicate key "setConstraints" in object literal [duplicate-object-key]
+
+    ../../extensions/intentsmith-studio2/lib/browser/view/generated/model.js:1458:44:
+      1458 │ ....specialistConstraints, setConstraints: e => this.setState({s...
+           ╵                            ~~~~~~~~~~~~~~
+
+  The original key "setConstraints" is here:
+
+    ../../extensions/intentsmith-studio2/lib/browser/view/generated/model.js:1444:43:
+      1444 │ ...s.expertiseConstraints, setConstraints: e => this.setState({ ...
+           ╵                            ~~~~~~~~~~~~~~
+
+
+[build/browser] Finished with 0 errors in 441ms.
+
+[build/node] Build started
+
+[build/node] Finished with 0 errors in 208ms.
+
+[build/electron] Build started
+
+[build/electron] Finished with 0 errors in 5ms.
+

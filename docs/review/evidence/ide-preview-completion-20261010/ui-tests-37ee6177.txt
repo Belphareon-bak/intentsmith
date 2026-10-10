@@ -1,0 +1,62 @@
+✔ ordinary settings expose every preference section and retain edits across navigation (31.005854ms)
+✔ global list and tile controls have an actual catalog effect and disable forms and matrices with a reason (10.171346ms)
+✔ catalog has no duplicate sidebar counts and changes list density with the global size control (1.982331ms)
+✔ folder picker is inert until clicked, accepts a current native choice, and ignores cancellation (0.40096ms)
+✔ late native choice cannot overwrite a newer wizard: reopen (0.439527ms)
+✔ late native choice cannot overwrite a newer wizard: mode (0.20467ms)
+✔ late native choice cannot overwrite a newer wizard: step (0.193902ms)
+✔ late native choice cannot overwrite a newer wizard: busy (0.157393ms)
+✔ late native choice cannot overwrite a newer wizard: uncertain (0.224463ms)
+✔ late native choice cannot overwrite a newer wizard: path (0.300627ms)
+✔ late native choice cannot overwrite a newer wizard: newer (0.169668ms)
+✔ commit workspace validates project, ref, path and backend identity (4.114357ms)
+✔ an old commit response and a response after closing cannot replace the selected commit (0.224317ms)
+✔ reference edits invalidate old data and compare returns pinned revisions (0.189196ms)
+✔ commit review offers real sorted branches, parent selection, bounded diff notice and side by side changes (0.332342ms)
+✔ branch creation preserves the entered name after failure and clears it only after a verified plan (0.571601ms)
+✔ flat evaluation matrix keeps exact artifact identities and missing/awaiting scores last (8.352782ms)
+✔ telemetry chart uses observed timestamps and latency, bounds points and does not invent unknown values (4.986607ms)
+✔ optional management endpoint failure leaves supported overview usable (1.809707ms)
+✔ public score sorting uses a single comparable protocol instead of mixed benchmark scores (0.667518ms)
+✔ role parameters repair a current STALE binding with exact artifact CAS and readback (1.134767ms)
+✔ changed role artifact or backend cannot authorize a write from an older editor (0.237685ms)
+✔ ambiguous profile readback does not resend the mutation (0.457685ms)
+✔ queued profile captures exact model/suite pins and immutable profile revision (0.634365ms)
+✔ job leaving QUEUED state between view and confirmation is not cancelled (0.220216ms)
+✔ invalid role-settings are an error state; valid unavailable bindings remain renderable (0.852696ms)
+✔ profile editor locks every draft callback and opening action while a write is pending (3.732503ms)
+✔ historical matrix cells cannot test another digest selected only by the same tag (0.323462ms)
+✔ catalog prepares a selectable evaluation profile without mutating or starting GPU (0.424701ms)
+✔ Hunt and Challenge groups create distinct drafts and preserve schedule semantics (0.321769ms)
+✔ local model detail separates role configuration from verified hardware capacity (0.370633ms)
+✔ provider failure retains configured bindings without inventing health or measured scores (0.124613ms)
+✔ catalog explains all roles, source provenance and real variant selection without activating a model (0.338532ms)
+✔ inert VM; account revision payload and readback; view switch preserves editor (2.602934ms)
+✔ stale CAS refuses once and preserves original draft without rebase or retry (0.413444ms)
+✔ successful response with mismatched durable readback is not accepted (0.991604ms)
+✔ SSH in-use deletion is refused before confirmation or request; repository mapping verifies true document revision (0.77847ms)
+✔ backup note/archive updates preserve payload fingerprint and forbid archived/last deletion (0.38171ms)
+✔ web transport projection is conservative, rejects credentials/ports/unsafe decoded paths (0.171886ms)
+✔ notification read stores public fields only; list/grid items and action labels agree (0.815042ms)
+✔ empty canonical Component VM supplies inert template structures and simple-path bindings (0.824863ms)
+✔ backend identity switch never sends stale account/configuration into another backend, including async confirmation (0.347202ms)
+✔ legacy retention merges only selected backup values, preserves unrelated settings and verifies effective readback without CAS claim (0.4ms)
+✔ retention changes show the actual deletion preview and cancellation preserves draft without saving (0.293261ms)
+✔ definite validation rejection preserves an editable draft for correction (0.335804ms)
+✔ local profile editor preserves invalid fields and displays the exact persisted identity (0.391264ms)
+PASS Studio 2 is the sole renderer for new and existing profiles
+PASS source and packaged startup choose the custom frame before Theia
+PASS custom window initialization preserves Legacy preferences and host restart handlers
+PASS vizuální vrstva odpovídá prototypu
+PASS prototype scenarios and fuzz on repository sources
+PASS generated React view renders sessions, column picker, files, source control, catalog and all styles
+PASS category labels, activity dates and distinct settings palette survive canonical rendering
+✔ tests/studio2-view.test.js (6426.4899ms)
+ℹ tests 47
+ℹ suites 0
+ℹ pass 47
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6439.138402

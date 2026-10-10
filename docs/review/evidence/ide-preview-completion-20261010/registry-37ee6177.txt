@@ -1,0 +1,1 @@
+Test registry valid: 602 runnable programs, sha256 1cf9d212eb90e52c42da8f18962e0121de577c3adccb579785078626150d4780

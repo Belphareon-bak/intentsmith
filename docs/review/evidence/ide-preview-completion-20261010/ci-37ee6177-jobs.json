@@ -1,0 +1,185 @@
+{
+  "total_count": 1,
+  "jobs": [
+    {
+      "id": 114193151061,
+      "run_id": 38045179821,
+      "workflow_name": "IntentSmith development checks",
+      "head_branch": "work/ide-integration-20261009",
+      "run_url": "https://api.github.com/repos/Belphareon-bak/intentsmith/actions/runs/38045179821",
+      "run_attempt": 1,
+      "node_id": "CR_kwDOTlVtw88AAAAalnE0VQ",
+      "head_sha": "37ee6177f7cf8e5e4509c5860474e8dca2ce0e8e",
+      "url": "https://api.github.com/repos/Belphareon-bak/intentsmith/actions/jobs/114193151061",
+      "html_url": "https://github.com/Belphareon-bak/intentsmith/actions/runs/38045179821/job/114193151061",
+      "status": "completed",
+      "conclusion": "success",
+      "created_at": "2026-10-10T10:31:10Z",
+      "started_at": "2026-10-10T10:31:12Z",
+      "completed_at": "2026-10-10T10:35:10Z",
+      "name": "Development checks (Node 24)",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 1,
+          "started_at": "2026-10-10T10:31:13Z",
+          "completed_at": "2026-10-10T10:31:13Z"
+        },
+        {
+          "name": "Run actions/checkout@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 2,
+          "started_at": "2026-10-10T10:31:13Z",
+          "completed_at": "2026-10-10T10:31:18Z"
+        },
+        {
+          "name": "Run actions/setup-node@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 3,
+          "started_at": "2026-10-10T10:31:18Z",
+          "completed_at": "2026-10-10T10:31:20Z"
+        },
+        {
+          "name": "Install locked backend dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 4,
+          "started_at": "2026-10-10T10:31:20Z",
+          "completed_at": "2026-10-10T10:31:22Z"
+        },
+        {
+          "name": "Install locked Studio workspace dependencies",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 5,
+          "started_at": "2026-10-10T10:31:22Z",
+          "completed_at": "2026-10-10T10:31:50Z"
+        },
+        {
+          "name": "Validate registry and module boundaries",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 6,
+          "started_at": "2026-10-10T10:31:50Z",
+          "completed_at": "2026-10-10T10:31:51Z"
+        },
+        {
+          "name": "Verify generated Studio view",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 7,
+          "started_at": "2026-10-10T10:31:51Z",
+          "completed_at": "2026-10-10T10:31:51Z"
+        },
+        {
+          "name": "Verify privacy at the HTTP boundary",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 8,
+          "started_at": "2026-10-10T10:31:51Z",
+          "completed_at": "2026-10-10T10:31:55Z"
+        },
+        {
+          "name": "Install chat and M2 isolation tools",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 9,
+          "started_at": "2026-10-10T10:31:55Z",
+          "completed_at": "2026-10-10T10:32:04Z"
+        },
+        {
+          "name": "Prepare Ubuntu namespace policy for M2 sandbox tests",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 10,
+          "started_at": "2026-10-10T10:32:04Z",
+          "completed_at": "2026-10-10T10:32:04Z"
+        },
+        {
+          "name": "Verify chat context and approved effects (offline)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 11,
+          "started_at": "2026-10-10T10:32:04Z",
+          "completed_at": "2026-10-10T10:33:13Z"
+        },
+        {
+          "name": "Verify functional M2 application controls (offline)",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 12,
+          "started_at": "2026-10-10T10:33:13Z",
+          "completed_at": "2026-10-10T10:34:51Z"
+        },
+        {
+          "name": "Verify IDE management and authenticated restart journey",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 13,
+          "started_at": "2026-10-10T10:34:51Z",
+          "completed_at": "2026-10-10T10:34:57Z"
+        },
+        {
+          "name": "Preserve chat, M2 and IDE audit reports",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 14,
+          "started_at": "2026-10-10T10:34:57Z",
+          "completed_at": "2026-10-10T10:34:58Z"
+        },
+        {
+          "name": "Verify Studio 2 stores, rendering and authority adapters",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 15,
+          "started_at": "2026-10-10T10:34:58Z",
+          "completed_at": "2026-10-10T10:35:07Z"
+        },
+        {
+          "name": "Verify source hygiene",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 16,
+          "started_at": "2026-10-10T10:35:07Z",
+          "completed_at": "2026-10-10T10:35:07Z"
+        },
+        {
+          "name": "Post Run actions/setup-node@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 31,
+          "started_at": "2026-10-10T10:35:07Z",
+          "completed_at": "2026-10-10T10:35:07Z"
+        },
+        {
+          "name": "Post Run actions/checkout@v5",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 32,
+          "started_at": "2026-10-10T10:35:07Z",
+          "completed_at": "2026-10-10T10:35:07Z"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success",
+          "number": 33,
+          "started_at": "2026-10-10T10:35:07Z",
+          "completed_at": "2026-10-10T10:35:08Z"
+        }
+      ],
+      "check_run_url": "https://api.github.com/repos/Belphareon-bak/intentsmith/check-runs/114193151061",
+      "labels": [
+        "ubuntu-24.04"
+      ],
+      "runner_id": 1000000179,
+      "runner_name": "GitHub Actions 1000000179",
+      "runner_group_id": 0,
+      "runner_group_name": "GitHub Actions"
+    }
+  ]
+}

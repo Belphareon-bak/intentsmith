@@ -1,0 +1,86 @@
+Soubor
+Úpravy
+Zobrazení
+Relace
+Agent
+Nápověda
+Hledat, přepnout relaci, spustit příkaz…
+Ctrl K
+1
+2
+3
+Konverzace
+OTEVŘENÉ RELACE
+1
+Relace 1
+nečinná
+Projekty
+Specialisté
+Expertýzy
+Workeři
+Obchod
+Multimédia
+Nastavení
+Nastavení
+Účet a propojení
+Repozitáře a přístupy
+Modely a inference
+Paměť
+Oznámení
+Výstup
+Vzhled
+Systém
+Úložiště
+Zálohy
+Funkční přepínače
+Zabezpečení
+O aplikaci
+Nastavení
+/
+Účet a propojení
+Účet a propojení
+živá data
+
+Skutečné doručovací účty a jejich ověřitelný stav.
+
+Obnovit stav
+LOKÁLNÍ PROFIL
+Lokální profil není vyplněný
+Upravit profil
+
+Lokální profil · výchozí
+Účet této aplikace
+
+Lokální pracovní prostředí. Přístup řídí stávající desktopové ověření a oprávnění k této databázi.
+
+Propojené služby mají samostatné účty a oprávnění. Zobrazovaný profil neposílá data ani nepřihlašuje k externí službě.
+
+Propojené doručovací účty
+
+Telegram a Discord používají odkaz na proměnnou prostředí. Uložení konfigurace a ověřené doručení jsou různé stavy.
+
++ Přidat propojení
+Repozitářové účty a přístupy
+
+GitHub, GitLab a další Git hosty používají přístupové profily v Repozitáře a přístupy. Uložení SSH reference není OAuth přihlášení. Google a Microsoft zatím připojení nemají.
+
+PŘEDNOSTNÍ SLOŽKA V TOMTO IDE
+Absolutní cesta ve tvé domácí složce
+
+Nové projekty použijí výchozí složku backendu.
+
+Změny
+Soubory
+Správa zdrojů
+Kontext
+1
+Nic nečeká na schválení
+V režimu Kontrola se sem dostanou změny souborů, než se zapíšou.
+Připojeno
+backend 136.1.0
+ws :34201
+1 relace · 0 pracuje · 0 čeká
+kontext
+—
+DB 3,02 MiB
+GPU nedostupné

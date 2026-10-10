@@ -1,0 +1,122 @@
+Soubor
+Úpravy
+Zobrazení
+Relace
+Agent
+Nápověda
+Hledat, přepnout relaci, spustit příkaz…
+Ctrl K
+1
+2
+3
+Konverzace
+OTEVŘENÉ RELACE
+1
+Relace 1
+nečinná
+Projekty
+Specialisté
+Expertýzy
+Workeři
+Obchod
+Multimédia
+Nastavení
+Nastavení
+/
+Modely a inference
+Modely a inference
+živá data
+Přehled
+Role
+Modely
+Evaluace
+GPU Hunt
+Telemetrie
+Provoz
+
+Data z backendu. Nezměřené modely nemají skóre kvality.
+
+Obnovit
+Používané modely podle rolí
+
+Aktuální přiřazení z backendu.
+
+Role a účel	Přiřazený model	Místní skóre	Nastaveno · okno / odpověď	Ověřený strop HW
+D1 · Návrhář
+Rozebírá požadavek a připravuje plán práce.
+	qwen3.8:latest	—	8192 / — tok.	Dosud neověřeno
+D2 · Diagnostik
+Hledá příčinu chyby a navrhuje opravu.
+	qwen3.8:latest	—	8192 / — tok.	Dosud neověřeno
+R1 · Závěrečný revizor
+Posuzuje výsledek před dokončením plánu.
+	qwen3.8:latest	—	8192 / — tok.	Dosud neověřeno
+R2 · Průběžný revizor
+Kontroluje změny během pracovního cyklu.
+	qwen3.8:latest	—	8192 / — tok.	Dosud neověřeno
+CODE · Implementace
+Připravuje změny souborů podle schváleného plánu.
+	qwen3.8:latest	—	8192 / — tok.	Dosud neověřeno
+CHAT · Rozhovor
+Odpovídá uživateli a vysvětluje výsledky.
+	qwen3.8:latest	—	8192 / — tok.	Dosud neověřeno
+VISION · Obrazová analýza
+Čte a popisuje obsah obrázků.
+	qwen3.8:latest	—	8192 / — tok.	Dosud neověřeno
+
+Ověřený strop je největší doložená dvojice okna a výstupu na daném hardwaru. Chybějící měření se nedoplňuje odhadem.
+
+Aktuální přiřazení
+
+Aktuální přiřazení z backendu.
+
+D1
+qwen3.8:latest
+Nastaveno · 8192 / — tok.
+Ověřený strop HW · Dosud neověřeno
+Místní skóre: —
+D2
+qwen3.8:latest
+Nastaveno · 8192 / — tok.
+Ověřený strop HW · Dosud neověřeno
+Místní skóre: —
+R1
+qwen3.8:latest
+Nastaveno · 8192 / — tok.
+Ověřený strop HW · Dosud neověřeno
+Místní skóre: —
+R2
+qwen3.8:latest
+Nastaveno · 8192 / — tok.
+Ověřený strop HW · Dosud neověřeno
+Místní skóre: —
+CODE
+qwen3.8:latest
+Nastaveno · 8192 / — tok.
+Ověřený strop HW · Dosud neověřeno
+Místní skóre: —
+CHAT
+qwen3.8:latest
+Nastaveno · 8192 / — tok.
+Ověřený strop HW · Dosud neověřeno
+Místní skóre: —
+VISION
+qwen3.8:latest
+Nastaveno · 8192 / — tok.
+Ověřený strop HW · Dosud neověřeno
+Místní skóre: —
+Změny
+Soubory
+Správa zdrojů
+Kontext
+1
+Nic nečeká na schválení
+V režimu Kontrola se sem dostanou změny souborů, než se zapíšou.
+Připojeno
+backend 136.1.0
+ws :34201
+1 relace · 0 pracuje · 0 čeká
+kontext
+—
+DB 3,02 MiB
+GPU nedostupné

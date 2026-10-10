@@ -1,0 +1,288 @@
+Soubor
+Úpravy
+Zobrazení
+Relace
+Agent
+Nápověda
+Hledat, přepnout relaci, spustit příkaz…
+Ctrl K
+1
+2
+3
+Konverzace
+OTEVŘENÉ RELACE
+1
+Relace 1
+nečinná
+Projekty
+Specialisté
+Expertýzy
+Workeři
+Obchod
+Multimédia
+Nastavení
+Nastavení
+/
+Modely a inference
+Modely a inference
+živá data
+Přehled
+Role
+Modely
+Evaluace
+GPU Hunt
+Telemetrie
+Provoz
+
+Data z backendu.
+
+Obnovit
+GPU Hunt
+
+Kandidáti, plánování, průběh a historie.
+
+Přehled
+Katalog
+Nastavení Huntu a Challenge
+Historie
+
+Discovery limit 1–10; evaluace používá kontext 4 096 tokenů a dostupné sady serveru. Jen při volné GPU. Bez automatické změny role. Rozpočty volání/VRAM/disku, editace pořadí a test největší HW dvojice zde ještě nemají API.
+
+Uložené profily Huntu
+Nový profil
+Uložené profily Challenge
+Nový profil
+Termín ručního zařazení (prázdné = nyní)
+Profil Challenge
+
+Snímek již zařazeného úkolu se při úpravě profilu nemění.
+
+Název
+Typ
+Discovery Hunt
+Evaluace jednoho modelu
+Challenge dvou modelů
+Povolit automatický rozvrh
+První model / kandidát
+Automatický výběr pro Hunt
+bakllava:7b
+codestral:22b
+deepseek-coder-v2:16b
+deepseek-coder:33b
+deepseek-coder:7b
+deepseek-r1-0528:14b
+deepseek-r1-0528:32b
+deepseek-r1-0528:70b
+deepseek-r1-0528:7b
+deepseek-r1:14b
+deepseek-r1:32b
+deepseek-r1:70b
+deepseek-r1:7b
+devstral-small-2
+devstral-small-2:24b
+gemma2:27b
+gemma2:2b
+gemma2:9b
+gemma3:12b
+gemma3:27b
+gemma3:4b
+gemma4:12b
+gemma4:26b
+gemma4:31b
+gemma4:e2b
+gemma4:e4b
+glm-4.7-flash
+llama3.1:70b
+llama3.1:8b
+llama3.2-vision:11b
+llama3.2:3b
+llama3.3:70b
+llava-llama3:8b
+llava:13b
+llava:34b
+llava:7b
+minicpm-v:8b
+ministral-3:14b
+ministral-3:3b
+ministral-3:8b
+mistral-nemo:12b
+mistral-small:22b
+mistral:7b
+mixtral:8x7b
+moondream:1.8b
+phi3:14b
+phi4:14b
+qwen2.5-coder:14b
+qwen2.5-coder:32b
+qwen2.5-coder:7b
+qwen2.5:14b
+qwen2.5:32b
+qwen2.5:3b
+qwen2.5:72b
+qwen2.5:7b
+qwen3-vl:2b
+qwen3-vl:30b
+qwen3-vl:32b
+qwen3-vl:4b
+qwen3-vl:8b
+qwen3:14b
+qwen3:30b-a3b
+qwen3:32b
+qwen3:4b
+qwen3:8b
+qwen3.5:27b
+qwen3.5:35b
+qwen3.5:4b
+qwen3.5:9b
+qwen3.6:27b
+qwen3.6:35b
+qwen3.8
+qwen3.8:27b
+qwq:32b
+starcoder2:15b
+starcoder2:7b
+bge-m3:latest
+granite4:32b-a9b-h
+hf.co/AtlaAI/Selene-1-Mini-Llama-3.1-8B-Q8_0-GGUF:Q8_0
+ornith-1.5:9b
+devstral-small-2:latest
+qwen3.8:latest
+qwen3-coder:latest
+qwen3-30b-a3b:latest
+Druhý model
+Vyberte jiný model
+bakllava:7b
+codestral:22b
+deepseek-coder-v2:16b
+deepseek-coder:33b
+deepseek-coder:7b
+deepseek-r1-0528:14b
+deepseek-r1-0528:32b
+deepseek-r1-0528:70b
+deepseek-r1-0528:7b
+deepseek-r1:14b
+deepseek-r1:32b
+deepseek-r1:70b
+deepseek-r1:7b
+devstral-small-2
+devstral-small-2:24b
+gemma2:27b
+gemma2:2b
+gemma2:9b
+gemma3:12b
+gemma3:27b
+gemma3:4b
+gemma4:12b
+gemma4:26b
+gemma4:31b
+gemma4:e2b
+gemma4:e4b
+glm-4.7-flash
+llama3.1:70b
+llama3.1:8b
+llama3.2-vision:11b
+llama3.2:3b
+llama3.3:70b
+llava-llama3:8b
+llava:13b
+llava:34b
+llava:7b
+minicpm-v:8b
+ministral-3:14b
+ministral-3:3b
+ministral-3:8b
+mistral-nemo:12b
+mistral-small:22b
+mistral:7b
+mixtral:8x7b
+moondream:1.8b
+phi3:14b
+phi4:14b
+qwen2.5-coder:14b
+qwen2.5-coder:32b
+qwen2.5-coder:7b
+qwen2.5:14b
+qwen2.5:32b
+qwen2.5:3b
+qwen2.5:72b
+qwen2.5:7b
+qwen3-vl:2b
+qwen3-vl:30b
+qwen3-vl:32b
+qwen3-vl:4b
+qwen3-vl:8b
+qwen3:14b
+qwen3:30b-a3b
+qwen3:32b
+qwen3:4b
+qwen3:8b
+qwen3.5:27b
+qwen3.5:35b
+qwen3.5:4b
+qwen3.5:9b
+qwen3.6:27b
+qwen3.6:35b
+qwen3.8
+qwen3.8:27b
+qwq:32b
+starcoder2:15b
+starcoder2:7b
+bge-m3:latest
+granite4:32b-a9b-h
+hf.co/AtlaAI/Selene-1-Mini-Llama-3.1-8B-Q8_0-GGUF:Q8_0
+ornith-1.5:9b
+devstral-small-2:latest
+qwen3.8:latest
+qwen3-coder:latest
+qwen3-30b-a3b:latest
+Rozvrh
+Ruční
+Jednou
+Interval
+Denně
+Týdně
+První termín
+Interval v minutách
+Čas
+Časové pásmo
+Role a dostupné sady
+D1 · Návrhář
+D2 · Diagnostik
+R1 · Závěrečný revizor
+R2 · Průběžný revizor
+CODE · Implementace
+CHAT · Rozhovor
+VISION · Obrazová analýza
+Dny v týdnu
+Neděle
+Pondělí
+Úterý
+Středa
+Čtvrtek
+Pátek
+Sobota
+Uložit a ověřit revizi
+Zavřít editor
+Fronta a stav úkolů
+
+Každý úkol uchovává vlastní revizi profilu, modelové digesty a kontrakty sad. Zrušit lze pouze čekající úkol.
+
+Poslední závěry běhů
+
+Backend poskytuje posledních pět dokončených běhů. Historie evaluací a naplánovaných úkolů je samostatná.
+
+Změny
+Soubory
+Správa zdrojů
+Kontext
+1
+Nic nečeká na schválení
+V režimu Kontrola se sem dostanou změny souborů, než se zapíšou.
+Připojeno
+backend 136.1.0
+ws :34201
+1 relace · 0 pracuje · 0 čeká
+kontext
+—
+DB 3,02 MiB
+GPU nedostupné

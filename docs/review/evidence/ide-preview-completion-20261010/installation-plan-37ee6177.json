@@ -1,0 +1,8 @@
+{
+  "status": "DRY_RUN_PASS_NOT_APPLIED",
+  "revision": "37ee6177f7cf8e5e4509c5860474e8dca2ce0e8e",
+  "appimageSha256": "8225de42fa4b743a0113de3322c65450f7efe6e00687b4d0683697b047d4fe26",
+  "dbProfileLegacyAndToolchainPreserved": true,
+  "modelsDirectory": "/mnt/vi7000/ollama/models",
+  "scope": "verified installer plan only; awaiting required model binding choice"
+}

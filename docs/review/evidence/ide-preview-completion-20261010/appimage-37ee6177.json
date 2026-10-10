@@ -1,0 +1,1432 @@
+{
+  "status": "BUILD_PASS",
+  "sourceRevision": "37ee6177f7cf8e5e4509c5860474e8dca2ce0e8e",
+  "node": "24.21.0",
+  "commands": [
+    {
+      "kind": "STUDIO_BUILD",
+      "argv": [
+        "/home/belphareon/Projects/intentsmith-ide-backend-20261009/intentsmith-ide/node_modules/.bin/theia",
+        "build",
+        "--mode",
+        "production"
+      ],
+      "startedAt": "2026-10-10T10:31:04.657Z",
+      "endedAt": "2026-10-10T10:31:05.894Z",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "cleanupTerminated": true,
+      "logSha256": "d807f6902a4ae6ded575c4084da2dcad73bb4b9bb8b98bb2337c30e046e27535"
+    },
+    {
+      "kind": "APPIMAGE_DIST",
+      "argv": [
+        "/home/belphareon/Projects/intentsmith-ide-backend-20261009/intentsmith-ide/node_modules/.bin/electron-builder",
+        "--linux",
+        "AppImage",
+        "--publish",
+        "never"
+      ],
+      "startedAt": "2026-10-10T10:31:05.894Z",
+      "endedAt": "2026-10-10T10:31:10.730Z",
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "cleanupTerminated": true,
+      "logSha256": "138ad42e2b22761a1d70ff2dc010a3b1dbf6c764880ef4350b4e451f90a38498"
+    }
+  ],
+  "sourceCleanAfter": true,
+  "studioSourceFiles": [
+    {
+      "path": "intentsmith-ide/START.md",
+      "sha256": "31c7c6af539326142cea47a2d4724e1fb8908c0b9387545a085d55de2cad16f4"
+    },
+    {
+      "path": "intentsmith-ide/applications/electron/electron-builder.yml",
+      "sha256": "690f5c15fb438aab157938a1eb7adee6bb0c06960364d4590efbeda206ffb323"
+    },
+    {
+      "path": "intentsmith-ide/applications/electron/esbuild.mjs",
+      "sha256": "50fe69e7ecb5e2e73f0012c414572428fc5ba6bcf9cae8c11ea137c1874a852b"
+    },
+    {
+      "path": "intentsmith-ide/applications/electron/intentsmith-attachment-bridge.js",
+      "sha256": "612e558f3185fcfade0fda70cfbfb5044c6015197bf1f3f5f8f049b2bdf09a2e"
+    },
+    {
+      "path": "intentsmith-ide/applications/electron/intentsmith-browser-entry.js",
+      "sha256": "6fb6bb9c3fbfd317217d8d8d30967ebbc9d497fcc601297d65becca18ce31eb9"
+    },
+    {
+      "path": "intentsmith-ide/applications/electron/intentsmith-electron-main-entry.js",
+      "sha256": "c6f54bd2b78bf68dd3258de498b2cdc3da86792dc25856681a57110504b599f0"
+    },
+    {
+      "path": "intentsmith-ide/applications/electron/intentsmith-local-access.js",
+      "sha256": "b6d1fa7014df0b54b6e6f92d0f958e8831170ccc546ae4834f008afad14ae08c"
+    },
+    {
+      "path": "intentsmith-ide/applications/electron/intentsmith-local-http-bootstrap.js",
+      "sha256": "ae8a2142f96812ca3a0dcae470a149932295d68f0f8c38fcaf2e8695a5e81710"
+    },
+    {
+      "path": "intentsmith-ide/applications/electron/intentsmith-local-origin-normalizer.js",
+      "sha256": "bff5e12dd3e552cdc89407a63b45a1e9e4bec814ebd4a529f04b104e526e734d"
+    },
+    {
+      "path": "intentsmith-ide/applications/electron/intentsmith-preload-entry.js",
+      "sha256": "4fd9f7eb42c0733b935acd448a2c5acd1aa5d458c761808e5fee3afea71d6134"
+    },
+    {
+      "path": "intentsmith-ide/applications/electron/intentsmith-preload.js",
+      "sha256": "f931c50beae7235c5af6c3c069da65bd98c026c6b764d1373c3740e21a8faf7c"
+    },
+    {
+      "path": "intentsmith-ide/applications/electron/intentsmith-webpack-wrapper.js",
+      "sha256": "d87cc9048d19766e29bb7b669d7800567171d40b026cf9ee69eb3e276cca297d"
+    },
+    {
+      "path": "intentsmith-ide/applications/electron/package.json",
+      "sha256": "d475ae3b392e3898fdf63ddaab9b4e3b97ae398539179f1067e59dd2fae2896f"
+    },
+    {
+      "path": "intentsmith-ide/applications/electron/resolve-user-data.js",
+      "sha256": "09feb308564010f7485b7c7ee7092f2b56a07c296a79562439db6db03c36c9ad"
+    },
+    {
+      "path": "intentsmith-ide/applications/electron/resources/README.md",
+      "sha256": "dbb07cfd9c417e631732ae7cac5ac058e5b32c6c9ee3a5830b4b5bd2f42bff7e"
+    },
+    {
+      "path": "intentsmith-ide/applications/electron/resources/intentsmith-icon.png",
+      "sha256": "a0f0a9d0f1822ad93ac3cd9b68ea36ee2626331bfe85817d2ffd734f11e074de"
+    },
+    {
+      "path": "intentsmith-ide/applications/electron/resources/splash.html",
+      "sha256": "240af8e5faf4e9eaa368edcb78eb6bcc67963f99f45235ce2076f6bb81ef611c"
+    },
+    {
+      "path": "intentsmith-ide/applications/electron/scripts/electron-main.js",
+      "sha256": "f1f224b8c898b2e2bbb728c937c7c74f84ff0d56b56957b44889cc5366573ae7"
+    },
+    {
+      "path": "intentsmith-ide/applications/electron/scripts/launch.js",
+      "sha256": "470d521d5b334a7403ff72672deb152f07f8f36f77b41f0167d823119d75213c"
+    },
+    {
+      "path": "intentsmith-ide/configs/default-preferences.json",
+      "sha256": "8c359d77766a8c1b29bd30cce5b0a8bdea669ab4d0876ffce04005575b1e8624"
+    },
+    {
+      "path": "intentsmith-ide/configs/theia.product.json",
+      "sha256": "22244b86d78bc176834fab4702a0f143b662567e47d3808abd8a140a23d466f9"
+    },
+    {
+      "path": "intentsmith-ide/docs/IntentSmith-STUDIO-IDE.md",
+      "sha256": "6eb5e9519f0ca8c68dc1b21ffa89f9af84706f1b8b69c035dfc6525b4ab1f66b"
+    },
+    {
+      "path": "intentsmith-ide/docs/IntentSmith-STUDIO-ROADMAP.md",
+      "sha256": "c36381555a42c277970de0398fd6448d06cdceb2abac66a9858d89c16846b89d"
+    },
+    {
+      "path": "intentsmith-ide/extensions/copy-css.sh",
+      "sha256": "eea8defa06c1bdc37433822087c52e67777e2bb7e44f48f44025e81a2bd332bf"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-agent-panel/lib/browser/agent-panel-module.js",
+      "sha256": "1305b7039720b7d63e34336be96aca13a7aa807812e1256c6dd285198cc81e0f"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-agent-panel/lib/browser/styles/intentsmith-agent-log.css",
+      "sha256": "9df5afffd54a56f9e5cc7ef725566c33850c54091a099a20bf10480f649dc40a"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-agent-panel/package.json",
+      "sha256": "7845cc5aed49008e4bd0021c81be5da189c2c6b15d63281c9186f050bcb50515"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-agent-panel/src/browser/agent-panel-contribution.ts",
+      "sha256": "46acd3f7a6fc293477b8bbb5e386f995e2b189dcdf8420c0f715d75251cf6f75"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-agent-panel/src/browser/agent-panel-module.ts",
+      "sha256": "adabdee777e77b81063d412fad95a2890475f26c9ca4db371ce9f96bf6f4403d"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-agent-panel/src/browser/agent-panel-widget.tsx",
+      "sha256": "2e2951b516a2afacdc11f72e23108d2ddd751f095902821d4b112e3fa229ecb5"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-agent-panel/src/browser/components/AgentEventRow.tsx",
+      "sha256": "670ee7ad629def9a512cbbd7f7ed8e037ddbc7fb3bc3814f8db98ef31565fa83"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-agent-panel/src/browser/components/EventFilter.tsx",
+      "sha256": "5416a004a52e500abadde1df65ac91f69116d713c687f26b70cd3008643e93ac"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-agent-panel/src/browser/components/StatusBadge.tsx",
+      "sha256": "2535d6f4ca0985accc78ec94a6f88b8f09ad0f418a9f9e7c37591184fdb353e1"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-agent-panel/src/index.ts",
+      "sha256": "be68f0ed1d38a65f99a8266108f6f5ed7f8cb15c5e64d362a705a5a04e18dc8c"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-agent-panel/tsconfig.json",
+      "sha256": "1d59c94e06ea44215202223ddf9972835f6d4f2c6bbf2a511db02dc867da530a"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-audit-trail/lib/node/audit-trail-service.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-audit-trail/package.json",
+      "sha256": "49dded665905eb1f794ded7345b102dd7dd8e2456a5e69265ae1822ff2c9e074"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-audit-trail/src/index.ts",
+      "sha256": "e0452e653c85f961ad5c958058fc726792e869c038f639941d2f53090a5eaea3"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-audit-trail/src/node/audit-trail-service.ts",
+      "sha256": "8111b01c727351e1c09d3491c9eb3a4c1c4520ed2d96320eaf91c7206a0ef627"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-audit-trail/tsconfig.json",
+      "sha256": "637adee72855bd05a902fdc771b47db9e61d6dddaf8d988c710646dfc160352b"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-backend-bridge/lib/browser/backend-bridge-module.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-backend-bridge/lib/common/backend-bridge-protocol.js",
+      "sha256": "55795a64babfac8356f98ed1cccdfb8ad13b546a953904eec49d9ffe7164346f"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-backend-bridge/lib/node/backend-bridge-module.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-backend-bridge/package.json",
+      "sha256": "fc62647fc1ad488723ecfa40af3a206d2861df23a19814031b907b0dc1fb8ad3"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-backend-bridge/src/browser/backend-bridge-module.ts",
+      "sha256": "ec942c8cc6492b4e47c07ceb7785c6ba11a6e4f3aa0ac2f7ef24d41056d5e02d"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-backend-bridge/src/browser/backend-bridge-proxy.ts",
+      "sha256": "e2e5414d2836b5a2c2b05c219bb6dfedfe085e38996989a9d2e09dc3556c166f"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-backend-bridge/src/common/backend-bridge-protocol.ts",
+      "sha256": "a71f2871a91bd727d7f9d23fd40706c5bfc90bb3ee8a14ab39239913c480e795"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-backend-bridge/src/index.ts",
+      "sha256": "3a1a26b8110497eaf0d554db8d1275dc258dca30ce2865b889d7ec519c8be302"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-backend-bridge/src/node/backend-bridge-module.ts",
+      "sha256": "98579f7edd6ba4c86c7c66f0bec4ec86ad5530ee4530abfe0f643b6849dba9d1"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-backend-bridge/src/node/backend-bridge-service.ts",
+      "sha256": "f1c43cba9d821499fb45c133df783c282e26880efb5f43ba3f00f582e97f8499"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-backend-bridge/tsconfig.json",
+      "sha256": "44d04bb48c2d6992120aa2ae458230170a2516414e45de8d0be5422d84bf75e2"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-backend/intentsmith-backend/integration-guide.cjs",
+      "sha256": "543c8b00b1a5a46944c32e888da0a7660f6390e9efe75bcdc29dc839d05f8326"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-backend/intentsmith-backend/sprint2-integration.cjs",
+      "sha256": "60f41223d9a77092674e195ae39e55e8ff0993eebe0ce048fc5e6b8e7122627e"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-backend/intentsmith-backend/sprint4-integration.cjs",
+      "sha256": "ff03b12082f387feea9f7122f0e80fdd6cafb559ef43c1e55683ec1bed688205"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-backend/intentsmith-backend/sprint5-integration.cjs",
+      "sha256": "fc372399d498fc03d82da85f6788be146fad3ed5d658f59e39900daa735be1c0"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-backend/intentsmith-backend/sprint6-integration.cjs",
+      "sha256": "528d321c9c02f1b87883a7fd6b0f7dfb897be93def37f743b362431cbc75f64e"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-backend/intentsmith-backend/sprint7-integration.cjs",
+      "sha256": "3b192134fd0489870c5efaefb524e922078bc848d23948b6cd9fcd6d09654ee9"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-backend/intentsmith-backend/ws-server.cjs",
+      "sha256": "31d6b535c5a4a1bf4e1402610088d329c0af51de3984e9f272cce02fe12856d6"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-backend/intentsmith-backend/ws-server.test.cjs",
+      "sha256": "0469ceb69b1373e3c85eb649cac0f8bce0bc99efa332edecc96d6b34f0bd7110"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-center-views/lib/browser/center-views-module.js",
+      "sha256": "64e4abdb972615b45ed31530e5de965d5a89d946085a43e6fbe83ea92cbf807a"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-center-views/lib/browser/styles/intentsmith-center.css",
+      "sha256": "72c50ee833862fbb263f1d8f5e54a98c2ffd997b057cc71a1decdbbc66b1b379"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-center-views/lib/browser/styles/intentsmith-multimedia.css",
+      "sha256": "d0b50b58ef1428a31f227afd3311ddc12a118205a88fd1069878b6578c66fcca"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-center-views/lib/browser/styles/intentsmith-pro-theme.css",
+      "sha256": "575fbe4126a4f533318b433d6efe2015e15c1fcf86dc34243362a7efd656a226"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-center-views/lib/browser/wizard/wizard-basic.js",
+      "sha256": "b8ab27821dd1ce60cd936de673782ca81a0042fa0616afbecaf3183f46d0414a"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-center-views/lib/browser/wizard/wizard-capabilities.js",
+      "sha256": "ad694087b8cf9ff7c3aa07ac86c44a4ce85db2cc97271d3fe24bc928e12398f0"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-center-views/lib/browser/wizard/wizard-helpers.js",
+      "sha256": "871a15d86ebc37c68ae78ae8a1bf66c55609f1d3f4b37717441fe8073cd25d8d"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-center-views/lib/browser/wizard/wizard-modules.js",
+      "sha256": "dd789f866fb83f055f21d7aceb6caaf4ea43c87046c50e378571b5b6f3cdd0e5"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-center-views/lib/browser/wizard/wizard-preview.js",
+      "sha256": "e15fb27db4d5865547c050c2515d2293dbf0cfbbe60ee6751803b37e4aa08240"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-center-views/package.json",
+      "sha256": "93e86a121fb6d4aa823ec9a4f6f17a15f792571d19aeb0759d4112962cc26a94"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-chat-panel/README.md",
+      "sha256": "16a6423cf50117bc2543da5dd27bee640f2fca69cd2aa0997eb2ffd52cd53bce"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/agent-client.js",
+      "sha256": "4e3ab69611e8360d2cf6f2de2e90556594fe43f6b3cb67cfe407317ad22d55cf"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/agent-log-renderer.js",
+      "sha256": "a93ffa6837a6e107313217dce8204fe4b3d56d2fd98467688a4f789ec9ea7c97"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/development-panel.js",
+      "sha256": "a483e0beefe6ea91ab2f264ce193a9238ed9b940e665ba942545ef5746bd851b"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/event-bus.js",
+      "sha256": "a66775acbcfb482e21657668fd787e93c5be5f3c1118889fd66975f366b2d5cb"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/styles/intentsmith-chat.css",
+      "sha256": "9379b83170c6415f8197bc69592c04b01476d3b884dbeb6e25576a103d0d05d5"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/styles/intentsmith-theme.css",
+      "sha256": "2f84b7288b07601a966a2565a63c663b4875de600d1c34bb47c8191136090eb8"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/terminal-client.js",
+      "sha256": "a7e063f0ccc30663cdf00da3f945e91c37e9bed3d8eda55b6f0ce0033c5064c3"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/work-activity.js",
+      "sha256": "f77e662be52f77a36cd1f4544b92ecb4ea22b9cf7ccef3a2d4c534643abd0beb"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-chat-panel/lib/browser/ws-client.js",
+      "sha256": "f74d70c092ebda564bc18a1fab9b868789f1cd8646a5596ce4df480148cdffa5"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-chat-panel/package.json",
+      "sha256": "2ae8474ffe32b1c5c9154f946f72f17550244c134e7aca1103c0059cb3c3a62e"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-chat-panel/scripts/authoritative-lib-contract.cjs",
+      "sha256": "b1df0ebdb20ec467f1b2c0a22a5b412938e10a3c828d828744b3dc85fbb0259d"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-chat-search/lib/browser/chat-search-module.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-chat-search/lib/node/chat-search-service.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-chat-search/package.json",
+      "sha256": "5f1109d8bfe1cd0c3318f95a387bfbeb2bd223c63e044d3c35b607f4c5f4c33a"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-chat-search/src/browser/chat-search-module.ts",
+      "sha256": "074cfe7624ebd0d61e21c30b881b9ae29c20f2066f5999f0b5ad8b40c5674acf"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-chat-search/src/browser/components/ChatSearchWidget.tsx",
+      "sha256": "817bd04c4f0c3a53d9db982f9f993d5a8da6f4fb6c82f295c5336df5efa64d58"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-chat-search/src/browser/styles/chat-search.css",
+      "sha256": "41a746dddeda0d149ead1a42fbd3e7d17cf85c90409ccd132021c1c781c7c86a"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-chat-search/src/common/chat-search-protocol.ts",
+      "sha256": "2f83817af267c897d96ef1b5490d1482a98efdf56f78dbaae0c63992054c3c71"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-chat-search/src/index.ts",
+      "sha256": "62985ad40ea1c05abbdb9dfc155375f5f3e967e95a7499d0472f370d6e998e6f"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-chat-search/src/node/chat-search-module.ts",
+      "sha256": "65fda87cb2b77353f44410b8a9956cc7c4dc8ab9021843d5a244a29e226f5854"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-chat-search/src/node/chat-search-service.ts",
+      "sha256": "804a5a6dafcea769aa7e68ab72442e5e03f6256347d7cbca655d547b31d2d2d2"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-chat-search/tsconfig.json",
+      "sha256": "44d04bb48c2d6992120aa2ae458230170a2516414e45de8d0be5422d84bf75e2"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-command-palette/lib/browser/command-palette-module.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-command-palette/package.json",
+      "sha256": "012a9c4708116458aa492c14b7fb2ddd4a4b6042db8dddc9f6eda8fa500ee203"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-command-palette/src/browser/command-palette-contribution.ts",
+      "sha256": "462c2140792ff45eadc7d07e32ae87d472e788ad62dc00a2dd42ee0d110e93d1"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-command-palette/src/browser/command-palette-module.ts",
+      "sha256": "89faf60ea8491b511a1c50094fffacff7eb96bf940da712d0720f1e4670138ed"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-command-palette/src/index.ts",
+      "sha256": "dbe293b40f5c86fcbf0cb121524d4a74e301aacd9d8b82431728d353903fd5fb"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-command-palette/tsconfig.json",
+      "sha256": "3409fb39004e2528dd9382fa3bc0b96b2aae546dd3e0af1a865013c7d6710a4c"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-context-menu/lib/browser/context-menu-module.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-context-menu/package.json",
+      "sha256": "ec5b6e1cb94151d7781aba474dafb710eeba798f212215575b198a658843212e"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-context-menu/src/browser/context-menu-contribution.ts",
+      "sha256": "3de3ac489117182b00966cb6c4e5a4e4cde0776f494370687de6743190f60e81"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-context-menu/src/browser/context-menu-module.ts",
+      "sha256": "003cb056f63e31995a493f8d1b103bc8d702be6c776cfa07ba10e71d9d885eb0"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-context-menu/src/index.ts",
+      "sha256": "8e6016d7da88cc66b3a3761c66f7b80442590b48444f666cf948262d886be9e1"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-context-menu/tsconfig.json",
+      "sha256": "637adee72855bd05a902fdc771b47db9e61d6dddaf8d988c710646dfc160352b"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-design-viewer/lib/browser/design-viewer-module.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-design-viewer/lib/node/design-viewer-module.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-design-viewer/package.json",
+      "sha256": "e708267d58b85c4d911e0756fa67e9d205cd422349b31a854eaf2902df99904b"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-design-viewer/src/browser/components/MetadataCards.tsx",
+      "sha256": "5a4b17f8d6100bc9659764a853050889d660485af5921b3f132191e348be1219"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-design-viewer/src/browser/components/OutlineSidebar.tsx",
+      "sha256": "ad3441b949ec50c5d655156070944aa7d56fc6393f7f2c133cbe48d082655c19"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-design-viewer/src/browser/design-immutability-guard.ts",
+      "sha256": "4a2ffd2e9d770ea8dd6d2c1dbdd68e04c15cda30b014ed9d1c7b6f14fc5c60e1"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-design-viewer/src/browser/design-viewer-contribution.ts",
+      "sha256": "914f7e93da8c1f750ccb7558b72f9af2c0d15426b5384c72f9535a51982e5f87"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-design-viewer/src/browser/design-viewer-module.ts",
+      "sha256": "cbf12b33f5acaded9a596f453ff4710115bc06fbeddd86e29093fa24a91534fb"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-design-viewer/src/browser/design-viewer-widget.tsx",
+      "sha256": "670f221ee6327907b6d020e0c987c588949571b0953c709d49306e2990873c53"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-design-viewer/src/browser/styles/design-viewer.css",
+      "sha256": "f7355c24fb31316b7597fff9756627a9315639bd5de05b1e15f6424d084401dd"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-design-viewer/src/common/design-viewer-protocol.ts",
+      "sha256": "3741ef97901e76898430a619018419965abb05ce7d895411f3824d6367566f25"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-design-viewer/src/index.ts",
+      "sha256": "727b48de7c5595de65935c297f2ba3ea317db65447db0942c5ae49a3dd5b7be3"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-design-viewer/src/node/design-viewer-module.ts",
+      "sha256": "95aea79421842a3177cfac6badeafce37aa816d10908dfb63c32b8a2c632911b"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-design-viewer/src/node/design-viewer-service.ts",
+      "sha256": "82ef8712b83f85aa381ceae5ec58216854eaad11f7bd84418cbbd1e07f5c8261"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-design-viewer/tsconfig.json",
+      "sha256": "3409fb39004e2528dd9382fa3bc0b96b2aae546dd3e0af1a865013c7d6710a4c"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-detail-panel/lib/browser/detail-panel-module.js",
+      "sha256": "a0453c14817d2c02c3633d87a249d5a6306aa46096e36bd4c27a026504d0460d"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-detail-panel/lib/browser/styles/intentsmith-detail.css",
+      "sha256": "22e6777b0efa3652888c767e6d569936f3d8cf07c7ba9630e83acb21e827e43d"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-detail-panel/package.json",
+      "sha256": "4b45b4d573caf090be1540144d642a2369197706635af0aa36297625a4e43075"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-diff-viewer/lib/browser/diff-viewer-module.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-diff-viewer/lib/node/diff-viewer-module.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-diff-viewer/package.json",
+      "sha256": "0091663eb0a830c499d9abaf50791a276445928743cc75651d605e588a834e90"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-diff-viewer/src/browser/components/DiffToolbar.tsx",
+      "sha256": "d8fc0789e1afe28afd40961b223f7fc730feda0c77188a185b4055b4cb847698"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-diff-viewer/src/browser/components/InlineDiff.tsx",
+      "sha256": "3638cb4cd82ee4d55f4043e2062fa4a4697ef386efa8b922bac5aed87dfeb7f2"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-diff-viewer/src/browser/diff-proposal-manager.ts",
+      "sha256": "29dd307e77e2016c006d7e1d595aa5649e1884d61ce1864c5049f3f0ddf9adf9"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-diff-viewer/src/browser/diff-viewer-module.ts",
+      "sha256": "ef5c9f5ab9bd55dfe0213de62392d349b92bfe98f7a27deb159b8e21b13ad024"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-diff-viewer/src/browser/styles/diff-viewer.css",
+      "sha256": "3b4f3ad9ce70dc86c869349c2812dcf8fb39d446bcbffef338041b368dd41675"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-diff-viewer/src/common/diff-viewer-protocol.ts",
+      "sha256": "66ce3874edc9ba9a436623c096fe7e6b8eee17f756a0b525b83fe37b0e3068f8"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-diff-viewer/src/index.ts",
+      "sha256": "572107e7f793944209571302816bd52380a252a8872f0a739e044e48097d9f6b"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-diff-viewer/src/node/diff-viewer-module.ts",
+      "sha256": "8e9ec7d7b0cba22664f5c7011a1142e4491b862346188b3ed073267a51f9ed66"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-diff-viewer/src/node/diff-viewer-service.ts",
+      "sha256": "d2676e087c265a0e95ad9d54ee711af81468b053b6f5403f4c325865f9b41870"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-diff-viewer/tsconfig.json",
+      "sha256": "361acaa748d74a67240f1a916559196c66080af580d8b2a16a3cf4ea926d3aee"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-error-recovery/lib/node/error-recovery-module.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-error-recovery/package.json",
+      "sha256": "77518e90cfcb0931617da2c6a919553ef307bb47eb9191f7c09f66cc3d124c1d"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-error-recovery/src/browser/error-recovery-module.ts",
+      "sha256": "d5468dc4afe5161df86a562a15b60ac3c768c175a8b71451ef75f17892a5642b"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-error-recovery/src/browser/error-recovery-service.ts",
+      "sha256": "145257956276964f2f9daf3a1fcaffd7f3043f53c6ca2f7de3282a7217563376"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-error-recovery/src/browser/llm-timeout-manager.ts",
+      "sha256": "a575cd88257d5141cf6777de9ebf021d4025b99bb5bd98cc8b62f915de6b7087"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-error-recovery/src/browser/reconnection-manager.ts",
+      "sha256": "dd9cfc0e4a3c5001876e685e9b8c2c8c813460d4ab52ba3902f9f6b595fafca0"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-error-recovery/src/common/error-recovery-protocol.ts",
+      "sha256": "b4b3517ced3761fb754ecc9f8185ea99eb8a2b8d65d2360730c4d093d91c0974"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-error-recovery/src/index.ts",
+      "sha256": "912101cbcfc9f74a9bfd1d167b271080b544a5b572bde2571b1f22689f20108c"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-error-recovery/src/node/crash-recovery-service.ts",
+      "sha256": "449ae139d9d5d5f9a313426d1086c3c96f2fa46d78d490d78e813771c20d0e85"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-error-recovery/tsconfig.json",
+      "sha256": "3409fb39004e2528dd9382fa3bc0b96b2aae546dd3e0af1a865013c7d6710a4c"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-git-integration/lib/node/git-integration-module.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-git-integration/package.json",
+      "sha256": "f9c193074e52ae1b90141888a243c0310aec65e5f78f0db3013bd52aa576e4e9"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-git-integration/src/common/git-integration-protocol.ts",
+      "sha256": "c92787e490444051d62ed49b6af42d3c867a4c399f04eafd5688689b14846ec4"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-git-integration/src/index.ts",
+      "sha256": "65400eea24007cf1b5785f46c00f3a5f5f76838fb2bf15f1103d83fde0ed18c6"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-git-integration/src/node/git-integration-module.ts",
+      "sha256": "4f35c236a957f4338513e365cc275f6b3cc00be706b59e005f3f7cd015851bf1"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-git-integration/src/node/git-integration-service.ts",
+      "sha256": "80e37a838267961a8851377144386e094d4632f320ebc9a3f25a5c22cd96cc69"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-git-integration/tsconfig.json",
+      "sha256": "637adee72855bd05a902fdc771b47db9e61d6dddaf8d988c710646dfc160352b"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-keybindings/lib/browser/keybindings-module.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-keybindings/package.json",
+      "sha256": "d0877c3ec33f50717b1129b0da95c612671a17273707f91a006711d1d4762100"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-keybindings/src/browser/keybindings-contribution.ts",
+      "sha256": "72d95b7a5993580ee7eee128f0ecc29c049abe489a028ee54656bddfe41734c1"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-keybindings/src/browser/keybindings-module.ts",
+      "sha256": "8e68651060f9867f14327c07a212317f23b7462dd91a451be1f5fd07e8613ae3"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-keybindings/src/index.ts",
+      "sha256": "b9bfc599881eb091ef36c385da01ade2c6e662f85ec6548709836191e57fd5fb"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-keybindings/tsconfig.json",
+      "sha256": "637adee72855bd05a902fdc771b47db9e61d6dddaf8d988c710646dfc160352b"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-multi-project/lib/browser/multi-project-module.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-multi-project/lib/node/multi-project-service.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-multi-project/package.json",
+      "sha256": "14967c082e288641d5cbc0174fcc7cd23321d4f593b20cefa64fd3ba5a08a506"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-multi-project/src/browser/multi-project-module.ts",
+      "sha256": "e8e9c978f943c67ef44920bb4a0267b22b840b39802bac065c9a3be331be3caf"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-multi-project/src/browser/project-switcher-contribution.ts",
+      "sha256": "4498f377c2d798b2f325ba8379b93b83c204b087852f54b1674ee1f604e40a4e"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-multi-project/src/common/multi-project-protocol.ts",
+      "sha256": "d79cab5852213f982c0238814cf97b2d3a12ee9c45a26c2ff9a5e704e10bdf6e"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-multi-project/src/index.ts",
+      "sha256": "2c4d0c2fd9dab20d022470ef5f7d96cb7b568815c91bcaa4c874bf400634cdee"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-multi-project/src/node/multi-project-module.ts",
+      "sha256": "1eff2b90ff8cadc65ab0e31c4e8f43bf7c1b6547e05b17af06c7493f4b3b150f"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-multi-project/src/node/multi-project-service.ts",
+      "sha256": "a782ebfd9d41e1fecdbd89719bb09061c8b3b95b5208e1fc139151010801afa5"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-multi-project/tsconfig.json",
+      "sha256": "7d43dc88ff41355d12c650e53bb2f4a7cadbe905ba822ae671f332c7ed38aba7"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-notifications/lib/browser/notification-module.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-notifications/package.json",
+      "sha256": "39b8e0dd577c081a482aed08b51528602b8542e583accd8d119ffb022939aef3"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-notifications/src/browser/notification-module.ts",
+      "sha256": "dbfb76abc4cd485a2eb19368e53c37432a98ed61211635924202ba377c761698"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-notifications/src/browser/notification-service.ts",
+      "sha256": "18f565514b505486c63bcae5028cd7c3310571cc4b3017ffe6221cd24bb3bc78"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-notifications/src/index.ts",
+      "sha256": "3e110d0de6d82abc79b0ba0c08c045c29ad7650ab93b2da9d8d2ec9a192de2f7"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-notifications/tsconfig.json",
+      "sha256": "637adee72855bd05a902fdc771b47db9e61d6dddaf8d988c710646dfc160352b"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-onboarding/lib/browser/onboarding-module.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-onboarding/package.json",
+      "sha256": "060189bac25f8a198260f148828a2c4235fedbe2925cca773894ce41a69482dc"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-onboarding/src/browser/components/OnboardingSteps.tsx",
+      "sha256": "fbc4e0a2aea23ea65225fa87694544172e765681d70e23fc269c486ada8622fc"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-onboarding/src/browser/onboarding-contribution.ts",
+      "sha256": "b25b6607ffbce6578e2fd9524bef5e6b5fd00daa1fde763797fe602d3746bbf9"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-onboarding/src/browser/onboarding-module.ts",
+      "sha256": "a3c90d8ddd4234bd7de18890f61e91e0652ba6e82a4f2bf9dbc7129e97756043"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-onboarding/src/browser/onboarding-widget.tsx",
+      "sha256": "19f632e51d27ec43f21a637a07093010c9bcfcee2b6438f1bd9d5b36d7d4eeea"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-onboarding/src/browser/styles/onboarding.css",
+      "sha256": "1ac252035a759bf730e3d2e9dda191b41752a1f569aa055d8460f5bedcf68b4e"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-onboarding/src/index.ts",
+      "sha256": "c98e92bbf3c008e6fd9a86f978f3894c29002b02c05a5e06a490cd8f0a0b6e16"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-onboarding/tsconfig.json",
+      "sha256": "3409fb39004e2528dd9382fa3bc0b96b2aae546dd3e0af1a865013c7d6710a4c"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-process-isolation/lib/node/process-isolation-service.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-process-isolation/package.json",
+      "sha256": "83a5e8904f891482b39139d062f699d3b5a7b4cc9da0d7c9de872ff84d016a48"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-process-isolation/src/index.ts",
+      "sha256": "f4473d0e5c4d400ae31aac719e53a8aa7c08d57dae52e214ca2df59016797338"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-process-isolation/src/node/process-isolation-service.ts",
+      "sha256": "ef258318aaf97908d44bd24a6f65f389e6ac1c67d7a7e2322de2f2c3f9aeba9d"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-process-isolation/tsconfig.json",
+      "sha256": "637adee72855bd05a902fdc771b47db9e61d6dddaf8d988c710646dfc160352b"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-project-export/lib/node/project-export-module.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-project-export/package.json",
+      "sha256": "41fd712a100a52eb35366775f7221135bbaf1c5b4c58d2eeedd3b3080bc9291b"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-project-export/src/common/project-export-protocol.ts",
+      "sha256": "60404d6e0e9d9f96bfe8d5365408fe9b9b50af2ef932c2eada9f23d1ae1f4525"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-project-export/src/index.ts",
+      "sha256": "5d9e4f1e3278ec5069089980b21c3ef5ce361c6c9eb65c0a7dfca8e80f7b1967"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-project-export/src/node/project-export-module.ts",
+      "sha256": "4e36e0c2647d56acd3930386e8e911970c792365c8588d074e40ee3b58c08fd8"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-project-export/src/node/project-export-service.ts",
+      "sha256": "b8653a7643395e9a0f6a09540cf443510f2a324bf08573676221420f810ba94d"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-project-export/tsconfig.json",
+      "sha256": "7d43dc88ff41355d12c650e53bb2f4a7cadbe905ba822ae671f332c7ed38aba7"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-project-store/lib/node/project-store-module.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-project-store/package.json",
+      "sha256": "b0c86c9cc388c5190e08e21210d186a0bc300ff4f5b9dbfb6329b5a9c7ecabd2"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-project-store/src/common/project-store-protocol.ts",
+      "sha256": "c36da4cc39f479c178e980ad4babc5427c0358b72f53a9be4f2642014f65edca"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-project-store/src/index.ts",
+      "sha256": "4dafa199bb5fe5fb939f42151a8fe1ec6fc8d2971bfa38c3794c21016a4f0756"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-project-store/src/node/project-store-module.ts",
+      "sha256": "a60f0febda9935a002bee1e9cf3b560e9e3686a8a1ffb656a5f98b9c0c6c6d1d"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-project-store/src/node/project-store-service.ts",
+      "sha256": "d39cee40b53d840425ead3793db521b690552febc6099fef1601567d5bc42186"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-project-store/tsconfig.json",
+      "sha256": "637adee72855bd05a902fdc771b47db9e61d6dddaf8d988c710646dfc160352b"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-protocol/package.json",
+      "sha256": "e24464e6df9d72424cd0c7c938fcd21f93865642751256fa059724923ecf6902"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-protocol/src/channels.ts",
+      "sha256": "42e96c4bf4dbb634cc7dda3f771dfeb66ce7ef42b37cb5e4c0db80087af3ec83"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-protocol/src/constants.ts",
+      "sha256": "984689a90ddeb51ca664c067b05d91fbdab9faf241571f1b5f623e48a0faf0e8"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-protocol/src/index.ts",
+      "sha256": "dd848328922cb1f6d2271accb46f0b2b44e5107bb4956693278c487689bf2df6"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-protocol/src/m1.ts",
+      "sha256": "c64492d15072f3408a5b0b8dfa6bd2bd11f1f824d7965dc3db513569ea124ca2"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-protocol/src/messages.ts",
+      "sha256": "68e6280827f1c5611c2236156f54297d0b5a8bc80a083a551f70ab9283c533c4"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-protocol/tsconfig.json",
+      "sha256": "637adee72855bd05a902fdc771b47db9e61d6dddaf8d988c710646dfc160352b"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-release/lib/index.js",
+      "sha256": "827629b445216ce7d57cc0c20cb21e80d9a3951bf7ec3aa0b6fdfb54b83b8936"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-release/package.json",
+      "sha256": "2096b6f9abfaeec35c5849916b03869fcaabbcb155a5e9052a1115e0e22b1b03"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-release/src/index.ts",
+      "sha256": "c569b72835b8bf8a82c7dc2c767721d0bea98f10278779859b4479027aa66a39"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-release/src/release-config.ts",
+      "sha256": "6b4cf21b51d159c2d3734f7e54570608429b01495c7208bab1bfd7997badd993"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-release/tsconfig.json",
+      "sha256": "637adee72855bd05a902fdc771b47db9e61d6dddaf8d988c710646dfc160352b"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-review-panel/lib/browser/review-panel-module.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-review-panel/package.json",
+      "sha256": "3f4bfedeed8485fd6e4201358b3d62914eed27527cd44452741c380ea67edfe4"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-review-panel/src/browser/components/ReviewItem.tsx",
+      "sha256": "e1729a701d1379223be42a4df100fc068707434b19cb679684734f412c9315d0"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-review-panel/src/browser/review-panel-contribution.ts",
+      "sha256": "59620571dd28b7d4eab2bb1cc7665cc77fe459eda54477310816af7d2d7b09e5"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-review-panel/src/browser/review-panel-module.ts",
+      "sha256": "1786c523d1328261ab335a02ef0b67d742e1626c43b0e532982c32df29d4b4c7"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-review-panel/src/browser/review-panel-widget.tsx",
+      "sha256": "1486328d352336bcb6fa75985757969fd920fab1c58cd2b168748d0a0ad200c6"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-review-panel/src/browser/styles/review-panel.css",
+      "sha256": "c64156cb516baff184e09e2a22e3e3838da232126b443ca0779669866e2df518"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-review-panel/src/common/review-panel-protocol.ts",
+      "sha256": "1fd08d557f3d883e0ae57f339a3d611ba96c91da8e810165603ce097c54d22d6"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-review-panel/src/index.ts",
+      "sha256": "fd9a59cc43e30e9b06d45a0a91d542552b3127b509a8a94ecd451a7ad19a408d"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-review-panel/tsconfig.json",
+      "sha256": "f5e4198c57b9db403b9a6bb5bf70e746e93e25b601b8308512f599a86f44124d"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-security-audit/lib/index.js",
+      "sha256": "9b66de78cbf33e887cb61081dad52131682a40e7f5faa053c822c16ddecf3887"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-security-audit/package.json",
+      "sha256": "e4eb5b20447ee2453777c4b0ad9c2d6142f1c69933a3a427d939b2d29811c2b6"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-security-audit/src/index.ts",
+      "sha256": "f88a0750652ccd26ae9edba9fc997b86fde14ad093ae5ef0b63c864ed2b06ebc"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-security-audit/src/security-audit-protocol.ts",
+      "sha256": "221da0bd2445d78dd99e926264af8ecd6c5e5222fd673ae976328b5c0c9210c6"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-security-audit/tsconfig.json",
+      "sha256": "637adee72855bd05a902fdc771b47db9e61d6dddaf8d988c710646dfc160352b"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-settings/lib/browser/settings-module.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-settings/package.json",
+      "sha256": "3eafd26723b7cfcc8f98f32436d28b7f28efca46316d1e915f1b4f80e83b2361"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-settings/src/browser/settings-contribution.ts",
+      "sha256": "60c4a82363a11a8fd589bce1d180edc9619d7476a5b3bcc640aef230409b20f1"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-settings/src/browser/settings-module.ts",
+      "sha256": "b3f7e2ea1f13a53ad6745f43cc2f6a48b85f5862684cb109a100fd20233b9525"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-settings/src/common/settings-protocol.ts",
+      "sha256": "acc8fc727da66440b7360da74fde623eace0a0325383b398121f38a4d0217f0f"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-settings/src/index.ts",
+      "sha256": "e0e3e145575e6490df297ebfb8ef79669ce27ab1a7ff95735d419313bbfbe9fb"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-settings/tsconfig.json",
+      "sha256": "3409fb39004e2528dd9382fa3bc0b96b2aae546dd3e0af1a865013c7d6710a4c"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-shell-bridge/lib/node/shell-bridge-module.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-shell-bridge/package.json",
+      "sha256": "37f867b7be7cd1941cbc55055991a5adbbe4b1a30e7929a418404fc7a5339834"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-shell-bridge/src/common/shell-bridge-protocol.ts",
+      "sha256": "aacb435fe8144367a0a0b848b9e67588bd6ec6b9569d99dbf7d8e32b7d5206fd"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-shell-bridge/src/index.ts",
+      "sha256": "ec040eaf347db9248b3d2965b1f3e5414939dc1a02af233884f1d7f8af7c370b"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-shell-bridge/src/node/__tests__/shell-security.test.ts",
+      "sha256": "1c27fc24b213a1aa69e0fb54477a36b44da2b2300b1cb2c7d306baad1cd34571"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-shell-bridge/src/node/shell-bridge-module.ts",
+      "sha256": "e587f76e1969ba6375460862c7c033de0874c9e3a12c2eee3f11af8924b7b2e5"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-shell-bridge/src/node/shell-tool-service.ts",
+      "sha256": "ad2f01b6cebf90169249552d3d462f043602bc5b9d04fba4ff869dbc48b36a08"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-shell-bridge/tsconfig.json",
+      "sha256": "feac5584f5b731ab32fe2036c61f7a577c347e4bcf5c663fbf156b589b3e97d6"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-shell-security/lib/node/shell-security-service.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-shell-security/package.json",
+      "sha256": "4fdad7ad93f79202ba429370741d0498665b3003e00297c06d56a52b8aaa120a"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-shell-security/src/common/shell-security-protocol.ts",
+      "sha256": "36f62de2ccc38c26948bea31687f8b72badfd8063845e9b55cd2c4335821e9bd"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-shell-security/src/index.ts",
+      "sha256": "b88bc7e9654c171c474a57f7ddd4abff9f973d452a810c568e4d9428030520be"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-shell-security/src/node/shell-security-service.ts",
+      "sha256": "cb02516262a892021f3c6fb247a266e0ee17a5bfde2bf3720c868fad6c59b174"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-shell-security/tsconfig.json",
+      "sha256": "bb59801884c0e4ea7faff9878ba5665863f6339f5a3f7a218d6d9671d9928a2c"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-sidebar/lib/browser/sidebar-module.js",
+      "sha256": "d3860329b6db5a16679af8c01b6987d36ea85aad341e0df4d3c2571daf5fe19f"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-sidebar/lib/browser/styles/intentsmith-sidebar.css",
+      "sha256": "a3d553d4fd8e91c8a9e7f84a8e7aaf0c8610145315c21221791470c0d0650e1f"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-sidebar/package.json",
+      "sha256": "c27bbc6a0281923602c7ff588ee579c24540e0dea5717317e16bdf48c447a654"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-status-widget/lib/browser/status-widget-module.js",
+      "sha256": "c35487c3ccd0320cebc5aac334a123c8cb5580316f326eedc3024b27653d41af"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-status-widget/lib/browser/styles/intentsmith-status.css",
+      "sha256": "e49f80518dbc0a0e85074c53853e97615cf5b89dc2d90d65f06fea66d9d9abd8"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-status-widget/package.json",
+      "sha256": "be0e862098e9cad7d4c02f123bfbbaea4b06909c6d76d87d8a2f59ff2c086e82"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-status-widget/src/browser/status-widget-contribution.ts",
+      "sha256": "e0882f0602a8ac83c435a7b058e864d716702f23e4c84e591bce5699086d4ffc"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-status-widget/src/browser/status-widget-module.ts",
+      "sha256": "93e700f8210aaae14b90023a892751297a0cda2060190573ac4898043efa8b87"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-status-widget/src/browser/styles/status-widget.css",
+      "sha256": "69ef76dd1c282c34ea8b01b529c892a625084a90342079f2ef8ca102481fddd6"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-status-widget/src/index.ts",
+      "sha256": "1ed0e2cd40a603f772186fae3f4b74d0f437921ac3ab30fe7adc637c967a8493"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-status-widget/tsconfig.json",
+      "sha256": "3409fb39004e2528dd9382fa3bc0b96b2aae546dd3e0af1a865013c7d6710a4c"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/appearance-store.js",
+      "sha256": "521af2a79c9252a041b2170feb750732e7de980c17570f53bf424c197798c9a2"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/attachments.js",
+      "sha256": "a2fa40542a06be6fdad717ccd1cb306d0d4fb7a3f680c563adb428f83c96c50c"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/catalog-store.js",
+      "sha256": "7fcf0eb18ce1caa43febc10e0f1563af889ff098d7978a264372cee8473aea69"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/development-client.js",
+      "sha256": "529549d26dd636b5ca224aa3ba742d281542df9a6cb16e86d87409a2e3c1e6c5"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/expertise-selection-client.js",
+      "sha256": "37c71c3a24ca15226aad9cfadea69b1df8ec9c5f7223ec91d4c074740c74afb9"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/feedback-workspace.js",
+      "sha256": "673fd51fbdae15661fad4b605d954e83f3469cfac6f022950b84830ef7a02ee5"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/icon.js",
+      "sha256": "1b83a1c874ac684c6f5dc3a743376cf6bf19213414943e07a57e5ba89950c815"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/ide-settings-management.js",
+      "sha256": "ab83c604735cbc711617bb6876bc336746d17e14e426daa151b44335f10321d1"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/learning-commands.js",
+      "sha256": "dcea23d4a9675e71bf7f9874b324fbcc0949e0dc2ee074bf8908d88d1c060f8a"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/m2-composer.js",
+      "sha256": "83b5019154789a044d8fa9810c9653c976d872df9acd851fc08d399f04fc6e23"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/m2-controller.js",
+      "sha256": "219f3f3a3669febc260a9c0801c118700bad32bc2dfb3bcdcbc2ab43adcc6bed"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/model-workspace-redesign.js",
+      "sha256": "bc0087be271d915015fe0db87cea49c4884f4d8b8dd81c755aea1c6ac9659d47"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/model-workspace.js",
+      "sha256": "e4a1f02b61606b0ac6d58693e402bcf8d8da601d80766eb5a4cc78cbc5ad8553"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/scm-client.js",
+      "sha256": "df3d49978b04bd777215fac666e91bcd2108218e5a80b677c8904ddbf99f06e0"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/scm-review.js",
+      "sha256": "0e6754ada2e069e9eca7e3a0763c9833cbcf458aefe5fb7f6509e02a4ed5b184"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/security-workspace.js",
+      "sha256": "d3d6f76de03cd1a3b7686616b6707546cc3fa6a685f4b800f8ca805052d4688e"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/session-store.js",
+      "sha256": "ffaf490b33bfb17fed4c9afec60312f0c7a461e999b3f3b50f4f298a04123fa2"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/settings-preferences.js",
+      "sha256": "8db4f10ca3045789bb3b58288da9deb608c4d38247d6ebb78145162abaee41a8"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/status-client.js",
+      "sha256": "99aaca26afadf2062b9511e66b432d7b54689ea6ba82a5f549b315355818b85d"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/studio2-electron-menu.js",
+      "sha256": "b57a3988375f1f924427ea165f0346425373183de1c3e4a9d706c9e2dff1d3d0"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/studio2-module.js",
+      "sha256": "c87b3d7ddcf324c28ded2b46fe139a3684eb334d38e5e8cf765775217c9ee3c1"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/styles/bg-japanese.jpg",
+      "sha256": "1ab719f1226aa9e41469a2fe069e69b8c711b2949d2810a1f360a574584efe32"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/styles/bg-matrix.jpg",
+      "sha256": "269388f43509eee7db5f28f3a0314229f018a6937a0705b83b379a5fd0bbc789"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/styles/bg-midnight.jpg",
+      "sha256": "e591620cf96b7e32918d67bd84ab5e243958dbf04e8c31e8dc62a17b1c931451"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/styles/fonts/inter-Inter-opsz-wght.ttf",
+      "sha256": "29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/styles/fonts/inter-OFL.txt",
+      "sha256": "5b9321a4298cfeb6b34354164a1c3afc3db114569984c502b9b35d988fd58c57"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/styles/fonts/jetbrainsmono-JetBrainsMono-wght.ttf",
+      "sha256": "48715a42ec242c21e9f02692891e147d022299a52e48d5e413e1a942193ffeda"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/styles/fonts/jetbrainsmono-OFL.txt",
+      "sha256": "b2fe5e8987594e9ffd1d2ca52a2f5d73eb8335243893c5d6254b5ad69269591d"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/styles/fonts/plusjakartasans-OFL.txt",
+      "sha256": "995c7199cab65954f545996326755daee7b63cc6b42b06c13da1f9502ab08a99"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/styles/fonts/plusjakartasans-PlusJakartaSans-wght.ttf",
+      "sha256": "89b3fb38aa0d275d7a731d0d817a4f1622b316b4d7fbdedcf02ee9099ff68bc8"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/styles/fonts/sharetechmono-OFL.txt",
+      "sha256": "9d96f445b6e9c701428811d0177f894874f8d6f07ecc30d568c506542368f3ff"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/styles/fonts/sharetechmono-ShareTechMono-Regular.ttf",
+      "sha256": "9ceab1f87414829af259c0f537573ae03ef7dd3147c0b27a36a1a0beb6732677"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/styles/fonts/yujiboku-OFL.txt",
+      "sha256": "ef7c85c72ae94381c8bc4832ae4e6fbabdeafa2bb8a31313cd75dce95a690256"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/styles/fonts/yujiboku-YujiBoku-Regular.ttf",
+      "sha256": "94fda16384f3bdac24376a000c57e99abfa314961bd89ef27badfb7410322003"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/styles/fonts/zenkakugothicantique-OFL.txt",
+      "sha256": "0fac78a235c98d640cb06332eb5362c211d86fa03c011df438c35005d22ad2c7"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/styles/fonts/zenkakugothicantique-ZenKakuGothicAntique-Regular.ttf",
+      "sha256": "e79b874ef1ae0cfe5b9d750f5990d408874300b17c7a02cb6e86e73a14a33005"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/transport-adapter.js",
+      "sha256": "25b21209ff4672b0da60c209c6ddf9779d96572eabcacf2161185fa742040317"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/view/README.md",
+      "sha256": "272328937a332a3f6c2dfa1cf592b849bb7961c697a8fbfe7138c8ad347144cd"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/view/dc-logic.js",
+      "sha256": "fcf409701b2f6d5a59992d0f60101fa5e9552e660ef21c13dbc23e66aabd262d"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/view/generated/model.js",
+      "sha256": "be5bed8db38c972bb5ab98756da91ed1bba36d48dd2a22e3700c395903beaa3e"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/view/generated/proto.css",
+      "sha256": "585cafd618bcfa5979a680515d5330677441ba516c214e50cf428f6370ae5786"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/view/generated/view.js",
+      "sha256": "ba48fd83f370c80dba589132b2f2e123387526581156d8512ca161c924679ddd"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/view/live-model.js",
+      "sha256": "5c2aa4388243143424ff95f5cb688fd1bdb57bf108c61bca5f3a1ca008c3e85e"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/view/studio-root.js",
+      "sha256": "d52e7864c64fdaa22d79815e2d132aa0a833947753242d012ddd29764abf6565"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/view/view.css",
+      "sha256": "7929c35006435713ba5cc5022fce54c0d2bdb9211e44c9013d95d85649c4633a"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/worker-template.js",
+      "sha256": "bc1b888f69c8e7a9804a9f01fd117ed259821125f75c94e15ec5f8389f01fc5e"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/lib/browser/workspace-files.js",
+      "sha256": "40183d34c8cfe3dfdfd9a71d1ff34061263816390c281d314526830a6262330a"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/package.json",
+      "sha256": "5d568445f68bc2f9c28a0962d47ad39cd9cc0e9855c3911a1a291fb4db005c21"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/scripts/build-view.js",
+      "sha256": "91c092bf54638f3b963a90f05d8a3f4d5da8a9bb0d9e98d3fb26ecc4ce2d7c90"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-studio2/scripts/preview-view.js",
+      "sha256": "38ce52c4d885928106212a4b46d7c7c30f49bdff863f00258ed3057fbfd75cd6"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-token-dashboard/lib/browser/token-dashboard-module.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-token-dashboard/lib/node/token-dashboard-service.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-token-dashboard/package.json",
+      "sha256": "fc8d8cb6701c31c50ec7fa61cd8494a14d6a52f42f7ec3a7d8e1ef58da0f939e"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-token-dashboard/src/browser/components/TokenDashboardWidget.tsx",
+      "sha256": "2298fa71f0a4349a1eb3230e4f8b899aee4fa834f351c0024bb4d25c730910ef"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-token-dashboard/src/browser/styles/token-dashboard.css",
+      "sha256": "23ffffe5c32d55adc75b852963dbc060187a72cfc71a933184bb7623d63e229c"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-token-dashboard/src/browser/token-dashboard-module.ts",
+      "sha256": "a9d67421eef98a6b112c193361163ac63b27b39a68718caccadbc0fa0c359334"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-token-dashboard/src/common/token-dashboard-protocol.ts",
+      "sha256": "263396562927f8a18a48238d354695390579fa068fcaf7210bc51fc4cc50de8c"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-token-dashboard/src/index.ts",
+      "sha256": "d38267b82ab87e0c1575c024517fa6ab79593f4e16afa5ce1646734076873497"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-token-dashboard/src/node/token-dashboard-module.ts",
+      "sha256": "2898391fecc001056c974dec98faa6eefcab70eb4a6d4999604e6334b33a34e8"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-token-dashboard/src/node/token-dashboard-service.ts",
+      "sha256": "0c082de9c60d609a9b29dff1cab6ed90e4a768fd4fe68106081f310047f70708"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-token-dashboard/tsconfig.json",
+      "sha256": "3409fb39004e2528dd9382fa3bc0b96b2aae546dd3e0af1a865013c7d6710a4c"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-ws-security/lib/node/ws-security-service.js",
+      "sha256": "381d20589f8e610fe0412921d1c500ed6451ddb2dce38d9153c0a86444dda4ae"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-ws-security/package.json",
+      "sha256": "9c02657532deb47c59b3f52270c879e6ca499a3d5d7058edd01822ed10b3f930"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-ws-security/src/index.ts",
+      "sha256": "68357ae665064763d81bf61257f9598ea70f487a155d47b6713f8e9e74e7aea4"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-ws-security/src/node/ws-security-service.ts",
+      "sha256": "11a107995a4c8c9465a7ab60aec48cb9e7f35cda3de0b74a4cf64a06f042ea9f"
+    },
+    {
+      "path": "intentsmith-ide/extensions/intentsmith-ws-security/tsconfig.json",
+      "sha256": "637adee72855bd05a902fdc771b47db9e61d6dddaf8d988c710646dfc160352b"
+    },
+    {
+      "path": "intentsmith-ide/fix-extensions.sh",
+      "sha256": "48730882dc3419a63ab4a0bfb3f856dc90c28fb24da8bbb7f335874be6abaeea"
+    },
+    {
+      "path": "intentsmith-ide/fixes/apply-fixes.sh",
+      "sha256": "7aa28fc42cf060a33483cd5997d0310502a5bec7771b451a4dd5ad729e299ba2"
+    },
+    {
+      "path": "intentsmith-ide/package.json",
+      "sha256": "4879efefe3f0439ddceb8ac10698ef8d291fd82ab66dbc7bb662b507127f4ed7"
+    },
+    {
+      "path": "intentsmith-ide/postcss.config.js",
+      "sha256": "fa650b380adfabb151a0b352f7135e107e6352345f899060f1c5c231228f94bf"
+    },
+    {
+      "path": "intentsmith-ide/scripts/verify-m1-consumer-build.js",
+      "sha256": "ad6942caac68f17881e69f446a6c9bb19ac9ee26595164836b9a6efec345ec78"
+    },
+    {
+      "path": "intentsmith-ide/shared/legacy-local-object-url-cache.js",
+      "sha256": "6fdefdb8954e30e677ff3068a89b3e3c4ea0f559e12b8cf79a145b94d009241e"
+    },
+    {
+      "path": "intentsmith-ide/shared/specialist-files.js",
+      "sha256": "e715c20b5c45ee4f46d663541756362a56d7f3602ebbda04b91c3cf83a3014bd"
+    },
+    {
+      "path": "intentsmith-ide/tailwind-plugins/glassmorphism.js",
+      "sha256": "bbbcb8a332462b546037314005a799f33b127b93a4b15445cb464be251ace9e3"
+    },
+    {
+      "path": "intentsmith-ide/tailwind.config.js",
+      "sha256": "56058cbf2bea818462769492b2b75dbb5b84eab1ec32267d9eb2c3cdb1bb2a09"
+    },
+    {
+      "path": "intentsmith-ide/theme-preview.html",
+      "sha256": "c621e88f993637cb26857521bbb3c36162489eefc518ec4ef64753e8c4e5b3bf"
+    },
+    {
+      "path": "intentsmith-ide/themes/bg-japanese-orig.jpg",
+      "sha256": "5d05c5fa51f5cadba1f5475a0eef09823b6fde4298b6ea2382a2c4cdf28b481f"
+    },
+    {
+      "path": "intentsmith-ide/themes/bg-japanese.jpg",
+      "sha256": "592dfef1bd93f2027a8c66dd25f65a5884d5e4fdf6b38dc312e75650273eeb01"
+    },
+    {
+      "path": "intentsmith-ide/themes/bg-matrix-orig.jpg",
+      "sha256": "0fd988612ed2823b31a8375a843f5910cab8953c09aecaeb1e3a668189e889cd"
+    },
+    {
+      "path": "intentsmith-ide/themes/bg-matrix.jpg",
+      "sha256": "2ec8df646c1b01c48e80dee0e2141412c990bbe5044dec807e59a3f0aeeb50fd"
+    },
+    {
+      "path": "intentsmith-ide/themes/bg-midnight-orig.jpg",
+      "sha256": "5d4816bc40ffdc8152bbeb8b4daf5eeb930963b8b4c7a18408ca0f342f865c8f"
+    },
+    {
+      "path": "intentsmith-ide/themes/bg-midnight.jpg",
+      "sha256": "76579e3cf5c7dcac21ca27f22c1a64400f458ea48f6e8fe2a0baea50e338a894"
+    },
+    {
+      "path": "intentsmith-ide/tsconfig.json",
+      "sha256": "f7c8e063311f2ef62c25d1255258cbd0032309eb801f1b6ae8d7b8d57f4d5f92"
+    },
+    {
+      "path": "intentsmith-ide/webpack.config.js",
+      "sha256": "2afe980bd2e90daaaa7d067dd3c525fc043938e8eac3364a4c727825e295a42b"
+    },
+    {
+      "path": "intentsmith-ide/yarn.lock",
+      "sha256": "1d6d6c71df4e11db03fcfc9235031c90370ae9af797db4f18cc68100364c51fb"
+    }
+  ],
+  "artifact": {
+    "path": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/intentsmith-ide/applications/electron/dist/IntentSmith-0.1.0.AppImage",
+    "size": 195190575,
+    "sha256": "8225de42fa4b743a0113de3322c65450f7efe6e00687b4d0683697b047d4fe26"
+  }
+}

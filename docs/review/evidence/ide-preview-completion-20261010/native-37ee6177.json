@@ -1,0 +1,535 @@
+{
+  "status": "PASS",
+  "sourceRevision": "37ee6177f7cf8e5e4509c5860474e8dca2ce0e8e",
+  "appimageSha256": "8225de42fa4b743a0113de3322c65450f7efe6e00687b4d0683697b047d4fe26",
+  "scope": "owned fresh DB, real Ollama metadata only, no GPU inference/outbound delivery; production bindings unchanged",
+  "screens": [
+    {
+      "name": "settings",
+      "width": 1920,
+      "innerWidth": 1920
+    },
+    {
+      "name": "account",
+      "width": 1920,
+      "innerWidth": 1920
+    },
+    {
+      "name": "notifications",
+      "width": 1920,
+      "innerWidth": 1920
+    },
+    {
+      "name": "storage",
+      "width": 1920,
+      "innerWidth": 1920
+    },
+    {
+      "name": "backups",
+      "width": 1920,
+      "innerWidth": 1920
+    },
+    {
+      "name": "git",
+      "width": 1920,
+      "innerWidth": 1920
+    },
+    {
+      "name": "overview",
+      "width": 1920,
+      "innerWidth": 1920
+    },
+    {
+      "name": "roles",
+      "width": 1920,
+      "innerWidth": 1920
+    },
+    {
+      "name": "inventory",
+      "width": 1920,
+      "innerWidth": 1920
+    },
+    {
+      "name": "matrix",
+      "width": 1920,
+      "innerWidth": 1920
+    },
+    {
+      "name": "hunt",
+      "width": 1920,
+      "innerWidth": 1920
+    },
+    {
+      "name": "catalog",
+      "width": 1920,
+      "innerWidth": 1920
+    },
+    {
+      "name": "hunt-settings",
+      "width": 1920,
+      "innerWidth": 1920
+    },
+    {
+      "name": "hunt-history",
+      "width": 1920,
+      "innerWidth": 1920
+    },
+    {
+      "name": "telemetry",
+      "width": 1920,
+      "innerWidth": 1920
+    },
+    {
+      "name": "operations",
+      "width": 1920,
+      "innerWidth": 1920
+    },
+    {
+      "name": "challenge-draft",
+      "width": 1920,
+      "innerWidth": 1920
+    },
+    {
+      "name": "settings",
+      "width": 1366,
+      "innerWidth": 1366
+    },
+    {
+      "name": "account",
+      "width": 1366,
+      "innerWidth": 1366
+    },
+    {
+      "name": "notifications",
+      "width": 1366,
+      "innerWidth": 1366
+    },
+    {
+      "name": "storage",
+      "width": 1366,
+      "innerWidth": 1366
+    },
+    {
+      "name": "backups",
+      "width": 1366,
+      "innerWidth": 1366
+    },
+    {
+      "name": "git",
+      "width": 1366,
+      "innerWidth": 1366
+    },
+    {
+      "name": "overview",
+      "width": 1366,
+      "innerWidth": 1366
+    },
+    {
+      "name": "roles",
+      "width": 1366,
+      "innerWidth": 1366
+    },
+    {
+      "name": "inventory",
+      "width": 1366,
+      "innerWidth": 1366
+    },
+    {
+      "name": "matrix",
+      "width": 1366,
+      "innerWidth": 1366
+    },
+    {
+      "name": "hunt",
+      "width": 1366,
+      "innerWidth": 1366
+    },
+    {
+      "name": "catalog",
+      "width": 1366,
+      "innerWidth": 1366
+    },
+    {
+      "name": "hunt-settings",
+      "width": 1366,
+      "innerWidth": 1366
+    },
+    {
+      "name": "hunt-history",
+      "width": 1366,
+      "innerWidth": 1366
+    },
+    {
+      "name": "telemetry",
+      "width": 1366,
+      "innerWidth": 1366
+    },
+    {
+      "name": "operations",
+      "width": 1366,
+      "innerWidth": 1366
+    },
+    {
+      "name": "challenge-draft",
+      "width": 1366,
+      "innerWidth": 1366
+    },
+    {
+      "name": "profile-saved",
+      "width": 1366,
+      "innerWidth": 1366
+    },
+    {
+      "name": "model-detail",
+      "width": 1366,
+      "innerWidth": 1366
+    },
+    {
+      "name": "context-editor",
+      "width": 1366,
+      "innerWidth": 1366
+    },
+    {
+      "name": "profiles-list",
+      "width": 1366,
+      "innerWidth": 1366
+    },
+    {
+      "name": "profiles-tiles",
+      "width": 1366,
+      "innerWidth": 1366
+    }
+  ],
+  "checks": [
+    "invalid form retains draft without effect",
+    "profile UI write exactly once and API readback",
+    "real Ollama inventory and inline model detail",
+    "role editor and sidebar distinguish requested context from unverified HW",
+    "native saved disabled Hunt profile and global list/tile controls; no run queued"
+  ],
+  "focus": [
+    {
+      "width": 1920,
+      "mouse": {
+        "classes": "dtab on",
+        "outline": "color(srgb 0.900552 0.890794 0.868544) none 3px",
+        "focusVisible": false
+      },
+      "keyboard": {
+        "classes": "btn",
+        "outline": "color(srgb 0.831373 0.658824 0.372549) solid 2px",
+        "focusVisible": true,
+        "accent": "color-mix(in srgb,#d4a85f 100%,#9b6b32)"
+      }
+    },
+    {
+      "width": 1366,
+      "mouse": {
+        "classes": "dtab on",
+        "outline": "color(srgb 0.900552 0.890794 0.868544) none 3px",
+        "focusVisible": false
+      },
+      "keyboard": {
+        "classes": "btn",
+        "outline": "color(srgb 0.831373 0.658824 0.372549) solid 2px",
+        "focusVisible": true,
+        "accent": "color-mix(in srgb,#d4a85f 100%,#9b6b32)"
+      }
+    }
+  ],
+  "errors": [],
+  "calls": [
+    {
+      "method": "GET",
+      "path": "/api/conversations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects"
+    },
+    {
+      "method": "GET",
+      "path": "/api/specialists"
+    },
+    {
+      "method": "GET",
+      "path": "/api/expertises"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agents"
+    },
+    {
+      "method": "GET",
+      "path": "/api/media/history"
+    },
+    {
+      "method": "GET",
+      "path": "/api/health"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/info"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/gpu"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/upgrades/bindings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/projects"
+    },
+    {
+      "method": "GET",
+      "path": "/api/specialists"
+    },
+    {
+      "method": "GET",
+      "path": "/api/conversations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/conversations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/conversations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/conversations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/accounts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/accounts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/channels"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/config"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/channels"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/storage/inventory"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/storage/paths"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/storage"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/backups"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/storage/settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/backups"
+    },
+    {
+      "method": "GET",
+      "path": "/api/scm/repositories"
+    },
+    {
+      "method": "GET",
+      "path": "/api/scm/profiles"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/overview"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/role-settings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/upgrades/bindings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/upgrades/bindings"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/evaluations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/evaluations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt/jobs"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt/profiles"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/candidates"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/downloads"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/evaluations"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/telemetry"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/policy"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt"
+    },
+    {
+      "method": "GET",
+      "path": "/api/accounts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/channels"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/config"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications/channels"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt"
+    },
+    {
+      "method": "GET",
+      "path": "/api/health"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/info"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/gpu"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/accounts/profile"
+    },
+    {
+      "method": "GET",
+      "path": "/api/accounts"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt/profiles"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/system/models/hunt/profiles/profile_mv29a520_3"
+    },
+    {
+      "method": "GET",
+      "path": "/api/system/models/hunt/profiles"
+    }
+  ]
+}

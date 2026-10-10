@@ -1,0 +1,137 @@
+Soubor
+Úpravy
+Zobrazení
+Relace
+Agent
+Nápověda
+Hledat, přepnout relaci, spustit příkaz…
+Ctrl K
+1
+2
+3
+Konverzace
+OTEVŘENÉ RELACE
+1
+Relace 1
+nečinná
+Projekty
+Specialisté
+Expertýzy
+Workeři
+Obchod
+Multimédia
+Nastavení
+Nastavení
+/
+Modely a inference
+Modely a inference
+živá data
+Přehled
+Role
+Modely
+Evaluace
+GPU Hunt
+Telemetrie
+Provoz
+
+Data z backendu. Nezměřené modely nemají skóre kvality.
+
+Obnovit
+Uložit politiku
+Autorita politiky
+Ověřená revize 1
+VALID
+Provoz a parametry
+Správa hardwaru
+Změny modelů
+Požadované parametry rolí
+
+Požadovaný kontext a výstup jsou konfigurace; ověřená HW dvojice je samostatný údaj. Není to absolutní maximum modelu.
+
+Role	Model	Stav	Kontext	Výstup	HW důkaz	Interní kroky	Úprava
+D1 · Návrhář
+Rozebírá požadavek a připravuje plán práce.
+	qwen3.8:latest	Výchozí	8192	—	Největší doložená dvojice: —	Používají vlastní limit	Upravit
+D2 · Diagnostik
+Hledá příčinu chyby a navrhuje opravu.
+	qwen3.8:latest	Výchozí	8192	—	Největší doložená dvojice: —	Používají vlastní limit	Upravit
+CODE · Implementace
+Připravuje změny souborů podle schváleného plánu.
+	qwen3.8:latest	Výchozí	8192	—	Největší doložená dvojice: —	Používají vlastní limit	Upravit
+R1 · Závěrečný revizor
+Posuzuje výsledek před dokončením plánu.
+	qwen3.8:latest	Výchozí	8192	—	Největší doložená dvojice: —	Používají vlastní limit	Upravit
+R2 · Průběžný revizor
+Kontroluje změny během pracovního cyklu.
+	qwen3.8:latest	Výchozí	8192	—	Největší doložená dvojice: —	Používají vlastní limit	Upravit
+CHAT · Rozhovor
+Odpovídá uživateli a vysvětluje výsledky.
+	qwen3.8:latest	Výchozí	8192	—	Největší doložená dvojice: —	Používají vlastní limit	Upravit
+VISION · Obrazová analýza
+Čte a popisuje obsah obrázků.
+	qwen3.8:latest	Výchozí	8192	—	Největší doložená dvojice: —	Používají vlastní limit	Upravit
+Parametry role D1
+
+qwen3.8:latest · revize 0
+
+Návrhář · Rozebírá požadavek a připravuje plán práce.
+
+Otisk konkrétního modelu (SHA-256): 22130167c4c2…
+
+Minimum kontextu pro D1: 512 tokenů. Délka odpovědi CHAT neomezuje interní JSON kroky. Ověřený strop HW: dosud neověřeno; ukládáte požadované okno a výstup.
+
+Stejný model používají role D1, D2, CODE, R1, R2, CHAT, VISION. Rozdílný kontext může při přepnutí model znovu načíst.
+
+Požadovaný kontext v tokenech
+Požadovaný výstup v tokenech
+
+Backend ověří aktuální vazbu, povolený runtime kontext a případný pevný CODE profil. Požadavek nemění tyto limity.
+
+Uložit a ověřit parametry role
+Zavřít editor
+Politika automatizace
+Automatické přepnutí při výpadku
+Automatický úklid nepoužívaných modelů
+Úklid po dnech
+INFERENCE
+Teplota generování
+
+Tato starší volba zatím nemá účinek. Uloženou hodnotu zobrazujeme pouze pro čtení.
+
+Kontextové okno v tokenech
+
+Kontext a délku odpovědi nastavte zvlášť u každé role v Modely → Role.
+
+Časový limit chatu v ms
+
+Tato starší volba zatím nemá účinek. Uloženou hodnotu zobrazujeme pouze pro čtení.
+
+Časový limit kódu v ms
+
+Tato starší volba zatím nemá účinek. Uloženou hodnotu zobrazujeme pouze pro čtení.
+
+PŘIPOJENÍ
+Adresa lokální Ollamy
+
+Tato starší volba zatím nemá účinek. Uloženou hodnotu zobrazujeme pouze pro čtení.
+
+HARDWARE
+Počet vrstev v GPU (-1 = automaticky)
+
+Tato starší volba zatím nemá účinek. Uloženou hodnotu zobrazujeme pouze pro čtení.
+
+Změny
+Soubory
+Správa zdrojů
+Kontext
+1
+Nic nečeká na schválení
+V režimu Kontrola se sem dostanou změny souborů, než se zapíšou.
+Připojeno
+backend 136.1.0
+ws :34201
+1 relace · 0 pracuje · 0 čeká
+kontext
+—
+DB 3,02 MiB
+GPU nedostupné

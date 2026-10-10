@@ -1,0 +1,131 @@
+  • electron-builder  version=25.1.8 os=7.0.0-34-generic
+  • loaded configuration  file=/home/belphareon/Projects/intentsmith-ide-backend-20261009/intentsmith-ide/applications/electron/electron-builder.yml
+  • author is missed in the package.json  appPackageFile=/home/belphareon/Projects/intentsmith-ide-backend-20261009/intentsmith-ide/applications/electron/package.json
+  • @electron/rebuild already used by electron-builder, please consider to remove excess dependency from devDependencies
+
+To ensure your native dependencies are always matched electron version, simply add script `"postinstall": "electron-builder install-app-deps" to your `package.json`
+  • skipped dependencies rebuild  reason=npmRebuild is set to false
+  • packaging       platform=linux arch=x64 electron=42.11.3 appOutDir=dist/linux-unpacked
+  • map async       taskCount=2
+  • map async       taskCount=1
+  • map async       taskCount=74
+  • asar usage is disabled — this is strongly not recommended  solution=enable asar and use asarUnpack to unpack files that must be externally available
+  • unresolved deps  unresolved=@babel/runtime@lumino/algorithm@lumino/commands@lumino/coreutils@lumino/domutils@lumino/dragdrop@lumino/messaging@lumino/properties@lumino/signaling@lumino/virtualdom@lumino/widgets@parcel/watcher@theia/application-package@theia/request@vscode/codiconsajvbody-parserdompurifydrivelistexpressfast-json-stable-stringifyfile-icons-jsfont-awesomefuzzyhttp-proxy-agenthttps-proxy-agenticonv-liteinversifyjschardetkeytarlodash.debouncelodash.throttlemarkdown-itmarkdown-it-anchormarkdown-it-emojimsgpackrp-debounceperfect-scrollbarreact-tooltipreact-virtuosoreflect-metadataroute-parsersafer-buffersocket.iosocket.io-clienttslibuuidvscode-languageserver-protocolvscode-uriyargs
+                     nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules
+                     round=0
+  • unresolved deps  unresolved=tslib nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=graceful-fs nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=graceful-fs nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=detect-libcis-globnode-addon-api nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=@parcel/watcher-android-arm64@parcel/watcher-darwin-arm64@parcel/watcher-darwin-x64@parcel/watcher-freebsd-x64@parcel/watcher-linux-arm-glibc@parcel/watcher-linux-arm-musl@parcel/watcher-linux-arm64-glibc@parcel/watcher-linux-arm64-musl@parcel/watcher-linux-x64-glibc@parcel/watcher-linux-x64-musl@parcel/watcher-win32-arm64@parcel/watcher-win32-x64
+                     nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules
+                     round=0
+  • unresolved deps  unresolved=@parcel/watcher-android-arm64@parcel/watcher-darwin-arm64@parcel/watcher-darwin-x64@parcel/watcher-freebsd-x64@parcel/watcher-linux-arm-glibc@parcel/watcher-linux-arm-musl@parcel/watcher-linux-arm64-glibc@parcel/watcher-linux-arm64-musl@parcel/watcher-win32-arm64@parcel/watcher-win32-x64
+                     nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/node_modules
+                     round=1
+  • unresolved deps  unresolved=@theia/requestdeepmergeis-electronnanoresolve-package-pathsemvertslibwrite-json-file
+                     nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules
+                     round=0
+  • unresolved deps  unresolved=graceful-fs nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=graceful-fs nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=tslib nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=bytescontent-typedepddestroyhttp-errorson-finishedqsraw-bodytype-isunpipe
+                     nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules
+                     round=0
+  • unresolved deps  unresolved=safer-buffer nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=byteshttp-errorsunpipe nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=safer-buffer nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=bindingsdebugprebuild-install nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=detect-libcexpand-templategithub-from-packageminimistmkdirp-classicnapi-build-utilsnode-abipumprcsimple-gettunnel-agent
+                     nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules
+                     round=0
+  • unresolved deps  unresolved=mkdirp-classicpump nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=blend-of-streamfs-constantsinherits nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=inheritsutil-deprecate nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=safe-buffer nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=bufferinherits nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=inheritsutil-deprecate nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=safe-buffer nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=semver nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=deep-extendiniminimist nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=acceptsarray-flattencontent-dispositioncontent-typecookiecookie-signaturedepdencodeurlescape-htmletagfinalhandlerfreshhttp-errorsmerge-descriptorsmethodson-finishedparseurlpath-to-regexpproxy-addrqsrange-parsersafe-buffersendserve-staticsetprototypeofstatusestype-isutils-mergevary
+                     nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules
+                     round=0
+  • unresolved deps  unresolved=bytescontent-typedepddestroyhttp-errorson-finishedqsraw-bodytype-isunpipe
+                     nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules
+                     round=0
+  • unresolved deps  unresolved=safer-buffer nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=encodeurlescape-htmlon-finishedparseurlstatusesunpipe nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=depddestroyencodeurlescape-htmletagfreshhttp-errorsmimemson-finishedrange-parserstatuses
+                     nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules
+                     round=0
+  • unresolved deps  unresolved=prebuild-install nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=msgpackr-extract nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=node-gyp-build-optional-packages nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=@msgpackr-extract/msgpackr-extract-darwin-arm64@msgpackr-extract/msgpackr-extract-darwin-x64@msgpackr-extract/msgpackr-extract-linux-arm@msgpackr-extract/msgpackr-extract-linux-arm64@msgpackr-extract/msgpackr-extract-linux-x64@msgpackr-extract/msgpackr-extract-win32-x64
+                     nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules
+                     round=0
+  • unresolved deps  unresolved=@msgpackr-extract/msgpackr-extract-darwin-arm64@msgpackr-extract/msgpackr-extract-darwin-x64@msgpackr-extract/msgpackr-extract-linux-arm@msgpackr-extract/msgpackr-extract-linux-arm64@msgpackr-extract/msgpackr-extract-win32-x64
+                     nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/node_modules
+                     round=1
+  • unresolved deps  unresolved=prop-typesuuid nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=loose-envifyobject-assignreact-is nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=string-widthstrip-ansi nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=ansi-stylesstring-widthstrip-ansi nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=@theia/coreasync-mutexbody-parserhttp-status-codesignoreminimatchmulteropfs-workerrimrafstat-modetar-fstar-streamtrashtslibvscode-languageserver-textdocument
+                     nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules
+                     round=0
+  • unresolved deps  unresolved=comlinkminimatch nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=foreground-childjackspeakpackage-json-from-distpath-scurry
+                     nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules
+                     round=0
+  • unresolved deps  unresolved=brace-expansion nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=cross-spawn nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=path-keyshebang-commandwhich nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=string-width-cjsstrip-ansi-cjswrap-ansi-cjs nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=eastasianwidth nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=pump nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=bare-fsbare-path nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=b4abare-fsfast-fifostreamx nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=@stroncium/procfsglobbyis-path-insidemove-filep-mapuuidxdg-trashdir
+                     nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules
+                     round=0
+  • unresolved deps  unresolved=semver nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules/trash/node_modules round=0
+  • unresolved deps  unresolved=array-uniondir-globglobpify nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=fs.realpathinflightinheritsoncepath-is-absolute nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=balanced-matchconcat-map nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=cross-spawnget-streammerge-streamnpm-run-pathonetimep-finallysignal-exitstrip-final-newline
+                     nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules
+                     round=0
+  • unresolved deps  unresolved=pinkie-promise nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=dompurifymarked nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=atomicallydebounce-fndot-propenv-pathsjson-schema-typedonetimepkg-upsemver
+                     nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules
+                     round=0
+  • unresolved deps  unresolved=fast-deep-equalfast-urirequire-from-string nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=p-limit nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=default-shell nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=cross-spawnhuman-signalsmerge-streamonetimesignal-exitstrip-final-newline
+                     nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules
+                     round=0
+  • unresolved deps  unresolved=path-key nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=prop-types nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/intentsmith-ide/node_modules round=0
+  • unresolved deps  unresolved=@vscode/ripgrep-darwin-arm64@vscode/ripgrep-darwin-x64@vscode/ripgrep-linux-arm@vscode/ripgrep-linux-arm64@vscode/ripgrep-linux-ia32@vscode/ripgrep-linux-ppc64@vscode/ripgrep-linux-riscv64@vscode/ripgrep-linux-s390x@vscode/ripgrep-win32-arm64@vscode/ripgrep-win32-ia32@vscode/ripgrep-win32-x64
+                     nodeModuleDir=/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/node_modules
+                     round=0
+  • asar usage is disabled — this is strongly not recommended  solution=enable asar and use asarUnpack to unpack files that must be externally available
+  • building        target=AppImage arch=x64 file=dist/IntentSmith-0.1.0.AppImage
+  • path doesn't exist  path=/home/belphareon/Projects/intentsmith-ide-backend-20261009/intentsmith-ide/applications/electron/build/resources/intentsmith-icon.png
+  • path resolved   path=/home/belphareon/Projects/intentsmith-ide-backend-20261009/intentsmith-ide/applications/electron/resources/intentsmith-icon.png outputFormat=set
+  • map async       taskCount=1
+  • found existing  path=/home/belphareon/.cache/electron-builder/appimage/appimage-12.0.1
+  • copy files      from=/home/belphareon/.cache/electron-builder/appimage/appimage-12.0.1/lib/x64
+                    to=/home/belphareon/Projects/intentsmith-ide-backend-20261009/intentsmith-ide/applications/electron/dist/__appImage-x64/usr/lib
+                    isUseHardLinks=true
+  • copy files      from=/home/belphareon/Projects/intentsmith-ide-backend-20261009/intentsmith-ide/applications/electron/dist/linux-unpacked
+                    to=/home/belphareon/Projects/intentsmith-ide-backend-20261009/intentsmith-ide/applications/electron/dist/__appImage-x64
+                    isUseHardLinks=true
+  • found existing  path=/home/belphareon/.cache/electron-builder/appimage/appimage-12.0.1
+  • execute command  command=/home/belphareon/.cache/electron-builder/appimage/appimage-12.0.1/linux-x64/mksquashfs /home/belphareon/Projects/intentsmith-ide-backend-20261009/intentsmith-ide/applications/electron/dist/__appImage-x64 /home/belphareon/Projects/intentsmith-ide-backend-20261009/intentsmith-ide/applications/electron/dist/IntentSmith-0.1.0.AppImage -offset 188392 -all-root -noappend -no-progress -quiet -no-xattrs -no-fragments
+                     workingDirectory=/home/belphareon/Projects/intentsmith-ide-backend-20261009/intentsmith-ide/applications/electron/dist/__appImage-x64
+  • command executed  executable=/home/belphareon/.cache/electron-builder/appimage/appimage-12.0.1/linux-x64/mksquashfs

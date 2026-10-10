@@ -1,0 +1,79 @@
+{
+  "sourceRevision": "3750986db8cd4432c4fd65ed9278185175964173",
+  "runId": "2026-10-10T09-21-28-455Z",
+  "verdict": "FAIL",
+  "statusCounts": {
+    "PASS": 414,
+    "FAIL": 1,
+    "TIMEOUT": 0,
+    "BLOCKED": 0,
+    "SKIPPED": 0
+  },
+  "failed": [
+    {
+      "id": "IS-T1-TESTS-MOBILE-CAPABILITY-INVENTORY-TEST",
+      "path": "tests/mobile-capability-inventory.test.js",
+      "profile": "offline",
+      "category": "offline",
+      "command": [
+        "node",
+        "tests/mobile-capability-inventory.test.js"
+      ],
+      "blockers": [],
+      "required": true,
+      "start": "2026-10-10T09:28:55.098Z",
+      "end": "2026-10-10T09:28:55.160Z",
+      "durationMs": 62,
+      "exitCode": 1,
+      "signal": null,
+      "timedOut": false,
+      "status": "FAIL",
+      "retryCount": 0,
+      "logPath": ".intentsmith-artifacts/preview-completion-20261010/full-audit/2026-10-10T09-21-28-455Z/logs/tests_mobile-capability-inventory.test.js.46fb71d6.log",
+      "sourceRevision": "3750986db8cd4432c4fd65ed9278185175964173",
+      "modelFixturePreflight": null,
+      "environment": {
+        "inheritedKeys": [
+          "PATH",
+          "LANG",
+          "LC_ALL"
+        ],
+        "forwardedRuntimeKeys": [
+          "INTENTSMITH_PDF_PYTHON",
+          "INTENTSMITH_PDF_PYTHON"
+        ],
+        "forwardedToolchainKeys": [],
+        "sourceRevision": "3750986db8cd4432c4fd65ed9278185175964173",
+        "home": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/preview-completion-20261010/full-audit/2026-10-10T09-21-28-455Z/runtime/tests_mobile-capability-inventory.test.js.46fb71d6/home",
+        "temp": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/preview-completion-20261010/full-audit/2026-10-10T09-21-28-455Z/runtime/tests_mobile-capability-inventory.test.js.46fb71d6/tmp",
+        "database": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/preview-completion-20261010/full-audit/2026-10-10T09-21-28-455Z/runtime/tests_mobile-capability-inventory.test.js.46fb71d6/runtime/intentsmith-test.sqlite",
+        "projects": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/preview-completion-20261010/full-audit/2026-10-10T09-21-28-455Z/runtime/tests_mobile-capability-inventory.test.js.46fb71d6/projects",
+        "artifacts": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/preview-completion-20261010/full-audit/2026-10-10T09-21-28-455Z/runtime/tests_mobile-capability-inventory.test.js.46fb71d6/artifacts",
+        "npmCache": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/preview-completion-20261010/full-audit/2026-10-10T09-21-28-455Z/runtime/tests_mobile-capability-inventory.test.js.46fb71d6/artifacts/npm-cache",
+        "portFile": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/preview-completion-20261010/full-audit/2026-10-10T09-21-28-455Z/runtime/tests_mobile-capability-inventory.test.js.46fb71d6/runtime/intentsmith.port",
+        "pdfPython": "/mnt/vi7000/intentsmith/releases/c84b88cd0c0b76639823c82c022d2feab96dfc15/.intentsmith-artifacts/installed-runtime/pdf/bin/python",
+        "pythonNoUserSite": true,
+        "xdg": {
+          "config": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/preview-completion-20261010/full-audit/2026-10-10T09-21-28-455Z/runtime/tests_mobile-capability-inventory.test.js.46fb71d6/xdg/config",
+          "cache": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/preview-completion-20261010/full-audit/2026-10-10T09-21-28-455Z/runtime/tests_mobile-capability-inventory.test.js.46fb71d6/xdg/cache",
+          "data": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/preview-completion-20261010/full-audit/2026-10-10T09-21-28-455Z/runtime/tests_mobile-capability-inventory.test.js.46fb71d6/xdg/data",
+          "state": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/preview-completion-20261010/full-audit/2026-10-10T09-21-28-455Z/runtime/tests_mobile-capability-inventory.test.js.46fb71d6/xdg/state"
+        }
+      },
+      "cleanup": {
+        "checked": true,
+        "leakDetected": false,
+        "terminated": true
+      },
+      "sourceTree": {
+        "checked": true,
+        "clean": true,
+        "porcelain": null,
+        "head": "3750986db8cd4432c4fd65ed9278185175964173"
+      },
+      "logError": null,
+      "outputError": null,
+      "logSha256": "80c61aa0cc6677973c5d57dbde0e4759e142a76f0c7490a0b0c567efe010f2fb"
+    }
+  ]
+}

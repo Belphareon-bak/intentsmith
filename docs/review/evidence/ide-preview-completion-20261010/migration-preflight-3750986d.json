@@ -1,0 +1,23 @@
+{
+  "status": "PASS",
+  "sourceRevision": "3750986db8cd4432c4fd65ed9278185175964173",
+  "oldRevision": "c84b88cd0c0b76639823c82c022d2feab96dfc15",
+  "scope": "consistent SQLite backup; migration mutates private copy only",
+  "quick": "ok",
+  "foreignKeyViolations": 0,
+  "before": {
+    "conversations": 52,
+    "messages": 0,
+    "projects": 16,
+    "specialists": 5,
+    "model_evaluation_runs": 1012
+  },
+  "after": {
+    "conversations": 52,
+    "messages": 0,
+    "projects": 16,
+    "specialists": 5,
+    "model_evaluation_runs": 1012
+  },
+  "holdSha256": "9502664935823f42aff92cc64a7f01b86d2d6abcb30ef164b2400f334b17f2d7"
+}

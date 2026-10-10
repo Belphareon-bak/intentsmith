@@ -61,3 +61,11 @@ Další samostatný spouštěč kandidáta byl na pokyn operátora odstraněn.
 Dokončení se provádí v existujícím IDE 2.0; Legacy a provozní data zůstávají
 zachována. [Aktuální práce, ověření a meze](../review/ide-preview-completion-20261010.md)
 rozlišují zdroj, skutečný AppImage, místní instalaci a formální přejímku.
+
+Aktualizace z 10. 10. má ověřený AppImage `37ee6177`, 39 nativních snímků,
+415/415 offline/database na předchozím `3f9410cc` a 47/47 dotčených UI testů
+po doplnění popisků a opravě focusu vybrané záložky. **Zatím není lokálně nasazená**: čeká na
+operátorovu volbu mezi RAM a uloženými modelovými vazbami (čtyři rozdíly,
+[tabulka a důkazy](../review/ide-preview-completion-20261010.md)).
+Normální položka proto stále používá frontend `fddfe996`/backend `c84b88cd`.
+Tento popis se nesmí vydávat za přepnutí hlavního spouštěče nebo přejímku.

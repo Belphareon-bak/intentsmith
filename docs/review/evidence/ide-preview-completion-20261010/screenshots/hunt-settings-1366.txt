@@ -1,0 +1,78 @@
+Soubor
+Úpravy
+Zobrazení
+Relace
+Agent
+Nápověda
+Hledat, přepnout relaci, spustit příkaz…
+Ctrl K
+1
+2
+3
+Konverzace
+OTEVŘENÉ RELACE
+1
+Relace 1
+nečinná
+Projekty
+Specialisté
+Expertýzy
+Workeři
+Obchod
+Multimédia
+Nastavení
+Nastavení
+/
+Modely a inference
+Modely a inference
+živá data
+Přehled
+Role
+Modely
+Evaluace
+GPU Hunt
+Telemetrie
+Provoz
+
+Data z backendu.
+
+Obnovit
+GPU Hunt
+
+Kandidáti, plánování, průběh a historie.
+
+Přehled
+Katalog
+Nastavení Huntu a Challenge
+Historie
+
+Discovery limit 1–10; evaluace používá kontext 4 096 tokenů a dostupné sady serveru. Jen při volné GPU. Bez automatické změny role. Rozpočty volání/VRAM/disku, editace pořadí a test největší HW dvojice zde ještě nemají API.
+
+Uložené profily Huntu
+Nový profil
+Uložené profily Challenge
+Nový profil
+Termín ručního zařazení (prázdné = nyní)
+Fronta a stav úkolů
+
+Každý úkol uchovává vlastní revizi profilu, modelové digesty a kontrakty sad. Zrušit lze pouze čekající úkol.
+
+Poslední závěry běhů
+
+Backend poskytuje posledních pět dokončených běhů. Historie evaluací a naplánovaných úkolů je samostatná.
+
+Změny
+Soubory
+Správa zdrojů
+Kontext
+1
+Nic nečeká na schválení
+V režimu Kontrola se sem dostanou změny souborů, než se zapíšou.
+Připojeno
+backend 136.1.0
+ws :34201
+1 relace · 0 pracuje · 0 čeká
+kontext
+—
+DB 3,02 MiB
+GPU nedostupné
