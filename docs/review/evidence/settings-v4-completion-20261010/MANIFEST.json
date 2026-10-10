@@ -5,8 +5,8 @@
   "files": [
     {
       "path": "README.md",
-      "size": 1561,
-      "sha256": "cb4cd8513ba3cf9017db0ff621db8c54799f9689b825a48fe5fa8f1e28783a20"
+      "size": 1767,
+      "sha256": "45487c2fae5a2d8b4e613ded17a8998375f7b9ce61dabe2b6fd2b37124454718"
     },
     {
       "path": "appimage-build.json",
@@ -15,8 +15,8 @@
     },
     {
       "path": "artifact-checks.txt",
-      "size": 13512,
-      "sha256": "f374540aa8042b6ce301608eaec716fb44509e31287cc21f0764f3960e73e192"
+      "size": 13511,
+      "sha256": "341c669cb42bb3999adbcbf50aac71f83df5f557c04c1fceba552edeaea96fe5"
     },
     {
       "path": "audit-failed-8ffc1778.json",
@@ -40,8 +40,8 @@
     },
     {
       "path": "baseline-model-contract-failed.txt",
-      "size": 1405,
-      "sha256": "7aa42a0a61e0222b6b5fe42a3f7b6e112f28f616b02d87c57f3b8058e7ef72c6"
+      "size": 1401,
+      "sha256": "035f6f53410640858b09fdf0f397c9e87f7d7d88cb7e45dbe06e3f45a6d46c4c"
     },
     {
       "path": "boundary.txt",
@@ -413,5 +413,6 @@
       "size": 44,
       "sha256": "0d7e021dce02d98e64d0f4473aafe14f2ae7ebe77e331b6a91df00fecdb91a85"
     }
-  ]
+  ],
+  "textLogPublicationNormalization": "trailing whitespace and excess blank lines at EOF removed; raw originals retained privately"
 }

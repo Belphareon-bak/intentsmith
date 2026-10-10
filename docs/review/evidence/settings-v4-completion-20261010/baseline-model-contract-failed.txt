@@ -14,10 +14,10 @@ test at tests/chat-project-expertise-model-contract.test.js:68:1
 ✖ A→B→A M1 project expertise uses exact file data in the final provider request (1273.37916ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
   + actual - expected
-  
+
   + 'tool.authority'
   - 'project.collaboration'
-  
+
       at assertFinalTurn (file:///home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/settings-v4-completion-20261010/baseline/tests/helpers/chat-project-expertise-model-journey.js:216:10)
       at TestContext.<anonymous> (file:///home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/settings-v4-completion-20261010/baseline/tests/chat-project-expertise-model-contract.test.js:102:5)
       at process.processTicksAndRejections (node:internal/process/task_queues:104:5)

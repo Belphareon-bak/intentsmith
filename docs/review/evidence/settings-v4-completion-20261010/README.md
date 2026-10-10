@@ -12,3 +12,5 @@ node docs/review/evidence/settings-v4-completion-20261010/native-probe.mjs
 `audit-failed-8ffc1778.json` a `audit-interrupted-8a66d331.json` jsou diagnostické neúspěšné/přerušené běhy. Nejsou součástí finálního PASS. Původní Opus posudek platí pouze pro uvedený starý source. Nová nezávislá revize a release přejímka jsou pending.
 
 Souborové otisky jsou v `MANIFEST.json`. Privátní DB, profile backup, environment, capability/tokeny a AppImage runtime log se nepublikují.
+
+Publikované textové logy mají odstraněné koncové mezery a nadbytečné prázdné řádky na konci. Raw originály zůstávají v ignorované složce zkoušky; manifest popisuje publikované soubory.
