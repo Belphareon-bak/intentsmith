@@ -15,7 +15,11 @@ zadání, CONTRACT §2/§4/§6 a existující M3 Project Health journey.
 - Vlastněné cesty: `src/extensions/agent-extension-service.js`,
   `tests/m3-agent-product-http-journey.test.js`,
   `tests/m3-agent-real-scheduled-soak.test.js`, tento WP a výsledný audit
-  v `docs/review/2026-10-10-WORKER-SPECIALIST-AUDIT.md`.
+  v `docs/review/2026-10-10-WORKER-SPECIALIST-AUDIT.md`. Pozorovaná druhá regrese
+  rozšiřuje vlastní scope o `src/expertises/specialist-runtime.js` a
+  `tests/chat-accountant-deterministic-http.test.js`: nedostupný či odmítnutý
+  účetní host musí vrátit FAILED bez nabídky jiné expertízy/modelového fallbacku.
+  `SYSTEM-MAP.md` se mění jen pro povinné přeměření LOC census po těchto změnách.
 - Connector: stávající PUT konfigurace M3 instance; formát API ani efektová
   oprávnění se nemění. IDE checkouty, provozní DB, modelové bindingy,
   publikovaná testová kritéria a GPU/driver konfigurace jsou mimo zapisovaný scope.

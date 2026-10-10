@@ -5,6 +5,8 @@
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 import http from 'node:http';
+import { writeFileSync } from 'node:fs';
+import path from 'node:path';
 import { test } from 'node:test';
 
 import Database from 'better-sqlite3';
@@ -104,4 +106,51 @@ test('selected accountant-cz VAT remains durable after restart without provider 
   const restartProviderBaseline = provider.requests.length;
   await assertHistory(product, owned.database, conversationId, result.response.content);
   assertNoTurnProviderRequests(provider, restartProviderBaseline, 'restart and history read');
+});
+
+test('unavailable or rejecting document workflow fails closed through actual specialist HTTP', {
+  timeout: 180_000,
+}, async t => {
+  for (const rejecting of [false, true]) {
+    await t.test(rejecting ? 'host rejects the invocation' : 'host is unavailable', async t => {
+      const owned = createOwnedJourneyRuntime(runtime);
+      const preload = path.join(owned.artifacts, 'accounting-host-failure.mjs');
+      const runtimeUrl = new URL('../src/expertises/specialist-runtime.js', import.meta.url).href;
+      writeFileSync(preload, `import { SpecialistRuntime } from ${JSON.stringify(runtimeUrl)};
+SpecialistRuntime.prototype.setAccountingHost = function () {
+  this._accountingHost = ${rejecting
+    ? "{ openInvocation() { throw Object.assign(new Error('Invocation denied'), { code: 'ACCOUNTING_TURN_AUTHORITY_REQUIRED' }); } }"
+    : 'null'};
+};\n`, { mode: 0o600 });
+      const provider = await startForbiddenProvider();
+      let product = null;
+      t.after(async () => {
+        try { if (product) await stopProduct(product); }
+        finally { await provider.close(); }
+      });
+      product = await startProduct(owned, provider.url, MODEL, { testPreload: preload });
+      const conversation = await expectJson(product, 'POST', '/api/conversations', {
+        title: 'Document workflow host failure', mode: 'chat',
+      }, 201);
+      const conversationId = conversation.conversation.id;
+      await expectJson(product, 'POST', '/api/chat/specialist', {
+        specialistId: 'accountant-cz', sessionId: conversationId,
+      }, 200);
+      const providerBaseline = provider.requests.length;
+      const result = await expectJson(product, 'POST', '/api/chat', {
+        contract: 'ConversationCommand', version: 1,
+        requestId: randomBytes(16).toString('hex'), conversationId,
+        turnId: randomBytes(16).toString('hex'), action: 'send',
+        input: 'kontrolní hlášení za květen 2026',
+      }, 200);
+      assert.equal(result.response.metadata.specialistTool, 'accountant.document_workflow');
+      assert.equal(result.response.metadata.executionStatus, 'FAILED');
+      assert.equal(result.response.metadata.errorCode, rejecting
+        ? 'M3_SPECIALIST_TOOL_FAILED' : 'M3_SPECIALIST_TOOL_PREPARATION_FAILED');
+      assert.equal(result.response.metadata.fallbackSuppressed, true);
+      assert.equal(result.response.metadata.awaitingGapChoice, undefined);
+      assert.match(result.response.content, /^Nástroj specialisty nebyl úspěšně dokončen/u);
+      assertNoTurnProviderRequests(provider, providerBaseline, 'document host failure');
+    });
+  }
 });

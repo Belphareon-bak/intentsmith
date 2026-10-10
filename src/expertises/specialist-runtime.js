@@ -606,17 +606,17 @@ class SpecialistRuntime {
         }
       }
 
-      if(match.tool.needsBettingData === true && this._bettingDataHost && !match.params.payload?.snapshot && !match.params.inputError) {
-        bettingToken = this._bettingDataHost.openInvocation({extensionId:specialist.extensionId || expertiseId,
-          toolId:match.tool.id,conversationId,userMessageId,signal});
-      }
-      if (match.tool.needsAccountingWorkflow === true) {
-        if (!this._accountingHost) throw new Error('Účetní workflow není dostupné.');
-        accountingTurn = this._accountingHost.openInvocation({extensionId:specialist.extensionId || expertiseId,
-          toolId:match.tool.id,conversationId,projectId:project?.id ?? null,userMessageId,attachments,signal});
-      }
       let execResult;
       try {
+        if(match.tool.needsBettingData === true && this._bettingDataHost && !match.params.payload?.snapshot && !match.params.inputError) {
+          bettingToken = this._bettingDataHost.openInvocation({extensionId:specialist.extensionId || expertiseId,
+            toolId:match.tool.id,conversationId,userMessageId,signal});
+        }
+        if (match.tool.needsAccountingWorkflow === true) {
+          if (!this._accountingHost) throw new Error('Účetní workflow není dostupné.');
+          accountingTurn = this._accountingHost.openInvocation({extensionId:specialist.extensionId || expertiseId,
+            toolId:match.tool.id,conversationId,projectId:project?.id ?? null,userMessageId,attachments,signal});
+        }
         execResult = await this.executor.execute(match.tool, match.params, {
           projectContext,
           ...(match.tool.needsTurnContext === true ? { turn: Object.freeze({
@@ -627,6 +627,7 @@ class SpecialistRuntime {
           }) } : {}),
         });
       } catch (error) {
+        if (isAbortError(error) || signal?.aborted) throw error;
         logger.warn('SpecialistRuntime', `Tool ${match.tool.id} preparation failed: ${error.message}`);
         if (match.tool.failClosed === true) {
           return {
