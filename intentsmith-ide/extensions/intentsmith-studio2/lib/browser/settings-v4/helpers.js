@@ -39,7 +39,7 @@ const select = (name, values, current, attrs = '') => `<select id="${e(name)}" n
   const [value, label] = Array.isArray(v) ? v : [v, v];
   return `<option value="${e(value)}" ${String(value) === String(current) ? 'selected' : ''}>${e(label)}</option>`;
 }).join('')}</select>`;
-const tabs = (items, current, action) => `<div class="tabs" role="tablist" aria-label="Sekce">${items.map(([id, label]) =>
+const tabs = (items, current, action, cls = '') => `<div class="tabs ${e(cls)}" role="tablist" aria-label="Sekce">${items.map(([id, label]) =>
   `<button type="button" class="tab" role="tab" aria-selected="${current === id}" tabindex="${current === id ? 0 : -1}" data-action="${e(action)}" data-tab="${e(id)}">${e(label)}</button>`).join('')}</div>`;
 const head = (title, desc, actions = '', crumb = '') => `<header class="page-head"><div>${crumb ? `<div class="eyebrow">${e(crumb)}</div>` : ''}<h1 tabindex="-1">${e(title)}</h1><p>${e(desc)}</p></div><div class="toolbar">${actions}</div></header>`;
 const notice = (html, type = '') => `<div class="notice ${e(type)}">${icon('info')}<p>${html}</p></div>`;

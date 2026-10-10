@@ -68,7 +68,13 @@ test('catalog filter excludes incompatible roles and searches verified quantizat
   const f=fixture(),w=f.c.mw;
   w.resources.set('candidates',{status:'ready',data:[{candidates:[{name:'code:q4',family:'Code',quantization:'Q4_K_M',fitsVram:true,installed:false,eligibleRoles:['CODE']},{name:'chat:q8',family:'Chat',quantization:'Q8_0',fitsVram:true,installed:false,eligibleRoles:['CHAT']}]},{downloads:[]}]});
   assert.deepEqual(w.catalogVM().rows.map(r=>r.name),['chat:q8']);w.catalogFilter={...w.catalogFilter,role:'CODE',search:'Q4_K'};
-  assert.deepEqual(w.catalogVM().rows.map(r=>r.name),['code:q4']);f.c.destroy();
+  assert.deepEqual(w.catalogVM().rows.map(r=>r.name),['code:q4']);
+  w.catalogFilter={...w.catalogFilter,search:''};w.catalogVM().setRole({target:{value:''}});
+  assert.deepEqual(w.catalogVM().rows.map(r=>r.name),['chat:q8','code:q4']);
+  w.resources.get('candidates').data[0].candidates[0].fitsVram=null;
+  w.resources.get('candidates').data[0].candidates[0].vramMb=6000;
+  assert.match(w.catalogVM().unknownVram,/bez ověřené VRAM/);
+  w.catalogFilter={...w.catalogFilter,fits:false};assert.equal(w.catalogVM().rows.length,2);f.c.destroy();
 });
 test('matrix keeps pending and old-digest evidence distinct and renders a genuine complete score',()=>{
   const f=fixture(),c=f.c;c.s.page='models';c.s.modelTab='evaluations';c.mw.tab='evaluations';

@@ -190,7 +190,7 @@ function profiles(c,vm) {
 }
 function hunt(c,vm) {
   const v=vm.redesign;
-  const tabs=H.tabs(HUNT,c.s.huntTab,'sv4-hunt-tab');
+  const tabs=H.tabs(HUNT,c.s.huntTab,'sv4-hunt-tab','hunt2-workflow-tabs');
   const notice=(v.hold?H.notice(e(v.hold),'warn'):'')+(v.gpuNotice?H.notice(e(v.gpuNotice),'warn'):'');
   let html='';
   if(c.s.huntTab==='catalog')html=catalog(c,vm);
