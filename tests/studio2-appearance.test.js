@@ -59,15 +59,15 @@ console.log('PASS 11 local theme token sets keep 4.5:1 contrast on primary surfa
 
 const source = css;
 const manifest = readFileSync(new URL('../docs/studio2/FONT-SOURCES.md', import.meta.url), 'utf8');
-for (const family of ['Inter','JetBrains Mono','Plus Jakarta Sans','Share Tech Mono','Zen Kaku Gothic Antique','Yuji Boku']) {
+for (const family of ['Noto Sans','Liberation Mono','Inter','JetBrains Mono','Plus Jakarta Sans','Share Tech Mono','Zen Kaku Gothic Antique','Yuji Boku']) {
   assert.match(source, new RegExp(`font-family: "${family}"`));
 }
 const assets = [...manifest.matchAll(/\| `([^`]+\.(?:ttf|txt))` \| \d+ \| `([0-9a-f]{64})`/g)];
-assert.equal(assets.length, 12);
+assert.equal(assets.length, 20);
 for (const [, filename, expected] of assets) {
   const file = new URL(`../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/styles/fonts/${filename}`, import.meta.url);
   assert.equal(existsSync(file), true, filename);
   assert.equal(createHash('sha256').update(readFileSync(file)).digest('hex'), expected, filename);
 }
 assert.doesNotMatch(source, /fonts\.googleapis\.com|@import\s+url\(https?:/);
-console.log('PASS six OFL font files and licenses are local and digest-pinned');
+console.log('PASS eight OFL font families and licenses are local and digest-pinned');

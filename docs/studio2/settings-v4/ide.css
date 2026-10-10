@@ -49,3 +49,24 @@
 .sv4-catalog-tiles .hunt2-search-row{display:flex;flex-direction:column;align-items:flex-start;border:1px solid var(--line);border-radius:6px;min-height:var(--row)}
 input:not([type]){width:100%;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink);padding:9px 10px;min-height:36px}
 input[type=email]{width:100%;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink);padding:9px 10px;min-height:36px}
+
+/* Finální rozvržení (10. 10.): písmo a kód jako ve schváleném návrhu, obsah nepřesahuje čitelnou šířku.
+   Typografickou stupnici (nadpisy, záhlaví tabulek, štítky) určuje návrh; zde se nepřebíjí. */
+.sv4-root>.content{padding:28px 40px 56px}
+.sv4-root>.content>*{max-width:1360px}
+.mono,code{font-family:var(--font-mono);letter-spacing:0}
+/* Matice má v IDE sedm rolí místo čtyř v návrhu: pevné rozložení, aby se vešla bez vodorovného posunu. */
+.mv2-matrix{table-layout:fixed;width:100%}
+.mv2-matrix th{min-width:0}
+.mv2-matrix th:first-child{width:22%;min-width:0}
+.mv2-matrix-cell{padding:10px 12px;min-height:52px}
+.mv2-matrix .mv3-sort{gap:6px}
+
+/* Finální úpravy čitelnosti: dvousloupcové hodnoty s odstupem, log Huntu s časem na jednom řádku,
+   citovaný text z backendu (důvody, omezení) oddělený od české věty. */
+.sv4-kv-cols{column-gap:56px}
+.sv4-hunt-log>div{grid-template-columns:92px minmax(0,1fr)}
+.sv4-hunt-log time{white-space:nowrap}
+.hunt2-simulation-notice .sv4-notice-quote{flex-basis:100%}
+.sv4-notice-quote{display:block;margin:6px 0 0;padding-left:10px;border-left:2px solid color-mix(in srgb,var(--line) 60%,var(--muted));color:var(--muted);font-size:.8rem;line-height:1.6;overflow-wrap:anywhere}
+.sv4-run-summary{margin:14px 0 0}

@@ -102,7 +102,7 @@ test('V4 catalog preparation copies planning defaults and only selected role sui
   w.resources.set('candidates',{status:'ready',data:[{candidates:[{name:'chat:q4',fitsVram:true,installed:true,eligibleRoles:['CHAT','CODE']}]},{downloads:[]}]});
   w.extra.set('profiles',{status:'ready',backend:'http://fixture.invalid',data:{profiles:[{id:'weekly',name:'Týdenní',roles:['CHAT'],models:[],kind:'hunt',revision:1,enabled:false,limit:2,schedule:{type:'weekly',time:'21:15',timezone:'Europe/Prague',weekDays:[1]}}]}});
   c.s.catalogProfile='weekly';c.s.catalogSuites={'chat:q4':['CHAT']};w.load=async()=>true;w.loadExtra=async()=>true;c.load=async()=>true;
-  const html=c.view().html,id=html.match(/data-action="([^"]+)"[^>]*>Připravit testy dostupných rolí</)[1];c.handle(id,{dataset:{}},{});await new Promise(r=>setImmediate(r));
+  const html=c.view().html,id=html.match(/data-action="([^"]+)"[^>]*>Připravit testy vybraných sad</)[1];c.handle(id,{dataset:{}},{});await new Promise(r=>setImmediate(r));
   assert.deepEqual(w.profileDraft.roles,['CHAT']);assert.equal(w.profileDraft.enabled,false);assert.equal(w.profileDraft.scheduleType,'weekly');assert.deepEqual(w.profileDraft.weekDays,[1]);assert.equal(w.profileDraft.limit,2);
   assert.equal(w.profileRows()[0].id,'weekly');assert.notEqual(w.profileDraft.id,'weekly');assert.equal(f.writes.length,0);c.destroy();
 });

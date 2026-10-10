@@ -2658,7 +2658,7 @@ return {"tabs":[],"rows":[],"buttons":[],"runDetail":{"title":"","status":"","ru
       midnight: 'Vesmírné sklo v noční modři, písmo Inter.',
       nocturne: 'Chladná modrošedá rodiny ShellSmith a SystemSmith s mosazným akcentem.'
     };
-    const FONTS = [['brand', 'IntentSmith Sans', '"Plus Jakarta Sans",sans-serif'], ['inter', 'Inter', '"Inter",sans-serif'], ['system', 'Systémové', 'system-ui,sans-serif']];
+    const FONTS = [['brand', 'Noto Sans · výchozí', '"Noto Sans",sans-serif'], ['inter', 'Inter', '"Inter",sans-serif'], ['system', 'Systémové', 'system-ui,sans-serif'], ['jakarta', 'Plus Jakarta Sans', '"Plus Jakarta Sans",sans-serif']];
     return {
       styleName: cur.name, isClean: cur.id === 'clean', notClean: cur.id !== 'clean', isPro: !!cur.pro, proNote: !!cur.pro, lightNote: cur.id === 'clean' && mode === 'light',
       tmodes: [['dark', 'Tmavé'], ['light', 'Světlé'], ['system', 'Systém']].map((o) => ({ label: o[1], cls: s.tmode === o[0] ? 'on' : '', pick: () => this.setState({ tmode: o[0] }) })),
@@ -2810,6 +2810,7 @@ return {"tabs":[],"rows":[],"buttons":[],"runDetail":{"title":"","status":"","ru
       isScmReview: false, scmReview: { project: '', title: '', identity: '', author: '',
         base: '', head: '', branchSort:'activity', branchError:'', referenceOptions:[], setBranchSort:()=>{}, hasParents:false, parent:'0', parents:[], setParent:()=>{}, layout:'unified', unified:true, split:false, splitLines:[], setLayout:()=>{}, diffNote:'', loading: false, hasError: false, error: '', hasData: false,
         files: [], lines: [], empty: false, compareDisabled: true, close: () => {},
+        kindLabel: 'Detail commitu', isCommit: true, isCompare: false, shortHash: '', authorName: '', dateText: '', summary: '', parentText: '', hasBody: false, body: '', fileCount: '', currentPath: '', pathCls: '', allCls: '', fileCards: [], rows: [], splitRows: [], unifiedCls: 'on', splitCls: '', showUnified: () => {}, showSplit: () => {},
         setBase: () => {}, setHead: () => {}, compare: () => {}, refresh: () => {}, all: () => {} },
       columns, colTpl, noSessions: isSessions && lay.length === 0,
       sectCls: !isSessions && s.section === 'settings' && dt ? 'settings-workspace' + (s.detail.settings === 'modely' ? ' models-workspace' : '') : '',

@@ -711,3 +711,17 @@
 .intentsmith-studio2-widget .sv4 .sv4-catalog-tiles .hunt2-search-row{display:flex;flex-direction:column;align-items:flex-start;border:1px solid var(--line);border-radius:6px;min-height:var(--row)}
 .intentsmith-studio2-widget .sv4 input:not([type]){width:100%;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink);padding:9px 10px;min-height:36px}
 .intentsmith-studio2-widget .sv4 input[type=email]{width:100%;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink);padding:9px 10px;min-height:36px}
+.intentsmith-studio2-widget .sv4 .sv4-root>.content{padding:28px 40px 56px}
+.intentsmith-studio2-widget .sv4 .sv4-root>.content>*{max-width:1360px}
+.intentsmith-studio2-widget .sv4 .mono,.intentsmith-studio2-widget .sv4 code{font-family:var(--font-mono);letter-spacing:0}
+.intentsmith-studio2-widget .sv4 .mv2-matrix{table-layout:fixed;width:100%}
+.intentsmith-studio2-widget .sv4 .mv2-matrix th{min-width:0}
+.intentsmith-studio2-widget .sv4 .mv2-matrix th:first-child{width:22%;min-width:0}
+.intentsmith-studio2-widget .sv4 .mv2-matrix-cell{padding:10px 12px;min-height:52px}
+.intentsmith-studio2-widget .sv4 .mv2-matrix .mv3-sort{gap:6px}
+.intentsmith-studio2-widget .sv4 .sv4-kv-cols{column-gap:56px}
+.intentsmith-studio2-widget .sv4 .sv4-hunt-log>div{grid-template-columns:92px minmax(0,1fr)}
+.intentsmith-studio2-widget .sv4 .sv4-hunt-log time{white-space:nowrap}
+.intentsmith-studio2-widget .sv4 .hunt2-simulation-notice .sv4-notice-quote{flex-basis:100%}
+.intentsmith-studio2-widget .sv4 .sv4-notice-quote{display:block;margin:6px 0 0;padding-left:10px;border-left:2px solid color-mix(in srgb,var(--line) 60%,var(--muted));color:var(--muted);font-size:calc(.8 * var(--sv4-fs));line-height:1.6;overflow-wrap:anywhere}
+.intentsmith-studio2-widget .sv4 .sv4-run-summary{margin:14px 0 0}

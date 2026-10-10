@@ -9,7 +9,7 @@ const VALID = Object.freeze({
   textIntensity: value => Number.isInteger(value) && value >= 0 && value <= 100,
   activeInt: value => Number.isInteger(value) && value >= 10 && value <= 100,
   fontSizeVal: value => Number.isInteger(value) && value >= 10 && value <= 18,
-  fontIdx: value => Number.isInteger(value) && value >= 0 && value <= 2,
+  fontIdx: value => Number.isInteger(value) && value >= 0 && value <= 3,
   accentIdx: value => value === 'custom' || (Number.isInteger(value) && value >= 0 && value <= 7),
   accentHex: value => typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value),
   bgIdx: value => value === 'custom' || (Number.isInteger(value) && value >= 0 && value <= 2),

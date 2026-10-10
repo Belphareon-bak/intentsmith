@@ -23,6 +23,12 @@ node intentsmith-ide/extensions/intentsmith-studio2/scripts/build-view.js --chec
 node --test tests/studio2-settings-v4.test.js
 ```
 
+Typografie a texty: výchozí písmo IDE je Noto Sans s Liberation Mono (stejně se
+vykresluje návrh), obsah má šířku nejvýš 1360 px. Rozhraní nepropisuje anglické
+ani technické texty backendu do českých vět: chyby se překládají na jejich význam
+(např. chybějící oprávnění správce), důvody pozastavení a omezení běhů se ukazují
+jako oddělená citace a oprávnění tokenů mají české názvy.
+
 Výsledek oprav, nativní kvalifikace a běžného hlavního spouštěče je v
 [aktuálním předání](../../review/settings-v4-completion-20261010.md).
 Přítomnost rendereru nebo zelený unit test neznamená

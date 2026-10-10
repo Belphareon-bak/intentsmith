@@ -53,7 +53,7 @@ Po S2-7 zůstane převod dat, ale klasické UI se už nenačítá ani nenabízí
 | `textIntensity` (0–100, výchozí 70) | výraznost veškerého textu |
 | `activeInt` (10–100) | zvýraznění aktivních prvků |
 | `fontSizeVal` (10–18) | velikost písma |
-| `fontIdx` (IntentSmith Sans, Inter, Systémové) | rodina písma |
+| `fontIdx` (Noto Sans · výchozí, Inter, Systémové, Plus Jakarta Sans) | rodina písma; dřívější výchozí Plus Jakarta Sans zůstává volbou 3 |
 | `accentIdx`, `custom1`, `custom2` | akcent stylu Clean |
 | `bgIdx`, `bgCustom1`, `bgCustom2` | pozadí stylu Clean |
 | `tileOpacity`, `bgDim`, `sidebarOpacity` | průhlednost dlaždic, ztlumení pozadí, panely |
@@ -66,7 +66,9 @@ Po S2-7 zůstane převod dat, ale klasické UI se už nenačítá ani nenabízí
 
 ## 4. Písma a obrázky — bez sítě
 
-- Písma Inter, JetBrains Mono, Plus Jakarta Sans, Share Tech Mono, Zen Kaku
+- Výchozí písmo rozhraní je Noto Sans, neproporcionální Liberation Mono — stejná
+  dvojice, ve které se vykresluje klikací návrh V4. Písma Noto Sans, Liberation Mono,
+  Inter, JetBrains Mono, Plus Jakarta Sans, Share Tech Mono, Zen Kaku
   Gothic Antique a Yuji Boku se přibalí do rozšíření (licence OFL) a načítají
   se přes `@font-face` z balíku. Žádné `fonts.googleapis.com` (L0-12; WP-M0-E
   zachytil pokus rendereru o tento požadavek).

@@ -2,6 +2,8 @@
 
 Soubory a licence OFL jsou přibalené z oficiálního repozitáře Google Fonts. Obsah je při stažení ověřen vůči Git blob SHA z GitHub API.
 
+Noto Sans (výchozí písmo rozhraní) a Liberation Mono (kód) jsou od 10. 10. 2026 přibalené přesně v řezech, ve kterých se vykreslil schválený klikací návrh V4 (systémová písma Kubuntu: Noto Sans 400/700 + kurzívy, Liberation Mono 400/700). Pocházejí z balíčků Debianu uvedených v tabulce; licence OFL 1.1 je přiložená.
+
 | Rodina | Soubor | Bajtů | SHA-256 | Git blob | Zdroj |
 |---|---|---:|---|---|---|
 | inter | `inter-Inter-opsz-wght.ttf` | 876576 | `29160a80ff49ddcab2c97711247e08b1fab27a484a329ce8b813d820dc559031` | `047c92f6e2212473dc436020afed689527076d44` | [Google Fonts](https://github.com/google/fonts/blob/main/ofl/inter/Inter[opsz,wght].ttf) |
@@ -16,3 +18,11 @@ Soubory a licence OFL jsou přibalené z oficiálního repozitáře Google Fonts
 | zenkakugothicantique | `zenkakugothicantique-OFL.txt` | 4401 | `0fac78a235c98d640cb06332eb5362c211d86fa03c011df438c35005d22ad2c7` | `c05130c2195586600c9bc245c88a67d1154369a8` | [Google Fonts](https://github.com/google/fonts/blob/main/ofl/zenkakugothicantique/OFL.txt) |
 | yujiboku | `yujiboku-YujiBoku-Regular.ttf` | 8525588 | `94fda16384f3bdac24376a000c57e99abfa314961bd89ef27badfb7410322003` | `3a8cb821f00c7c03ac2eb90915898749b9bce4df` | [Google Fonts](https://github.com/google/fonts/blob/main/ofl/yujiboku/YujiBoku-Regular.ttf) |
 | yujiboku | `yujiboku-OFL.txt` | 4386 | `ef7c85c72ae94381c8bc4832ae4e6fbabdeafa2bb8a31313cd75dce95a690256` | `cff4fd743037483847e8d10afbc7ebc5e9226553` | [Google Fonts](https://github.com/google/fonts/blob/main/ofl/yujiboku/OFL.txt) |
+| notosans | `notosans-NotoSans-Regular.ttf` | 512672 | `89c3c497f618fdaa0b2d1e98fef93582f28c71debd2c4a8cdf41f190ced2909d` | — | Debian `fonts-noto-core` 20201225-2 (upstream [notofonts](https://github.com/notofonts/noto-fonts)) |
+| notosans | `notosans-NotoSans-Bold.ttf` | 515752 | `e83493c945848ecd4a9ad0f6d19164541a0d3e23a9c952304a00a46e00272ac5` | — | Debian `fonts-noto-core` 20201225-2 (upstream [notofonts](https://github.com/notofonts/noto-fonts)) |
+| notosans | `notosans-NotoSans-Italic.ttf` | 530120 | `5d7618dda819443fd07301c84adcee9fe8960c873ea5e5e1f0f59db384b78082` | — | Debian `fonts-noto-core` 20201225-2 (upstream [notofonts](https://github.com/notofonts/noto-fonts)) |
+| notosans | `notosans-NotoSans-BoldItalic.ttf` | 534180 | `4315b26e5afb62f70f5ffe0edaa3363e57765ff2af2beda12b6fef197e3e5f5a` | — | Debian `fonts-noto-core` 20201225-2 (upstream [notofonts](https://github.com/notofonts/noto-fonts)) |
+| notosans | `notosans-OFL.txt` | 4476 | `361b319650ddc6fd5af5b69b0771daef1b2f6033db93f0f11d1eaa914790cdf8` | — | Debian `fonts-noto-core` 20201225-2 (upstream [notofonts](https://github.com/notofonts/noto-fonts)) |
+| liberationmono | `liberationmono-LiberationMono-Regular.ttf` | 319624 | `395fa5ab8d40c8eba390ced528744ea75a7f69aabf3e68b6f925ca0e39a27370` | — | Debian `fonts-liberation` 1:2.1.5-3 (upstream [liberation-fonts](https://github.com/liberationfonts/liberation-fonts)) |
+| liberationmono | `liberationmono-LiberationMono-Bold.ttf` | 308068 | `626655e94dd82f3f42549daf995c921b0915fa8ab1f4b839559e8892ea41d240` | — | Debian `fonts-liberation` 1:2.1.5-3 (upstream [liberation-fonts](https://github.com/liberationfonts/liberation-fonts)) |
+| liberationmono | `liberationmono-OFL.txt` | 4567 | `3bcdbff154bfe1fda910530bf0def1b743598519f09e5e4188d41a6b8a965d1b` | — | Debian `fonts-liberation` 1:2.1.5-3 (upstream [liberation-fonts](https://github.com/liberationfonts/liberation-fonts)) |

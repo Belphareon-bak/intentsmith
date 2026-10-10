@@ -340,7 +340,7 @@ class LiveModel extends Component {
       if (Object.hasOwn(patch, 'density')) this.widget.appearance.set('density',
         ({ komfortni: 'comfortable', kompaktni: 'compact', minimalni: 'minimal' })[patch.density]);
       if (Object.hasOwn(patch, 'ff')) this.widget.appearance.set('fontIdx',
-        ({ brand: 0, inter: 1, system: 2 })[patch.ff]);
+        ({ brand: 0, inter: 1, system: 2, jakarta: 3 })[patch.ff]);
       if (Object.hasOwn(patch, 'scale')) this.widget.appearance.set('uiScale',
         ({ '80': '0.8', '90': '0.9', '100': '1.0', '110': '1.1', '120': '1.2', '125': '1.25' })[String(patch.scale)]);
     }
@@ -362,7 +362,7 @@ class LiveModel extends Component {
       colSids: real.columns.slice(), focusCol: real.focusedColumn,
       sessions: {}, extra: {}, approved: {}, stopped: {}, modes: {},
       fileText: {}, fileDraft: {}, termX: {}, auditX: s.auditX || {}, scm: s.scm || {}, scmPlan: null,
-      style: ap.style, tmode: ap.theme, fs: ap.fontSizeVal, ff: ['brand', 'inter', 'system'][ap.fontIdx],
+      style: ap.style, tmode: ap.theme, fs: ap.fontSizeVal, ff: ['brand', 'inter', 'system', 'jakarta'][ap.fontIdx],
       ti: ap.textIntensity, ai: ap.activeInt, ta: ap.tileOpacity, bright: ap.brightness,
       pa: ap.sidebarOpacity, bd: ap.bgDim, cacc: ap.accentIdx, caccHex: ap.accentHex,
       cbg: ap.bgIdx, cbgHex: ap.bgHex, col: ap.autoCollapse,

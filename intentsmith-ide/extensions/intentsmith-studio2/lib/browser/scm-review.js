@@ -14,6 +14,47 @@ function splitDiff(text) {
   }
   flush();return rows;
 }
+// Řádky jednotného diffu s čísly starého a nového souboru (vzhled návrhu V4: Git a změny).
+// Hlavičky „diff --git/index/---/+++“ se mění na řádek souboru, technické značky se nezobrazují.
+function parseUnified(text) {
+  const rows=[],lines=(text||'').split('\n');let o=0,n=0;
+  if(lines.at(-1)==='')lines.pop();
+  for(const line of lines) {
+    if(line.startsWith('diff --git ')){const m=line.match(/ b\/(.+)$/);rows.push({cls:'file',o:'',n:'',sign:'',code:m?m[1]:line.slice(11)});continue;}
+    if(/^(index |--- |\+\+\+ |similarity index|dissimilarity index|rename from|rename to|copy from|copy to|old mode|new mode|new file mode|deleted file mode)/.test(line))continue;
+    if(line.startsWith('Binary files')){rows.push({cls:'meta',o:'',n:'',sign:'',code:'Binární soubor · textový rozdíl není k dispozici'});continue;}
+    const hunk=line.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+    if(hunk){o=Number(hunk[1]);n=Number(hunk[2]);rows.push({cls:'hunk',o:'',n:'',sign:'',code:line});continue;}
+    if(line.startsWith('+')){rows.push({cls:'added',o:'',n:String(n++),sign:'+',code:line.slice(1)});continue;}
+    if(line.startsWith('-')){rows.push({cls:'removed',o:String(o++),n:'',sign:'−',code:line.slice(1)});continue;}
+    if(line.startsWith('\\')){rows.push({cls:'meta',o:'',n:'',sign:'',code:'Bez nového řádku na konci souboru'});continue;}
+    rows.push({cls:'',o:String(o++),n:String(n++),sign:'',code:line.slice(1)});
+  }
+  return rows;
+}
+function splitRows(rows) {
+  const out=[],left=[],right=[];
+  const flush=()=>{for(let i=0;i<Math.max(left.length,right.length);i++){const l=left[i],r=right[i];out.push({lo:l?.o||'',left:l?l.code:'',leftClass:l?'removed':'blank',rn:r?.n||'',right:r?r.code:'',rightClass:r?'added':'blank'});}left.length=right.length=0;};
+  for(const row of rows) {
+    if(row.cls==='removed')left.push(row);else if(row.cls==='added')right.push(row);
+    else {flush();out.push(row.cls?{lo:'',left:row.code,leftClass:row.cls,rn:'',right:row.cls==='file'?'':row.code,rightClass:row.cls}:{lo:row.o,left:row.code,leftClass:'',rn:row.n,right:row.code,rightClass:''});}
+  }
+  flush();return out;
+}
+function fileStatuses(text) {
+  const status=new Map();let current=null;
+  for(const line of (text||'').split('\n')) {
+    const m=line.match(/^diff --git a\/.+ b\/(.+)$/);if(m){current=m[1];status.set(current,'modified');continue;}
+    if(!current)continue;
+    if(line.startsWith('new file mode'))status.set(current,'added');
+    else if(line.startsWith('deleted file mode'))status.set(current,'deleted');
+    else if(line.startsWith('rename from'))status.set(current,'renamed');
+  }
+  return status;
+}
+const STATUS={added:['Nový soubor','green'],deleted:['Smazáno','red'],renamed:['Přejmenováno','blue'],modified:['Upraveno',''],binary:['Binární','']};
+const plural=(n,one,few,many)=>n+' '+(n===1?one:n>=2&&n<=4?few:many);
+function czechDate(value){const d=new Date(value);if(!Number.isFinite(d.getTime()))return '';const p=x=>String(x).padStart(2,'0');return d.getDate()+'. '+(d.getMonth()+1)+'. '+d.getFullYear()+' · '+p(d.getHours())+':'+p(d.getMinutes());}
 class ScmReview {
   constructor(client, onChange = () => {}) {
     this.client = client; this.onChange = onChange; this.current = null; this.token = null;
@@ -58,6 +99,7 @@ class ScmReview {
         || identity.kind === 'compare' && (data.base !== identity.base || data.head !== identity.head
           || !OID.test(data.baseOid) || !OID.test(data.headOid))
         || data.files.some(file => typeof file?.path !== 'string')) throw Error('Backend vrátil jiné nebo neplatné změny.');
+      if (path === null) view.statuses = fileStatuses(data.diff);
       view.path = path; view.data = data; view.status = 'ready'; this.onChange(); return true;
     } catch (error) {
       if (this.token === token && this.current === view) {
@@ -97,7 +139,29 @@ class ScmReview {
         cls: line.startsWith('@@') ? 'hunk' : line.startsWith('+') && !line.startsWith('+++') ? 'added'
           : line.startsWith('-') && !line.startsWith('---') ? 'removed' : '' })),
       empty: view?.status === 'ready' && !data?.diff,
+      ...this.presentation(view, data),
+    };
+  }
+  // Vzhled návrhu V4: hlavička commitu, soubory se stavem a diff s čísly řádků. Jen odvozené údaje.
+  presentation(view, data) {
+    const files = data?.files || [], added = files.reduce((n, f) => n + (f.added || 0), 0), removed = files.reduce((n, f) => n + (f.removed || 0), 0);
+    const rows = parseUnified(data?.diff), isCompare = view?.kind === 'compare', parents = data?.parents || [];
+    const statusOf = file => file.binary ? 'binary' : file.oldPath ? 'renamed' : view?.statuses?.get(file.path) || 'modified';
+    return {
+      kindLabel: isCompare ? 'Porovnání revizí' : 'Detail commitu', isCommit: !isCompare, isCompare,
+      shortHash: data?.hash ? data.hash.slice(0, 7) : '', authorName: data?.author || '—', dateText: data?.time ? czechDate(data.time) : '—',
+      summary: isCompare ? (view?.base || '') + ' → ' + (view?.head || '') : [data?.author, data?.time && czechDate(data.time)].filter(Boolean).join(' · '),
+      parentText: parents.length ? parents[0].slice(0, 12) + (parents.length > 1 ? ' · sloučení ' + parents.length + ' rodičů' : '') : 'Kořenový commit',
+      hasBody: !!data?.body, fileCount: data ? plural(files.length, 'soubor', 'soubory', 'souborů') + ' · +' + added + ' −' + removed : '',
+      currentPath: view?.path || 'Všechny změny', pathCls: view?.path ? 'mono' : '', allCls: view?.path ? '' : 'on',
+      fileCards: files.map(file => { const [label, tone] = STATUS[statusOf(file)]; const at = file.path.lastIndexOf('/');
+        return { name: at >= 0 ? file.path.slice(at + 1) : file.path, dir: at >= 0 ? file.path.slice(0, at + 1) : 'Kořen projektu', statusLabel: label, statusTone: tone,
+          delta: file.added === null ? 'binární' : '+' + (file.added || 0) + ' −' + (file.removed || 0), cls: view?.path === file.path ? 'on' : '',
+          go: () => { if (this.current === view) return this.load(file.path); return false; } }; }),
+      rows, splitRows: splitRows(rows),
+      unifiedCls: view?.layout !== 'split' ? 'on' : '', splitCls: view?.layout === 'split' ? 'on' : '',
+      showUnified: () => { if (view) { view.layout = 'unified'; this.onChange(); } }, showSplit: () => { if (view) { view.layout = 'split'; this.onChange(); } },
     };
   }
 }
-module.exports = { ScmReview, splitDiff };
+module.exports = { ScmReview, splitDiff, parseUnified, splitRows, fileStatuses };

@@ -304,8 +304,9 @@ yarn start
 
 ### 3.4 UI fonty
 
-Kanonicky source tree neobsahuje lokalne bundlovane Plus Jakarta Sans ani
-JetBrains Mono a installer je nestahuje. IntentSmith pouzije systemove fallbacky.
+Rozhrani Studia 2 si nese vlastni pisma (OFL) primo v rozsireni: vychozi Noto Sans
+a Liberation Mono, volitelne Inter, Plus Jakarta Sans a dalsi. Verze, puvod a
+hashe jsou v `docs/studio2/FONT-SOURCES.md`; installer nic nestahuje.
 Nestahujte promenlive Google Fonts archivy primo do produkcniho stromu. Budouci
 bundling musi byt samostatna reviewovana zmena s pevnou verzi, hashem, licenci a
 regresnim build testem. DejaVu fonty overovane installerem patri pouze k PDF

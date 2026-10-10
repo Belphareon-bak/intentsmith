@@ -74,7 +74,7 @@ function summary(c) {
 function home(c) {
   const { CATEGORIES } = require('./controller');
   const sum = summary(c);
-  const head = H.head('Nastavení', 'Nastavení podle účelu, bez opakovaných technických sloupců.');
+  const head = H.head('Nastavení', 'Účty, modely, data a chování aplikace na jednom místě.');
   if (c.s.layout === 'grid') return head + `<div class="catalog-grid">${CATEGORIES.map(([, page, label, desc, ic]) => `<article class="catalog-card"><div class="item-icon">${icon(ic)}</div><h3>${e(label)}</h3><p>${e(desc)}</p>${sum[page] ? tag(sum[page]) : ''}${btn('Otevřít', 'settings-open', { settings: page })}</article>`).join('')}</div>`;
   return head + `<div class="table-wrap"><table class="data-table"><thead><tr><th>Název</th><th>Popis</th><th>Stav</th><th></th></tr></thead><tbody>${CATEGORIES.map(([, page, label, desc, ic]) => `<tr><td><button type="button" class="link-button cell-title" data-action="settings-open" data-settings="${page}">${icon(ic)}${e(label)}</button></td><td class="muted">${e(desc)}</td><td>${sum[page] ? tag(sum[page]) : ''}</td><td>${H.button(icon('chevron'), 'settings-open', `class="button small ghost" data-settings="${page}" aria-label="Otevřít ${e(label)}"`)}</td></tr>`).join('')}</tbody></table></div>`;
 }
@@ -285,7 +285,7 @@ function storage(c) {
   }).join('');
   const settings = c.data('storageSettings');
   const retention = settings ? `<section class="card section-gap"><div class="card-head"><div><h2>Retence provozních dat</h2><p class="help">Backend pravidelně maže starší provozní záznamy podle těchto lhůt. Konverzace a paměť nastavíte v kategorii Paměť.</p></div>${tag('Platí při příštím úklidu')}</div><form id="sv4-retention-form"><div class="grid3">${[['llm_logs', 'Záznamy volání modelů', 1, 365], ['agent_logs', 'Záznamy workerů', 1, 365], ['telemetry', 'Telemetrie modelů', 1, 365], ['audit_events', 'Auditní události', 14, 3650], ['quality_scores', 'Skóre kvality', 14, 365], ['soft_delete_grace', 'Koš (smazané položky)', 1, 365]].map(([key, label, min, max]) => H.labeled(label + ' · dny', 'sto-ret-' + key, `<input type="number" id="sto-ret-${key}" name="${key}" min="${min}" max="${max}" value="${e(settings.retention?.[key])}">`)).join('')}</div><div class="setting-footer">${btn('Uložit retenci', 'sv4-retention-save', {}, 'primary', 'data-submit')}</div></form></section>` : '';
-  return intro('Úložiště a databáze', 'Disky, umístění dat a databáze. Seznam a dlaždice přepíná společné ovládání v horní liště.', btn('Obnovit přehled', 'sv4-storage-refresh', {}, 'small'))
+  return intro('Úložiště a databáze', 'Disky, umístění dat a velikost databáze.', btn('Obnovit přehled', 'sv4-storage-refresh'))
     + status(c, { sm: ['uloziste'] })
     + (inv ? `<div class="sv2">${H.sectionTitle('Disky a svazky', tag(pl(disks.length, 'svazek', 'svazky', 'svazků'), 'gold'))}<div class="${grid ? 'sv2-item-grid' : 'sv2-item-list sv2-volume-list'}" data-layout="${grid ? 'grid' : 'list'}">${volumeItems}</div>${H.sectionTitle('Umístění dat')}<div class="${grid ? 'sv2-item-grid' : 'sv2-item-list'}">${pathItems}</div>${H.sectionTitle('Databáze', sys ? tag(`${num(sys.history?.conversations)} konverzací v historii · ${num(sys.history?.total_mb, 1)} MiB`) : '')}<div class="${grid ? 'sv2-item-grid' : 'sv2-item-list'}" data-layout="${grid ? 'grid' : 'list'}">${dbItems}</div>${retention}</div>` : '');
 }
