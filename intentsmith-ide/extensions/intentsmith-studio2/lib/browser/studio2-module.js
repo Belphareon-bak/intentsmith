@@ -2,6 +2,7 @@
 
 require('./view/view.css');
 require('./view/generated/proto.css');
+require('./settings-v4/settings-v4.css');
 
 const { ContainerModule, decorate, injectable } = require('@theia/core/shared/inversify');
 const browser = require('@theia/core/lib/browser');

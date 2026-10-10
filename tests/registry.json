@@ -18362,6 +18362,36 @@
       },
       "flakeCount": 0,
       "quarantineExpiry": null
+    },
+    {
+      "id": "IS-T2-TESTS-STUDIO2-SETTINGS-V4-TEST",
+      "path": "tests/studio2-settings-v4.test.js",
+      "argv": [
+        "node",
+        "tests/studio2-settings-v4.test.js"
+      ],
+      "capabilityId": "C3-005",
+      "tier": "T1",
+      "fixture": "real V4 renderer and management clients: invalid and uncertain writes, artifact provenance, external configuration status",
+      "profile": "offline",
+      "timeoutMs": 30000,
+      "expectedDurationMs": 1000,
+      "requirements": {
+        "network": "none",
+        "database": false,
+        "server": false,
+        "ollama": false,
+        "gpu": false
+      },
+      "required": true,
+      "owner": "WP-IDE-INTEGRATION-20261009",
+      "state": "ACTIVE",
+      "lastGreen": {
+        "commit": null,
+        "artifact": null
+      },
+      "flakeCount": 0,
+      "quarantineExpiry": null
     }
   ]
 }

@@ -671,6 +671,8 @@ function render(vm, h, F, rt) {
               h("button", { className: "iconbtn sm", "aria-label": "Zavřít hlášení", title: "Zavřít", onClick: vm.closeToast },
                 h("svg", { className: "ic", width: "12", height: "12", viewBox: "0 0 24 24" },
                   h("path", { d: vm.I.x }))))) : null,
+          (vm.isSettingsV4) ? h(F, null,
+            h("div", { className: "sv4-host", ref: vm.settingsHost, style: css("height: 100%; min-height: 0; overflow: hidden;") })) : null,
           (vm.isSection) ? h(F, null,
             h("div", { className: "sect " + S(vm.sectCls), style: css("grid-template-columns: " + S(vm.sectCols) + ";") },
               h("div", { className: "cat " + S(vm.cg.containerClass) },

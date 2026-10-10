@@ -980,6 +980,7 @@ textarea.fv-ed{font-family:var(--font-mono)}
 </sc-if>
 
 <sc-if value="{{hasToast}}" hint-placeholder-val="{{false}}"><div class="toast {{toastCls}}" role="status"><svg class="ic" width="15" height="15" viewBox="0 0 24 24"><path d="{{toastIcon}}"></path></svg><span class="toast-t">{{toastText}}</span><button class="iconbtn sm" aria-label="Zavřít hlášení" title="Zavřít" onClick="{{closeToast}}"><svg class="ic" width="12" height="12" viewBox="0 0 24 24"><path d="{{I.x}}"></path></svg></button></div></sc-if>
+<sc-if value="{{isSettingsV4}}" hint-placeholder-val="{{false}}"><div class="sv4-host" ref="{{settingsHost}}" style="height: 100%; min-height: 0; overflow: hidden;"></div></sc-if>
 <sc-if value="{{isSection}}" hint-placeholder-val="{{false}}">
 <div class="sect {{sectCls}}" style="grid-template-columns: {{sectCols}};">
 <div class="cat {{cg.containerClass}}">

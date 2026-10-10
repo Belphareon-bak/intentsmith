@@ -241,6 +241,7 @@ ${script.trim()}
 module.exports = { Component };
 `;
   const files = {
+    '../../settings-v4/settings-v4.css': require('./build-settings-v4').build(),
     'view.js': view,
     'model.js': model,
     'proto.css': '/* VYGENEROVÁNO scripts/build-view.js z docs/studio2/prototype – needitovat ručně. */\n' + buildCss(template).trimEnd() + '\n'

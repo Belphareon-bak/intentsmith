@@ -299,7 +299,7 @@ class ModelWorkspaceRedesign extends ModelWorkspace {
     const protocol=protocols.includes(filter.protocol)?filter.protocol:protocols[0]||'';
     const signal=c=>(c.externalSignals||[]).find(s=>s.role===filter.role&&protocol&&stable([s.sourceUrl,s.metric,s.minimum,s.maximum,s.measuredAt,s.protocolId||null,s.sourceSha256||null])===protocol);
     const value=c=>{if(filter.sort==='size')return Number.isFinite(c.sizeGB)?c.sizeGB:null;const s=signal(c);return filter.sort==='benefit'?(s?.comparisonEvidenceId&&Number.isFinite(s.estimatedGainPoints)?s.estimatedGainPoints:null):Number.isFinite(s?.score)?s.score:null;};
-    const filtered=items.filter(c=>(!filter.search||(c.name+' '+str(c.family)).toLowerCase().includes(filter.search.toLowerCase()))&&(!filter.fits||c.fitsVram===true)&&(filter.availability==='all'||filter.availability==='installed'&&c.installed||filter.availability==='notInstalled'&&!c.installed));
+    const filtered=items.filter(c=>(!filter.search||(c.name+' '+str(c.family)+' '+str(c.quantization||c.details?.quantization_level)).toLowerCase().includes(filter.search.toLowerCase()))&&(!filter.role||(c.eligibleRoles||[]).includes(filter.role))&&(!filter.fits||c.fitsVram===true)&&(filter.availability==='all'||filter.availability==='installed'&&c.installed||filter.availability==='notInstalled'&&!c.installed));
     filtered.sort((a,b)=>{if(filter.sort==='name')return a.name.localeCompare(b.name);const av=value(a),bv=value(b);return av===null||bv===null?av===bv?a.name.localeCompare(b.name):av===null?1:-1:(filter.sort==='size'?av-bv:bv-av)||a.name.localeCompare(b.name);});
     const selected=filtered.find(c=>c.name===this.catalogName)||filtered[0]||null;
     const family=selected&&selected.name.split(':')[0];

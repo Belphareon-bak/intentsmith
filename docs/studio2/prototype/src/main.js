@@ -2806,7 +2806,7 @@ return {"tabs":[],"rows":[],"buttons":[],"runDetail":{"title":"","status":"","ru
       nav: this.navVM(s, lay, fsid),
       navSet: { cls: !isSessions && s.section === 'settings' ? 'on' : '', go: this.run((s2) => this.pGo(s2, 'settings')) },
       newSession: this.run((s2) => this.pNewSession(s2, {})),
-      isSessions, isSection: !isSessions, secLabel: this.sec(s.section).label,
+      isSessions, isSection: !isSessions, isSettingsV4: false, settingsHost: () => {}, secLabel: this.sec(s.section).label,
       isScmReview: false, scmReview: { project: '', title: '', identity: '', author: '',
         base: '', head: '', branchSort:'activity', branchError:'', referenceOptions:[], setBranchSort:()=>{}, hasParents:false, parent:'0', parents:[], setParent:()=>{}, layout:'unified', unified:true, split:false, splitLines:[], setLayout:()=>{}, diffNote:'', loading: false, hasError: false, error: '', hasData: false,
         files: [], lines: [], empty: false, compareDisabled: true, close: () => {},

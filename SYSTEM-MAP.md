@@ -965,8 +965,8 @@ Při další integraci se přeměří znovu.
 | | |
 |---|---:|
 | `src/**/*.js` | **238 801 ř.**, 699 `.js` souborů v pracovním kandidátu |
-| `tests/**/*.js` | **273 790 ř.**, 610 `.js` souborů v pracovním kandidátu |
-| Registrovaných testových programů | **602** (`504 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
+| `tests/**/*.js` | **273 867 ř.**, 611 `.js` souborů v pracovním kandidátu |
+| Registrovaných testových programů | **603** (`505 ACTIVE`, `83 BLOCKED`, `15 HISTORICAL`) |
 | Tabulek v čerstvé DB / aplikovaných migrací | **187 / 110** |
 | HTTP rout | **308 statických deklarací**; nejde o počet runtime ověřených cest |
 | **Historický capability souhrn po B6** | **7 z 22** `ACCEPTED/PASS` v tabulce níže; jde o rozsah B6, nikoli procento hotovosti celého produktu ani nových změn. Novější přijetí M2–M4 a aktuální opravy mají vlastní scope a důkazy. |

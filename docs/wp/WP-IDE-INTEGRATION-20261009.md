@@ -167,3 +167,23 @@ nezměněné doménové počty, autentizovaná API, readback všech sedmi vazeb,
 jediná hlavní desktop položka a skutečný běžný start s původním profilem
 prošly. [Aktuální report a provozní důkazy](../review/ide-preview-completion-20261010.md)
 rozlišují dokončené lokální nasazení od nezávislé revize a formální přejímky.
+
+### Dokončení Opusovy rozpracované implementace V4
+
+Autorita: následné přímé zadání operátora „tak to dotahni co nejlepe dovedes“
+po porovnání účtů, repozitářů a modelů/Huntu s V4. Předchozí nasazení
+37ee6177 **nesplnilo úplnou kompozici V4**. Opusova nezávislá revize téhož
+nasazení přijímá technické opravy, nikoli bod f), viz
+`Projects/docs/reviewer-tools/ide-redesign-20261009/review-deployed-37ee6177.md`.
+Operátor povoluje dokončit jeho 12 necommitnutých souborů settings-v4 v tomto
+checkoutu. Zdrojem vzhledu zůstává preview-v4-claude/src, nikoli náš report.
+
+Výsledek: skutečně zapojené stránky V4 ve stávajícím Studiu 2, všechny modelové
+záložky a Hunt podzáložky, skutečné API, opravitelné formuláře a jasná provenance
+skóre/připojení. Vlastněné cesty doplňují docs/studio2/settings-v4 a lib/browser/
+settings-v4, jejich build a testy. Ověření: DOM události a negativní zápisy,
+všechny stránky nativního AppImage s backendem na 1366/1920, restart/readback,
+required offline/database a strukturální kontroly, následně aktualizace stejné
+hlavní instalace a push. Nová paleta, aplikace ani desktopová položka nevzniká.
+Hunt hold, Legacy, původní DB/profil, cizí checkouty a GPU kvalifikace zachovány.
+Formální release a nová nezávislá revize nejsou nahrazeny lokálním nasazením.

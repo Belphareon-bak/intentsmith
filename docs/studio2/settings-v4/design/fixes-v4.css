@@ -1,0 +1,53 @@
+/* Návrh V4 (Claude): úpravy nad V3 podle připomínek operátora 9. 10. 2026. */
+.theme-switch{display:flex;align-items:center;gap:6px;color:var(--muted);margin-right:4px}
+.theme-switch select{min-height:30px;padding:4px 8px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink);font-size:.92308rem}
+/* Bod 3: pásma skóre navázaná na barvy tématu + podbarvené buňky matice. */
+:root{--band-0:var(--red);--band-1:color-mix(in srgb,var(--red) 55%,var(--warn));--band-2:var(--warn);--band-3:color-mix(in srgb,var(--warn) 40%,var(--green));--band-4:var(--green)}
+.mv4-band{display:inline-flex;align-items:center;gap:5px;font-size:.76923rem;color:var(--muted);margin-left:10px}
+.mv4-band::before{content:"";width:12px;height:12px;border-radius:3px}
+.mv4-band.b0::before{background:var(--band-0)}.mv4-band.b1::before{background:var(--band-1)}.mv4-band.b2::before{background:var(--band-2)}.mv4-band.b3::before{background:var(--band-3)}.mv4-band.b4::before{background:var(--band-4)}
+.mv2-matrix-cell[class*="score-"] strong{color:var(--score-color)}
+/* Teplotní mapa bez dlaždic: celá buňka bez okraje a zaoblení, jen jemný tón pásma. */
+.mv2-matrix td:has(>.mv2-matrix-cell){padding:0!important}
+.mv2-matrix .mv2-matrix-cell{min-height:72px}
+.mv2-matrix .mv2-matrix-cell[class*="score-"]{background:color-mix(in srgb,var(--score-color) 14%,transparent)}
+.mv2-matrix .mv2-matrix-cell[class*="score-"].active{background:color-mix(in srgb,var(--score-color) 22%,transparent)}
+/* Odstup nadpisů v detailu katalogu. */
+.hunt2-model-detail h3{margin-top:24px}.hunt2-model-detail .mv4-variants+.help{margin-bottom:18px}
+/* Bod 5: zaškrtávátka v mřížce formuláře Huntu se neroztahují na 100 % → popisky se neořezávají. */
+.hunt2-root .hunt2-form-grid input[type=checkbox],.hunt2-root .hunt2-form-grid input[type=radio]{width:15px;min-width:15px;flex:none}
+.hunt2-root .check-row>span{min-width:0;overflow-wrap:anywhere}
+/* Bod 7: mezera mezi frontou a „Poslední závěry a doporučení“. */
+.hunt2-section-heading.mv4-gap-top{margin-top:28px}
+/* Bod 6: neaktivní pole plánu. */
+.mv4-off{opacity:.5}.mv4-off input,.mv4-off select{cursor:not-allowed}
+/* Bod 8: jednotka grafu mimo popisky os (osa Y nahoře, osa X vpravo od konce osy). */
+.mv2-chart text.chart-unit{font-weight:600;fill:var(--ink)}
+/* Bod 2: katalog Huntu – benchmarky, přínos, kvantizace, zdroje, dlaždice. */
+.mv4-cat-note{margin:-6px 0 16px}
+.mv4-role-scores{display:flex;flex-wrap:wrap;gap:6px;margin:7px 0}
+.mv4-role-score{display:inline-flex;gap:6px;align-items:center}
+.mv4-role-score b{font-weight:600}
+.mv4-up{color:var(--green)}.mv4-down{color:var(--red)}.mv4-dim{opacity:.45}
+.mv4-row-advice{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:4px}
+.mv4-advice{display:flex;gap:12px;align-items:flex-start;padding:12px 14px;margin:12px 0 18px;border:1px solid var(--line);border-radius:6px;background:var(--raised);line-height:1.55}
+.mv4-advice .tag{flex:none}
+.mv4-bench td,.mv4-bench th{white-space:normal;padding-left:10px!important;padding-right:10px!important}.mv4-bench .tag{white-space:nowrap}
+.mv4-variants{display:flex;flex-direction:column;gap:6px;margin:10px 0}
+.mv4-variant{display:grid;grid-template-columns:18px minmax(80px,1fr) minmax(110px,1fr) minmax(110px,1fr) auto;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:var(--panel);cursor:pointer}
+.mv4-variant.is-selected{border-color:var(--accent);background:var(--accent-bg)}
+.mv4-sources{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin:10px 0}
+.mv4-cat-tiles{display:flex;flex-direction:column;gap:18px}
+.mv4-cat-grid .catalog-grid .hunt2-search-row{height:100%;border:1px solid var(--line);border-radius:7px;background:var(--panel);padding:16px;align-items:flex-start}
+/* Bod 1: seznam/dlaždice i v Účtech, Oznámeních a Repozitářích; přepínač zešedne tam, kde nejsou položky. */
+.view-switch .icon-button:disabled{opacity:.35;cursor:not-allowed}
+.sv2-cell-service{display:inline-flex;align-items:center;gap:10px}
+.sv2-cell-actions{text-align:right;white-space:nowrap}.sv2-cell-actions .button+.button{margin-left:6px}
+.sv2-connected-row td:first-child{box-shadow:inset 3px 0 0 var(--green)}
+.sv2-channel-tile h3,.sv2-repo-tile h3{margin:10px 0 4px}
+.sv2-repo-tile .sv2-repo-address{width:100%;margin:10px 0 6px}
+/* Bod 4: karty porovnání kontextu se nelámou uprostřed čísel. */
+.mv4-ctx-compare{grid-template-columns:repeat(3,minmax(0,1fr))}
+.mv4-ctx-compare .metric strong{font-size:1.15rem;overflow-wrap:normal;word-break:keep-all}
+.mv4-ctx-compare .metric strong.mono{font-size:1.05rem;overflow-wrap:anywhere}
+.mv4-role-pick{flex-wrap:wrap;margin-bottom:14px}

@@ -1,0 +1,41 @@
+/* Ostrov Nastavení v4 ve Studiu 2. Barvy návrhu jsou proměnné motivu IDE (THEMES.md), nikoli nová paleta;
+   :root a lokální třídy se při sestavení omezí na .intentsmith-studio2-widget .sv4. */
+:root{container:sv4/inline-size;--sv4-fs:calc(var(--fs,12.5px) + .5px);--raised:var(--panel2);--line:var(--border);--ink:var(--text);--muted:var(--dim);--accent:var(--acct);--accent-fill:var(--accF);--accent-fg:var(--acc-fg);--accent-bg:rgb(var(--accR) / calc(var(--asa) + .06));--green:var(--ok);--red:var(--bad);--blue:var(--info);--row:42px;--tile:250px;position:relative;height:100%;min-height:0;font-family:var(--font-ui);font-size:var(--sv4-fs);line-height:1.45;color:var(--ink);background:var(--bg);overflow:hidden}
+.sv4-root{height:100%;min-height:0;display:grid;grid-template-columns:minmax(0,1fr)}
+.sv4-root.has-aside{grid-template-columns:minmax(0,1fr) 300px}
+.sv4-root>.content{min-height:0;overflow:auto}
+.sv4-root>.inspector{min-height:0}
+.sv4-loading{display:flex;align-items:center;gap:10px;color:var(--muted);padding:6px 0 18px}
+.sv4-error{border:1px solid color-mix(in srgb,var(--red) 45%,var(--line));background:color-mix(in srgb,var(--red) 9%,var(--panel));color:var(--ink);border-radius:6px;padding:10px 14px;margin:0 0 16px;display:flex;gap:12px;align-items:center;justify-content:space-between}
+.sv4-note{color:var(--muted)}
+.sv4-readonly{opacity:.62}
+.sv4-readonly input,.sv4-readonly select,.sv4-readonly button{cursor:not-allowed}
+.sv4-pre{white-space:pre-wrap;overflow-wrap:anywhere;font-family:var(--font-mono);font-size:.92em;background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px 12px;max-height:320px;overflow:auto}
+.sv4-toast{left:50%;bottom:24px}
+.modal-backdrop{z-index:40}
+@container sv4 (max-width:980px){.sv4-root.has-aside{grid-template-columns:minmax(0,1fr)}.sv4-root>.inspector{display:none}}
+
+/* Spoje živého rendereru. Rozměry a kompozice z V4, barvy ze současného tématu. */
+.sv4-host{height:100%;min-height:0;overflow:hidden}
+.inspector-block{display:flex;flex-direction:column;gap:7px;padding:18px 0;border-bottom:1px solid var(--line);overflow-wrap:anywhere}
+.inspector-block small{color:var(--muted);font-size:.84em}
+.sv4-candidate-main{display:flex;flex-direction:column;gap:7px;min-width:0}
+.sv4-candidate-main>small{color:var(--muted)}
+.hunt2-search-row{width:100%;text-align:left}
+.hunt2-role-checks{display:flex;flex-wrap:wrap;gap:10px 22px}
+.hunt2-role-checks .check-row{min-width:180px;flex:1}
+.hunt2-profile-row .toolbar{flex-wrap:wrap}
+.hunt2-profile-row small{display:block}
+.mv2-role-picker{flex-wrap:wrap}
+.mv2-status-strip strong{font-size:1.05em}
+.mv2-matrix td:first-child .mono{white-space:normal;overflow-wrap:anywhere}
+.mv2-matrix-cell small{white-space:normal;overflow-wrap:anywhere}
+.mv4-variant{grid-template-columns:minmax(100px,1.2fr) minmax(80px,1fr) minmax(80px,1fr) auto}
+.sv4-attempt{margin:12px 0;padding:12px 0;border-top:1px solid var(--line)}
+.mw-score-low{--score-color:var(--band-0)}.mw-score-low-middle{--score-color:var(--band-1)}
+.mw-score-middle{--score-color:var(--band-2)}.mw-score-middle-high{--score-color:var(--band-3)}.mw-score-high{--score-color:var(--band-4)}
+.mv2-scale{flex-wrap:wrap}.mv2-scale .mv2-score-text{background:color-mix(in srgb,var(--score-color) 14%,transparent);color:var(--score-color)}
+.sv2 .sv2-scope-option:disabled{opacity:.55}
+.button:focus:not(:focus-visible),.tab:focus:not(:focus-visible),.hunt2-search-row:focus:not(:focus-visible){outline:none;box-shadow:none}
+.button:focus-visible,.tab:focus-visible,.hunt2-search-row:focus-visible,.link-button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+@container sv4 (max-width:850px){.mv4-variant{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}.hunt2-discovery-layout{grid-template-columns:minmax(0,1fr)}.mv2-status-strip{grid-template-columns:repeat(2,minmax(0,1fr))}}
