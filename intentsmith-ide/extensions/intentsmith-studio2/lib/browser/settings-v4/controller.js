@@ -127,10 +127,18 @@ class SettingsV4 {
     if (this.ownsServices) for (const service of [this.sm, this.mw, this.sec, this.fb]) service.destroy?.();
   }
   // Volá se po každém překreslení Reactu: stránka z uloženého stavu IDE, seznam/dlaždice a velikost z horní lišty.
+  checkSource() {
+    let source;try{source=this.base();}catch{return false;}
+    if(!this.lastBackend){this.lastBackend=source;return false;}
+    if(source===this.lastBackend)return false;
+    this.lastBackend=source;this.res.clear();this.sm.resources.clear();this.mw.resources.clear();this.mw.extra.clear();this.mw.runDetail=null;this.drafts.clear();
+    this.toast('Backend se změnil. Načítám jeho stav; staré rozepsané zápisy se nepřenesou.');return true;
+  }
   sync({ id = null, view = 'seznam', size = 2 } = {}) {
     const page = id && PAGE_OF[id] ? PAGE_OF[id] : 'home';
     const layout = view === 'dlazdice' ? 'grid' : 'list';
-    const changed = page !== this.s.page || layout !== this.s.layout || size !== this.s.size;
+    const sourceChanged=this.checkSource();if(sourceChanged)this.ensure(page);
+    const changed = sourceChanged || page !== this.s.page || layout !== this.s.layout || size !== this.s.size;
     if (page !== this.s.page) { this.captureDrafts(); this.s.page = page; this.ensure(page); if (this.el) this.el.querySelector('.sv4-root').scrollTop = 0; this.scrollReset = true; }
     this.s.layout = layout; this.s.size = size;
     if (changed) this.render(true);
@@ -193,22 +201,23 @@ class SettingsV4 {
     return data;
   }
   resource(key) { return this.res.get(key) || { status: 'idle' }; }
-  data(key) { const r = this.res.get(key); return r?.status === 'ready' || r?.data ? r.data : null; }
+  data(key) { const r = this.res.get(key); try { return r?.backend && r.backend !== this.base() ? null : r?.data || null; } catch { return null; } }
   async load(key, refresh = false) {
     const path = RESOURCES[key];
     if (!path) return false;
-    const current = this.res.get(key);
+    let backend;try{backend=this.base();}catch(error){this.res.set(key,{status:'error',error:error.message});this.schedule();return false;}
+    const stored=this.res.get(key), current=stored?.backend===backend?stored:null;
     if (!refresh && current && ['ready', 'loading'].includes(current.status)) return current.status === 'ready';
     const token = Symbol(key);
-    this.res.set(key, { status: 'loading', token, data: current?.data || null });
+    this.res.set(key, { status: 'loading', token, backend, data: current?.data || null });
     this.schedule();
     try {
       const data = await this.api('GET', path, undefined, key === 'diagnostics' ? 30_000 : 15_000);
       if (!plain(data)) throw Object.assign(Error('Backend vrátil neplatná data.'), { code: 'RESPONSE_INVALID' });
-      if (this.res.get(key)?.token === token) this.res.set(key, { status: 'ready', data });
+      if (this.res.get(key)?.token === token) this.res.set(key, { status: 'ready', data, backend });
       return true;
     } catch (error) {
-      if (this.res.get(key)?.token === token) this.res.set(key, { status: 'error', error: error.message || error.code, data: current?.data || null });
+      if (this.res.get(key)?.token === token) this.res.set(key, { status: 'error', error: error.message || error.code, backend, data: current?.data || null });
       return false;
     } finally { this.schedule(); }
   }

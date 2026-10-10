@@ -135,6 +135,7 @@ class ModelWorkspace {
       signal: AbortSignal.timeout(options.timeout || 15_000), ...options });
     let payload = {};
     try { payload = await response.json(); } catch { /* HTTP status remains authoritative. */ }
+    if(this.backendUrl?.()!==base)throw Error('Backend se změnil. Obnovte data před další akcí.');
     const details = record(payload) ? payload : {};
     if (!response.ok) throw Object.assign(Error(details.error || 'HTTP ' + response.status),
       { code: details.code || 'HTTP_' + response.status, status: response.status });
@@ -142,11 +143,11 @@ class ModelWorkspace {
   }
   async load(tab = this.tab, refresh = false) {
     if (!TAB_PATHS[tab]) return false;
-    const existing = this.resources.get(tab);
+    const backend=this.backendUrl?.(), stored=this.resources.get(tab), existing=stored?.backend===backend?stored:null;
     if (!refresh && existing?.status === 'ready') return true;
     if (!refresh && existing?.status === 'loading') return this.loading.get(tab) || false;
     const token = Symbol(tab);
-    this.resources.set(tab, { status: 'loading', data: existing?.data || null, token });
+    this.resources.set(tab, { status: 'loading', data: existing?.data || null, token, backend });
     this.changed();
     const pending = (async () => {
       try {
@@ -155,16 +156,17 @@ class ModelWorkspace {
           return { dimensions: {}, created_at: null };
         throw error;
         })));
+        if(this.backendUrl?.()!==backend)throw Error('Backend se změnil. Obnovte data před další akcí.');
         if (!validResource(tab, data)) throw Error('Backend vrátil neplatná data modelového pracoviště.');
         if (!this.destroyed && this.resources.get(tab)?.token === token) {
-          this.resources.set(tab, { status: 'ready', data });
+          this.resources.set(tab, { status: 'ready', data, backend });
           if (tab === 'policy' && (refresh || !this.policyDraft)) this.policyDraft = { ...data[0].policy };
           this.changed();
         }
         return true;
       } catch (error) {
         if (!this.destroyed && this.resources.get(tab)?.token === token) {
-          this.resources.set(tab, { status: 'error', error: errorText(error), data: existing?.data || null }); this.changed();
+          this.resources.set(tab, { status: 'error', error: errorText(error), data: existing?.data || null, backend }); this.changed();
         }
         return false;
       }

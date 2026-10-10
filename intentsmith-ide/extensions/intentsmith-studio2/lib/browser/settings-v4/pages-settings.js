@@ -19,10 +19,12 @@ const ERRORS = { IDE_BACKEND_UNAVAILABLE: 'backend není dostupný', IDE_RESPONS
 
 // ---------- společné ----------
 function smRes(c, category) { return c.sm.resources.get(category); }
-function smData(c, category) { const r = smRes(c, category); return r?.data || null; }
+function smData(c, category) { const r = smRes(c, category); try { return !r?.source || r.source === c.sm.sourceIdentity() ? r?.data || null : null; } catch { return null; } }
 function status(c, { sm = [], res = [] } = {}) {
   const items = [...sm.map(k => smRes(c, k)), ...res.map(k => c.resource(k))];
   const failed = items.find(r => r?.status === 'error');
+  const blocked = sm.find(k => c.sm.editors.get(k)?.blocked);
+  if (blocked) return H.notice('Předchozí zápis není ověřený; rozepsané hodnoty zůstaly. '+btn('Obnovit a porovnat zápis','sv4-sm-compare',{category:blocked},'small'),'warn');
   if (failed) return `<div class="sv4-error" role="alert"><span>Data se nepodařilo načíst (${e(ERRORS[failed.error] || failed.error)}). Zobrazený stav nemusí být úplný.</span>${btn('Obnovit', 'retry', {}, 'small')}</div>`;
   if (items.some(r => !r || ['idle', 'loading'].includes(r.status))) return '<div class="sv4-loading" role="status">Načítám skutečný stav z backendu…</div>';
   return '';
@@ -123,7 +125,8 @@ function account(c) {
     + '<p class="help">Git hosty používají SSH profily z Repozitářů a přístupů; Discord a Telegram doručovací účty s tokenem v proměnné prostředí. Uložení propojení ještě neověřuje doručení – k tomu slouží Zkouška v Oznámeních.</p>';
 }
 function profileModal(c) {
-  const profile = smData(c, 'ucet')?.profile;
+  const stored = smData(c, 'ucet')?.profile, pending=c.sm.editors.get('ucet');
+  const profile = pending?.kind==='identity' ? {...stored,...pending.draft} : stored;
   if (!profile) return;
   c.H.modal('Lokální profil', `${H.labeled('Zobrazované jméno', 'acc-name', H.input('acc-name', profile.displayName, 'required maxlength="200"'))}${H.labeled('E-mail (volitelný)', 'acc-email', `<input type="email" id="acc-email" name="acc-email" value="${e(profile.email)}" maxlength="254">`)}${H.labeled('Popis profilu', 'acc-description', H.input('acc-description', profile.description, 'maxlength="2000"'), 'Pouze popis v IDE. Není systémovým promptem ani přihlášením k externí službě.')}<p class="validation" data-sv4-error role="status"></p>`, 'Uložit profil', async form => {
     const v = new FormData(form), name = String(v.get('acc-name') || '').trim(), email = String(v.get('acc-email') || '').trim();
@@ -137,7 +140,9 @@ function profileModal(c) {
 function error(form, text) { const node = form?.querySelector('[data-sv4-error]'); if (node) node.textContent = text; return false; }
 function accountModal(c, provider, accountRow = null) {
   const category = 'ucet';
-  const d = accountRow || { name: provider === 'discord' ? 'Discord' : 'Telegram', provider, credentialEnv: 'INTENTSMITH_' + provider.toUpperCase() + '_TOKEN', recipient: '', enabled: true, events: ['worker', 'lifecycle'] };
+  const pending=c.sm.editors.get(category);
+  const savedDraft=pending?.kind==='account' && pending.draft.provider===provider && (pending.original?.id||null)===(accountRow?.id||null) ? {...pending.draft,events:EVENTS.filter(([key])=>pending.draft['event_'+key]).map(([key])=>key)} : null;
+  const d = savedDraft || accountRow || { name: provider === 'discord' ? 'Discord' : 'Telegram', provider, credentialEnv: 'INTENTSMITH_' + provider.toUpperCase() + '_TOKEN', recipient: '', enabled: true, events: ['worker', 'lifecycle'] };
   const label = provider === 'discord' ? 'Discord' : 'Telegram';
   c.H.modal(`${accountRow ? 'Upravit' : 'Propojit'} ${label}`, `${H.labeled('Název propojení', 'acc-a-name', H.input('acc-a-name', d.name, 'required maxlength="200"'))}${H.labeled(provider === 'discord' ? 'ID kanálu' : 'Chat ID nebo @uživatel', 'acc-a-recipient', H.input('acc-a-recipient', d.recipient, 'required maxlength="100" class="mono"'), provider === 'discord' ? 'Číselné ID cílového kanálu (6–25 číslic).' : 'Číselné ID chatu, nebo @uživatelské jméno bota/kanálu.')}${H.labeled('Proměnná s tokenem', 'acc-a-env', H.input('acc-a-env', d.credentialEnv, 'required maxlength="100" class="mono"'), `Token se do IDE nevkládá. Nastavte ho v ~/.config/intentsmith/runtime.env jako ${'INTENTSMITH_' + provider.toUpperCase() + '_…'} a restartujte backend.`)}${accountRow ? kv('Token v prostředí', accountRow.credentialConfigured ? tag('Nastaven', 'green') : tag('Chybí', 'gold')) : ''}<h3>Doručované události</h3>${EVENTS.map(([key, text, hint]) => H.check('acc-a-event-' + key, text, d.events.includes(key), hint)).join('')}${H.check('acc-a-enabled', 'Povolit doručování', d.enabled)}<p class="validation" data-sv4-error role="status"></p>`, accountRow ? 'Uložit propojení' : 'Propojit', async form => {
     const v = new FormData(form);
@@ -486,7 +491,20 @@ async function sshDelete(c, id) {
 const PAGES = { home, account, notifications, storage, backups, repositories };
 function render(c, page) { return PAGES[page] ? PAGES[page](c) : general.render(c, page); }
 
+async function comparePending(c, category) {
+  const ed=c.sm.editors.get(category);
+  if(!ed?.blocked || c.sm.isBusy(category)) return;
+  if(!await c.sm.load(category,true,ed.source)){c.toast('Aktuální stav nelze ověřit. Rozepsaný zápis zůstává blokovaný.');return;}
+  const data=smData(c,category), id=ed.original?.id||ed.original?.name||ed.draft.id;
+  const current=ed.kind==='identity'?data.profile:ed.kind==='paths'?data.paths:ed.kind==='account'?data.accounts?.find(r=>r.id===id):ed.kind==='ssh'?data.profiles?.find(r=>r.id===id):ed.kind==='backup'?data.backups?.find(r=>r.name===id):data;
+  c.modal('Porovnání neověřeného zápisu',`<p>Zápis se neopakuje. Porovnejte načtený záznam s rozepsanými hodnotami; při existujícím záznamu pokračujte jeho úpravou v seznamu.</p><h3>Rozepsané hodnoty</h3><pre class="sv4-pre">${e(JSON.stringify(ed.draft,null,2))}</pre><h3>Současný stav v backendu</h3><pre class="sv4-pre">${e(JSON.stringify(current||'Záznam s tímto ID nebyl nalezen.',null,2))}</pre><p class="help">Uzavření zahodí tento rozepsaný editor. Nevytvoří, nezmění ani nesmaže záznam v backendu.</p>`, 'Uzavřít rozepsaný editor', ()=>{
+    if(c.sm.editors.get(category)!==ed || !c.sm.ready(category))return false;
+    c.sm.editors.delete(category);c.s.sshEditor=null;c.s.channelEditor=null;c.clearDrafts();c.closeAllModals();c.render(true);c.toast('Rozepsaný editor byl výslovně uzavřen; backend se nezměnil.');return false;
+  });
+}
 function act(c, action, el) {
+  if(action==='sv4-sm-compare'){comparePending(c,el.dataset.category).catch(error=>c.toast(error.message));return true;}
+
   const d = el?.dataset || {};
   switch (action) {
     case 'sv4-goto': c.navigate(d.page); return true;

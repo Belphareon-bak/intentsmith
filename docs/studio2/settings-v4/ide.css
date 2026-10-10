@@ -39,3 +39,13 @@
 .button:focus:not(:focus-visible),.tab:focus:not(:focus-visible),.hunt2-search-row:focus:not(:focus-visible){outline:none;box-shadow:none}
 .button:focus-visible,.tab:focus-visible,.hunt2-search-row:focus-visible,.link-button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @container sv4 (max-width:850px){.mv4-variant{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}.hunt2-discovery-layout{grid-template-columns:minmax(0,1fr)}.mv2-status-strip{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+/* Globální seznam/dlaždice má skutečný účinek v obou kolekcích Huntu. */
+.sv4-profile-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,var(--tile)),1fr));gap:12px}
+.sv4-profile-tiles .hunt2-profile-row{display:flex;flex-direction:column;align-items:stretch;gap:14px;border:1px solid var(--line);border-radius:6px;padding:16px;background:var(--raised);min-height:var(--row)}
+.sv4-profile-tiles .hunt2-profile-row .toolbar{margin-top:auto}
+.sv4-catalog-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,var(--tile)),1fr));gap:10px;padding:10px;align-content:start}
+.sv4-catalog-tiles .hunt2-results-caption{grid-column:1/-1}
+.sv4-catalog-tiles .hunt2-search-row{display:flex;flex-direction:column;align-items:flex-start;border:1px solid var(--line);border-radius:6px;min-height:var(--row)}
+input:not([type]){width:100%;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink);padding:9px 10px;min-height:36px}
+input[type=email]{width:100%;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink);padding:9px 10px;min-height:36px}

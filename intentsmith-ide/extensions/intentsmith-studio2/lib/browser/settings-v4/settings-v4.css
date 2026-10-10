@@ -703,3 +703,11 @@
 .intentsmith-studio2-widget .sv4 .button:focus:not(:focus-visible),.intentsmith-studio2-widget .sv4 .tab:focus:not(:focus-visible),.intentsmith-studio2-widget .sv4 .hunt2-search-row:focus:not(:focus-visible){outline:none;box-shadow:none}
 .intentsmith-studio2-widget .sv4 .button:focus-visible,.intentsmith-studio2-widget .sv4 .tab:focus-visible,.intentsmith-studio2-widget .sv4 .hunt2-search-row:focus-visible,.intentsmith-studio2-widget .sv4 .link-button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 @container sv4 (max-width:850px){.intentsmith-studio2-widget .sv4 .mv4-variant{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}.intentsmith-studio2-widget .sv4 .hunt2-discovery-layout{grid-template-columns:minmax(0,1fr)}.intentsmith-studio2-widget .sv4 .mv2-status-strip{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.intentsmith-studio2-widget .sv4 .sv4-profile-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,var(--tile)),1fr));gap:12px}
+.intentsmith-studio2-widget .sv4 .sv4-profile-tiles .hunt2-profile-row{display:flex;flex-direction:column;align-items:stretch;gap:14px;border:1px solid var(--line);border-radius:6px;padding:16px;background:var(--raised);min-height:var(--row)}
+.intentsmith-studio2-widget .sv4 .sv4-profile-tiles .hunt2-profile-row .toolbar{margin-top:auto}
+.intentsmith-studio2-widget .sv4 .sv4-catalog-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,var(--tile)),1fr));gap:10px;padding:10px;align-content:start}
+.intentsmith-studio2-widget .sv4 .sv4-catalog-tiles .hunt2-results-caption{grid-column:1/-1}
+.intentsmith-studio2-widget .sv4 .sv4-catalog-tiles .hunt2-search-row{display:flex;flex-direction:column;align-items:flex-start;border:1px solid var(--line);border-radius:6px;min-height:var(--row)}
+.intentsmith-studio2-widget .sv4 input:not([type]){width:100%;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink);padding:9px 10px;min-height:36px}
+.intentsmith-studio2-widget .sv4 input[type=email]{width:100%;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--ink);padding:9px 10px;min-height:36px}

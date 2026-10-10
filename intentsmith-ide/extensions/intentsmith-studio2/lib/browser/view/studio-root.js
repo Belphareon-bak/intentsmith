@@ -52,6 +52,7 @@ class StudioRoot extends React.Component {
         : { ...model.pGo(model.st(), 'settings'), detail: { ...model.st().detail, settings: null }, q: '' }),
       openProjectWizard: () => model.setState(model.pSelect(model.st(), 'projects', '__new__'))
     });
+    this.settings.pairing={vm:()=>model.pairingVM(),toggle:scope=>model.togglePairingScope(scope),issue:()=>model.issuePairingClaim()};
     this.settings.appearanceState = () => model.st();
     this.settings.applyAppearance = patch => model.setState(patch);
     this.settings.openSection = section => model.setState(model.pGo(model.st(), section));

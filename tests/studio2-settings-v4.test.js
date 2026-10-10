@@ -75,3 +75,28 @@ test('matrix keeps pending and old-digest evidence distinct and renders a genuin
   c.mw.resources.set('evaluations',{status:'ready',data:[{roles:{CHAT:{artifacts:[{model:'chat',digestSha256:D,status:'AWAITING_REVIEW'},{model:'chat',digestSha256:'b'.repeat(64),status:'STALE'}]},CODE:{artifacts:[{model:'code',digestSha256:D,status:'COMPLETE',score:.92}]}},history:[]}]});
   const html=c.view().html;assert.match(html,/Čeká na posouzení/);assert.match(html,/Jiný artefakt/);assert.match(html,/92 %/);assert.match(html,/mw-score-high/);assert(!html.includes('0 %</strong>'));c.destroy();
 });
+
+test('read-only reconciliation preserves a blocked account ID and explicitly closes the editor without another PUT',async()=>{
+  const f=fixture('uncertain');await f.c.sm.load('ucet');pages.act(f.c,'sv4-account-new',{dataset:{provider:'telegram'}});await submit(f);
+  const id=f.c.sm.editors.get('ucet').draft.id;
+  let resolve;f.c.modal=(_title,html,_label,fn)=>{assert(html.includes(id));assert(html.includes('Současný stav'));resolve=fn;};
+  f.c.clearDrafts=()=>{};f.c.closeAllModals=()=>{};
+  pages.act(f.c,'sv4-sm-compare',{dataset:{category:'ucet'}});await new Promise(r=>setImmediate(r));assert(resolve);
+  assert.equal(f.writes.length,1);resolve();assert.equal(f.writes.length,1);assert.equal(f.c.sm.editors.has('ucet'),false);assert.equal(f.accounts[0].id,id);f.c.destroy();
+});
+test('base model cache reloads after backend switch and rejects a result arriving from the old backend',async()=>{
+  const {ModelWorkspace}=require('../intentsmith-ide/extensions/intentsmith-studio2/lib/browser/model-workspace');
+  let backend='http://old.invalid',release,calls=0;
+  const w=new ModelWorkspace({backendUrl:()=>backend,fetchImpl:async()=>{calls++;if(calls===1)await new Promise(r=>release=r);return {ok:true,json:async()=>({models:[]})};}});
+  const load=w.load('overview');backend='http://new.invalid';release();assert.equal(await load,false);
+  assert.equal(await w.load('overview'),true);assert.equal(calls,2);assert.equal(w.resources.get('overview').backend,backend);w.destroy();
+});
+test('V4 catalog preparation copies planning defaults and only selected role suites into a new disabled draft',async()=>{
+  const f=fixture(),c=f.c,w=c.mw;c.s.page='models';c.s.modelTab='hunt';c.s.huntTab='catalog';w.tab='candidates';w.catalogFilter={...w.catalogFilter,availability:'all'};
+  w.resources.set('candidates',{status:'ready',data:[{candidates:[{name:'chat:q4',fitsVram:true,installed:true,eligibleRoles:['CHAT','CODE']}]},{downloads:[]}]});
+  w.extra.set('profiles',{status:'ready',backend:'http://fixture.invalid',data:{profiles:[{id:'weekly',name:'Týdenní',roles:['CHAT'],models:[],kind:'hunt',revision:1,enabled:false,limit:2,schedule:{type:'weekly',time:'21:15',timezone:'Europe/Prague',weekDays:[1]}}]}});
+  c.s.catalogProfile='weekly';c.s.catalogSuites={'chat:q4':['CHAT']};w.load=async()=>true;w.loadExtra=async()=>true;c.load=async()=>true;
+  const html=c.view().html,id=html.match(/data-action="([^"]+)"[^>]*>Připravit testy dostupných rolí</)[1];c.handle(id,{dataset:{}},{});await new Promise(r=>setImmediate(r));
+  assert.deepEqual(w.profileDraft.roles,['CHAT']);assert.equal(w.profileDraft.enabled,false);assert.equal(w.profileDraft.scheduleType,'weekly');assert.deepEqual(w.profileDraft.weekDays,[1]);assert.equal(w.profileDraft.limit,2);
+  assert.equal(w.profileRows()[0].id,'weekly');assert.notEqual(w.profileDraft.id,'weekly');assert.equal(f.writes.length,0);c.destroy();
+});
