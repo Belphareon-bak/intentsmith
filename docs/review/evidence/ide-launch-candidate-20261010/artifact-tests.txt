@@ -1,0 +1,205 @@
+
+═══ artifact selection and file boundary ════════════════════════
+  ✅ all lifecycle plaintext extensions are selected
+  ✅ code and structured JSON artifacts are not selected
+  ✅ zero-byte plaintext artifact fails with the lifecycle reason
+  ✅ missing file is deferred to the downstream quality gate
+  ✅ content read error is deferred to the downstream quality gate
+  ✅ non-empty generic plaintext artifact passes
+
+═══ requirements artifact ═══════════════════════════════════════
+  ✅ requirements.txt accepts a package line
+  ✅ requirements-dev.txt accepts a package line
+  ✅ comments and requirement options alone are rejected
+
+═══ environment artifact ════════════════════════════════════════
+  ✅ .env accepts at least one KEY=VALUE pair
+  ✅ .env without a KEY=VALUE pair is rejected
+
+═══ SQL artifact ════════════════════════════════════════════════
+  ✅ .sql accepts a recognizable statement
+  ✅ .sql without a recognizable statement is rejected
+
+═══ YAML artifact ═══════════════════════════════════════════════
+  ✅ .yaml and .yml accept a key-value line
+  ✅ .yaml without a key-value line is rejected
+
+═══ TOML artifact ═══════════════════════════════════════════════
+  ✅ .toml accepts a section or assignment
+  ✅ .toml without a section or assignment is rejected
+
+═══ shell artifact ══════════════════════════════════════════════
+  ✅ .sh accepts a non-comment command
+  ✅ .sh containing only comments is rejected
+
+═══ generic configured artifact ═════════════════════════════════
+  ✅ non-empty .ini remains subject only to the zero-byte check
+
+═══ documentation integrity ═════════════════════════════════════
+  ✅ current README keeps restored Czech headings and prose
+  ✅ root README state counts derive from the committed registry
+  ✅ root README rejects drift from the committed registry
+  ✅ minimal install keeps the projects directory inside the configured boundary
+  ✅ BLOCKED registry rows require a concrete parent-verifiable prerequisite
+  ✅ registry toolchain prerequisites use unique canonical names
+  ✅ ACTIVE required registry cannot promise an external program the runner must block
+  ✅ release orchestrator mirrors exact registry toolchain blockers
+  ✅ agent entrypoints are identical pointers to existing authorities
+  ✅ agent entrypoint rejects a missing authority target
+  ✅ SYSTEM-MAP tool census derives from current JavaScript sources
+  ✅ SYSTEM-MAP tool census rejects source-count drift
+  ✅ SYSTEM-MAP source and test LOC census derives from current JavaScript bytes
+  ✅ SYSTEM-MAP source and test LOC census rejects either stale total
+  ✅ migration reservation manifest exactly covers every migration source file
+  ✅ SYSTEM-MAP applied migration census derives from migration sources
+  ✅ ROADMAP module edge census derives from the accepted exact-edge baseline
+  ✅ signed privacy docs expose only the offline authority and current review state
+  ✅ diacritics scan ignores intentional fenced, inline, and path examples
+  ✅ every local README Markdown link resolves from docs/
+
+═══ sanitized final-commit diff manifest ════════════════════════
+  ✅ complete committed source manifest is valid offline
+  ✅ missing source record is rejected after self-declared integrity is recomputed
+  ✅ duplicate source record is rejected
+  ✅ changed full blob SHA is rejected even with a recomputed manifest digest
+  ✅ missing source base metadata is rejected
+  ✅ missing source head metadata is rejected
+
+═══ D-018 terminal disposition states ═══════════════════════════
+  ✅ legacy bare REBUILD/REPAIR is rejected
+  ✅ unknown REBUILD terminal state is rejected
+  ✅ DEFERRED without a prerequisite is rejected
+  ✅ DEFERRED with a placeholder prerequisite is rejected
+  ✅ DEFERRED with concrete canonical prerequisites is accepted
+  ✅ committed disposition has no unenforced mutable identity claims
+  ✅ missing disposition document is rejected
+  ✅ stale unchanged candidate prose is rejected
+  ✅ stale byte-identical candidate prose is rejected
+
+═══ REBUILD/REPAIRED subject evidence ═══════════════════════════
+  ✅ complete repaired-subject manifest validates all 60 current subjects
+  ✅ missing repaired-subject record is rejected after digest refresh
+  ✅ duplicate repaired-subject record is rejected after digest refresh
+  ✅ changed repaired-subject blob is rejected after digest refresh
+  ✅ changed repaired-subject mode is rejected after digest refresh
+  ✅ changed disposition rationale is rejected by its subject digest
+  ✅ changed repaired-subject candidate path is rejected after digest refresh
+  ✅ unknown repaired-subject field is rejected after digest refresh
+  ✅ missing repaired-subject manifest fails closed
+  ✅ repaired-subject source manifest and source sequence are pinned
+  ✅ repaired-subject files must be tracked and worktree-identical to HEAD
+
+═══ Gate 0 risk-impact policy ═══════════════════════════════════
+  ✅ committed policy classifies every risk and derives current blockers
+  ✅ policy pins Gate 0 failure classes and the loopback condition
+  ✅ a newly added unknown OPEN risk fails closed without a code allowlist
+  ✅ removing a policy entry for a reopened risk fails closed
+  ✅ duplicate and unknown gateImpact entries are rejected
+  ✅ a malformed policy entry is rejected instead of being silently skipped
+  ✅ an open later-gate risk without its concrete condition fails closed
+  ✅ a mitigated G0_FAIL risk does not block, but reopening it does
+  ✅ the evidence generator consumes the policy evaluator without a risk-ID allowlist
+  ✅ committed risk projection binds both parent blobs and rejects unknown fields
+  ✅ privacy projection binds the incident without republishing private paths
+  ✅ privacy inventory preserves v1 evidence and binds later containment without inventing quarantine
+  ✅ risk policy validity is a generated Gate 0 clause
+
+═══ Gate 0 verdict derivation ═══════════════════════════════════
+  ✅ complete typed Gate 0 provenance matches the locked nine-phase plan
+  ✅ typed provenance validation is independent of reviewer environment presence
+  ✅ typed provenance fixes locale and timezone instead of inheriting the host
+  ✅ typed provenance rejects missing or unknown toolchain identity fields
+  ✅ toolchain capture does not execute npm, Yarn, or Corepack
+  ✅ typed provenance rejects a no-op install and arbitrary argv
+  ✅ typed provenance rejects missing, duplicate, and unknown execution fields
+  ✅ typed provenance rejects reversed and overlapping serial chronology
+  ✅ portable typed argv preserves a repository path containing spaces
+  ✅ portable replay clears caller secrets and non-allowlisted Node options
+  ✅ sanitized execution evidence never commits porcelain path names
+  ✅ portable typed replay rejects host-absolute and embedded-root values
+  ✅ owned evidence files reject traversal and final symlinks
+  ✅ audit evidence binds report, inventory, options, counters, and suite log
+  ✅ audit evidence rejects allowDirty and recomputed forged counters
+  ✅ audit evidence rejects changed suite-log bytes
+  ✅ audit evidence rejects duplicate or non-deterministic result log paths
+  ✅ valid red producer outcomes become failed clauses instead of false green
+
+═══ Gate 0 independent review result contract ═══════════════════
+  ✅ complete exact independent review result is accepted
+  ✅ independent review result binds candidate, pending evidence, and packet
+  ✅ independent review result rejects unknown fields and unsafe decisions
+  ✅ independent review result binds the exact review-required risk set
+  ✅ independent review result parser fails closed on invalid JSON
+  ✅ Gate 0 index accepts the expanded incident projection and rejects unknown schema versions
+  ✅ approved attestation validates the complete candidate-review chain
+  ✅ approved promotion is byte-deterministic for identical E and R
+  ✅ approved attestation rejects manually rebound Markdown
+  ✅ attestation topology resolves physical schema-7 and schema-8 parents
+  ✅ attestation topology rejects unknown schemas and broken lineage
+  ✅ approved attestation rejects a broken review commit chain
+  ✅ approved attestation rejects a mixed or executable review commit
+  ✅ promotion writer boundary accepts only the one-file review commit
+  ✅ promotion writer preserves the leading porcelain status column
+  ✅ approved attestation rejects changed review evidence
+  ✅ approved attestation rejects inherited evidence drift
+  ✅ approved review cannot promote a red pending attestation
+  ✅ post-commit attestation binds the candidate parent and four outputs
+  ✅ post-commit attestation requires disjoint revalidation inputs
+  ✅ revalidation disjointness is segment-aware and fails closed
+  ✅ manifest-derived disposition input cannot overlap an attested output
+  ✅ post-commit attestation preserves a revalidated structured red result
+  ✅ post-commit attestation rejects wrong parents and product changes
+  ✅ post-commit attestation rejects stale schema and dirty review state
+  ✅ post-commit attestation rejects unknown fields in every nested summary
+  ✅ post-commit attestation derives audit verdict from exact status counts
+  ✅ post-commit attestation derives G0-C6 and G0-C7 from parent registry facts
+  ✅ post-commit attestation rejects self-asserted validators, risks, and privacy
+  ✅ post-commit attestation rejects incomplete D-021 execution bindings
+  ✅ complete valid registry report is accepted as green
+  ✅ structured registry failure remains valid red evidence
+  ✅ registry syntax failure without structured output is infrastructure error
+  ✅ registry exit/report disagreement is an infrastructure error
+  ✅ green registry report requires counts and a full fingerprint
+  ✅ complete valid disposition report is accepted as green
+  ✅ structured disposition failure remains valid red evidence
+  ✅ malformed disposition output is an infrastructure error
+  ✅ disposition exit/report disagreement is an infrastructure error
+  ✅ green disposition report must satisfy pinned source and count invariants
+  ✅ green disposition report rejects unknown count and terminal vocabularies
+  ✅ green disposition report requires all 60 repaired subjects to validate
+  ✅ green disposition report binds repaired subject digest to report paths
+  ✅ green disposition report pins repaired subjects to source manifest
+  ✅ unexecutable disposition validator is an infrastructure error
+  ✅ a failed local clause forces FAIL and exit 1
+  ✅ all local clauses yield only CONDITIONAL PASS while review is pending
+  ✅ PASS requires all local clauses and approved review
+  ✅ a policy-derived repository blocker forces FAIL
+  ✅ G0_REVIEW_REQUIRED remains conditional until review approval
+  ✅ FAIL status renders derived clauses, zero counts, and repository blockers
+  ✅ baseline renders disposition counts from the structured report
+  ✅ even an empty manual verdict override is rejected before evidence writes
+  ✅ signal during evidence finalization restores every tracked output
+  ✅ promotion writer rollback restores all four outputs
+  ✅ the candidate evidence producer rejects every caller argument
+  ✅ the candidate producer installs owned-process termination handling
+  ✅ the candidate evidence producer rejects seeded ignored install outputs
+  ✅ every producer phase rejects ignored runtime paths outside its allowlist
+  ✅ producer artifact ownership rejects ignored sibling paths
+  ✅ producer rejects a symlink inside its writable install boundary
+  ✅ producer rejects a world-writable dependency root
+  ✅ producer makes safe package-manager root modes private before reuse
+  ✅ generated Theia scripts and protocol metadata reject symlinks and writable files
+
+══════════════════════════════════════════════════════════════════════
+  RESULTS: 161 passed, 0 failed, 0 skipped
+══════════════════════════════════════════════════════════════════════
+
+✔ tests/artifact-validation.test.js (607.684721ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 1
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 611.800523

@@ -1,0 +1,38 @@
+import puppeteer from 'puppeteer';
+import fs from 'node:fs/promises';
+import assert from 'node:assert/strict';
+import {createHash} from 'node:crypto';
+import {execFileSync} from 'node:child_process';
+const out='.intentsmith-artifacts/ide-launch-diagnostic-20261010',profile='/home/belphareon/.local/share/intentsmith/ide-candidate-review-387a490f';
+const checks=[],errors=[],record={scope:'REAL_NATIVE_PACKAGED_CANDIDATE_PRIVATE_DB_NO_MODEL_PROVIDER'};
+const check=(name,value)=>{assert(value,name);checks.push({name,status:'PASS'});};
+const protectedPaths=['/home/belphareon/.local/share/applications/intentsmith.desktop','/home/belphareon/.config/intentsmith/installation.json','/home/belphareon/.local/state/intentsmith/code-pilot-automation-hold.json'];
+record.productionPid=Number(execFileSync('systemctl',['--user','show','intentsmith-backend.service','--property=MainPID','--value'],{encoding:'utf8'}).trim());
+record.protectedHashes=Object.fromEntries(await Promise.all(protectedPaths.map(async p=>[p,createHash('sha256').update(await fs.readFile(p)).digest('hex')])));
+const ready=JSON.parse((await fs.readFile('/tmp/ide-candidate-native-20261010.log','utf8')).trim().split('\n')[0]);record.revision=ready.revision;record.backendPid=ready.backendPid;
+const env=Object.fromEntries((await fs.readFile('/proc/'+ready.backendPid+'/environ','utf8')).split('\0').filter(Boolean).map(x=>{const i=x.indexOf('=');return [x.slice(0,i),x.slice(i+1)];}));
+check('native review backend owns its own database',env.INTENTSMITH_DB_PATH===profile+'/data/intentsmith.sqlite');
+check('native review backend has no model provider',env.OLLAMA_URL==='http://127.0.0.1:1');
+const port=Number((await fs.readFile(profile+'/electron/DevToolsActivePort','utf8')).split('\n')[0]);
+const browser=await puppeteer.connect({browserURL:'http://127.0.0.1:'+port});
+const page=(await browser.pages()).find(p=>p.url().includes('/lib/frontend/index.html'));assert(page);page.on('pageerror',e=>errors.push(e.message));
+await page.waitForFunction(()=>!document.querySelector('.theia-preload')&&document.body.innerText.includes('Nastavení'));
+await page.setViewport({width:1440,height:900});
+const bridge=await page.evaluate(()=>({backend:window.electronIntentSmith?.getBackendUrl(),hasCapability:!!window.electronIntentSmith?.getLocalCapability()}));
+const access=JSON.parse(await fs.readFile(env.INTENTSMITH_PORT_FILE,'utf8'));
+check('native review preload connects to its own authenticated backend',bridge.backend==='http://127.0.0.1:'+access.port&&bridge.hasCapability);
+async function click(text){const h=await page.evaluateHandle(text=>[...document.querySelectorAll('button,a,[role="button"]')].sort((a,b)=>text==='Nastavení'?Number(!!b.closest('.settings-crumb'))-Number(!!a.closest('.settings-crumb')):0).find(n=>n.getBoundingClientRect().width>0&&(n.innerText.trim()===text||n.getAttribute('aria-label')===text||n.querySelector('.cell')?.innerText===text||n.querySelector('.tile-n')?.innerText===text))||null,text);assert(h.asElement(),'control '+text);await h.asElement().click();await h.dispose();await new Promise(r=>setTimeout(r,350));}
+await click('Nastavení');await click('Vzhled');
+const style=await page.evaluateHandle(()=>[...document.querySelectorAll('button')].find(n=>n.getBoundingClientRect().width>0&&n.innerText.startsWith('Studio\n'))||null);
+assert(style.asElement(),'actual Studio palette control');await style.asElement().click();await style.dispose();await new Promise(r=>setTimeout(r,300));
+await click('Nastavení');await click('Seznam');
+record.headers=await page.evaluate(()=>[...document.querySelectorAll('.cat .lrow.th span')].filter(n=>n.getBoundingClientRect().width>0).map(n=>n.innerText.trim()).filter(Boolean));
+check('native review settings have only name and description columns',JSON.stringify(record.headers)===JSON.stringify(['NÁZEV','POPIS']));
+check('native review settings include new Git category',await page.evaluate(()=>document.querySelector('.cat')?.innerText.includes('Git a repozitáře')));
+for(const width of [1920,1366]){await page.setViewport({width,height:900});await page.screenshot({path:out+'/candidate-settings-'+width+'.png'});check('native review settings do not overflow at '+width,await page.evaluate(()=>document.querySelector('.cat-b').scrollWidth<=document.querySelector('.cat-b').clientWidth+1));}
+await click('Dlaždice');await page.screenshot({path:out+'/candidate-tiles-1366.png'});check('global view toggle shows native settings tiles',await page.evaluate(()=>[...document.querySelectorAll('.settings-catalog .tiles .tile')].some(n=>n.getBoundingClientRect().width>0)));
+await click('Seznam');check('native renderer has no errors',errors.length===0);record.pageErrors=errors;
+record.checks=checks;record.status='PASS';
+await fs.writeFile(out+'/launch-native.json',JSON.stringify(record,null,2)+'\n');
+const client=await browser.target().createCDPSession();await client.send('Browser.close').catch(error=>{if(!error.message.includes('Target closed'))throw error;});await browser.disconnect();
+console.log(JSON.stringify({status:record.status,checks:checks.length}));

@@ -1,0 +1,55 @@
+{
+  "scope": "REAL_NATIVE_PACKAGED_CANDIDATE_PRIVATE_DB_NO_MODEL_PROVIDER",
+  "productionPid": 2027,
+  "protectedHashes": {
+    "/home/belphareon/.local/share/applications/intentsmith.desktop": "b5439a615b94505fb5fc24c0089a2a8fe0cb6a9f2d6f7605db11a7eaaec0f49e",
+    "/home/belphareon/.config/intentsmith/installation.json": "d2497818c7684a9b17e4defc81cfb13e0a366e3620350b10786c147cc1ef9ed2",
+    "/home/belphareon/.local/state/intentsmith/code-pilot-automation-hold.json": "9502664935823f42aff92cc64a7f01b86d2d6abcb30ef164b2400f334b17f2d7"
+  },
+  "revision": "387a490fb3fbd6b5c06756629b42e6a44840f15b",
+  "backendPid": 222754,
+  "headers": [
+    "NÁZEV",
+    "POPIS"
+  ],
+  "pageErrors": [],
+  "checks": [
+    {
+      "name": "native review backend owns its own database",
+      "status": "PASS"
+    },
+    {
+      "name": "native review backend has no model provider",
+      "status": "PASS"
+    },
+    {
+      "name": "native review preload connects to its own authenticated backend",
+      "status": "PASS"
+    },
+    {
+      "name": "native review settings have only name and description columns",
+      "status": "PASS"
+    },
+    {
+      "name": "native review settings include new Git category",
+      "status": "PASS"
+    },
+    {
+      "name": "native review settings do not overflow at 1920",
+      "status": "PASS"
+    },
+    {
+      "name": "native review settings do not overflow at 1366",
+      "status": "PASS"
+    },
+    {
+      "name": "global view toggle shows native settings tiles",
+      "status": "PASS"
+    },
+    {
+      "name": "native renderer has no errors",
+      "status": "PASS"
+    }
+  ],
+  "status": "PASS"
+}

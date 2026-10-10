@@ -1,0 +1,57 @@
+✔ ordinary settings expose every preference section and retain edits across navigation (30.728329ms)
+✔ global list and tile controls have an actual catalog effect and disable forms and matrices with a reason (4.342723ms)
+✔ catalog has no duplicate sidebar counts and changes list density with the global size control (6.172221ms)
+✔ folder picker is inert until clicked, accepts a current native choice, and ignores cancellation (0.455858ms)
+✔ late native choice cannot overwrite a newer wizard: reopen (0.435814ms)
+✔ late native choice cannot overwrite a newer wizard: mode (0.217117ms)
+✔ late native choice cannot overwrite a newer wizard: step (0.209044ms)
+✔ late native choice cannot overwrite a newer wizard: busy (0.164514ms)
+✔ late native choice cannot overwrite a newer wizard: uncertain (0.202158ms)
+✔ late native choice cannot overwrite a newer wizard: path (0.388228ms)
+✔ late native choice cannot overwrite a newer wizard: newer (0.18641ms)
+✔ commit workspace validates project, ref, path and backend identity (0.756057ms)
+✔ an old commit response and a response after closing cannot replace the selected commit (0.210651ms)
+✔ reference edits invalidate old data and compare returns pinned revisions (0.192305ms)
+✔ commit review offers real sorted branches, parent selection, bounded diff notice and side by side changes (0.349128ms)
+✔ branch creation preserves the entered name after failure and clears it only after a verified plan (0.557644ms)
+✔ flat evaluation matrix keeps exact artifact identities and missing/awaiting scores last (8.21404ms)
+✔ telemetry chart uses observed timestamps and latency, bounds points and does not invent unknown values (4.933469ms)
+✔ optional management endpoint failure leaves supported overview usable (1.639206ms)
+✔ public score sorting uses a single comparable protocol instead of mixed benchmark scores (0.490777ms)
+✔ role parameters repair a current STALE binding with exact artifact CAS and readback (1.136192ms)
+✔ changed role artifact or backend cannot authorize a write from an older editor (0.231294ms)
+✔ ambiguous profile readback does not resend the mutation (0.449831ms)
+✔ queued profile captures exact model/suite pins and immutable profile revision (0.691918ms)
+✔ job leaving QUEUED state between view and confirmation is not cancelled (0.219257ms)
+✔ invalid role-settings are an error state; valid unavailable bindings remain renderable (0.791009ms)
+✔ profile editor locks every draft callback and opening action while a write is pending (3.114515ms)
+✔ historical matrix cells cannot test another digest selected only by the same tag (0.369619ms)
+✔ catalog prepares a selectable evaluation profile without mutating or starting GPU (0.450289ms)
+✔ inert VM; account revision payload and readback; view switch preserves editor (2.582898ms)
+✔ stale CAS refuses once and preserves original draft without rebase or retry (0.417001ms)
+✔ successful response with mismatched durable readback is not accepted (0.467647ms)
+✔ SSH in-use deletion is refused before confirmation or request; repository mapping verifies true document revision (1.285004ms)
+✔ backup note/archive updates preserve payload fingerprint and forbid archived/last deletion (0.362194ms)
+✔ web transport projection is conservative, rejects credentials/ports/unsafe decoded paths (0.174568ms)
+✔ notification read stores public fields only; list/grid items and action labels agree (0.823851ms)
+✔ empty canonical Component VM supplies inert template structures and simple-path bindings (0.857172ms)
+✔ backend identity switch never sends stale account/configuration into another backend, including async confirmation (0.369221ms)
+✔ legacy retention merges only selected backup values, preserves unrelated settings and verifies effective readback without CAS claim (0.410686ms)
+✔ retention changes show the actual deletion preview and cancellation preserves draft without saving (0.274223ms)
+✔ definite validation rejection preserves an editable draft for correction (0.343104ms)
+PASS Studio 2 is the sole renderer for new and existing profiles
+PASS source and packaged startup choose the custom frame before Theia
+PASS custom window initialization preserves Legacy preferences and host restart handlers
+PASS vizuální vrstva odpovídá prototypu
+PASS prototype scenarios and fuzz on repository sources
+PASS generated React view renders sessions, column picker, files, source control, catalog and all styles
+PASS category labels, activity dates and distinct settings palette survive canonical rendering
+✔ tests/studio2-view.test.js (6311.880089ms)
+ℹ tests 42
+ℹ suites 0
+ℹ pass 42
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 6324.478557

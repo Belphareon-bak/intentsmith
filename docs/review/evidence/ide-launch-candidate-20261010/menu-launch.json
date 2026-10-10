@@ -1,0 +1,27 @@
+{
+  "status": "PASS",
+  "productionPidUnchanged": true,
+  "protectedFilesUnchanged": true,
+  "previousOwnedBackendStopped": true,
+  "menuLaunch": {
+    "command": "gtk-launch intentsmith-candidate",
+    "detachedForToolLifetime": true,
+    "backendPid": 226793,
+    "profile": "/home/belphareon/.local/share/intentsmith/ide-candidate-review-387a490f",
+    "modelProvider": "DISCONNECTED",
+    "projectsStatus": 200
+  },
+  "nativeProcesses": [
+    {
+      "pid": 226815,
+      "class": "IntentSmithCandidate",
+      "remoteDebugging": false
+    },
+    {
+      "pid": 226909,
+      "class": "IntentSmithCandidate",
+      "remoteDebugging": false
+    }
+  ],
+  "diagnosticListenerOnOrdinaryLaunch": false
+}

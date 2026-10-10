@@ -1,0 +1,65 @@
+{
+  "scope": "CANDIDATE_LAUNCH_EVIDENCE_NOT_RELEASE_ACCEPTANCE",
+  "files": [
+    {
+      "path": "artifact-tests.txt",
+      "sha256": "31d7316fd1617ba54423921c67c72213ebb908676df327bbd3dd5bf886391d5a",
+      "size": 13680
+    },
+    {
+      "path": "candidate-settings-1366.png",
+      "sha256": "2cc0666fae522e0e9d1e78a48459a6c123679bfbd7d75a36f5e2b5c5df1e0b9c",
+      "size": 111015
+    },
+    {
+      "path": "candidate-settings-1920.png",
+      "sha256": "adb69f049601e8926ae5fdc7c64d200bdd4d9deb16100cd6548d68969b1e11c4",
+      "size": 114407
+    },
+    {
+      "path": "candidate-tiles-1366.png",
+      "sha256": "b5b8fa62bc3abe1129b42103c2e8f3e5ad82a3afb48aa2b8fabb833399f515ff",
+      "size": 103847
+    },
+    {
+      "path": "desktop-tests.txt",
+      "sha256": "d04eedfd34f09711badbeea87feea0e4f5ea60645b5b5d3f07a9c83dfd2c1a5b",
+      "size": 3892
+    },
+    {
+      "path": "inspect-launch.mjs",
+      "sha256": "f5fba168bce90a6dbb45c3364d25fdf864f480b8e75aae3a9c66f5a21e51803d",
+      "size": 5115
+    },
+    {
+      "path": "intentsmith-candidate.desktop.txt",
+      "sha256": "6b66ce3783cf8bb9d56170fcbe5e39d99744f2a17f05029387e83b4a3e390b5d",
+      "size": 808
+    },
+    {
+      "path": "launch-native.json",
+      "sha256": "7e481cec1622b1f06f1792b8116f913ba07281e8e3b7c8aaebb8244119c02414",
+      "size": 1642
+    },
+    {
+      "path": "menu-launch.json",
+      "sha256": "7a6cacb4adb7e72b99e6dbb5adc93a60f4ec43da5a5aea3f51279e3c664bb493",
+      "size": 703
+    },
+    {
+      "path": "package.json",
+      "sha256": "1c21b52b1fcbc815164b52cd9a732aaf041da5b5645d4c0c0aa0fcf56bce1e89",
+      "size": 536
+    },
+    {
+      "path": "review-launch-config.json",
+      "sha256": "e13de32ea22e525e8fd291b8a51f9503a6366923f458a63b98d84a2478cf2b78",
+      "size": 258
+    },
+    {
+      "path": "studio-tests.txt",
+      "sha256": "8f35b430f3ff400acbaed110fb419a19d35b27de71a7fd253b5eaff30eb2f29d",
+      "size": 4768
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+✔ candidate packaging accepts the same attested files in git or locale order but rejects missing, duplicate and changed inputs (11.188861ms)
+✔ production selects pinned Studio 2 while Legacy shares the backend and keeps its own original profile (1.875604ms)
+✔ profile migration preserves original preferences and local data, excludes locks, and never overwrites an existing profile (3.228176ms)
+✔ failed activation restores exact configuration and permissions, removes the new menu and verifies the original backend (1.061141ms)
+✔ resource reserve uses available RAM, all filesystems, and fails closed on unknown capacity (0.552193ms)
+✔ resource watcher stops once, records last probe, and can be disposed (50.086531ms)
+✔ installation preserves stopped scheduling and an automation hold overrides a previously active timer (1.015179ms)
+✔ manual CLI selection consumes the actual normalized inventory digest and rejects drift before pull (4.99645ms)
+✔ suite progress counts completed tasks across repeats and keeps model identity and unknown ETA (2.1329ms)
+✔ latest completed manual evaluation is not overridden by an older failed hunt service (8.456284ms)
+✔ calibration diagnostic separates a stable near-tie from noise without overriding decisions (0.413954ms)
+✔ desktop and hunt use one environment, bounded commands, and persistent scheduling (114.106735ms)
+✔ desktop entry is executable and both generic and KDE caches are refreshed (1.427358ms)
+✔ desktop launcher offers a bounded fallback for the Kubuntu AppArmor sandbox conflict (1.619742ms)
+✔ desktop launcher keeps sandbox when available and supports an explicit one-shot override (0.922473ms)
+✔ hunt status shows observed queue, failures and the actual timer independently (4.53209ms)
+✔ missing, foreign and symlinked installation fail before service control (1.616243ms)
+✔ hunt routes require actual local transport provenance before body parsing or effects (2.212946ms)
+✔ launcher verifies authenticated installation revision and DB rather than a public health response (406.781801ms)
+✔ legacy launcher preserves attached backend and its port file on Studio failure (175.722351ms)
+✔ GPU mismatch and unknown probe are actionable blockers, never zero-VRAM success (0.593643ms)
+✔ selected installed evaluation pins artifact and role, forbids effects on drift/busy/broken GPU (3.460691ms)
+✔ display capacity survives NVML failure without authorizing inference or summing GPUs (0.409624ms)
+✔ provider wrapper preserves an active run and incomplete ownership blocks a concurrent claimant (27.221132ms)
+✔ selected evaluation HTTP rejects a remote or forged subject before reading inventory (0.235571ms)
+✔ grading HTTP rejects forged local identity before reading answers or launching GPU work (0.11813ms)
+✔ grading launches only an exact reviewed source, with the same resource limits and no new inference of answers (1.447129ms)
+✔ historical HTTP detail delegates to the injected read authority with the exact run ID (0.19925ms)
+✔ GPU inventory survives restart and refreshes daily without discarding last known capacity on failure (1.026921ms)
+✔ manual GPU wait observes the owner until release and respects a bounded deadline (0.200019ms)
+✔ hunt retains the last five results and does not present an old plan as queued work (3.802797ms)
+✔ complete evaluation preflights every role and launches one serial service with distinct contract pins (1.320469ms)
+✔ manual CLI validates all pins before execution and incomplete batches cannot claim COMPLETE (3.596175ms)
+✔ automation hold is visible and refuses start/resume while preserving manual exploratory measurement (2.766854ms)
+✔ desktop-hunt: active Studio 2 integration coverage (331.203003ms)
+ℹ tests 35
+ℹ suites 0
+ℹ pass 35
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1257.240685

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=IntentSmith IDE 2.0 – kandidát
+Comment=Nové IDE s vlastním backendem a testovacími daty; modely nejsou připojené
+Exec="/usr/bin/flock" --nonblock "/home/belphareon/.local/share/intentsmith/ide-candidate-review-387a490f/launch.lock" "/home/belphareon/.local/share/intentsmith/ide-candidate-387a490f/runtime/bin/node" "/home/belphareon/.local/share/intentsmith/ide-candidate-387a490f/source/scripts/studio2-review-candidate.mjs" --config="/home/belphareon/.local/share/intentsmith/ide-candidate-387a490f/REVIEW-LAUNCH.json"
+Icon=/home/belphareon/.local/share/intentsmith/ide-candidate-387a490f/source/intentsmith-ide/applications/electron/resources/intentsmith-icon.png
+Terminal=false
+Categories=Development;
+StartupNotify=true
+StartupWMClass=IntentSmithCandidate

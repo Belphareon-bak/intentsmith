@@ -54,3 +54,14 @@ nepřidává shellová oprávnění, nemění vazby modelů ani nezapíná drže
 Původní backendový snapshot se uchovává pro návrat. Přesné SHA, backup a
 výsledky živých kontrol jsou v reportu nasazení; L1, místní nasazení a
 nezávislé přijetí zůstávají odlišné výsledky.
+
+## Kandidát integrace z 10. 10. 2026
+
+Běžné `intentsmith.desktop` stále spouští nasazenou dvojici backendu
+`c84b88cd` a frontendu `fddfe996`. Nové V4 změny jsou v kandidátu `387a490f`,
+nikoli v této původní instalaci. Na ověřované stanici je samostatná položka
+**IntentSmith IDE 2.0 – kandidát**, otevřitelná přes
+`gtk-launch intentsmith-candidate`. Používá vlastní backend, data a profil;
+modelový provider je odpojený. [Příčina, snímky a ověření spouštěče](../review/ide-launch-candidate-20261010.md)
+dokládají tento konkrétní stav. Produkční přepnutí a release přejímka zatím
+neproběhly.

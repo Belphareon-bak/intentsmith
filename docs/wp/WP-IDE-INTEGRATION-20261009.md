@@ -118,3 +118,19 @@ běží v loopback namespace nad zmrazeným zdrojem, bez inference a outboundu.
 Zdrojové změny po jeho startu by vyžadovaly nový běh.
 Dokončený skutečný 5min HTTP throughput a upgrade/restore přesné předchozí
 136.0.0 na 136.1.0 jsou PASS; nezakládají M6 acceptance ani GPU autoritu.
+
+## Spuštění kandidáta po hlášení starého vzhledu 10. 10.
+
+Autorita: operátorův snímek běžného spuštění IDE 2.0. Pozorování: desktop
+stále používá backend `c84b88cd` a AppImage `fddfe996` z 29. 9.; nový AppImage
+`387a490f` při skutečném nativním spuštění správně skrývá opakované sloupce
+nastavení a přepíná seznam/dlaždice. Výsledek tohoto dodatku je dostupný
+samostatný spouštěč kandidáta s vlastní DB, backendem a profilem, bez modelové
+inference. Výchozí instalace ani její data se tím nepovyšují na přijatý release.
+
+Příprava balíku odkryla skutečnou regresi packageru: totožná sada všech 346
+vstupů sestavení byla odmítnuta kvůli odlišnému pořadí `git ls-files` a
+`localeCompare`. Oprava porovnává stejnou úplnou sadu cest; stále odmítá
+chybějící/duplicitní soubory, změněné bajty i neshodný AppImage. Vlastněné jsou
+packager, samostatný review spouštěč, jeho místní balík/profil/menu a důkazy.
+Zmrazený zdroj probíhajícího 24h soaku, produkce a cizí procesy se nemění.

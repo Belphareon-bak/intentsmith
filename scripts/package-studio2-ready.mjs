@@ -50,7 +50,7 @@ export async function validateAppImageBuild(source, revision, selection, receipt
     throw Error('AppImage build must match the clean candidate and Node 24.');
   const paths = selection.selected.filter(row => row.path.startsWith('intentsmith-ide/')).map(row => row.path);
   if (!paths.length || !Array.isArray(receipt.studioSourceFiles)
-    || JSON.stringify(receipt.studioSourceFiles.map(row => row.path)) !== JSON.stringify(paths))
+    || JSON.stringify(receipt.studioSourceFiles.map(row => row.path).sort()) !== JSON.stringify([...paths].sort()))
     throw Error('AppImage build source coverage mismatch.');
   for (const row of receipt.studioSourceFiles) {
     relativeFile(row.path);

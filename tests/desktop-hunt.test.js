@@ -18,9 +18,36 @@ import { acquireGpuEvaluationLock, waitForGpuReadiness } from '../src/upgrade/gp
 import { createGlobalAuthAuthority } from '../src/security/global-auth-policy.js';
 import { createSystemRoutes } from '../src/routes/system.js';
 import { ROOT, hashDesktopExecutable, refreshDesktopCaches, renderDesktopInstallation, resolveDesktopLaunch, restoreDesktopInstallation, restoreHuntTimerState, resolveElectronSandboxArgs, seedDesktopProfile, verifyDesktopUnits, waitForBackend, writePrivate } from '../scripts/desktop-runtime.mjs';
+import { selectTrackedMetadata, validateAppImageBuild } from '../scripts/package-studio2-ready.mjs';
+import { createHash } from 'node:crypto';
 const exec = promisify(execFile);
 const revision = 'a'.repeat(40);
 const capability = 'c'.repeat(43);
+test('candidate packaging accepts the same attested files in git or locale order but rejects missing, duplicate and changed inputs', async t => {
+  const directory = await mkdtemp(join(tmpdir(), 'is-studio2-package-'));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const paths = ['intentsmith-ide/START.md', 'intentsmith-ide/app.js'];
+  await mkdir(join(directory, 'intentsmith-ide'));
+  const hash = content => createHash('sha256').update(content).digest('hex');
+  for (const file of paths) await writeFile(join(directory, file), file);
+  const selection = selectTrackedMetadata(paths.map(file => `100644 ${'b'.repeat(40)} 0\t${file}\0`).join(''));
+  const artifact = join(directory, 'Studio2.AppImage');
+  await writeFile(artifact, 'built image', { mode: 0o700 });
+  const receipt = { status: 'BUILD_PASS', sourceRevision: revision, node: '24.21.0', sourceCleanAfter: true,
+    studioSourceFiles: paths.map(file => ({ path: file, sha256: hash(file) })),
+    commands: ['STUDIO_BUILD', 'APPIMAGE_DIST'].map(kind => ({ kind, argv: ['tool'], exitCode: 0,
+      timedOut: false, cleanupTerminated: true, logSha256: 'c'.repeat(64) })),
+    artifact: { path: artifact, size: 11, sha256: hash('built image') } };
+  assert.equal(await validateAppImageBuild(directory, revision, selection, receipt), artifact);
+  assert.equal(await validateAppImageBuild(directory, revision, selection,
+    { ...receipt, studioSourceFiles: [...receipt.studioSourceFiles].reverse() }), artifact);
+  for (const files of [[receipt.studioSourceFiles[0]], [receipt.studioSourceFiles[0], receipt.studioSourceFiles[0]]]) {
+    await assert.rejects(validateAppImageBuild(directory, revision, selection,
+      { ...receipt, studioSourceFiles: files }), /coverage mismatch/);
+  }
+  await writeFile(join(directory, paths[1]), 'unattested change');
+  await assert.rejects(validateAppImageBuild(directory, revision, selection, receipt), /input mismatch/);
+});
 test('production selects pinned Studio 2 while Legacy shares the backend and keeps its own original profile', async t => {
   const directory = await mkdtemp(join(tmpdir(),'is-studio2-launch-'));
   t.after(()=>rm(directory,{recursive:true,force:true}));

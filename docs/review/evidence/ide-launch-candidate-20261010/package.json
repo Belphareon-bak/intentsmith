@@ -1,0 +1,12 @@
+{
+  "scope": "PACKAGED_CANDIDATE_NOT_PRODUCTION_DEPLOYMENT",
+  "sourceRevision": "387a490fb3fbd6b5c06756629b42e6a44840f15b",
+  "trackedFilesVerified": 3401,
+  "appImage": {
+    "sha256": "247ea9552231a5cd6946cde4842b41c7695c9f72380bb97ec821be67401a0969",
+    "size": 195182241,
+    "buildSourceRevision": "387a490fb3fbd6b5c06756629b42e6a44840f15b"
+  },
+  "reviewHelperSha256": "c56643e73e314c45d406e6d6186705f33e1bc697bee00bf6ba569d4b02f90efe",
+  "packageDirectory": "/home/belphareon/.local/share/intentsmith/ide-candidate-387a490f"
+}
