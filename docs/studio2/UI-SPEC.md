@@ -350,3 +350,10 @@ požaduje jednotný styl se zbytkem IDE:
   19 px, popis 12 px, akce 28 px vpravo a dělicí čára přes celou šířku;
   záložky kategorie (Modely) leží na této čáře. Obsah má odsazení 24 px
   a plnou šířku jako ostatní sekce.
+
+**Přijato operátorem 11. 10. jako výchozí podoba Nastavení pro verzi 2.0.**
+Doplněno: hlavička otevřené kategorie zůstává při posouvání nahoře; položka
+Nastavení v levém panelu vždy otevře úvodní seznam kategorií (ne naposledy
+otevřenou kategorii); katalog GPU Huntu lze řadit podle data vydání z katalogu
+backendu (nejnovější první, modely bez data na konci) a datum je vidět
+v seznamu i v detailu modelu.

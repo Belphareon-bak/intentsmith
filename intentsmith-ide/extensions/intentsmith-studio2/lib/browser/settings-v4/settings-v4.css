@@ -741,3 +741,4 @@
 .intentsmith-studio2-widget .sv4 .sv4-cat-h .toolbar .tag{height:22px}
 .intentsmith-studio2-widget .sv4 .sv4-cat-h>.tabs{margin:10px 0 -1px;border-bottom:0}
 .intentsmith-studio2-widget .sv4 select{padding-top:0;padding-bottom:0}
+.intentsmith-studio2-widget .sv4 .sv4-cat-h{position:sticky;top:0;z-index:6;background:var(--bg)}

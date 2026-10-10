@@ -41,6 +41,16 @@ test('public score sorting uses a single comparable protocol instead of mixed be
  w.catalogFilter.sort='score';const view=w.catalogVM();assert.equal(view.rows[0].name,'a:q4');assert.equal(view.rows[1].score,'—');assert.equal(view.hasVariants,false);assert.equal(view.selected.tests[0].disabled,true);w.destroy();
 });
 
+test('catalog sorts by backend release date, newest first, with unknown dates last and visible dates in Czech',()=>{
+  const w=workspace();
+  w.resources.set('candidates',{status:'ready',data:[{candidates:[
+    {name:'old:tag',fitsVram:true,installed:false,eligibleRoles:['CHAT'],releaseDate:'2024-09-19'},
+    {name:'unknown:tag',fitsVram:true,installed:false,eligibleRoles:['CHAT'],releaseDate:null},
+    {name:'new:tag',fitsVram:true,installed:false,eligibleRoles:['CHAT'],releaseDate:'2026-03-02'}]},{downloads:[]}]});
+  w.catalogFilter.sort='released';const v=w.catalogVM();
+  assert.deepEqual(v.rows.map(r=>r.name),['new:tag','old:tag','unknown:tag']);
+  assert.equal(v.rows[0].released,'2. 3. 2026');assert.equal(v.rows[2].released,'');w.destroy();
+});
 test('role parameters repair a current STALE binding with exact artifact CAS and readback',async()=>{
  const w=workspace();let row={role:'CHAT',model:'model:tag',digestSha256:D,revision:3,status:'STALE',settings:{contextWindowTokens:8192,maxOutputTokens:null},verifiedHardwareMaximum:null,outputAuthority:'CALL_SITE_AND_AUTH_TOKEN_CEILING'},writes=0;
  extra(w,'settings',{roles:[copy(row)]});assert.equal(w.editRoleRuntime('CHAT'),true);

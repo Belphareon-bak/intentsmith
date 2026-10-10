@@ -56,6 +56,15 @@ test('catalog has no duplicate sidebar counts and changes list density with the 
   assert.equal(model.renderVals().cg.listClass, 'settings-list');
 });
 
+test('settings navigation always opens the category list instead of the last opened category', () => {
+  const { model } = fixture();
+  model.setState(model.pSelect(model.st(), 'settings', 'uloziste'));
+  assert.equal(model.st().detail.settings, 'uloziste');
+  model.renderVals().navSet.go();
+  assert.equal(model.st().section, 'settings');
+  assert.equal(model.st().detail.settings, null);
+});
+
 test('folder picker is inert until clicked, accepts a current native choice, and ignores cancellation', async () => {
   const { model, widget } = fixture();
   let picks = 0;

@@ -2519,7 +2519,9 @@ class LiveModel extends Component {
     this._projectPickerRequest = null;
     this.widget.catalogActionError = null;
     if (CATALOG[sec]) this.widget.catalog.load(CATALOG[sec]);
-    return super.pGo(s, sec);
+    const patch = super.pGo(s, sec);
+    // Nastavení v levém panelu vždy otevře úvodní seznam kategorií, ne naposledy otevřenou kategorii.
+    return sec === 'settings' ? { ...patch, detail: { ...(s.detail || {}), settings: null } } : patch;
   }
 
   async loadProjectConversations(id) {

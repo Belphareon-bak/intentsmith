@@ -93,3 +93,6 @@ input[type=email]{width:100%;border:1px solid var(--line);border-radius:5px;back
 /* Rozbalovací pole: pevná výška se svislým odsazením nestačí na řádek Noto Sans (13 px × 1,36) a text se
    posouval dolů a ořezával. Výšku drží height, text centruje prohlížeč. */
 select{padding-top:0;padding-bottom:0}
+
+/* Hlavička otevřené kategorie zůstává při posouvání obsahu nahoře (operátor 11. 10.). */
+.sv4-cat-h{position:sticky;top:0;z-index:6;background:var(--bg)}
