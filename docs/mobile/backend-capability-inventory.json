@@ -12,10 +12,10 @@
     "clientProjection": "src/mobile/client/m7-runtime-contract-v1.js",
     "requirementsStage": "CANDIDATE_NOT_ACCEPTED"
   },
-  "routeDigest": "bfd39e44c463aa6180f2cbba67af9159e637074331e9de4c4c74b28f597ad133",
-  "inventoryDigest": "a95484d5cb18f20168ef8cdbc4c13927deea588e8d8c05d2b3c7dc3ae325d152",
+  "routeDigest": "d30086e6cf123837b3e3657a5bacd0123cccfa2a4959329d7524df37f37caa2d",
+  "inventoryDigest": "4e7c1a832ab63c8c8277d273a67fb84e55f8b9d3e8d7eb8e26808102f187e8f0",
   "summary": {
-    "desktopRouteDeclarations": 309,
+    "desktopRouteDeclarations": 310,
     "legacyM1Declarations": 0,
     "m7TransportRoutes": 7,
     "m7Operations": 17,
@@ -55,6 +55,13 @@
     {
       "method": "POST",
       "path": "/api/accounts/:id/test",
+      "sources": [
+        "src/routes/ide-management.js"
+      ]
+    },
+    {
+      "method": "PUT",
+      "path": "/api/accounts/profile",
       "sources": [
         "src/routes/ide-management.js"
       ]
