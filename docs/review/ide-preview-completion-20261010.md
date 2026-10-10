@@ -1,6 +1,6 @@
 # Doplnění V4 do stávajícího IDE 2.0 — 10. 10. 2026
 
-Stav: **NATIVE_CORE_VERIFIED / INSTALLATION_BLOCKED_BINDING_CHOICE / INDEPENDENT_REVIEW_PENDING / NOT_ACCEPTED**.
+Stav: **LOCAL_PRIMARY_DEPLOYED_AND_NORMAL_LAUNCH_VERIFIED / INDEPENDENT_REVIEW_PENDING / NOT_ACCEPTED**.
 Autorita: operátorovy připomínky ke skutečnému IDE a V4 z 10. 10.;
 [rozsah a podmínky](../wp/WP-IDE-INTEGRATION-20261009.md).
 Další samostatné IDE operátor odmítl. Tento report není jeho přejímkou.
@@ -67,6 +67,8 @@ Následující dokumentační commit nemění aplikační zdroj této zkoušky.
 | Migrace `3750986d` | Konzistentní kopie skutečné provozní DB: quick check ok, 0 FK porušení; počty konverzací/projektů/specialistů/evaluací nezměněny. Provozní DB se nemění | [Preflight](evidence/ide-preview-completion-20261010/migration-preflight-3750986d.json) |
 | Nový production-mode backend `3f9410cc` nad kopií provozní DB | Čtecí API **PASS**, ale celá aktualizace **BLOCKED** kvůli rozdílu RAM/DB modelových vazeb níže. Žádné inference ani doručení zprávy | [Výsledek](evidence/ide-preview-completion-20261010/production-copy-3f9410cc.json) |
 | Instalátor `37ee6177` | **DRY_RUN_PASS, NEAPLIKOVÁNO**. Zachová DB, profil, Legacy, PDF/účetní runtime; skutečná cesta modelů `/mnt/vi7000/ollama/models` | [Plán](evidence/ide-preview-completion-20261010/installation-plan-37ee6177.json) |
+| Skutečná aktualizace hlavní instalace `37ee6177` | **PASS**, 10. 10. ve 14:02 CEST; původní DB/profil, Legacy a automation hold zachovány. Operátor výslovně povolil obnovit uložené modelové vazby. Quick check ok, 0 FK porušení, počty doménových záznamů stejné před i po běžném spuštění | [Provozní receipt](evidence/ide-preview-completion-20261010/primary-installation-37ee6177.json) |
+| Běžná položka nabídky `gtk-launch intentsmith` | **PASS**, skutečné okno PID 667699, původní profil, nový instalovaný snapshot, bez CDP. Nové nastavení, živé role a čtyři Hunt záložky v původním motivu; nový Hunt editor otevřen a zavřen bez uložení. Jedna hlavní položka IDE 2.0 a samostatný Legacy | [Nastavení](evidence/ide-preview-completion-20261010/screenshots/primary-settings.png), [živé role](evidence/ide-preview-completion-20261010/screenshots/primary-models-overview.png), [Hunt editor](evidence/ide-preview-completion-20261010/screenshots/primary-hunt-editor.png) |
 | CI | **19/19 success** na obou přesných SHA: `3f9410cc` run `38042941003`, `37ee6177` run `38045179821` | [Poslední GitHub běh](https://github.com/Belphareon-bak/intentsmith/actions/runs/38045179821), [API](evidence/ide-preview-completion-20261010/ci-37ee6177-jobs.json) |
 
 Nativní zkoušky používají vlastní čerstvou DB a profil, všechny role v této
@@ -107,33 +109,59 @@ oprav je v [remediation reportu](ide-integration-remediation-20261010.md).
 Preview obsahovalo ilustrativní data. Jeho namalovaný budget/offload nebo
 skóre bez důkazu se nepřevádí na tvrzení o skutečně změřené funkci.
 
-## Proč normální spouštěč zatím stále otevírá starou verzi
+## Hlavní spouštěč je aktualizovaný
 
-Ověřená běžící instalace má backend `c84b88cd` a frontend `fddfe996`.
-Nový AppImage a čistý instalovaný snapshot jsou připravené, ale **spouštěč
-`intentsmith.desktop` zatím nebyl přepnut**. Odmítnutá třetí desktop položka
-byla odstraněna; nedělá se další IDE. Staré již otevřené kandidátní okno
-nebylo násilně zavřeno kvůli možným rozepsaným datům.
+Operátor 10. 10. rozhodl „ať je jen jedna verze IDE 2.0“ a následně
+„klidne at role prepne“. Tím vyřešil rozdíl RAM/DB vazeb, který předchozí
+sonda správně označila **BLOCKED**. Její historický výsledek výše zůstává;
+nový důkaz dokládá skutečně provedenou aktualizaci.
 
-Před aktualizací nový backend nad soukromou kopií DB odhalil, že trvalé
-uložené vazby se liší od RAM starého běžícího backendu. Nový backend je při
-startu obnovuje. Přísná sonda „zachovat běžící modely“ proto skončila FAIL;
-čtecí kontrola změnu označuje BLOCKED, ne PASS.
+Stávající `intentsmith.desktop` nyní používá čistý snapshot `37ee6177`
+a výše uvedený ověřený AppImage; stejný zdroj používá spravovaný backend.
+Instalace proběhla stávající cestou `scripts/install-desktop.mjs --apply`
+s migrační zkouškou a zálohou. Cache nabídky byla obnovena. Neexistuje
+další položka kandidáta; jediná hlavní položka je **IntentSmith IDE 2.0**.
+Samostatný **IntentSmith Legacy** si ponechal svůj původní cílový runtime.
+Historické release snapshoty jsou zálohy, nikoli další aktivní hlavní IDE.
 
-| Role | Nyní běží | Uloženo v provozní DB, obnoví se po restartu |
+Běžné spuštění `gtk-launch intentsmith` bylo ověřeno na obrazovce proti
+skutečnému backendu a původní DB. Okno PID `667699` používá původní
+`~/.config/intentsmith-studio2`, pracovní adresář instalovaného `37ee6177`
+a neotevírá diagnostický listener. Zobrazuje živá přiřazení všech sedmi
+rolí a nový Hunt včetně editoru plánu. Snímky tohoto běžného okna mají
+2328 × 1366 pixelů a původní motiv. Okno zůstalo otevřené; editor byl zavřen
+bez uložení, v provozní DB není přidaný Hunt profil ani spuštěný úkol.
+
+Backend obnovil trvalou sestavu z DB; nejde o aktivaci navržené sestavy
+z kvalitativního kontraktu ani o schválení kvality těchto modelů.
+
+| Role | Před aktualizací v RAM | Po aktualizaci, ověřeno čtecím API i IDE |
 |---|---|---|
 | CHAT | `qwen3.5:27b` | `gemma4:26b` |
 | CODE | `qwen3.5:27b` | `qwen3.8:latest` |
 | R2 | `qwen3:14b` | `devstral-small-2:latest` |
 | VISION | `llava-llama3:8b` | `ornith-1.5:9b` |
+| D1 | `qwen3.5:27b` | `qwen3.5:27b` |
+| D2 | `qwen3.8:latest` | `qwen3.8:latest` |
+| R1 | `qwen3.8:latest` | `qwen3.8:latest` |
 
-D1, D2 a R1 jsou shodné. Operátor dostal cílenou otázku, zda zachovat
-nyní běžící sestavu, nebo obnovit uloženou sestavu. **Odpověď je pending**;
-nesmí ji nahradit timeout, předvolená volba nebo hodnocení modelu z katalogu.
-To není nové vyžádání souhlasu s již autorizovanou aktualizací, ale potřebná
-volba skutečného chování. Po odpovědi patří dokončení přes stávající instalační
-boundary, se zálohou, readbackem zvolených vazeb, zachováním hold/profilu/Legacy
-a kontrolou normálního spuštění `gtk-launch intentsmith`.
+Databáze zůstává `/home/belphareon/Projects/intentsmith/data/c3.db`.
+Počty před/po: 52 konverzací, 0 zpráv v tabulce `messages`, 16 projektů,
+5 specialistů, 1012 evaluačních běhů. Jde o počty skutečných tabulek,
+nikoli hodnocení obsahu. Kontrola integrity a FK prošla před i po startu.
+Profil má vlastní úplnou zálohu a jeho soubor Preferences byl před startem
+beze změny; běžný start smí aktualizovat stav okna. Provozní receipt obsahuje
+cesty obou soukromých záloh. DB, profil, credentials ani instalační prostředí
+se nepublikují. Čtení API bez autentizace skončilo 401; autentizované
+čtení rolí, modelů, účtů, instalace a skutečné cesty modelů prošlo.
+
+Pomocné sondy byly opraveny bez změny produktu: stdout instalátoru obsahuje
+log migrací před JSON; desktop proces potřebuje odpojení od testovacího
+stdout a Electron v `/proc` prezentuje argumenty jako spojený titul.
+První kontrola SQLite použila výchozí Node 22 místo požadovaného Node 24;
+opravený běh s Node 24 prošel. Tyto neúspěšné pomocné pokusy nejsou
+selhání instalace ani důkaz PASS; konečný receipt dokládá následný skutečný
+stav a kontrolu běžného okna.
 
 ## Provozní a release meze
 
@@ -153,15 +181,15 @@ neověřené. Google/Microsoft OAuth, více izolovaných uživatelských účtů
 nepřipojené historické preference nemají předstírat hotovou funkci.
 
 CHAT styl, vlastní prompt a 64k/96k/128k Gemma zůstávají dle operátora
-předmětem pozdějšího měření; tato oprava nemění modelové vazby.
+předmětem pozdějšího měření. V této aktualizaci se s jeho přímým souhlasem
+obnovily čtyři uložené modelové vazby; nejde o měření kontextové kapacity.
 Formální release dále potřebuje přesné Gate 0/chain evidence, úschovu
 klíčů, podepsané autorizační záznamy, příslušný soak a operátorovu přejímku.
 
 ## Pořadí dokončení před přejímkou
 
-1. Vyřešit výše uvedenou modelovou volbu a aktualizovat existující hlavní
-   instalaci. Ověřit skutečný běžný start, zachování dat a vazeb, nikoli
-   pouze diagnostické okno nad testovací DB.
+1. **Dokončeno:** modelová volba, aktualizace existující hlavní instalace,
+   skutečný běžný start, zachování dat/profilu/Legacy/hold a readback vazeb.
 2. Získat nezávislý Opus verdikt na publikovaný aplikační SHA a zapracovat
    jeho nálezy. Starší verdict není přijetí těchto změn.
 3. Obnovit funkční GPU na stanici a ověřit skutečný Hunt/evaluaci/kontext.

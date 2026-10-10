@@ -1,6 +1,6 @@
 # Předání V4: existující IDE 2.0, nikoli další aplikace
 
-Stav: **NATIVE_CORE_VERIFIED / INSTALLATION_BLOCKED_BINDING_CHOICE /
+Stav: **LOCAL_PRIMARY_DEPLOYED_AND_NORMAL_LAUNCH_VERIFIED /
 INDEPENDENT_REVIEW_PENDING / NOT_ACCEPTED**.
 [Souhrn změn, důkazů, nedodělků a další kroky](../../ide-preview-completion-20261010.md).
 
@@ -16,13 +16,13 @@ Toto není Gate 0 attestation ani podpis nezávislého revizora.
 1. Důležité změny V4 1–9 v jediném stávajícím rendereru; reálné ukládání,
    readback, zachování draftu a profilové plánování. Nevyměňovat skutečnou
    funkci za ilustrativní benchmark nebo namalovaný GPU/offload výsledek.
-2. Rozdíl běžící/provozní DB sestavy čtyř modelů a povinnou volbu před
-   restartem; neaktivovat nový model jako vedlejší efekt aktualizace IDE.
+2. Skutečné nasazení do hlavní instalace, zachování DB/profilu/Legacy/hold
+   a obnovu uložených modelových vazeb výslovně povolenou operátorem.
 3. Rozsah staršího NEEDS_CHANGES: lidské role, digest/stavy, CHAT/refine,
    SSH ID a 31 nefunkčních historických ovladačů. Ovladače pouze pro čtení
    nejsou 31 implementovaných funkcí ani automatické splnění bodu f).
-4. Oddělení aktuálních zelených testů od stále staré běžné instalace,
-   neprovedeného GPU/doručení, staršího soak a formální release přejímky.
+4. Oddělení aktuálních zelených testů a aktualizované běžné instalace
+   od neprovedeného GPU/doručení, staršího soak a formální release přejímky.
 
 ## Důkazy
 
@@ -44,6 +44,23 @@ Toto není Gate 0 attestation ani podpis nezávislého revizora.
 - [Migrace kopie](migration-preflight-3750986d.json),
   [production-mode čtení/BLOCKED](production-copy-3f9410cc.json),
   [instalační plán/NEAPLIKOVÁNO](installation-plan-37ee6177.json).
+- [Skutečná hlavní instalace a běžný start](primary-installation-37ee6177.json)
+  jsou novější než historický BLOCKED a dry-run: operátor rozhodl, instalace
+  byla aplikována a běžné okno bylo ověřeno proti původní DB.
+
+## Běžná hlavní instalace po aktualizaci
+
+Snímky skutečného okna spuštěného `gtk-launch intentsmith` mají 2328 × 1366
+pixelů, původní profil/motiv a provozní backend. Nejde o diagnostické okno
+nebo testovací DB. Nový Hunt editor byl zavřen bez uložení; GPU úkol nebyl
+spuštěn. Publikovaný výběr obsahuje obecné obrazovky a modelová přiřazení;
+DB, soukromý profil, obsah uživatelských konverzací a credentials se nesdílejí.
+
+| Obrazovka | Důkaz |
+|---|---|
+| Nové kategorie nastavení v hlavním IDE | [PNG](screenshots/primary-settings.png) |
+| Živé role včetně CHAT = Gemma | [PNG](screenshots/primary-models-overview.png) |
+| Nový Hunt editor, model/role a plán | [PNG](screenshots/primary-hunt-editor.png) |
 
 ## Nativní snímky z posledního AppImage
 

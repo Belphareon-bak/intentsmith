@@ -152,3 +152,18 @@ modrý rámeček po kliknutí a zachovat viditelný focus při práci klávesnic
 Doložit živé údaje Ollamy, všechny dotčené obrazovky na 1366/1920, zápis,
 readback/restart a skutečné běžné spuštění. Preview čísla nejsou měření.
 Konečný stav čeká na novou nezávislou revizi přesného publikovaného SHA.
+
+### Rozhodnutí a provedení aktualizace hlavní instalace 10. 10.
+
+Operátor následně výslovně doplnil „klidne at role prepne“. Tím povolil
+obnovu sestavy uložené v provozní DB, včetně čtyř rozdílů proti RAM starého
+backendu. Toto doplnění nahrazuje požadavek zachovat RAM sestavu v předchozím
+odstavci; DB, profil, Legacy a Hunt hold se zachovávají dál. Nejde o přijetí
+navržených kvalitativních modelových dvojic ani o uvolnění automatického hold.
+
+Stávající hlavní instalace nyní používá aplikační snapshot a AppImage
+`37ee6177`, stejně jako spravovaný backend. Migrace/záloha, integrity/FK,
+nezměněné doménové počty, autentizovaná API, readback všech sedmi vazeb,
+jediná hlavní desktop položka a skutečný běžný start s původním profilem
+prošly. [Aktuální report a provozní důkazy](../review/ide-preview-completion-20261010.md)
+rozlišují dokončené lokální nasazení od nezávislé revize a formální přejímky.

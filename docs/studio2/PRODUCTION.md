@@ -15,10 +15,11 @@ nejsou automaticky výsledkem pozdějšího frontendu.
 | 28. 9. — poslední relace 1–5, kategorie a časy | `79c19096` | [Report relací a kategorií](../review/2026-09-28-STUDIO2-RECENCY-CATEGORIES.md): původní datové konektory a AppImage; celý profil 385 PASS / 1 FAIL Gate 0. |
 | 28. 9. — neutrální konverzace a projektové časy | `32361710` | [Report vzhledu a časů](../review/2026-09-28-STUDIO2-PALETTE-PROJECT-DATES.md): AppImage, tři Electron scénáře a 11 motivů PASS; celý profil 385 PASS / 1 FAIL Gate 0 běžel na předchozím integračně shodném `b5fda0f1`. |
 | 29. 9. — operátorem vybraná paleta nastavení B + 20 % | `fddfe996` | [Report palety B](../review/2026-09-29-STUDIO2-SETTINGS-PALETTE-B.md): AppImage, reálný Electron, běžný start a 11 motivů PASS; nový celý profil na `fddfe996` report nedokládá. |
+| 10. 10. — V4 v existujícím IDE, společná aktualizace backendu | `37ee6177` | [Aktuální report](../review/ide-preview-completion-20261010.md): stávající instalátor, původní DB/profil/Legacy/hold, operátorem povolená obnova uložených rolí, běžná položka nabídky a skutečné nové okno PASS. |
 
-Poslední doložená instalace z 29. 9. používá frontend `fddfe996`, backend
-`c84b88cd`, původní DB a Legacy. **LOCAL_PRODUCTION_DEPLOYED /
-IMPLEMENTATION_VERIFIED / REVIEW_PENDING**. Nezávislé přijetí a Gate 0 PASS
+Poslední doložená instalace z 10. 10. používá frontend i backend `37ee6177`,
+původní DB a profil IDE; cíl Legacy je zachovaný. **LOCAL_PRIMARY_DEPLOYED /
+NORMAL_LAUNCH_VERIFIED / REVIEW_PENDING**. Nezávislé přijetí a Gate 0 PASS
 z těchto místních zkoušek neplynou.
 
 ## Instalace
@@ -50,7 +51,10 @@ backupem. Hold a stav plánování GPU se zachovají.
   `INTENTSMITH_STUDIO_INSPECT=1` slouží k místnímu ověření aplikace.
 
 Existující politika Chromium sandboxu platí pro obě varianty. Instalace
-nepřidává shellová oprávnění, nemění vazby modelů ani nezapíná držený hunt.
+nepřidává shellová oprávnění ani nezapíná držený hunt. Instalátor nepřepisuje
+modelové vazby v DB; nový backend je při startu obnovuje. Dne 10. 10.
+operátor výslovně povolil obnovit uloženou sestavu, která se ve čtyřech rolích
+lišila od RAM starého backendu. Skutečné vazby jsou v aktuálním reportu.
 Původní backendový snapshot se uchovává pro návrat. Přesné SHA, backup a
 výsledky živých kontrol jsou v reportu nasazení; L1, místní nasazení a
 nezávislé přijetí zůstávají odlišné výsledky.
@@ -64,8 +68,10 @@ rozlišují zdroj, skutečný AppImage, místní instalaci a formální přejím
 
 Aktualizace z 10. 10. má ověřený AppImage `37ee6177`, 39 nativních snímků,
 415/415 offline/database na předchozím `3f9410cc` a 47/47 dotčených UI testů
-po doplnění popisků a opravě focusu vybrané záložky. **Zatím není lokálně nasazená**: čeká na
-operátorovu volbu mezi RAM a uloženými modelovými vazbami (čtyři rozdíly,
-[tabulka a důkazy](../review/ide-preview-completion-20261010.md)).
-Normální položka proto stále používá frontend `fddfe996`/backend `c84b88cd`.
-Tento popis se nesmí vydávat za přepnutí hlavního spouštěče nebo přejímku.
+po doplnění popisků a opravě focusu vybrané záložky. **Je lokálně nasazená**
+ve stávající hlavní instalaci; nabídka `intentsmith.desktop` i backend nyní
+používají `37ee6177`. Běžné spuštění s původním profilem prošlo a má vlastní
+[receipt a snímky](../review/evidence/ide-preview-completion-20261010/primary-installation-37ee6177.json).
+Jedna položka IDE 2.0 a samostatný Legacy zůstávají. Nasazení neuděluje
+formální přejímku; nový nezávislý verdikt, GPU, doručení a release důkazy
+stále potřebují vlastní ověření.

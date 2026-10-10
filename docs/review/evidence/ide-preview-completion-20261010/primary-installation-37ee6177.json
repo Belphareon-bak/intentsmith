@@ -1,0 +1,110 @@
+{
+  "status": "LOCAL_PRIMARY_DEPLOYED_AND_NORMAL_LAUNCH_VERIFIED",
+  "at": "2026-10-10T12:12:39.597Z",
+  "revision": "37ee6177f7cf8e5e4509c5860474e8dca2ce0e8e",
+  "appimageSha256": "8225de42fa4b743a0113de3322c65450f7efe6e00687b4d0683697b047d4fe26",
+  "backendPid": 657008,
+  "backendPort": 40225,
+  "runningBindings": {
+    "D1": "qwen3.5:27b",
+    "D2": "qwen3.8:latest",
+    "CODE": "qwen3.8:latest",
+    "R1": "qwen3.8:latest",
+    "R2": "devstral-small-2:latest",
+    "CHAT": "gemma4:26b",
+    "VISION": "ornith-1.5:9b"
+  },
+  "previousBindings": {
+    "D1": "qwen3.5:27b",
+    "D2": "qwen3.8:latest",
+    "CODE": "qwen3.5:27b",
+    "R1": "qwen3.8:latest",
+    "R2": "qwen3:14b",
+    "CHAT": "qwen3.5:27b",
+    "VISION": "llava-llama3:8b"
+  },
+  "operatorDecision": "User 2026-10-10: klidne at role prepne; restore stored DB bindings",
+  "userDataCountsPreserved": {
+    "conversations": 52,
+    "messages": 0,
+    "projects": 16,
+    "specialists": 5,
+    "model_evaluation_runs": 1012
+  },
+  "profilePreservedBeforeLaunch": true,
+  "legacyTargetPreserved": true,
+  "holdUnchanged": true,
+  "huntTimer": {
+    "enabled": false,
+    "active": false,
+    "held": true
+  },
+  "models": 15,
+  "unauthenticatedReadStatus": 401,
+  "apiReadChecks": "PASS",
+  "backup": "/home/belphareon/.local/state/intentsmith/installation-backups/2026-10-10T12-02-37-474Z",
+  "profileBackup": "/home/belphareon/.local/state/intentsmith/installation-backups/ide-primary-profile-2026-10-10T12-02-36-490Z",
+  "normalDesktopLaunch": "PASS",
+  "releaseAcceptance": "NOT_ACCEPTED",
+  "normalLaunchCommand": "gtk-launch intentsmith",
+  "normalLaunchPid": 667699,
+  "normalLaunchWindow": "0x8800004",
+  "normalLaunchUserDataDirectory": "/home/belphareon/.config/intentsmith-studio2",
+  "normalLaunchSourceRoot": "/mnt/vi7000/intentsmith/releases/37ee6177f7cf8e5e4509c5860474e8dca2ce0e8e",
+  "normalLaunchDiagnosticMode": false,
+  "singlePrimaryLauncher": true,
+  "desktopEntries": [
+    {
+      "path": "/home/belphareon/.local/share/applications/intentsmith.desktop",
+      "name": "IntentSmith IDE 2.0",
+      "hidden": false,
+      "executable": "\"/mnt/vi7000/intentsmith/releases/37ee6177f7cf8e5e4509c5860474e8dca2ce0e8e/.intentsmith-artifacts/installed-runtime/bin/node\" \"/mnt/vi7000/intentsmith/releases/37ee6177f7cf8e5e4509c5860474e8dca2ce0e8e/scripts/desktop-runtime.mjs\""
+    },
+    {
+      "path": "/home/belphareon/.local/share/applications/intentsmith-legacy.desktop",
+      "name": "IntentSmith Legacy",
+      "hidden": false,
+      "executable": "\"/mnt/vi7000/intentsmith/releases/37ee6177f7cf8e5e4509c5860474e8dca2ce0e8e/.intentsmith-artifacts/installed-runtime/bin/node\" \"/mnt/vi7000/intentsmith/releases/37ee6177f7cf8e5e4509c5860474e8dca2ce0e8e/scripts/desktop-runtime.mjs\" --legacy"
+    }
+  ],
+  "visibleChecks": [
+    "Settings overview with updated categories",
+    "Models overview: live backend and all restored role bindings",
+    "GPU Hunt: four workflow tabs",
+    "Separate Hunt and Challenge profile groups",
+    "New Hunt editor: model/roles/schedule fields, closed without saving",
+    "Mouse selection underline retained; no blue browser outline"
+  ],
+  "nativeScreenshotDimensions": {
+    "width": 2328,
+    "height": 1366
+  },
+  "productionHuntProfilesAfterUiCheck": 0,
+  "timerActiveState": "inactive",
+  "liveGpuInference": "NOT_RUN_DRIVER_LIBRARY_MISMATCH",
+  "independentReview": "PENDING_CURRENT_SOURCE",
+  "helperCorrections": [
+    "Initial installer stdout parser expected JSON only; installer exited 0 and succeeded, migration log prefix required extraction",
+    "Initial launcher helper inherited output pipes and timed out; corrected to detached desktop process with file output",
+    "Electron rewrites proc argv as a joined title; process assertion normalized it",
+    "First post-launch SQLite helper used default Node 22; rerun with required Node 24 passed without changing shared dependencies"
+  ],
+  "screenshots": [
+    "screenshots/primary-settings.png",
+    "screenshots/primary-models-overview.png",
+    "screenshots/primary-hunt-editor.png"
+  ],
+  "verificationNodeVersion": "v24.21.0",
+  "productionHuntJobsAfterUiCheck": 0,
+  "databaseIntegrity": {
+    "quickCheck": "ok",
+    "foreignKeyViolations": 0
+  },
+  "gpuProbe": {
+    "at": "2026-10-10T12:17:09.028Z",
+    "nvidiaSmiExitCode": 18,
+    "loadedModuleVersion": "595.91.07",
+    "nvmlVersion": "595.99",
+    "status": "BLOCKED_DRIVER_LIBRARY_MISMATCH"
+  }
+}

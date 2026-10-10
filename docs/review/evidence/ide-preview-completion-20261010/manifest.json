@@ -5,8 +5,8 @@
   "files": [
     {
       "path": "README.md",
-      "size": 6598,
-      "sha256": "c76aa32d83932b2c8cc630624c30d5d8a1899c23b343b14e7a5bfb2b521ec11d"
+      "size": 7588,
+      "sha256": "8a8133b3d1e18422de3c8fd00a4ea6156028f7f5268475d6ffd95886df503d08"
     },
     {
       "path": "appimage-37ee6177.json",
@@ -107,6 +107,11 @@
       "path": "native-helper-failed-v2.json",
       "size": 10218,
       "sha256": "fc25fe2ae6c597f8c4a5364404ab00ae0b8ff17d6db3eaeb5426899cf8f9f266"
+    },
+    {
+      "path": "primary-installation-37ee6177.json",
+      "size": 4455,
+      "sha256": "a582729f7d101ae7317c9843cad8e6adda42be193f6282e13a8254987520625e"
     },
     {
       "path": "production-copy-3f9410cc.json",
@@ -219,6 +224,21 @@
       "sha256": "bf1ae706ca3f83993f661f10253c7c415c4bd9bd0f3bebb4bb05397781ab7e4f"
     },
     {
+      "path": "screenshots/primary-hunt-editor.png",
+      "size": 263322,
+      "sha256": "009cfd7413b41861966c89d68a58d076737007756a4285bf0208bcb89d87545f"
+    },
+    {
+      "path": "screenshots/primary-models-overview.png",
+      "size": 232323,
+      "sha256": "8a10cbd91b1c355cd2f44f64e12919f4ed0c4d1766ef1cbe0977e7070e657567"
+    },
+    {
+      "path": "screenshots/primary-settings.png",
+      "size": 164271,
+      "sha256": "e55be85a097456616540ffd29ef2224eb755dacc53fd8a0a2816bc3cbc910de4"
+    },
+    {
       "path": "screenshots/profiles-list-1366.png",
       "size": 102538,
       "sha256": "de0504c00e7eef7b5e1d956aec26b6081c8a3925a4e3e80f6741e22226cdc166"
@@ -268,5 +288,6 @@
       "size": 5283,
       "sha256": "93908295e105657a39d83c5be8e1f9b2d7968ab27dcf83fce598dc93af5844b4"
     }
-  ]
+  ],
+  "localInstallationStatus": "LOCAL_PRIMARY_DEPLOYED_AND_NORMAL_LAUNCH_VERIFIED"
 }
