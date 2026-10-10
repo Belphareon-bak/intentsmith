@@ -1737,6 +1737,13 @@ Dokončení revize 10. 10. doplňuje N1–N8, formulář workeru, textové přij
 rozpočty všech konfigurovaných rolí, pull storage endpoint, retenci s náhledem,
 Git selektory/rodiče/omezený diff a graf naměřené telemetrie. Preview V4 1–9
 je srovnáno s kanonickým zdrojem vzhledu. 31 historických neúčinných voleb
-je nyní pouze pro čtení; čtyři přepínače paměti jsou aktivní. **Nový celý
-profil a nativní zápis/restart se kvalifikují samostatně; nezávislá revize je
-požadovaná.** [Paket](docs/review/ide-integration-remediation-20261010.md).
+je nyní pouze pro čtení; čtyři přepínače paměti jsou aktivní. Aplikační
+`387a490f`: **415/415 offline/database, 3/3 HTTP, 27/27 nativních kontrol,
+čerstvá instalace/opakování a CI 19/19 PASS**. Vytvořený specialista předává
+prompt, pravidla a omezení do skutečného provider payloadu před restartem i
+po něm. Nativní sonda čeká na načtené řádky rolí, ne pouze na nadpis.
+Skutečný upgrade z přesné 136.0.0 včetně obnovy po neúspěšné migraci PASS;
+5min production-health zátěž PASS (43340.09 req/s, P95 26 ms, 0 chyb).
+Nový 24h HTTP soak stále běží, nejdříve konec 11. 10. 02:05 CEST.
+**Nezávislá revize nových oprav je požadovaná, release je NOT_ACCEPTED.**
+[Paket](docs/review/ide-integration-remediation-20261010.md).

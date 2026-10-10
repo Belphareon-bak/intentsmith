@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "manifestType": "intentsmith.audit-report",
+  "runId": "ide-release-throughput-387a490f-20261010",
+  "sourceRevision": "387a490fb3fbd6b5c06756629b42e6a44840f15b",
+  "startedAt": "2026-10-10T00:13:47.647Z",
+  "endedAt": "2026-10-10T00:19:18.713Z",
+  "dryRun": false,
+  "options": {
+    "concurrency": 1,
+    "failFast": false,
+    "timeoutMs": 600000,
+    "deadlineMs": 3600000,
+    "profiles": [],
+    "ids": [
+      "IS-T5-TESTS-M6-MAX-THROUGHPUT-E2E"
+    ],
+    "exclude": [],
+    "allowBlockers": [
+      "server",
+      "toolchain:iproute2",
+      "toolchain:linux-user-network-namespace"
+    ],
+    "noBlock": false
+  },
+  "paths": {
+    "sourceRoot": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/ide-remediation-native-387a490f-source",
+    "runDir": ".intentsmith-artifacts/test-runs/ide-release-throughput-387a490f-20261010",
+    "report": ".intentsmith-artifacts/test-runs/ide-release-throughput-387a490f-20261010/report.json",
+    "checkpoint": ".intentsmith-artifacts/test-runs/ide-release-throughput-387a490f-20261010/checkpoint.json",
+    "inventory": ".intentsmith-artifacts/test-runs/ide-release-throughput-387a490f-20261010/inventory.json"
+  },
+  "inventoryFingerprint": "810763db20e542ab62360ffe60445f3ccc916cfcb0265d2cfd3fad5b722de8a5",
+  "optionsFingerprint": "10d5013ff5a711796cd02013cbba51f676faa7554efcc2191af99f21f61a50d5",
+  "registryHash": "1cf9d212eb90e52c42da8f18962e0121de577c3adccb579785078626150d4780",
+  "interruptionSignal": null,
+  "inventory": {
+    "total": 1,
+    "counts": {
+      "offline": 0,
+      "database": 0,
+      "server": 0,
+      "model": 0,
+      "soak": 1,
+      "manual": 0
+    },
+    "blockerCounts": {
+      "server": 1,
+      "toolchain:iproute2": 1,
+      "toolchain:linux-user-network-namespace": 1
+    }
+  },
+  "statusCounts": {
+    "PASS": 1,
+    "FAIL": 0,
+    "TIMEOUT": 0,
+    "BLOCKED": 0,
+    "SKIPPED": 0
+  },
+  "verdict": "PASS",
+  "exitCode": 0,
+  "requiredFailureCount": 0,
+  "requiredBlockedCount": 0,
+  "results": [
+    {
+      "id": "IS-T5-TESTS-M6-MAX-THROUGHPUT-E2E",
+      "path": "tests/m6-max-throughput.e2e.js",
+      "profile": "soak",
+      "category": "soak",
+      "command": [
+        "node",
+        "tests/m6-max-throughput.e2e.js"
+      ],
+      "blockers": [
+        "server",
+        "toolchain:iproute2",
+        "toolchain:linux-user-network-namespace"
+      ],
+      "required": true,
+      "start": "2026-10-10T00:13:47.648Z",
+      "end": "2026-10-10T00:19:18.711Z",
+      "durationMs": 331063,
+      "exitCode": 0,
+      "signal": null,
+      "timedOut": false,
+      "status": "PASS",
+      "retryCount": 0,
+      "logPath": ".intentsmith-artifacts/test-runs/ide-release-throughput-387a490f-20261010/logs/tests_m6-max-throughput.e2e.js.699504db.log",
+      "sourceRevision": "387a490fb3fbd6b5c06756629b42e6a44840f15b",
+      "modelFixturePreflight": null,
+      "environment": {
+        "inheritedKeys": [
+          "PATH",
+          "LANG",
+          "LC_ALL"
+        ],
+        "forwardedRuntimeKeys": [],
+        "forwardedToolchainKeys": [],
+        "sourceRevision": "387a490fb3fbd6b5c06756629b42e6a44840f15b",
+        "home": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/ide-remediation-native-387a490f-source/.intentsmith-artifacts/test-runs/ide-release-throughput-387a490f-20261010/runtime/tests_m6-max-throughput.e2e.js.699504db/home",
+        "temp": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/ide-remediation-native-387a490f-source/.intentsmith-artifacts/test-runs/ide-release-throughput-387a490f-20261010/runtime/tests_m6-max-throughput.e2e.js.699504db/tmp",
+        "database": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/ide-remediation-native-387a490f-source/.intentsmith-artifacts/test-runs/ide-release-throughput-387a490f-20261010/runtime/tests_m6-max-throughput.e2e.js.699504db/runtime/intentsmith-test.sqlite",
+        "projects": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/ide-remediation-native-387a490f-source/.intentsmith-artifacts/test-runs/ide-release-throughput-387a490f-20261010/runtime/tests_m6-max-throughput.e2e.js.699504db/projects",
+        "artifacts": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/ide-remediation-native-387a490f-source/.intentsmith-artifacts/test-runs/ide-release-throughput-387a490f-20261010/runtime/tests_m6-max-throughput.e2e.js.699504db/artifacts",
+        "npmCache": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/ide-remediation-native-387a490f-source/.intentsmith-artifacts/test-runs/ide-release-throughput-387a490f-20261010/runtime/tests_m6-max-throughput.e2e.js.699504db/artifacts/npm-cache",
+        "portFile": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/ide-remediation-native-387a490f-source/.intentsmith-artifacts/test-runs/ide-release-throughput-387a490f-20261010/runtime/tests_m6-max-throughput.e2e.js.699504db/runtime/intentsmith.port",
+        "pdfPython": null,
+        "pythonNoUserSite": true,
+        "xdg": {
+          "config": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/ide-remediation-native-387a490f-source/.intentsmith-artifacts/test-runs/ide-release-throughput-387a490f-20261010/runtime/tests_m6-max-throughput.e2e.js.699504db/xdg/config",
+          "cache": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/ide-remediation-native-387a490f-source/.intentsmith-artifacts/test-runs/ide-release-throughput-387a490f-20261010/runtime/tests_m6-max-throughput.e2e.js.699504db/xdg/cache",
+          "data": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/ide-remediation-native-387a490f-source/.intentsmith-artifacts/test-runs/ide-release-throughput-387a490f-20261010/runtime/tests_m6-max-throughput.e2e.js.699504db/xdg/data",
+          "state": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/ide-remediation-native-387a490f-source/.intentsmith-artifacts/test-runs/ide-release-throughput-387a490f-20261010/runtime/tests_m6-max-throughput.e2e.js.699504db/xdg/state"
+        }
+      },
+      "cleanup": {
+        "checked": true,
+        "leakDetected": false,
+        "terminated": true
+      },
+      "sourceTree": {
+        "checked": true,
+        "clean": true,
+        "porcelain": null,
+        "head": "387a490fb3fbd6b5c06756629b42e6a44840f15b"
+      },
+      "logError": null,
+      "outputError": null,
+      "logSha256": "a82166ea9d224f45e3054b82115c6edb9f0df3dd049817ea9e7355e9639f4347"
+    }
+  ]
+}

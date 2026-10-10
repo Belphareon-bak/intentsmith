@@ -1,7 +1,10 @@
 # Backend nových funkcí IDE
 
-Stav: implementační kandidát WP-IDE-BACKEND-20261009. Frontend ani release
-přejímka nejsou součástí tohoto WP. Rozsah Discord/Telegram vychází z přímého
+Stav: integrovaný kandidát WP-IDE-BACKEND-20261009 a
+WP-IDE-INTEGRATION-20261009, aplikační `387a490f`. Frontend/BE jsou funkčně
+kvalifikované; nezávislá revize a release přejímka zůstávají otevřené.
+[Paket kvalifikace](../review/ide-integration-remediation-20261010.md).
+Rozsah Discord/Telegram vychází z přímého
 rozhodnutí operátora 2026-10-09, zapsaného v PRODUCT/DIRECTION.
 
 ## Transport a trvalý stav
@@ -121,7 +124,7 @@ těchto funkčních důkazech. Tento WP žádný model neaktivuje a nemění pro
 
 ## Integrační doplnění WP-IDE-INTEGRATION-20261009
 
-CHAT vyžaduje nejméně 4096 tokenů kontextu; menší hodnota vrací bezpečnou
+CHAT vyžaduje nejméně 8192 tokenů kontextu; menší hodnota vrací bezpečnou
 422 s kódem IDE_CONTEXT_TOO_SMALL. Limit výstupu CHAT řídí pouze odpověď,
 klasifikační JSON a kompakce mají vlastní autorizované rozpočty. D2/R1/R2
 předávají roli explicitně i při společném modelu. Staré nedostatečné nastavení
@@ -146,6 +149,14 @@ Veřejnou referenci lze importovat formulářem s readbackem zdroje, metriky,
 data a stupnice. Kvantizace pochází z metadata API; chybějící údaj se nepředstírá.
 Hunt respektuje automation hold a zobrazuje důvod odložení.
 
+Vytvořený specialista má deklarovaný čistý nástroj `prepare_context`
+registrovaný přes ExtensionContext V1. Balíček se před odpovědí 201 ověří
+skutečným loaderem/runtime. Nástroj přijímá i krátký vstup a přes existující
+M3 wrapper vloží aktuální požadavek, systémový prompt, doménová pravidla a
+omezení do provider payloadu. Funkční HTTP i nativní důkaz ověřují další tah
+před restartem a po něm. Jde o přípravu doménového kontextu, nikoli nové
+oprávnění spouštět libovolné nástroje nebo externí akce.
+
 
 ## Dokončení revize a preview V4, 10. 10.
 
@@ -154,7 +165,8 @@ vrací `413 CHAT_CONTEXT_CAPACITY_EXCEEDED` s českou opravnou větou; nevzniká
 vymyšlená odpověď. Všechny konfigurované role kontrolují před inference odhad
 textu + rámování + vlastní výstupní rozpočet. Jde o konzervativní přijímací
 kontrolu textu, nikoli přesný tokenizer, měření obrazových tokenů nebo HW maxima.
-Limit běžné odpovědi platí jen pro explicitní `purpose: answer` bez JSON
+Limit běžné odpovědi platí pro explicitní `purpose: answer` nebo textový
+`purpose: refine` bez JSON
 formátu; interní strukturované kroky včetně VISION drží vlastní auth/call-site
 rozpočet. Při malém okně odmítnou vstup jako `LLM_CONTEXT_WINDOW_EXCEEDED`.
 

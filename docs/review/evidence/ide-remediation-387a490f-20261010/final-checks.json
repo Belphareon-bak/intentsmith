@@ -1,0 +1,93 @@
+{
+  "status": "PASS",
+  "scope": "FINAL_DOCUMENTATION_AND_MANUAL_PROBE_PUBLICATION_ONLY_NOT_NEW_APPLICATION_RUNTIME_QUALIFICATION",
+  "applicationSourceRevision": "387a490fb3fbd6b5c06756629b42e6a44840f15b",
+  "checks": [
+    {
+      "name": "artifact-and-census",
+      "argv": [
+        "node",
+        "--test",
+        "tests/artifact-validation.test.js"
+      ],
+      "startedAt": "2026-10-10T00:26:37.752Z",
+      "endedAt": "2026-10-10T00:26:38.402Z",
+      "exitCode": 0
+    },
+    {
+      "name": "registry",
+      "argv": [
+        "node",
+        "scripts/validate-test-registry.js"
+      ],
+      "startedAt": "2026-10-10T00:26:37.771Z",
+      "endedAt": "2026-10-10T00:26:37.929Z",
+      "exitCode": 0
+    },
+    {
+      "name": "module-boundaries",
+      "argv": [
+        "node",
+        "scripts/module-boundary-ratchet.mjs"
+      ],
+      "startedAt": "2026-10-10T00:26:37.771Z",
+      "endedAt": "2026-10-10T00:26:59.789Z",
+      "exitCode": 0
+    },
+    {
+      "name": "generator-parity",
+      "argv": [
+        "node",
+        "intentsmith-ide/extensions/intentsmith-studio2/scripts/build-view.js",
+        "--check"
+      ],
+      "startedAt": "2026-10-10T00:26:37.771Z",
+      "endedAt": "2026-10-10T00:26:37.929Z",
+      "exitCode": 0
+    },
+    {
+      "name": "application-tree-equality",
+      "argv": [
+        "git",
+        "diff",
+        "--quiet",
+        "387a490fb3fbd6b5c06756629b42e6a44840f15b",
+        "--",
+        "src",
+        "tests",
+        "intentsmith-ide"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "diff-check",
+      "argv": [
+        "git",
+        "diff",
+        "--check"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "artifact-and-census-after-api-inventory",
+      "argv": [
+        "node",
+        "--test",
+        "tests/artifact-validation.test.js"
+      ],
+      "exitCode": 0,
+      "verifiedAt": "2026-10-10T00:28:59.523026+00:00"
+    },
+    {
+      "name": "evidence-and-local-links",
+      "exitCode": 0,
+      "verifiedAt": "2026-10-10T00:28:59.523026+00:00",
+      "scope": "copied receipts, 415/3/27 counts, 4 active + 31 readonly, clean frozen candidate clones, exact AppImage bytes + hash, packet Markdown targets"
+    }
+  ],
+  "artifactHarnessSubchecks": 161,
+  "applicationTreeUnchangedFromCandidate": true,
+  "diffCheckExitCode": 0,
+  "probeSha256": "c786a7c5ef85ed4bf75106093f34f42477b4938831efa46562f9973bf076301e",
+  "lastVerifiedAt": "2026-10-10T00:28:59.523026+00:00"
+}

@@ -63,7 +63,7 @@ try {
  await clickText('Nastavení');await clickText('Úložiště');
  await page.waitForFunction(()=>document.body.innerText.includes('Cesta není známá')||document.body.innerText.includes('Cesta modelů není známá'),{timeout:15000});check('native inventory renders UNKNOWN provider path',true);await screenshot('storage');
  await clickText('Nastavení');await clickText('Modely a inference');await clickText('Role');
- await page.waitForFunction(()=>document.body.innerText.includes('Požadované parametry rolí'),{timeout:15000});
+ await page.waitForFunction(()=>document.body.innerText.includes('Požadované parametry rolí')&&[...document.querySelectorAll('tr')].some(n=>n.querySelector('th')?.innerText.startsWith('CHAT · ')&&n.querySelector('button')),{timeout:15000});
  const editHandle=await page.evaluateHandle(()=>[...document.querySelectorAll('tr')].find(n=>n.querySelector('th')?.innerText.startsWith('CHAT · '))?.querySelector('button'));const edit=editHandle.asElement();check('native CHAT role editor available',!!edit);await edit.click();await editHandle.dispose();
  await page.waitForFunction(()=>document.body.innerText.includes('Minimum kontextu pro CHAT: 8192'),{timeout:15000});check('native role minimum is visible',true);await page.evaluate(()=>document.querySelector('.mw-editor')?.scrollIntoView({block:'start'}));await editField('Požadovaný kontext v tokenech','8192');await editField('Požadovaný výstup v tokenech','64');await clickText('Uložit a ověřit parametry role');
  await page.waitForFunction(()=>!document.querySelector('.mw-editor'),{timeout:15000});

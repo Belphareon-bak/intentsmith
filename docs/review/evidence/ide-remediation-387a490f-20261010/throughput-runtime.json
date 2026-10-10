@@ -1,0 +1,175 @@
+{
+  "contract": "M6MaxThroughputReceipt",
+  "version": 1,
+  "candidateSha": "387a490fb3fbd6b5c06756629b42e6a44840f15b",
+  "durationMs": 300096,
+  "surface": "production-public-health-http",
+  "concurrencyLevels": [
+    1,
+    8,
+    32,
+    128,
+    512,
+    1024
+  ],
+  "selectedConcurrency": 1024,
+  "saturationObserved": false,
+  "ceilingReached": true,
+  "probeErrorCount": 0,
+  "stages": [
+    {
+      "concurrency": 1,
+      "durationMs": 15000,
+      "successes": 319295,
+      "errorCount": 0,
+      "requestsPerSecond": 21286.333,
+      "latency": {
+        "samples": 319295,
+        "p50Ms": 1,
+        "p95Ms": 1,
+        "p99Ms": 1,
+        "maxMs": 21
+      },
+      "stable": true,
+      "sustained": false
+    },
+    {
+      "concurrency": 8,
+      "durationMs": 15000,
+      "successes": 760769,
+      "errorCount": 0,
+      "requestsPerSecond": 50717.933,
+      "latency": {
+        "samples": 760769,
+        "p50Ms": 1,
+        "p95Ms": 1,
+        "p99Ms": 1,
+        "maxMs": 3
+      },
+      "stable": true,
+      "sustained": false
+    },
+    {
+      "concurrency": 32,
+      "durationMs": 15000,
+      "successes": 775334,
+      "errorCount": 0,
+      "requestsPerSecond": 51688.933,
+      "latency": {
+        "samples": 775334,
+        "p50Ms": 1,
+        "p95Ms": 2,
+        "p99Ms": 2,
+        "maxMs": 7
+      },
+      "stable": true,
+      "sustained": false
+    },
+    {
+      "concurrency": 128,
+      "durationMs": 15001,
+      "successes": 785651,
+      "errorCount": 0,
+      "requestsPerSecond": 52373.242,
+      "latency": {
+        "samples": 785651,
+        "p50Ms": 3,
+        "p95Ms": 4,
+        "p99Ms": 6,
+        "maxMs": 55
+      },
+      "stable": true,
+      "sustained": false
+    },
+    {
+      "concurrency": 512,
+      "durationMs": 15005,
+      "successes": 696051,
+      "errorCount": 0,
+      "requestsPerSecond": 46387.937,
+      "latency": {
+        "samples": 696051,
+        "p50Ms": 11,
+        "p95Ms": 15,
+        "p99Ms": 21,
+        "maxMs": 59
+      },
+      "stable": true,
+      "sustained": false
+    },
+    {
+      "concurrency": 1024,
+      "durationMs": 15011,
+      "successes": 652995,
+      "errorCount": 0,
+      "requestsPerSecond": 43501.099,
+      "latency": {
+        "samples": 652995,
+        "p50Ms": 23,
+        "p95Ms": 27,
+        "p99Ms": 41,
+        "maxMs": 139
+      },
+      "stable": true,
+      "sustained": false
+    },
+    {
+      "concurrency": 1024,
+      "durationMs": 210012,
+      "successes": 9101939,
+      "errorCount": 0,
+      "requestsPerSecond": 43340.09,
+      "latency": {
+        "samples": 9101939,
+        "p50Ms": 24,
+        "p95Ms": 26,
+        "p99Ms": 37,
+        "maxMs": 76
+      },
+      "stable": true,
+      "sustained": true
+    }
+  ],
+  "sustained": {
+    "durationMs": 210012,
+    "requests": 9101939,
+    "errorCount": 0,
+    "requestsPerSecond": 43340.09,
+    "latency": {
+      "samples": 9101939,
+      "p50Ms": 24,
+      "p95Ms": 26,
+      "p99Ms": 37,
+      "maxMs": 76
+    }
+  },
+  "rss": {
+    "startMiB": 219.766,
+    "peakMiB": 299.391,
+    "endMiB": 287.777,
+    "growthMiB": 68.012,
+    "measurementError": null
+  },
+  "diagnostics": {
+    "activeRequests": 1,
+    "completedRequests": 13092034,
+    "http5xx": 0,
+    "outboundDecisionCount": 0,
+    "databaseReady": true,
+    "lifecycleRecoveryComplete": true
+  },
+  "networkScope": "linux-user-network-namespace-loopback-only",
+  "namespaceInterfaces": [
+    "lo"
+  ],
+  "serverCleanShutdown": true,
+  "forcedShutdown": false,
+  "budgets": {
+    "maximumP95Ms": 100,
+    "maximumP99Ms": 250,
+    "maximumRssMiB": 1536,
+    "maximumRssGrowthMiB": 512,
+    "minimumSustainedRequestsPerSecond": 500
+  },
+  "verdict": "PASS"
+}

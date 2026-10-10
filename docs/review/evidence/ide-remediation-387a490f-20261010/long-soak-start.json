@@ -1,0 +1,22 @@
+{
+  "status": "STARTED_NOT_PASS",
+  "pid": 3577741,
+  "sourceRevision": "387a490fb3fbd6b5c06756629b42e6a44840f15b",
+  "sourceCleanAtStart": true,
+  "startedAt": "2026-10-10T00:05:02.428293+00:00",
+  "expectedEarliestEnd": "2026-10-11T00:05:02.428293+00:00",
+  "scope": "OWNED_PRODUCTION_BACKEND_LOOPBACK_NETWORK_NAMESPACE_HEALTH_PROJECTS_NO_GPU_NO_OUTBOUND",
+  "runId": "ide-release-long-soak-387a490f-20261010",
+  "root": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/ide-remediation-native-387a490f-source",
+  "log": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/ide-remediation-native-387a490f-source/.intentsmith-artifacts/ide-integration-20261009/ide-release-long-soak-387a490f-20261010.log",
+  "argv": [
+    "/home/belphareon/.nvm/versions/node/v24.21.0/bin/node",
+    "scripts/nightly-audit.js",
+    "--suite=IS-T5-TESTS-M6-LONG-SOAK-E2E",
+    "--allow-blocker=server,toolchain:iproute2,toolchain:linux-user-network-namespace",
+    "--timeout-minutes=1500",
+    "--deadline-hours=30",
+    "--concurrency=1",
+    "--run-id=ide-release-long-soak-387a490f-20261010"
+  ]
+}

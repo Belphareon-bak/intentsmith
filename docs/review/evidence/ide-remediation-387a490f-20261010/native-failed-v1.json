@@ -1,0 +1,149 @@
+{
+  "probeSha256": "057aba35ccad8753808db9f11d989bda6db4e30be6c94e5302826175072973e9",
+  "scope": "PACKAGED_NATIVE_OWNED_BACKEND_CONTROLLED_PROVIDER_NO_GPU_NO_RELEASE_ACCEPTANCE",
+  "sourceRevision": "387a490fb3fbd6b5c06756629b42e6a44840f15b",
+  "sourceClean": true,
+  "appimage": {
+    "path": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/ide-remediation-native-387a490f-source/intentsmith-ide/applications/electron/dist/IntentSmith-0.1.0.AppImage",
+    "sha256": "247ea9552231a5cd6946cde4842b41c7695c9f72380bb97ec821be67401a0969"
+  },
+  "bundleSha256": "ee3d35f59f4baa0c720089eb3574af0528d9a73e25634e2abebc01b966618b68",
+  "generationRequestCount": 0,
+  "node": "v24.21.0",
+  "written": {},
+  "status": "FAIL",
+  "checks": [
+    {
+      "name": "native preload uses owned backend capability",
+      "status": "PASS"
+    },
+    {
+      "name": "native inventory renders UNKNOWN provider path",
+      "status": "PASS"
+    }
+  ],
+  "requests": [
+    {
+      "sourcePort": "32897",
+      "method": "GET",
+      "path": "/api/conversations",
+      "status": 200
+    },
+    {
+      "sourcePort": "32897",
+      "method": "GET",
+      "path": "/api/projects",
+      "status": 200
+    },
+    {
+      "sourcePort": "32897",
+      "method": "GET",
+      "path": "/api/specialists",
+      "status": 200
+    },
+    {
+      "sourcePort": "32897",
+      "method": "GET",
+      "path": "/api/expertises",
+      "status": 200
+    },
+    {
+      "sourcePort": "32897",
+      "method": "GET",
+      "path": "/api/agents",
+      "status": 200
+    },
+    {
+      "sourcePort": "32897",
+      "method": "GET",
+      "path": "/api/media/history",
+      "status": 404
+    },
+    {
+      "sourcePort": "32897",
+      "method": "GET",
+      "path": "/api/system/info",
+      "status": 200
+    },
+    {
+      "sourcePort": "32897",
+      "method": "GET",
+      "path": "/api/system/gpu",
+      "status": 200
+    },
+    {
+      "sourcePort": "32897",
+      "method": "GET",
+      "path": "/api/system/upgrades/bindings",
+      "status": 200
+    },
+    {
+      "sourcePort": "32897",
+      "method": "GET",
+      "path": "/api/health",
+      "status": 200
+    },
+    {
+      "sourcePort": "32897",
+      "method": "GET",
+      "path": "/api/specialists",
+      "status": 200
+    },
+    {
+      "sourcePort": "32897",
+      "method": "GET",
+      "path": "/api/projects",
+      "status": 200
+    },
+    {
+      "sourcePort": "32897",
+      "method": "GET",
+      "path": "/api/projects/1/conversations",
+      "status": 200
+    },
+    {
+      "sourcePort": "32897",
+      "method": "GET",
+      "path": "/api/conversations",
+      "status": 200
+    },
+    {
+      "sourcePort": "32897",
+      "method": "GET",
+      "path": "/api/conversations",
+      "status": 200
+    },
+    {
+      "sourcePort": "32897",
+      "method": "GET",
+      "path": "/api/conversations",
+      "status": 200
+    },
+    {
+      "sourcePort": "32897",
+      "method": "GET",
+      "path": "/api/conversations",
+      "status": 200
+    },
+    {
+      "sourcePort": "32897",
+      "method": "GET",
+      "path": "/api/system/storage/inventory",
+      "status": 200
+    },
+    {
+      "sourcePort": "32897",
+      "method": "GET",
+      "path": "/api/system/storage/paths",
+      "status": 200
+    },
+    {
+      "sourcePort": "32897",
+      "method": "GET",
+      "path": "/api/system/storage",
+      "status": 200
+    }
+  ],
+  "pageErrors": [],
+  "error": "native CHAT role editor available"
+}

@@ -1,0 +1,64 @@
+{
+  "scope": "FRESH_FULL_PROFILE_INSTALL_AND_REPEAT_NO_GPU_NO_M6_ACCEPTANCE",
+  "sourceRevision": "387a490fb3fbd6b5c06756629b42e6a44840f15b",
+  "initialPristine": true,
+  "dependencySymlinksUsed": false,
+  "node": "v24.21.0",
+  "status": "PASS",
+  "sourceCleanAfter": true,
+  "commands": [
+    {
+      "kind": "fresh",
+      "argv": [
+        "./scripts/install.sh",
+        "--profile=full",
+        "--minimal"
+      ],
+      "startedAt": "2026-10-10T00:00:27.034Z",
+      "endedAt": "2026-10-10T00:01:59.673Z",
+      "command": [
+        "./scripts/install.sh",
+        "--profile=full",
+        "--minimal"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "",
+      "stderr": "",
+      "timedOut": false,
+      "leakDetected": false,
+      "cleanupTerminated": true,
+      "spawnError": null,
+      "logError": null,
+      "logPath": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/ide-fresh-install-387a490f-source/.intentsmith-artifacts/fresh-install-qualification/fresh.log",
+      "logSha256": "97df14e4a21eaec85875f709e45342707ac33429a39b63caeac5a471d9487cb5"
+    },
+    {
+      "kind": "repeat",
+      "argv": [
+        "./scripts/install.sh",
+        "--profile=full",
+        "--minimal"
+      ],
+      "startedAt": "2026-10-10T00:01:59.702Z",
+      "endedAt": "2026-10-10T00:02:38.754Z",
+      "command": [
+        "./scripts/install.sh",
+        "--profile=full",
+        "--minimal"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "",
+      "stderr": "",
+      "timedOut": false,
+      "leakDetected": false,
+      "cleanupTerminated": true,
+      "spawnError": null,
+      "logError": null,
+      "logPath": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/ide-fresh-install-387a490f-source/.intentsmith-artifacts/fresh-install-qualification/repeat.log",
+      "logSha256": "5f00f1328c938bf1e9dd6beb20bbf0bc30e2b29ed14a4152334e3817eab16378"
+    }
+  ],
+  "error": null
+}

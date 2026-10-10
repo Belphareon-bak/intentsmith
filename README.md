@@ -76,8 +76,11 @@ Studio používá Theia runtime s motivy a ovládáním IntentSmithu.
 navazují na [původní předání](docs/review/ide-integration-handoff-20261009.md).
 CHAT rozpočty, worker formulář, retence, Git a telemetrie jsou doplněné.
 Neúčinné historické volby jsou označené pouze pro čtení; editor rolí a čtyři
-přepínače paměti mají skutečného spotřebitele. Nová úplná kvalifikace a
-nezávislá revize jsou požadované; produkce ani automation hold se nemění.
+přepínače paměti mají skutečného spotřebitele. Aplikační `387a490f`: celý
+profil 415/415, HTTP 3/3, nativní AppImage 27/27, čerstvá instalace i opakování
+a CI 19/19 PASS. Skutečný upgrade/obnova DB a 5min HTTP zátěž prošly.
+Nová nezávislá revize a release přejímka jsou požadované;
+24h HTTP soak běží na zmrazeném kandidátu. Produkce ani automation hold se nemění.
 
 **Verze:** 136.1.0, vývojový kandidát 1.0. Počty registru pro
 spojený IDE/BE kandidát 2026-10-09 jsou odvozené z [generovaného registru](docs/convergence/TEST-REGISTRY.md)

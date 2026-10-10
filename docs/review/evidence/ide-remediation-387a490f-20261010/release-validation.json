@@ -1,0 +1,13 @@
+{
+  "contract": "M6ReleaseValidation",
+  "version": 1,
+  "valid": true,
+  "verdict": "BLOCKED",
+  "exitCode": 2,
+  "errors": [],
+  "reasonCode": "M6_RELEASE_EVIDENCE_NOT_FOUND",
+  "candidateSha": "387a490fb3fbd6b5c06756629b42e6a44840f15b",
+  "evidenceHeadSha": "387a490fb3fbd6b5c06756629b42e6a44840f15b",
+  "registryFingerprint": "1cf9d212eb90e52c42da8f18962e0121de577c3adccb579785078626150d4780",
+  "evidencePath": "docs/execution/runs/m6/M6-RELEASE-EVIDENCE-INDEX.json"
+}

@@ -1,0 +1,124 @@
+$ ./scripts/install.sh --profile=full --minimal
+started_at=2026-10-10T00:01:59.703Z
+
+
+[1m═══════════════════════════════════════════════════════════[0m
+[1m IntentSmith + IntentSmith Studio — Install[0m
+[1m═══════════════════════════════════════════════════════════[0m
+
+  Project: /home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/ide-fresh-install-387a490f-source
+  Install profile: full
+  Network mode: local-runtime
+
+[1m── Node.js ──[0m
+  [0;32m✓[0m Node.js v24.21.0
+  [0;32m✓[0m npm 10.9.4
+
+[1m── Build Tools ──[0m
+  [0;32m✓[0m C++ compiler found
+  [0;32m✓[0m make found
+  [0;32m✓[0m python3.12 with venv support found
+  [0;32m✓[0m DejaVu PDF fonts found
+
+[1m── Process Containment ──[0m
+  [0;32m✓[0m bubblewrap found at /usr/bin/bwrap
+  [0;32m✓[0m prlimit found at /usr/bin/prlimit
+  [0;32m✓[0m Python pidfd recovery authority found at /usr/bin/python3
+  [0;32m✓[0m fuser database holder census found at /usr/bin/fuser
+
+[1m── IntentSmith Studio Toolchain ──[0m
+  [0;32m✓[0m yarn 1.22.22
+
+[1m── Ollama ──[0m
+  [0;32m✓[0m Ollama installed (ollama version is 0.34.0-intentsmith.1)
+  [0;32m✓[0m Ollama is running
+
+[1m── Backend Dependencies ──[0m
+  [0;34m→[0m Running npm ci from package-lock.json...
+  npm audit fix --force
+
+Run `npm audit` for details.
+  [0;32m✓[0m npm ci complete
+  [0;34m→[0m Verifying better-sqlite3 native binding...
+  [0;32m✓[0m better-sqlite3 native binding OK
+
+[1m── PDF Export Runtime ──[0m
+  [0;34m→[0m Installing hash-locked ReportLab runtime...
+Collecting charset-normalizer==3.4.4 (from -r /home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/ide-fresh-install-387a490f-source/requirements/pdf-export.lock (line 10))
+  Downloading charset_normalizer-3.4.4-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (153 kB)
+Collecting pillow==12.3.0 (from -r /home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/ide-fresh-install-387a490f-source/requirements/pdf-export.lock (line 12))
+  Downloading pillow-12.3.0-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (6.9 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 6.9/6.9 MB 46.6 MB/s eta 0:00:00
+Collecting reportlab==5.0.0 (from -r /home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/ide-fresh-install-387a490f-source/requirements/pdf-export.lock (line 14))
+  Downloading reportlab-5.0.0-py3-none-any.whl (2.0 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 2.0/2.0 MB 50.5 MB/s eta 0:00:00
+Installing collected packages: reportlab, pillow, charset-normalizer
+Successfully installed charset-normalizer-3.4.4 pillow-12.3.0 reportlab-5.0.0
+No broken requirements found.
+IntentSmith PDF runtime ready
+  interpreter: /home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/ide-fresh-install-387a490f-source/.intentsmith-artifacts/fresh-install-qualification/data/intentsmith/python/pdf/bin/python
+  lock sha256: b8126794c9fa898d19220335359019fd7558fd4775b17447b61d78b2acf229e2
+  versions: {"packages": {"charset-normalizer": "3.4.4", "pillow": "12.3.0", "reportlab": "5.0.0"}, "python": "3.12.14"}
+  [0;32m✓[0m Isolated PDF export runtime ready
+
+[1m── IDE Dependencies ──[0m
+  [0;32m✓[0m yarn 1.22.22
+  [0;34m→[0m Running frozen Yarn install for IDE...
+(Use `node --trace-deprecation ...` to show where the warning was created)
+success Already up-to-date.
+Done in 0.15s.
+  [0;32m✓[0m IDE dependencies installed
+
+[1m── Electron Native Modules ──[0m
+  [0;34m→[0m Rebuilding native modules for Electron ABI...
+- Searching dependency tree
+✔ Rebuild Complete
+  [0;32m✓[0m Native modules rebuilt for Electron
+  [0;34m→[0m Verifying backend better-sqlite3 binding...
+  [0;32m✓[0m better-sqlite3 binding OK
+  [0;34m→[0m Building IntentSmith Studio from the tracked Theia esbuild configuration...
+
+[build/electron] Build started
+
+[build/electron] Finished with 0 errors in 25ms.
+
+$ node scripts/verify-m1-consumer-build.js
+STUDIO_M1_BUILD_CONSUMER_PASS {"applicationManifestSha256":"d475ae3b392e3898fdf63ddaab9b4e3b97ae398539179f1067e59dd2fae2896f","frontendEntrySha256":"7367a2c0a2dece60555468318a9099db6e92add020a7bc9150dbc042d7caff81","bundleBytes":13239786,"bundleSha256":"ee3d35f59f4baa0c720089eb3574af0528d9a73e25634e2abebc01b966618b68","preloadBytes":26489,"preloadSha256":"72a3dceeb8d89c405e32cf03a64db8f97d739df8c5a54f61d442aa6f50af33ce","mainBytes":5225825,"mainSha256":"873f3873ae7b3130de1393a73ce84ca16ea66d41e05704e799f2cf8e778fa824","ripgrepBytes":5728032,"ripgrepSha256":"193906679498de4d939345b937fa24e0e69a03c244bd70c859f5e41232713f21","consumerBytes":50862,"consumerSha256":"f74d70c092ebda564bc18a1fab9b868789f1cd8646a5596ce4df480148cdffa5","protocolBytes":1179,"protocolSha256":"810863842d1b883b9115fd9f62ae64010ff4d62e9e1e4953264f5c579ed24c37","protocolVersion":1}
+Done in 3.99s.
+  [0;32m✓[0m IntentSmith Studio build complete
+
+[1m── Build Artifacts ──[0m
+  [0;32m✓[0m IntentSmith Studio artifacts and 4 Electron ABI bindings verified
+
+[1m── Data Directories ──[0m
+  [0;32m✓[0m data/ directory ready
+  [0;32m✓[0m projects/ directory ready
+
+[1m── Models ──[0m
+  [0;32m✓[0m qwen3.5:27b installed (D1, CODE, CHAT)
+  [0;32m✓[0m qwen3.8:latest installed (D2, R1)
+  [0;32m✓[0m qwen3:14b installed (R2)
+  [0;32m✓[0m llava-llama3:8b installed (VISION)
+
+[1m═══════════════════════════════════════════════════════════[0m
+[1m Installation Complete[0m
+[1m═══════════════════════════════════════════════════════════[0m
+
+  Installed profile: full
+
+  [0;32mNext steps:[0m
+
+    1. Start IntentSmith with IntentSmith Studio:
+       ./scripts/run.sh
+
+    2. The IDE will open automatically
+
+    3. Try your first prompt in the chat panel
+
+
+ended_at=2026-10-10T00:02:38.754Z
+exit_code=0
+signal=
+timed_out=false
+owned_process_leak=false
+cleanup_terminated=true

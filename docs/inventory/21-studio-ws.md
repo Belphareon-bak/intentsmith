@@ -1,5 +1,19 @@
 # Inventura #21 — Studio a WS bridge
 
+**Integrace IDE/BE a preview V4, 2026-10-10:** aplikační `387a490f`,
+**INTEGRATION_QUALIFIED / INDEPENDENT_REVIEW_REQUIRED / RELEASE_NOT_ACCEPTED**.
+415/415 offline/database, 3/3 HTTP/restart, 27/27 kontrol skutečného AppImage,
+čerstvá full/minimal instalace i opakování, upgrade/restore DB a 5min HTTP
+zátěž PASS; CI 19/19. Nový 24h HTTP soak stále běží. Opravy revize Opuse:
+4 skutečné přepínače paměti / 31 neúčinných polí pouze pro čtení, lidské
+popisy rolí, textový refine limit a readonly SSH ID. Navíc formulářové M3
+worker create/edit/filter, platný specialista s kontextem v dalším provider
+payloadu po restartu, retence, Git a důležité změny preview 1–9.
+Aktuální graf má 1557 hran, 3 cykly / 28 členů; přijatý baseline je beze změny.
+Produkce c84b88cd ani automation hold se nemění; GPU a skutečné externí
+kanály nejsou kvalifikované. [Důkazy a release podmínky](../review/ide-integration-remediation-20261010.md).
+Níže uvedené starší checkpointy zůstávají historické.
+
 **Studio: průběh práce a prostředí, 2026-09-23:** konkrétní tahy, nástroje,
 čekání, souborové diffy/+− a kopírování formátované odpovědi. Přidáno skutečné
 prostředí backendu a explicitní potvrzované/automatické instalace npm a .NET SDK

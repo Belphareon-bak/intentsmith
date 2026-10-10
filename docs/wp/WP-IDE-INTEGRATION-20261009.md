@@ -107,3 +107,14 @@ prázdné rozpoznávací vzory nabízely gap namísto doménové odpovědi. Př�
 kontextu nyní používá existující M3 dispatcher a wrapper. Povinný důkaz je
 prompt/pravidla/omezení ve skutečném provider payloadu, krátký další vstup a
 readback po restartu. Kvalifikace `0efdf04a` zůstává historická.
+
+Finální aplikační source: `387a490fb3fbd6b5c06756629b42e6a44840f15b`,
+publikovaný na integrační větvi. 415/415 offline/database, 3/3 registrované
+HTTP programy, 27/27 kontrol AppImage proti vlastnímu backendu, čerstvá
+instalace/opakování a CI 19/19 PASS. Nativní sonda má samostatný otisk;
+její oprava čekání na načtené řádky rolí nemění src/, tests/ ani IDE.
+Předání je integrační kvalifikace, nikoli M6 acceptance. Nový 24h HTTP soak
+běží v loopback namespace nad zmrazeným zdrojem, bez inference a outboundu.
+Zdrojové změny po jeho startu by vyžadovaly nový běh.
+Dokončený skutečný 5min HTTP throughput a upgrade/restore přesné předchozí
+136.0.0 na 136.1.0 jsou PASS; nezakládají M6 acceptance ani GPU autoritu.

@@ -1,0 +1,750 @@
+{
+  "probeSha256": "c786a7c5ef85ed4bf75106093f34f42477b4938831efa46562f9973bf076301e",
+  "scope": "PACKAGED_NATIVE_OWNED_BACKEND_CONTROLLED_PROVIDER_NO_GPU_NO_RELEASE_ACCEPTANCE",
+  "sourceRevision": "387a490fb3fbd6b5c06756629b42e6a44840f15b",
+  "sourceClean": true,
+  "appimage": {
+    "path": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/ide-remediation-native-387a490f-source/intentsmith-ide/applications/electron/dist/IntentSmith-0.1.0.AppImage",
+    "sha256": "247ea9552231a5cd6946cde4842b41c7695c9f72380bb97ec821be67401a0969"
+  },
+  "bundleSha256": "ee3d35f59f4baa0c720089eb3574af0528d9a73e25634e2abebc01b966618b68",
+  "generationRequestCount": 2,
+  "node": "v24.21.0",
+  "written": {
+    "role": {
+      "contextWindowTokens": 8192,
+      "maxOutputTokens": 64
+    },
+    "memory": false,
+    "worker": "sha256:5ef6a8a28efedd616d39d04e8a5295a5bbc36c4aada78449c3606da7e1cc985b",
+    "specialist": "native-ide-mv1ms2kt",
+    "account": "account_c39588d7-e8a0-4051-b4c9-e90e8577f050"
+  },
+  "status": "PASS",
+  "checks": [
+    {
+      "name": "native preload uses owned backend capability",
+      "status": "PASS"
+    },
+    {
+      "name": "native inventory renders UNKNOWN provider path",
+      "status": "PASS"
+    },
+    {
+      "name": "native CHAT role editor available",
+      "status": "PASS"
+    },
+    {
+      "name": "native role minimum is visible",
+      "status": "PASS"
+    },
+    {
+      "name": "native role save reaches actual backend and exact readback",
+      "status": "PASS"
+    },
+    {
+      "name": "native memory switch writes false with actual HTTP readback",
+      "status": "PASS"
+    },
+    {
+      "name": "native inactive memory settings are read only",
+      "status": "PASS"
+    },
+    {
+      "name": "native generated SSH ID cannot be edited",
+      "status": "PASS"
+    },
+    {
+      "name": "native SSH form loads real backend",
+      "status": "PASS"
+    },
+    {
+      "name": "native form fits 1366 px",
+      "status": "PASS"
+    },
+    {
+      "name": "native form fits 1920 px",
+      "status": "PASS"
+    },
+    {
+      "name": "native friendly worker form saves a verified disabled custom instance",
+      "status": "PASS"
+    },
+    {
+      "name": "native worker detail edit verifies configuration and retains disabled state",
+      "status": "PASS"
+    },
+    {
+      "name": "native paused worker count reflects backend state",
+      "status": "PASS"
+    },
+    {
+      "name": "native paused worker remains in the paused filter",
+      "status": "PASS"
+    },
+    {
+      "name": "native specialist advanced fields mounted",
+      "status": "PASS"
+    },
+    {
+      "name": "native specialist saves advanced fields and actual package readback",
+      "status": "PASS"
+    },
+    {
+      "name": "native-created specialist context reaches actual provider",
+      "status": "PASS"
+    },
+    {
+      "name": "native account form saves metadata without a token or delivery",
+      "status": "PASS"
+    },
+    {
+      "name": "native writes persist across actual backend restart",
+      "status": "PASS"
+    },
+    {
+      "name": "native-created specialist context is applied after restart and to short input",
+      "status": "PASS"
+    },
+    {
+      "name": "native preload uses owned backend capability",
+      "status": "PASS"
+    },
+    {
+      "name": "fresh native renderer reads saved role after backend restart",
+      "status": "PASS"
+    },
+    {
+      "name": "fresh native renderer reads saved memory after restart",
+      "status": "PASS"
+    },
+    {
+      "name": "fresh native renderer reads created specialist after restart",
+      "status": "PASS"
+    },
+    {
+      "name": "new worker wizard does not request a nonexistent instance",
+      "status": "PASS"
+    },
+    {
+      "name": "no renderer errors in integration navigation",
+      "status": "PASS"
+    }
+  ],
+  "requests": [
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/conversations",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/projects",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/specialists",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/expertises",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/agents",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/media/history",
+      "status": 404
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/system/info",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/system/gpu",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/system/upgrades/bindings",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/health",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/specialists",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/projects",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/projects/1/conversations",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/conversations",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/conversations",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/conversations",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/conversations",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/system/storage/paths",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/system/storage",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/system/storage/inventory",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/settings",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/system/models/role-settings",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/system/models",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/system/upgrades/bindings",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/system/models",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/system/models/evaluations",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/system/models/overview",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/system/models/role-settings",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "PUT",
+      "path": "/api/system/models/role-settings/CHAT",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/system/models/role-settings",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/settings",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/settings",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "POST",
+      "path": "/api/settings",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/settings",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/scm/profiles",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/scm/repositories",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/agents",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/agent-extensions",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/projects",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/agent-extensions/project-health",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "PUT",
+      "path": "/api/agent-extensions/templates/nativni-kontrola-mv1mshih",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/agent-extensions/nativni-kontrola-mv1mshih",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/agent-extensions",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/projects",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/agent-extensions/project-health",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/agent-extensions/nativni-kontrola-mv1mshih",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "POST",
+      "path": "/api/agent-extensions/nativni-kontrola-mv1mshih/preview",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "POST",
+      "path": "/api/agent-extensions/nativni-kontrola-mv1mshih/install",
+      "status": 201
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/agents/native-owned-worker",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/agents",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/agents/native-owned-worker",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/agent-extensions",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/projects",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/agent-extensions",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/projects",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/agent-extensions/project-health",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/agent-extensions/nativni-kontrola-mv1mshih",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/agent-extensions/project-health",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/agent-extensions/nativni-kontrola-mv1mshih",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/agent-extensions/instances/native-owned-worker/config",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "POST",
+      "path": "/api/agent-extensions/nativni-kontrola-mv1mshih/preview",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "PUT",
+      "path": "/api/agent-extensions/instances/native-owned-worker",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/agents/native-owned-worker",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/agents",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/agents/native-owned-worker",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/specialists",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "POST",
+      "path": "/api/specialists",
+      "status": 201
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/specialists/native-ide-mv1ms2kt",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/specialists",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/specialists/native-ide-mv1ms2kt",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/conversations",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/accounts",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/settings",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "PUT",
+      "path": "/api/accounts/account_c39588d7-e8a0-4051-b4c9-e90e8577f050",
+      "status": 200
+    },
+    {
+      "sourcePort": "37197",
+      "method": "GET",
+      "path": "/api/accounts",
+      "status": 200
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/conversations",
+      "status": 200
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/projects",
+      "status": 200
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/specialists",
+      "status": 200
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/expertises",
+      "status": 200
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/agents",
+      "status": 200
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/media/history",
+      "status": 404
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/system/info",
+      "status": 200
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/system/gpu",
+      "status": 200
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/system/upgrades/bindings",
+      "status": 200
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/health",
+      "status": 200
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/projects",
+      "status": 200
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/specialists",
+      "status": 200
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/projects/1/conversations",
+      "status": 200
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/conversations",
+      "status": 200
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/conversations",
+      "status": 200
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/conversations",
+      "status": 200
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/conversations",
+      "status": 200
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/conversations",
+      "status": 200
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/settings",
+      "status": 200
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/system/models/role-settings",
+      "status": 200
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/system/upgrades/bindings",
+      "status": 200
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/system/models",
+      "status": 200
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/system/models/evaluations",
+      "status": 200
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/system/models",
+      "status": 200
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/system/models/overview",
+      "status": 200
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/settings",
+      "status": 200
+    },
+    {
+      "sourcePort": "33369",
+      "method": "GET",
+      "path": "/api/specialists",
+      "status": 200
+    }
+  ],
+  "pageErrors": [],
+  "error": null
+}

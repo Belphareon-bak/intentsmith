@@ -1,0 +1,97 @@
+{
+  "scope": "EXACT_PREVIOUS_APPLICATION_UPGRADE_AND_DATABASE_RESTORE_LOOPBACK_NO_GPU_NO_M6_ACCEPTANCE",
+  "sourceRevision": "387a490fb3fbd6b5c06756629b42e6a44840f15b",
+  "sourceCleanAtStart": true,
+  "sourceCleanAfter": true,
+  "node": "v24.21.0",
+  "status": "PASS",
+  "commands": [
+    {
+      "kind": "prepare-exact-previous-version-cache",
+      "argv": [
+        "npm",
+        "ci",
+        "--no-audit",
+        "--no-fund"
+      ],
+      "startedAt": "2026-10-10T00:23:03.702Z",
+      "endedAt": "2026-10-10T00:23:04.892Z",
+      "command": [
+        "npm",
+        "ci",
+        "--no-audit",
+        "--no-fund"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "",
+      "stderr": "",
+      "timedOut": false,
+      "leakDetected": false,
+      "cleanupTerminated": true,
+      "spawnError": null,
+      "logError": null,
+      "logPath": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/ide-fresh-install-387a490f-source/.intentsmith-artifacts/upgrade-qualification/prepare-exact-previous-version-cache.log",
+      "logSha256": "73d208623daec8b62fbac86bfd1461d5ccf97b9b34bdaf630aad66a09f8c7bb5"
+    },
+    {
+      "kind": "actual-upgrade-backup-damage-restore-restart",
+      "argv": [
+        "node",
+        "tests/m6-previous-version-upgrade.e2e.js"
+      ],
+      "startedAt": "2026-10-10T00:23:04.905Z",
+      "endedAt": "2026-10-10T00:23:10.707Z",
+      "command": [
+        "node",
+        "tests/m6-previous-version-upgrade.e2e.js"
+      ],
+      "exitCode": 0,
+      "signal": null,
+      "stdout": "",
+      "stderr": "",
+      "timedOut": false,
+      "leakDetected": false,
+      "cleanupTerminated": true,
+      "spawnError": null,
+      "logError": null,
+      "logPath": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/ide-fresh-install-387a490f-source/.intentsmith-artifacts/upgrade-qualification/actual-upgrade-backup-damage-restore-restart.log",
+      "logSha256": "7c8b081248ee00c164098df9e6054e29607e81ef9b3e2b1607cef0ccfb60f22e"
+    }
+  ],
+  "runtimeReceipt": {
+    "contract": "M6PreviousVersionUpgradeReceipt",
+    "version": 3,
+    "backupContentFingerprint": "sha256:62193424cd1562502f119cb051e70a791abb36cb2cff61cc97c0d209686f7698",
+    "backupDatabaseSha256": "551dae511e64c56e189d8b385d1d54efaa27eb7fb7d925e1b4fe35700043ad3f",
+    "candidateSha": "387a490fb3fbd6b5c06756629b42e6a44840f15b",
+    "previousSha": "d3d2ec88d7b96a89b7d49569fb542ba3bb606fd8",
+    "previousVersion": "136.0.0",
+    "currentVersion": "136.1.0",
+    "databaseFileIdentitySha256": "2569767d9c0dbbb10ff463fff1e7363377c3825df1e7b6b9be5a33b0dda95b90",
+    "failedUpgradeExitCode": 1,
+    "failedUpgradeLogSha256": "45ce9cd6a4e890648e8ff42d572ffa9cc0f2897f36e491f9695dd2d24a32809a",
+    "failedUpgradeMigrationCount": 80,
+    "previousMigrationCount": 56,
+    "currentMigrationCount": 110,
+    "canary": {
+      "id": 1,
+      "name": "M6 Upgrade Canary",
+      "description": "created by the exact 136.0.0 application",
+      "type": "general",
+      "survivedUpgrade": true
+    },
+    "previousServerCleanShutdown": true,
+    "restoreSafetyBackupCreated": true,
+    "restoreVerified": true,
+    "restoredDatabaseSha256": "551dae511e64c56e189d8b385d1d54efaa27eb7fb7d925e1b4fe35700043ad3f",
+    "restoredMigrationCount": 56,
+    "currentServerCleanShutdown": true,
+    "networkScope": "linux-user-network-namespace-loopback-only",
+    "namespaceInterfaces": [
+      "lo"
+    ],
+    "verdict": "PASS"
+  },
+  "error": null
+}

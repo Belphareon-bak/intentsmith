@@ -1,0 +1,132 @@
+{
+  "scope": "FAILED_PARALLEL_RUN_RETAINED_NOT_FINAL_QUALIFICATION",
+  "originalSha256": "e702fdd9ea8179936be8aa3a11a2ba47fcd2cdefdc597f2dd31a73ddd679a326",
+  "originalLocalPath": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/.intentsmith-artifacts/test-runs/ide-remediation-full-08f4ed7b-20261010/report.json",
+  "sourceRevision": "08f4ed7be001322eeb177399086c1860b0cb135b",
+  "verdict": "FAIL",
+  "statusCounts": {
+    "PASS": 400,
+    "FAIL": 14,
+    "TIMEOUT": 1,
+    "BLOCKED": 0,
+    "SKIPPED": 0
+  },
+  "options": {
+    "concurrency": 2,
+    "failFast": false,
+    "timeoutMs": 600000,
+    "deadlineMs": 28800000,
+    "profiles": [
+      "database",
+      "offline"
+    ],
+    "ids": [],
+    "exclude": [],
+    "allowBlockers": [
+      "toolchain:accountant-ocr-runtime",
+      "toolchain:bubblewrap",
+      "toolchain:bwrap",
+      "toolchain:git",
+      "toolchain:iproute2",
+      "toolchain:nftables",
+      "toolchain:prlimit",
+      "toolchain:python-pdf-runtime",
+      "toolchain:python3",
+      "toolchain:systemd-analyze",
+      "toolchain:tar"
+    ],
+    "noBlock": false
+  },
+  "failures": [
+    {
+      "path": "tests/collection-stage-provider.test.mjs",
+      "status": "FAIL",
+      "exitCode": 1,
+      "sourceTreeClean": null
+    },
+    {
+      "path": "tests/chat-context-interpretation.test.js",
+      "status": "FAIL",
+      "exitCode": null,
+      "sourceTreeClean": null
+    },
+    {
+      "path": "tests/hunt-completion-simulation.test.mjs",
+      "status": "TIMEOUT",
+      "exitCode": null,
+      "sourceTreeClean": null
+    },
+    {
+      "path": "tests/mobile-browser-a11y.test.js",
+      "status": "FAIL",
+      "exitCode": 0,
+      "sourceTreeClean": null
+    },
+    {
+      "path": "tests/nightly-orchestrator-self-test.js",
+      "status": "FAIL",
+      "exitCode": 0,
+      "sourceTreeClean": null
+    },
+    {
+      "path": "tests/notifications.test.js",
+      "status": "FAIL",
+      "exitCode": 0,
+      "sourceTreeClean": null
+    },
+    {
+      "path": "tests/online-discovery.test.js",
+      "status": "FAIL",
+      "exitCode": 0,
+      "sourceTreeClean": null
+    },
+    {
+      "path": "tests/outbound-network-optin.test.js",
+      "status": "FAIL",
+      "exitCode": 0,
+      "sourceTreeClean": null
+    },
+    {
+      "path": "tests/output-gate.js",
+      "status": "FAIL",
+      "exitCode": 0,
+      "sourceTreeClean": null
+    },
+    {
+      "path": "tests/pairwise-trial.test.js",
+      "status": "FAIL",
+      "exitCode": 0,
+      "sourceTreeClean": null
+    },
+    {
+      "path": "tests/patch-engine.test.js",
+      "status": "FAIL",
+      "exitCode": 0,
+      "sourceTreeClean": null
+    },
+    {
+      "path": "tests/pattern-miner.test.js",
+      "status": "FAIL",
+      "exitCode": 0,
+      "sourceTreeClean": null
+    },
+    {
+      "path": "tests/perf-analyzer.test.js",
+      "status": "FAIL",
+      "exitCode": 0,
+      "sourceTreeClean": null
+    },
+    {
+      "path": "tests/pilot-c1c2c3.test.js",
+      "status": "FAIL",
+      "exitCode": 0,
+      "sourceTreeClean": null
+    },
+    {
+      "path": "tests/pre082-upgrade-regression.test.js",
+      "status": "FAIL",
+      "exitCode": 0,
+      "sourceTreeClean": null
+    }
+  ]
+}

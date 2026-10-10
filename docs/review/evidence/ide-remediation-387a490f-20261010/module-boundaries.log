@@ -1,0 +1,3 @@
+MODULE_BOUNDARY_RATCHET_PASS baselineEdges=1557 currentEdges=1557 rawScannerEdges=1557 normalizedDuplicates=0 added=0 removed=0 cycles=3 filesInCycles=28 baselineAuthority=integration baselineRevision=1aec78cb157855416c933e115cf6e42886ed178d
+P6_SCANNER_LIMITS computed import() targets are not resolved; template-literal content (including src/domains/scaffolds/**) is ignored; HTML <script src> edges are not modeled; TypeScript declaration/source files are not scanned by protocol 1; static and dynamic imports are reported separately before pair normalization
+BASELINE_PROVENANCE_VERIFIED sourceRevision=1aec78cb157855416c933e115cf6e42886ed178d currentRevision=387a490fb3fbd6b5c06756629b42e6a44840f15b commitsBehind=9 replayedEdges=1557

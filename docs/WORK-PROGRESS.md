@@ -1251,3 +1251,24 @@ už vyplývá z jeho pokynu; tento historický PENDING není nový consent block
 Fresh5/Studio má vlastní sériové GPU okno; na dosud neotevřené H1 okno
 časově nečeká a inference se nepřekrývají. Tehdy HTTP 13. CODE volání a Fan rozšíření
 čekaly na rozhodnutí; operátor je následně 8. 10. autorizoval v rozsahu uvedeném nahoře.
+
+### IDE/BE a preview V4 — 10. 10. 2026
+
+Integrační větev `work/ide-integration-20261009`, aplikační `387a490f`:
+415/415 offline/database, 3/3 HTTP, skutečný AppImage proti vlastnímu backendu
+27/27, čerstvá instalace i opakování a CI 19/19 PASS. Zapracovaná revize
+Opuse pro předchozí `230f657f`, její NEEDS_CHANGES se nevydává za schválení
+nového kódu. Navíc opravený nativní worker edit/filter a skutečný účinek
+generovaného specialisty v provider payloadu po restartu.
+
+Čtyři obecné přepínače paměti jsou funkční; 31 neúčinných historických polí
+je pouze pro čtení. Nový 24h HTTP soak na zmrazeném `387a490f` běží od
+10. 10. 02:05 CEST, skončí nejdříve 11. 10. 02:05. Neměří chat ani GPU.
+Starší vlastní 0efdf04a soak byl záměrně ukončen po změně backendu a není
+PASS. Cizí 138e958b soak, produkce c84b88cd, bindingy a automation hold jsou
+zachované. [Raw důkazy a zbývající release podmínky](review/ide-integration-remediation-20261010.md).
+Nová nezávislá revize, M5 custody/podepsané záznamy, M6 a operátorská
+přejímka zůstávají otevřené; skutečné kanály a GPU nejsou označené za ověřené.
+Skutečný upgrade/obnova DB z přesné předchozí aplikace PASS. Také skutečná
+5min HTTP health zátěž PASS: 43340.09 req/s, P95 26 ms, P99 37 ms, 0 chyb
+a outbound rozhodnutí; nejde o rychlost chatu ani obecnou M6 přejímku.
