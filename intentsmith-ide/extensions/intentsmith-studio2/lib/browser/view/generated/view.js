@@ -1564,7 +1564,7 @@ function render(vm, h, F, rt) {
                                                     $group.title),
                                                   h("button", { className: "btn", disabled: $b.modelWorkspace.redesign.profiles.disabled, onClick: $group.create },
                                                     "Nový profil")),
-                                                h("div", { className: "mw-profile-list" },
+                                                h("div", { className: $b.modelWorkspace.redesign.profiles.layoutClass },
                                                   L($group.rows).map(($profile, $i25) => h(F, { key: $i25 },
                                                       h("article", { className: "mw-profile" },
                                                         h("div", null,

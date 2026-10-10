@@ -853,6 +853,10 @@
 .intentsmith-studio2-widget .mw-facts dt{color:var(--dim)}
 .intentsmith-studio2-widget .mw-facts dd{margin:0;text-align:right;overflow-wrap:anywhere}
 .intentsmith-studio2-widget .mw-profile-list{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.intentsmith-studio2-widget .mw-profile-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,270px),1fr));gap:12px}
+.intentsmith-studio2-widget .mw-profile-tiles.mw-profile-size-1{grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr))}
+.intentsmith-studio2-widget .mw-profile-tiles.mw-profile-size-3{grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr))}
+.intentsmith-studio2-widget .mw-profile-tiles .mw-profile{padding:14px;border:1px solid var(--soft);border-radius:5px;background:var(--bg)}
 .intentsmith-studio2-widget .mw-section-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:12px}
 .intentsmith-studio2-widget .mw-section-head h3{margin:0}
 .intentsmith-studio2-widget .mw-profile-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin:16px 0}

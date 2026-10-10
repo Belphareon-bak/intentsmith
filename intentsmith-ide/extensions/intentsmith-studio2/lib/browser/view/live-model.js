@@ -3856,8 +3856,9 @@ class LiveModel extends Component {
     }
     const settingsId=s.detail?.settings;
     const modelCatalog=settingsId==='modely'&&['hunt','candidates','history'].includes(this.modelWorkspace.tab)&&this.modelWorkspace.huntTab==='catalog'&&!this.modelWorkspace.externalDraft;
+    const modelProfiles=settingsId==='modely'&&['hunt','candidates','history'].includes(this.modelWorkspace.tab)&&this.modelWorkspace.huntTab==='profiles'&&!this.modelWorkspace.profileDraft;
     const collection=!vm.isScmReview&&!vm.isSessions&&s.mode==='section'&&s.detail?.[s.section]!=='__new__'
-      &&(s.section!=='settings'||!settingsId||modelCatalog||['ucet','oznameni','uloziste','zalohy','git'].includes(settingsId)&&!this.settingsManagement.editors.has(settingsId));
+      &&(s.section!=='settings'||!settingsId||modelCatalog||modelProfiles||['ucet','oznameni','uloziste','zalohy','git'].includes(settingsId)&&!this.settingsManagement.editors.has(settingsId));
     vm.tbar.viewDisabled=!collection;
     vm.tbar.viewTitle=collection?'Katalog jako dlaždice nebo seznam':'Tato stránka používá formulář, tabulku nebo diff. Seznam a dlaždice zde nemají účinek.';
     vm.tbar.viewDim=collection?'':'view-disabled';

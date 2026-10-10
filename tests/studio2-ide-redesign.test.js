@@ -39,6 +39,8 @@ test('global list and tile controls have an actual catalog effect and disable fo
   model.modelWorkspace.tab='hunt';model.modelWorkspace.huntTab='catalog';toolbar=model.renderVals().tbar;
   assert.equal(toolbar.viewDisabled,false);toolbar.showList();assert.equal(model.modelWorkspaceVM().redesign.catalog.layoutClass,'mw-catalog-list');
   model.renderVals().tbar.showTiles();assert.match(model.modelWorkspaceVM().redesign.catalog.layoutClass,/mw-catalog-tiles/);
+  model.modelWorkspace.huntTab='profiles';assert.equal(model.renderVals().tbar.viewDisabled,false);model.renderVals().tbar.showList();assert.equal(model.modelWorkspaceVM().redesign.profiles.layoutClass,'mw-profile-list');
+  model.renderVals().tbar.showTiles();assert.match(model.modelWorkspaceVM().redesign.profiles.layoutClass,/mw-profile-tiles/);model.modelWorkspace.newProfile();assert.equal(model.renderVals().tbar.viewDisabled,true);
   model.setState({section:'workers',detail:{workers:'__new__'}});assert.equal(model.renderVals().tbar.viewDisabled,true);
 });
 
