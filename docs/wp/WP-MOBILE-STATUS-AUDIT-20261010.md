@@ -12,6 +12,9 @@ Jde o audit, ne o zavedení nové capability, aktivaci listeneru či release.
   `docs/review/2026-10-10-MOBILE-STATUS-AUDIT.md` a kompaktní receipt v
   `docs/review/evidence/mobile-status-audit-20261010/`. Build používá pouze
   vlastní ignorované dependencies, assety, Gradle výstupy a testové sandboxy.
+  Beze změny se zachovají také tři vlastní WP/report/receipt dokumenty
+  předchozího worker auditu z publikovaného `04436d00`, aby předané lokální
+  odkazy dál fungovaly; jeho runtime fixy patří původní audit větvi.
   Případné generované tracked soubory se ověří vůči zaznamenanému source;
   žádná produktová oprava ani změna kontraktu není součástí tohoto auditu.
 - Kontroly: všech 47 ACTIVE C3-031/C3-032 registry programů na přesném čistém
@@ -35,3 +38,13 @@ Jde o audit, ne o zavedení nové capability, aktivaci listeneru či release.
 Workspace budget navazuje na čerstvý report předchozího auditu: 89 chráněných
 checkoutů, 0 bezpečně retirable. Tento audit nevytváří další worktree ani
 neodstraňuje cizí data. Předchozí sedm důkazních runtime kořenů zůstává chráněno.
+
+Výsledek na `1acb5d6b`: 47/47 mobile registry programů PASS, standardní mobile
+gate 47/47 PASS, artifact validation 161/161 PASS a registry valid. Android
+test/lint/assembleDebug na JDK21/API36/Gradle8.14.3/Capacitor8.5 prošly; JUnit
+5/5 v obou variantách a app lint 0 errors / 16 warnings. Vývojový APK má shodné
+klientské assety a source manifest; není produkční M7 kandidát.
+Actual UI/M7 provider/SQLite probe reprodukoval NEW_CHAT_GAP; existující
+syntetická konverzace ve stejném probe prošla. Fyzický telefon není připojen,
+VPN/listener/credentials nejsou aktivní, signer custody/distribution chybí.
+Stav HOST_GATE_GREEN / NEW_CHAT_GAP_REPRODUCED / DEVICE_NOT_RUN / NOT_ACCEPTED.

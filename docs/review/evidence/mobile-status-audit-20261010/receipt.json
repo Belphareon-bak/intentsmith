@@ -1,0 +1,676 @@
+{
+  "schemaVersion": 1,
+  "manifestType": "intentsmith.mobile-status-audit-receipt",
+  "recordedAtUtc": "2026-10-10T20:38:44.597510+00:00",
+  "sourceRevision": "1acb5d6b9bbc180c2ceee9a16956f0894a7d0e03",
+  "branch": "work/mobile-status-audit-20261010",
+  "sourceCleanAtGatesAndBuild": true,
+  "sourceBase": "46337ee66f8788f9ca2f041c165d4e35b3f242cf",
+  "verifiedRemoteMain": "138e958be927df9835c091d3ad41d44b347e85b5",
+  "runningRelease": "3c804a8a859a9f44efd200585795f5373e85fc3c",
+  "status": "HOST_GATE_GREEN / NEW_CHAT_GAP_REPRODUCED / DEVICE_NOT_RUN / NOT_ACCEPTED",
+  "mobileSourceTrees": {
+    "src/mobile/client": {
+      "1acb5d6b9bbc180c2ceee9a16956f0894a7d0e03": "786443228cd9155945b66fcb607486d1b6b5616b",
+      "46337ee6": "786443228cd9155945b66fcb607486d1b6b5616b",
+      "3c804a8a": "786443228cd9155945b66fcb607486d1b6b5616b"
+    },
+    "mobile-app/android": {
+      "1acb5d6b9bbc180c2ceee9a16956f0894a7d0e03": "6cf8c3823b16b84d2324ecae3fe4466728c66581",
+      "46337ee6": "6cf8c3823b16b84d2324ecae3fe4466728c66581",
+      "3c804a8a": "6cf8c3823b16b84d2324ecae3fe4466728c66581"
+    }
+  },
+  "mobileGate": {
+    "runId": "mobile-status-1acb5d6b-20261010",
+    "sourceRevision": "1acb5d6b9bbc180c2ceee9a16956f0894a7d0e03",
+    "startedAt": "2026-10-10T20:30:11.042Z",
+    "endedAt": "2026-10-10T20:30:57.298Z",
+    "registryHash": "ddb9d94de4d481bb83c5e6041cb81a7701d98be305575646422bc1e67b1835f6",
+    "verdict": "PASS",
+    "statusCounts": {
+      "PASS": 47,
+      "FAIL": 0,
+      "TIMEOUT": 0,
+      "BLOCKED": 0,
+      "SKIPPED": 0
+    },
+    "inventory": {
+      "total": 47,
+      "counts": {
+        "offline": 33,
+        "database": 14,
+        "server": 0,
+        "model": 0,
+        "soak": 0,
+        "manual": 0
+      },
+      "blockerCounts": {}
+    },
+    "originalReportPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/report.json",
+    "originalReportSha256": "a47a97e526c821ec6476dd04237f9965215feea9cdd0ed57f9ad5ba7374541d5",
+    "allResultSourceChecksClean": true,
+    "cleanupLeaks": false,
+    "results": [
+      {
+        "id": "IS-T1-TESTS-M7-CANONICAL-JSON-PARITY-TEST",
+        "path": "tests/m7-canonical-json-parity.test.js",
+        "status": "PASS",
+        "durationMs": 42,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-canonical-json-parity.test.js.779912b1.log",
+        "logSha256": "f41db299759766178e042d1b8b6d02d22d4ecb7b4829117f97fdfbabb7706695"
+      },
+      {
+        "id": "IS-T1-TESTS-M7-CONVERSATION-COMMAND-EXECUTOR-TEST",
+        "path": "tests/m7-conversation-command-executor.test.js",
+        "status": "PASS",
+        "durationMs": 47,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-conversation-command-executor.test.js.d662a021.log",
+        "logSha256": "4765446087bf99b26a8481106f0e443e3660b2d196950f3d27adf31f6fac9f0d"
+      },
+      {
+        "id": "IS-T1-TESTS-M7-CONVERSATION-CORE-ADAPTERS-TEST",
+        "path": "tests/m7-conversation-core-adapters.test.js",
+        "status": "PASS",
+        "durationMs": 85,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-conversation-core-adapters.test.js.d96c8b72.log",
+        "logSha256": "c44321afa1fd17bcd64456dbddea3d3f485d2fdd789ff8f1bba9ba9f9617892b"
+      },
+      {
+        "id": "IS-T1-TESTS-M7-CORE-COMPOSITION-TEST",
+        "path": "tests/m7-core-composition.test.js",
+        "status": "PASS",
+        "durationMs": 142,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-core-composition.test.js.2b5e07db.log",
+        "logSha256": "2ca2368944bceaa0c066ba54eaf2fcb5ddde37d0564798cb7bf3d1d9c20acbe6"
+      },
+      {
+        "id": "IS-T1-TESTS-M7-DISCONNECTED-REQUEST-PIPELINE-TEST",
+        "path": "tests/m7-disconnected-request-pipeline.test.js",
+        "status": "PASS",
+        "durationMs": 133,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-disconnected-request-pipeline.test.js.4361f964.log",
+        "logSha256": "6e0e1a268f791e41f59a7cd4f855ef3643bbc0623eb7c32050042fa920983708"
+      },
+      {
+        "id": "IS-T1-TESTS-M7-DURABLE-RATE-LIMITER-TEST",
+        "path": "tests/m7-durable-rate-limiter.test.js",
+        "status": "PASS",
+        "durationMs": 313,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-durable-rate-limiter.test.js.32485a8e.log",
+        "logSha256": "5218ed2c98aba4a883f9013278eaf5382f482d467e3c51ee3f59b285bc933242"
+      },
+      {
+        "id": "IS-T1-TESTS-M7-IN-PROCESS-CAPABILITY-PROVIDER-TEST",
+        "path": "tests/m7-in-process-capability-provider.test.js",
+        "status": "PASS",
+        "durationMs": 65,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-in-process-capability-provider.test.js.f8b9cde8.log",
+        "logSha256": "653f301795c22e1e78ddb425b3750f00d617ba33b332d5b0bf88e7037fb36934"
+      },
+      {
+        "id": "IS-T1-TESTS-M7-LOCAL-PAIRING-ROUTE-TEST",
+        "path": "tests/m7-local-pairing-route.test.js",
+        "status": "PASS",
+        "durationMs": 63,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-local-pairing-route.test.js.7e46b40b.log",
+        "logSha256": "ea068f95fc0651827dbab611d366daf24c6ba463d1ba8e50356cf52ab9564f21"
+      },
+      {
+        "id": "IS-T1-TESTS-M7-LOCAL-PAIRING-STUDIO-TEST",
+        "path": "tests/m7-local-pairing-studio.test.js",
+        "status": "PASS",
+        "durationMs": 44,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-local-pairing-studio.test.js.572f7692.log",
+        "logSha256": "47ac2a93b969989c0025125f799651471fc1ffa14a2be315e9132ac68205aba2"
+      },
+      {
+        "id": "IS-T1-TESTS-M7-M2-APPROVAL-CORE-ADAPTERS-TEST",
+        "path": "tests/m7-m2-approval-core-adapters.test.js",
+        "status": "PASS",
+        "durationMs": 3334,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-m2-approval-core-adapters.test.js.12c96c74.log",
+        "logSha256": "e94eaea9b0064eac7dd42540996fb5945cba27744f56317d41ec88d6f2b56376"
+      },
+      {
+        "id": "IS-T1-TESTS-M7-MOBILE-APP-RUNTIME-TEST",
+        "path": "tests/m7-mobile-app-runtime.test.js",
+        "status": "PASS",
+        "durationMs": 502,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-mobile-app-runtime.test.js.6ad6d05e.log",
+        "logSha256": "a0471fe18d19902c54e33640dccd051811869ac07719c20b677c1b843b93897e"
+      },
+      {
+        "id": "IS-T1-TESTS-M7-MOBILE-CORE-PIN-INTEGRATION-TEST",
+        "path": "tests/m7-mobile-core-pin-integration.test.js",
+        "status": "PASS",
+        "durationMs": 56,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-mobile-core-pin-integration.test.js.082d1156.log",
+        "logSha256": "ff44337259465404bc68a09b5848fb45696b7775cfc0a789cbcd0697ad91fccf"
+      },
+      {
+        "id": "IS-T1-TESTS-M7-MOBILE-UI-API-ADAPTER-TEST",
+        "path": "tests/m7-mobile-ui-api-adapter.test.js",
+        "status": "PASS",
+        "durationMs": 40,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-mobile-ui-api-adapter.test.js.1a215f23.log",
+        "logSha256": "12e02d7673d2731fe047fe4cd159bd302f2c70103441f24d9ced6f323a598762"
+      },
+      {
+        "id": "IS-T1-TESTS-M7-MUTATION-MEDIATOR-TEST",
+        "path": "tests/m7-mutation-mediator.test.js",
+        "status": "PASS",
+        "durationMs": 48,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-mutation-mediator.test.js.7b109ce6.log",
+        "logSha256": "b0b66b582f231711edba827946f59ab3923df36f78f9fdd8b1b9119f8e6f23b1"
+      },
+      {
+        "id": "IS-T1-TESTS-M7-NATIVE-REMOTE-CLIENT-TEST",
+        "path": "tests/m7-native-remote-client.test.js",
+        "status": "PASS",
+        "durationMs": 60,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-native-remote-client.test.js.5edc41e3.log",
+        "logSha256": "a1992924a6e608b098875b5710657f884ff7b0d5889228f2162108b3bfd927f0"
+      },
+      {
+        "id": "IS-T1-TESTS-M7-NOTIFICATION-CORE-ADAPTERS-TEST",
+        "path": "tests/m7-notification-core-adapters.test.js",
+        "status": "PASS",
+        "durationMs": 349,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-notification-core-adapters.test.js.ef074412.log",
+        "logSha256": "29ace0601f870a4923ef9cc2bfd6d6f9177a559309c72ef08001d1e52a5f9f03"
+      },
+      {
+        "id": "IS-T1-TESTS-M7-OPERATION-CONTROL-ADAPTERS-TEST",
+        "path": "tests/m7-operation-control-adapters.test.js",
+        "status": "PASS",
+        "durationMs": 308,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-operation-control-adapters.test.js.04d13ffc.log",
+        "logSha256": "42befcde9bef5e2e3d0cb71265529cb0cf83dc2a21453942bc48f56d2025656c"
+      },
+      {
+        "id": "IS-T1-TESTS-M7-OPERATION-JOURNAL-TEST",
+        "path": "tests/m7-operation-journal.test.js",
+        "status": "PASS",
+        "durationMs": 194,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-operation-journal.test.js.5b628c4f.log",
+        "logSha256": "c458f3700db6609d545c96445da61ef700ef37cacd201b89be2bd9ffeb9a6fe4"
+      },
+      {
+        "id": "IS-T1-TESTS-M7-PROJECT-CORE-ADAPTERS-TEST",
+        "path": "tests/m7-project-core-adapters.test.js",
+        "status": "PASS",
+        "durationMs": 101,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-project-core-adapters.test.js.eb2adf66.log",
+        "logSha256": "4cd12b1593f15eebdf3b6060bf18ee6606ae4a261057cd7cabb7a06a910dc4c3"
+      },
+      {
+        "id": "IS-T1-TESTS-M7-REMOTE-HEALTH-ADAPTER-TEST",
+        "path": "tests/m7-remote-health-adapter.test.js",
+        "status": "PASS",
+        "durationMs": 49,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-remote-health-adapter.test.js.32985334.log",
+        "logSha256": "247cb1ad3f13e1c157e7252cbac4939efc0d540f559a6610659dee06cf210683"
+      },
+      {
+        "id": "IS-T1-TESTS-M7-RUN-EVENT-CORE-ADAPTER-TEST",
+        "path": "tests/m7-run-event-core-adapter.test.js",
+        "status": "PASS",
+        "durationMs": 341,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-run-event-core-adapter.test.js.07053bd8.log",
+        "logSha256": "4ad4ef0064a91734d5da4f6f27e1d9d9da5324baab1501cb941f2e439b07887e"
+      },
+      {
+        "id": "IS-T1-TESTS-M7-SESSION-AUTHORITY-TEST",
+        "path": "tests/m7-session-authority.test.js",
+        "status": "PASS",
+        "durationMs": 573,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-session-authority.test.js.06f5a8e3.log",
+        "logSha256": "aa4975837d60694cdb81129e7514d246bb20224bd389c1a2c591f7a803d6139c"
+      },
+      {
+        "id": "IS-T1-TESTS-M7-SETTINGS-INFORMATION-CORE-ADAPTERS-TEST",
+        "path": "tests/m7-settings-information-core-adapters.test.js",
+        "status": "PASS",
+        "durationMs": 93,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-settings-information-core-adapters.test.js.a71ce126.log",
+        "logSha256": "ca2a2f107028edaee19ddd061925e7cb8fbb04343024d5569b737149851c391d"
+      },
+      {
+        "id": "IS-T1-TESTS-M7-TRANSPORT-ADMISSION-POLICY-TEST",
+        "path": "tests/m7-transport-admission-policy.test.js",
+        "status": "PASS",
+        "durationMs": 56,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-transport-admission-policy.test.js.5bd65e6e.log",
+        "logSha256": "302d303985e2d01f56e81d97ead1fbb8d7f69ba35a85698261ae16d75c555db5"
+      },
+      {
+        "id": "IS-T1-TESTS-M7-VPN-PRODUCTION-RUNTIME-TEST",
+        "path": "tests/m7-vpn-production-runtime.test.js",
+        "status": "PASS",
+        "durationMs": 1686,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-vpn-production-runtime.test.js.dca7e897.log",
+        "logSha256": "1949e7d2796ddab03be27a5765e1695953ef0fc38f59070e06e0dc716e9f3010"
+      },
+      {
+        "id": "IS-T1-TESTS-M7-VPN-RUNTIME-CONFIG-TEST",
+        "path": "tests/m7-vpn-runtime-config.test.js",
+        "status": "PASS",
+        "durationMs": 203,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-vpn-runtime-config.test.js.fde44a7e.log",
+        "logSha256": "ec172847076922084e1774a64d5e6febfb4d2fe458d05574c3ea62a6a31d4081"
+      },
+      {
+        "id": "IS-T1-TESTS-M7-VPN-TLS-LISTENER-TEST",
+        "path": "tests/m7-vpn-tls-listener.test.js",
+        "status": "PASS",
+        "durationMs": 106,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_m7-vpn-tls-listener.test.js.21c4b96e.log",
+        "logSha256": "c157572e985c689316e3963d139809136ff1b62b8008df875841162f368e0a6e"
+      },
+      {
+        "id": "IS-T1-TESTS-MOBILE-ANDROID-RELEASE-TEST",
+        "path": "tests/mobile-android-release.test.js",
+        "status": "PASS",
+        "durationMs": 194,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_mobile-android-release.test.js.83cb5702.log",
+        "logSha256": "e22a256a87bd1bdc38e03ed3f0d000697a95435dfa28c19e62ba25068fb015ad"
+      },
+      {
+        "id": "IS-T1-TESTS-MOBILE-APPROVAL-LIFECYCLE-REGRESSION-TEST",
+        "path": "tests/mobile-approval-lifecycle-regression.test.js",
+        "status": "PASS",
+        "durationMs": 2112,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_mobile-approval-lifecycle-regression.test.js.382f9ce2.log",
+        "logSha256": "d250b9ed02ca66492ae7d7f5f32ca2f805f60f4e409fc6c25f98f36d18ac67fc"
+      },
+      {
+        "id": "IS-T1-TESTS-MOBILE-BROWSER-A11Y-TEST",
+        "path": "tests/mobile-browser-a11y.test.js",
+        "status": "PASS",
+        "durationMs": 28666,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_mobile-browser-a11y.test.js.1de6224d.log",
+        "logSha256": "b51bdde88657e85805602cf083a4b8b678cb6900a84632ab4c5d171c46c76fb6"
+      },
+      {
+        "id": "IS-T1-TESTS-MOBILE-CAPABILITY-INVENTORY-TEST",
+        "path": "tests/mobile-capability-inventory.test.js",
+        "status": "PASS",
+        "durationMs": 240,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_mobile-capability-inventory.test.js.46fb71d6.log",
+        "logSha256": "3bea525a75a6d71e153fc1cbda981769998ac7977f8b406a1fd7e94be9c4212a"
+      },
+      {
+        "id": "IS-T1-TESTS-MOBILE-GATE-SELF-TEST",
+        "path": "tests/mobile-gate-self-test.js",
+        "status": "PASS",
+        "durationMs": 363,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_mobile-gate-self-test.js.8d8d09c3.log",
+        "logSha256": "121340baf50321ace874c1201f1e2bec3deeee834a119cac4aa7f34dd441f652"
+      },
+      {
+        "id": "IS-T1-TESTS-MOBILE-MS07-HISTORY-TEST",
+        "path": "tests/mobile-ms07-history.test.js",
+        "status": "PASS",
+        "durationMs": 88,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_mobile-ms07-history.test.js.9079945f.log",
+        "logSha256": "80bf521047993eebe5c01efab1d00bfb584a76df4067d3d6abef53d4ed4a30b7"
+      },
+      {
+        "id": "IS-T1-TESTS-MOBILE-MS13-APPROVALS-TEST",
+        "path": "tests/mobile-ms13-approvals.test.js",
+        "status": "PASS",
+        "durationMs": 138,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_mobile-ms13-approvals.test.js.da425472.log",
+        "logSha256": "0955cb3d3f43fd73eb8cb1e8fda17b2c918be729031d31624639026875cbea4f"
+      },
+      {
+        "id": "IS-T1-TESTS-MOBILE-MS14-DECISION-TEST",
+        "path": "tests/mobile-ms14-decision.test.js",
+        "status": "PASS",
+        "durationMs": 1638,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_mobile-ms14-decision.test.js.f6fb816a.log",
+        "logSha256": "7193ee23fbca6c73dfef6fd4c70ff04b656ce40bc1f48bc47df8cb942a7da227"
+      },
+      {
+        "id": "IS-T1-TESTS-MOBILE-MS20-UI-TEST",
+        "path": "tests/mobile-ms20-ui.test.js",
+        "status": "PASS",
+        "durationMs": 317,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_mobile-ms20-ui.test.js.a0b9eb4f.log",
+        "logSha256": "e132cbdb052c67bdaf49f1f0382133fece76be0a6db722088e680435fb97b1ec"
+      },
+      {
+        "id": "IS-T1-TESTS-MOBILE-NAVBAR-RING-TURN-TEST",
+        "path": "tests/mobile-navbar-ring-turn.test.js",
+        "status": "PASS",
+        "durationMs": 51,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_mobile-navbar-ring-turn.test.js.50271dbf.log",
+        "logSha256": "6ff804719b5ed5a6773e63820eeb54f3f7cda4c65342a0e97af17a35b0e29e19"
+      },
+      {
+        "id": "IS-T1-TESTS-MOBILE-NAVBAR-TEST",
+        "path": "tests/mobile-navbar.test.js",
+        "status": "PASS",
+        "durationMs": 2693,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_mobile-navbar.test.js.7c4f1227.log",
+        "logSha256": "0ddd7a2554add6421806b1ad1a41187b2b9a4208e5eea12b99301a5e37a0d6c1"
+      },
+      {
+        "id": "IS-T1-TESTS-MOBILE-OVERVIEW-TEST",
+        "path": "tests/mobile-overview.test.js",
+        "status": "PASS",
+        "durationMs": 77,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_mobile-overview.test.js.37551d17.log",
+        "logSha256": "16454b1bd9453fb518b6029e800c5f4db013f5b6efc1b1745b3f5965a25a68da"
+      },
+      {
+        "id": "IS-T1-TESTS-MOBILE-REMOTE-CAPABILITY-CONTRACT-TEST",
+        "path": "tests/mobile-remote-capability-contract.test.js",
+        "status": "PASS",
+        "durationMs": 41,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_mobile-remote-capability-contract.test.js.e64c218a.log",
+        "logSha256": "7b69a9569ab7e4f8faeecdbafa4ab6051e60fa41d01aaf91483c543b682a1641"
+      },
+      {
+        "id": "IS-T1-TESTS-MOBILE-REMOTE-CAPABILITY-PROVIDER-CONTRACT-TEST",
+        "path": "tests/mobile-remote-capability-provider-contract.test.js",
+        "status": "PASS",
+        "durationMs": 63,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_mobile-remote-capability-provider-contract.test.js.778bf1cc.log",
+        "logSha256": "99814cc1dc869b2a2f7a89776586266f37906c7b5072b449f8b117879675270c"
+      },
+      {
+        "id": "IS-T1-TESTS-MOBILE-REMOTE-CORE-SIMULATOR-TEST",
+        "path": "tests/mobile-remote-core-simulator.test.js",
+        "status": "PASS",
+        "durationMs": 80,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_mobile-remote-core-simulator.test.js.79ba563d.log",
+        "logSha256": "3ff426a29e11a1f7b9d91aae299871baba402932d0a7f8fdc27c9096376951d2"
+      },
+      {
+        "id": "IS-T1-TESTS-MOBILE-REMOTE-CORE-V1-TEST",
+        "path": "tests/mobile-remote-core-v1.test.js",
+        "status": "PASS",
+        "durationMs": 54,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_mobile-remote-core-v1.test.js.d45ee5b2.log",
+        "logSha256": "8566212a670f098a26643f538add82b706825f8740f3b9935577480638fef586"
+      },
+      {
+        "id": "IS-T1-TESTS-MOBILE-REMOTE-SESSION-CONTRACT-TEST",
+        "path": "tests/mobile-remote-session-contract.test.js",
+        "status": "PASS",
+        "durationMs": 90,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_mobile-remote-session-contract.test.js.bdd0f7a4.log",
+        "logSha256": "edb3aac7dee075e5b0528154a9d7d98b4c653ca9f067d134cdca2a6bafa61682"
+      },
+      {
+        "id": "IS-T1-TESTS-MOBILE-RUN-SILENCE-TEST",
+        "path": "tests/mobile-run-silence.test.js",
+        "status": "PASS",
+        "durationMs": 81,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_mobile-run-silence.test.js.1924ac8e.log",
+        "logSha256": "f02da25d20d30720e361101fb56e23455cd98e5d73b763ca67faa935a8aaa9af"
+      },
+      {
+        "id": "IS-T1-TESTS-MOBILE-SECURE-CREDENTIAL-TEST",
+        "path": "tests/mobile-secure-credential.test.js",
+        "status": "PASS",
+        "durationMs": 90,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_mobile-secure-credential.test.js.a1f840f5.log",
+        "logSha256": "ca1e4426fa74c0fd71c4161234665e49f7495197f300849b26ac129e9f1fe7f3"
+      },
+      {
+        "id": "IS-T1-TESTS-MOBILE-TRUST-BAR-TEST",
+        "path": "tests/mobile-trust-bar.test.js",
+        "status": "PASS",
+        "durationMs": 64,
+        "logPath": ".intentsmith-artifacts/test-runs/mobile-status-1acb5d6b-20261010/logs/tests_mobile-trust-bar.test.js.ad6effc4.log",
+        "logSha256": "9cb0b229f08d149b91429f9b59f8707a9afa7bd9413cab8494555c3219279756"
+      }
+    ]
+  },
+  "firstChatProbe": {
+    "sourceRevision": "1acb5d6b9bbc180c2ceee9a16956f0894a7d0e03",
+    "recordedAtUtc": "2026-10-10T20:34:44.131Z",
+    "executionMode": "HOST_IN_PROCESS_WITH_DOM_AND_AUTHORITY_FIXTURES",
+    "observedGap": "NEW_CONVERSATION_NOT_CREATED",
+    "verdict": "GAP_REPRODUCED",
+    "actualUiNewChatCalled": true,
+    "actualUiAdapter": true,
+    "actualM7Provider": true,
+    "actualSQLite": true,
+    "databasePath": "/home/belphareon/Projects/intentsmith-worker-specialist-audit-20261010/.intentsmith-artifacts/mobile-first-chat-IPHbKK/runtime.sqlite",
+    "conversationCreateInCatalog": false,
+    "newConversationResult": {
+      "code": "M7_CONVERSATION_ACCESS_DENIED",
+      "adapterStatus": 503
+    },
+    "newConversationDatabaseRows": 0,
+    "executorCallsForNewConversation": 0,
+    "existingConversationResult": "CONFIRMED",
+    "physicalDevice": false,
+    "vpnTransport": false,
+    "modelInference": false
+  },
+  "androidHostBuild": {
+    "verdict": "PASS",
+    "gradleWrapper": "8.14.3",
+    "java": "Temurin 21.0.12+8",
+    "sdk": 36,
+    "capacitor": "8.5.0",
+    "command": "JAVA_HOME=/home/belphareon/toolchain/jdk21 ANDROID_HOME=/home/belphareon/toolchain/android-sdk ANDROID_SDK_ROOT=/home/belphareon/toolchain/android-sdk ./gradlew --offline --no-daemon --max-workers=2 -Dorg.gradle.jvmargs=-Xmx1024m test lint :app:assembleDebug",
+    "durationSeconds": 29,
+    "tasksExecuted": 193,
+    "junit": {
+      "testDebugUnitTest": {
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      },
+      "testReleaseUnitTest": {
+        "tests": 5,
+        "failures": 0,
+        "errors": 0,
+        "skipped": 0
+      }
+    },
+    "lint": {
+      "Warning": 16
+    },
+    "apk": {
+      "path": ".intentsmith-artifacts/mobile-status-audit-20261010/app-debug-1acb5d6b.apk",
+      "bytes": 7705094,
+      "sha256": "a3e5fa49d8f586d69385974e2237cc78694af24a4369242c1b5fd2c5eae3c3cf"
+    },
+    "signingClass": "ANDROID_DEBUG_DEVELOPMENT_ONLY",
+    "signerSha256": "4be471bc1064e2732735c18358ed1a118449c79a0f1ba3ff55d0b36bacb8951c",
+    "badging": [
+      "package: name='cz.intentsmith.companion' versionCode='1' versionName='1.0' platformBuildVersionName='16' platformBuildVersionCode='36' compileSdkVersion='36' compileSdkVersionCodename='16'",
+      "minSdkVersion:'24'",
+      "targetSdkVersion:'36'"
+    ],
+    "packagedSourceRevision": "1acb5d6b9bbc180c2ceee9a16956f0894a7d0e03",
+    "packagedAssets": {
+      "app.css": {
+        "packagedSha256": "0dfb90ba73742b17536bdec22bd4b5fd8e5afaf03bb89cf88b3f6ee27b290de1",
+        "sourceSha256": "0dfb90ba73742b17536bdec22bd4b5fd8e5afaf03bb89cf88b3f6ee27b290de1",
+        "sameBytes": true
+      },
+      "app.js": {
+        "packagedSha256": "fa563a8bd6082549ba73cdb8df7b5d73a28c4abe04adbf23135fca5d33ac16dd",
+        "sourceSha256": "fa563a8bd6082549ba73cdb8df7b5d73a28c4abe04adbf23135fca5d33ac16dd",
+        "sameBytes": true
+      },
+      "manifest.webmanifest": {
+        "packagedSha256": "48051dfd065c481b45e068fe31ad7ac78c4af3e704bd77a7c02785df79e29ca8",
+        "sourceSha256": "48051dfd065c481b45e068fe31ad7ac78c4af3e704bd77a7c02785df79e29ca8",
+        "sameBytes": true
+      },
+      "m7-native-remote-client.js": {
+        "packagedSha256": "e6d82912a3eae445cd43e36c6a62bbf27253366a60427eb470b4e9393ab648b1",
+        "sourceSha256": "e6d82912a3eae445cd43e36c6a62bbf27253366a60427eb470b4e9393ab648b1",
+        "sameBytes": true
+      },
+      "m7-runtime-contract-v1.js": {
+        "packagedSha256": "b16a03255bdc9bc07e9fb356d2d07ff8daeb4398fab9cc9853c5a3f9a553a742",
+        "sourceSha256": "b16a03255bdc9bc07e9fb356d2d07ff8daeb4398fab9cc9853c5a3f9a553a742",
+        "sameBytes": true
+      },
+      "m7-ui-api-adapter.js": {
+        "packagedSha256": "c7ed66549db1a1bdb82e918ba1de0c5165d36890fcbe30558e7db9c4a703ab6c",
+        "sourceSha256": "c7ed66549db1a1bdb82e918ba1de0c5165d36890fcbe30558e7db9c4a703ab6c",
+        "sameBytes": true
+      },
+      "remote-core-v1.js": {
+        "packagedSha256": "531b99553df180c122e10b84aba1009f988b260f51249f38b6042da6d1963b1b",
+        "sourceSha256": "531b99553df180c122e10b84aba1009f988b260f51249f38b6042da6d1963b1b",
+        "sameBytes": true
+      },
+      "sw.js": {
+        "packagedSha256": "9779ad922efe1045295728fec2f6c3678290b9ff2a0c69eefecdffe654e879c0",
+        "sourceSha256": "9779ad922efe1045295728fec2f6c3678290b9ff2a0c69eefecdffe654e879c0",
+        "sameBytes": true
+      }
+    },
+    "packagedSourceManifestMatchesGenerated": true,
+    "sourceManifest": {
+      "path": ".intentsmith-artifacts/mobile-status-audit-20261010/mobile-release-source-manifest.json",
+      "bytes": 1689,
+      "sha256": "dccecf6f0136668fa91d4c950edca592359ce6b5a66dd7b01820354faf35063e"
+    },
+    "transportMode": "legacy-m1-dev",
+    "reports": [
+      {
+        "path": ".intentsmith-artifacts/mobile-status-audit-20261010/junit/testDebugUnitTest/TEST-cz.intentsmith.companion.ExampleUnitTest.xml",
+        "bytes": 435,
+        "sha256": "80c6f2cd57b38a2fc39aac7ae1dd4f39922a57a39a97c6bb1382adf10ca427e7"
+      },
+      {
+        "path": ".intentsmith-artifacts/mobile-status-audit-20261010/junit/testDebugUnitTest/TEST-cz.intentsmith.companion.M7CanonicalJsonTest.xml",
+        "bytes": 878,
+        "sha256": "fb2b96756e82ad76dc4006f54c44ce40fd2d56d406af558e907db64dad4bf036"
+      },
+      {
+        "path": ".intentsmith-artifacts/mobile-status-audit-20261010/junit/testReleaseUnitTest/TEST-cz.intentsmith.companion.ExampleUnitTest.xml",
+        "bytes": 435,
+        "sha256": "2b5e721c4d013b9ca7f25cb524442ec8d59975e1c04c001ed1ab87322f9404c3"
+      },
+      {
+        "path": ".intentsmith-artifacts/mobile-status-audit-20261010/junit/testReleaseUnitTest/TEST-cz.intentsmith.companion.M7CanonicalJsonTest.xml",
+        "bytes": 879,
+        "sha256": "abe8c248d14011ce96500e0e3f1617a90432f31756e0e900562cc4de1251dfe0"
+      },
+      {
+        "path": ".intentsmith-artifacts/mobile-status-audit-20261010/lint-results-debug.xml",
+        "bytes": 20194,
+        "sha256": "ed1e77b3d8888074ae42f41fc470caf9b9ded3f1b0ca8a378c0895f73a537783"
+      }
+    ],
+    "installedToDevice": false,
+    "releaseApkAabBuilt": false
+  },
+  "hostReadOnlyInventory": {
+    "backendPid": 976926,
+    "m7EnableFlag": null,
+    "connectedAdbDevices": 0,
+    "vpnInterfaces": [],
+    "listener7443Present": false,
+    "credentialDirectories": [
+      {
+        "path": "/run/credentials/intentsmith-m7.service",
+        "exists": false
+      },
+      {
+        "path": "/run/user/1000/credentials/intentsmith-m7.service",
+        "exists": false
+      }
+    ],
+    "candidateSigningPropertiesPresent": false,
+    "credentialAndSigningKeyContentsRead": false
+  },
+  "productionModified": false,
+  "productSourceModified": false,
+  "modelInferenceRun": false,
+  "physicalReleaseMatrix": "13 transport + 7 accessibility/device: NOT_RUN",
+  "independentReviewOfThisAudit": "NOT_RUN",
+  "rawArtifacts": [
+    {
+      "path": ".intentsmith-artifacts/mobile-status-1acb5d6b.log",
+      "sha256": "e0f4a248015eea4031ba921b4031b953c6489a563991bb0cf7d799149a357371"
+    },
+    {
+      "path": ".intentsmith-artifacts/mobile-gate-1acb5d6b.log",
+      "sha256": "677c099972f8c89ddfe75882ca04b15f9f0496bceb9d94ea71476d92b179782a"
+    },
+    {
+      "path": ".intentsmith-artifacts/mobile-capacitor-sync.log",
+      "sha256": "e9dd762ded2422b4b70043a70d53f32c234ddab8b9c6ae0d2072e0d597af076b"
+    },
+    {
+      "path": ".intentsmith-artifacts/mobile-android-test-lint-debug.log",
+      "sha256": "983466372b8290d84ad90e69cd4ef7e476d4d53aaa2213fef8fb229a7e45b1f7"
+    },
+    {
+      "path": ".intentsmith-artifacts/mobile-first-chat-probe.log",
+      "sha256": "79562d7531806bf31794ee3463d84d28e99b88e70dbd6912df590fff176afae7"
+    },
+    {
+      "path": ".intentsmith-artifacts/mobile-first-chat-probe.mjs",
+      "sha256": "42306eed4b6154a1c29a7e7786ff26ad5efada44514bb6713b9d76a000354faa"
+    },
+    {
+      "path": ".intentsmith-artifacts/mobile-first-chat-initial-fixture.log",
+      "sha256": "419272b88fbcc019e5ef9411a1e69c15f8045e5a7f06e134c096db560786c663"
+    },
+    {
+      "path": ".intentsmith-artifacts/mobile-npm-ci.log",
+      "sha256": "3bc3e54ee8c1ae9b3c46874cd7e64c9abd14c148f04d36c3ddce14a14e357fa9"
+    },
+    {
+      "path": ".intentsmith-artifacts/mobile-npm-ci-online.log",
+      "sha256": "29d17c7ff02e7e9834ef3b7c43f204e351d5b73473f7127751840e811f7afa7a"
+    },
+    {
+      "path": ".intentsmith-artifacts/mobile-registry-final.log",
+      "sha256": "7aeddd0d04f741b078995e4e722a1133c17c25778fa6ac5a32e0e9d5000c44eb"
+    },
+    {
+      "path": ".intentsmith-artifacts/mobile-artifact-validation.log",
+      "sha256": "f374540aa8042b6ce301608eaec716fb44509e31287cc21f0764f3960e73e192"
+    }
+  ],
+  "workspace": {
+    "worktreeCount": 89,
+    "retirableCount": 0,
+    "protectedCount": 89,
+    "originalReportPath": ".intentsmith-artifacts/mobile-workspace-final-report.json",
+    "originalReportSha256": "e3f7c8f244f35f22def537e9ceac589cbf7d655fffd7d247ab8856eb509edc58",
+    "ownRow": {
+      "path": "/home/belphareon/Projects/intentsmith-worker-specialist-audit-20261010",
+      "branch": "work/mobile-status-audit-20261010",
+      "head": "1acb5d6b9bbc180c2ceee9a16956f0894a7d0e03",
+      "absorbedBy": null,
+      "retirable": false,
+      "reasons": [
+        "in-use",
+        "evidence",
+        "live-branch"
+      ],
+      "dirty": false,
+      "inUse": true,
+      "containsEvidence": true,
+      "bytes": 2783371264
+    }
+  },
+  "workspaceCleanup": {
+    "planPath": ".intentsmith-artifacts/mobile-workspace-clean-plan.json",
+    "planSha256": "c6f595092447de4146daa0e4fd09f70cb78a0ec63468d198936760e9d601f902",
+    "ownRemovable": [],
+    "ownRemoved": [],
+    "foreignRemoved": [],
+    "foreignRemovablePreserved": 607,
+    "ownProtectedRuntimeRoots": 7
+  }
+}

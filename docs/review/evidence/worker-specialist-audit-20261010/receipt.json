@@ -1,0 +1,782 @@
+{
+  "schemaVersion": 1,
+  "manifestType": "intentsmith.worker-specialist-audit-receipt",
+  "recordedAtUtc": "2026-10-10T20:15:00.809047+00:00",
+  "sourceRevision": "4defa69ed4abb542535425ec79e752d955676af6",
+  "branch": "work/worker-specialist-audit-20261010",
+  "status": "PARTIAL",
+  "reviewStatus": "REVIEW_PENDING",
+  "deploymentStatus": "NOT_DEPLOYED",
+  "fixCommits": [
+    "7f546eff1fd8bc3f851b15b7d52efb063551754e",
+    "4defa69ed4abb542535425ec79e752d955676af6"
+  ],
+  "environment": {
+    "recordedAtUtc": "2026-10-10T20:00:57.851323+00:00",
+    "sourceRevision": "4defa69ed4abb542535425ec79e752d955676af6",
+    "sourceRoot": "/home/belphareon/Projects/intentsmith-worker-specialist-audit-20261010",
+    "branch": "work/worker-specialist-audit-20261010",
+    "sourceClean": true,
+    "verifiedRemoteMain": "138e958be927df9835c091d3ad41d44b347e85b5",
+    "verifiedRemoteIdeBaseline": "46337ee66f8788f9ca2f041c165d4e35b3f242cf",
+    "runningRelease": "3c804a8a859a9f44efd200585795f5373e85fc3c",
+    "runningBackendPid": 976926,
+    "runningReleaseClean": true,
+    "nodeVersion": "v24.21.0",
+    "dependencies": {
+      "core": "/home/belphareon/Projects/intentsmith-real-chat-journeys-20260930/node_modules",
+      "ideWorkspacePackages": "isolated checkout extensions",
+      "ideThirdParty": "/home/belphareon/Projects/intentsmith-ide-backend-20261009/intentsmith-ide/node_modules"
+    },
+    "gpu": {
+      "status": "BLOCKED_NVML_DRIVER_LIBRARY_MISMATCH",
+      "probe": "Failed to initialize NVML: Driver/library version mismatch\nNVML library version: 595.99",
+      "loadedKernelModule": "595.91.07",
+      "installedLibrary": "595.99.02",
+      "modelInferenceRun": false
+    },
+    "productionReadOnlyInventory": {
+      "specialists": [
+        {
+          "id": "accountant-cz",
+          "version": "2.1.0",
+          "status": "enabled"
+        },
+        {
+          "id": "code-reviewer",
+          "version": "1.1.0",
+          "status": "enabled"
+        },
+        {
+          "id": "sazeni",
+          "version": "3.2.0",
+          "status": "enabled"
+        },
+        {
+          "id": "translator",
+          "version": "1.0.0",
+          "status": "enabled"
+        }
+      ],
+      "agentExtensions": [
+        "project-health"
+      ],
+      "schedulerRunning": true,
+      "scheduledInstances": 0
+    },
+    "productionWrites": false,
+    "deployPerformed": false,
+    "modelBindingsChanged": false
+  },
+  "affectedSourceFiles": {
+    "src/extensions/agent-extension-service.js": {
+      "currentSha256": "e3d58de0e193e4e02d212078b3b7fb8670ba2a0ed2d4707f9213d6f9b731ace2",
+      "ideBaselineSha256": "e3d43de39692f67e2c5e4ad536eed34c096c2d2fa98a22e58aefc0515f46e575",
+      "runningReleaseSha256": "e3d43de39692f67e2c5e4ad536eed34c096c2d2fa98a22e58aefc0515f46e575",
+      "baselineSameAsRunningRelease": true
+    },
+    "src/expertises/specialist-runtime.js": {
+      "currentSha256": "84686d875917dc1aec034277777fd2aff2ffea3ad7dc2aa6f1659260f5e40336",
+      "ideBaselineSha256": "0212ee75955a7f32e0b49d260d5f0e10dfef068c420aac87e9acf65dec838d09",
+      "runningReleaseSha256": "0212ee75955a7f32e0b49d260d5f0e10dfef068c420aac87e9acf65dec838d09",
+      "baselineSameAsRunningRelease": true
+    }
+  },
+  "workerAndSoakUnchangedBetweenFixCommits": true,
+  "finalLocalRun": {
+    "sourceRevision": "4defa69ed4abb542535425ec79e752d955676af6",
+    "startedAt": "2026-10-10T19:57:15.777Z",
+    "endedAt": "2026-10-10T20:07:55.117Z",
+    "verdict": "PASS",
+    "statusCounts": {
+      "PASS": 416,
+      "FAIL": 0,
+      "TIMEOUT": 0,
+      "BLOCKED": 0,
+      "SKIPPED": 0
+    },
+    "interruptionSignal": null,
+    "registryHash": "ddb9d94de4d481bb83c5e6041cb81a7701d98be305575646422bc1e67b1835f6",
+    "options": {
+      "concurrency": 1,
+      "failFast": false,
+      "timeoutMs": 600000,
+      "deadlineMs": 28800000,
+      "profiles": [
+        "database",
+        "offline"
+      ],
+      "ids": [],
+      "exclude": [],
+      "allowBlockers": [
+        "toolchain:accountant-ocr-runtime",
+        "toolchain:bubblewrap",
+        "toolchain:bwrap",
+        "toolchain:git",
+        "toolchain:iproute2",
+        "toolchain:nftables",
+        "toolchain:prlimit",
+        "toolchain:python-pdf-runtime",
+        "toolchain:python3",
+        "toolchain:systemd-analyze",
+        "toolchain:tar"
+      ],
+      "noBlock": false
+    },
+    "runId": "worker-specialist-full-4defa69e-20261010",
+    "originalReportPath": ".intentsmith-artifacts/test-runs/worker-specialist-full-4defa69e-20261010/report.json",
+    "originalReportSha256": "9989aa3fe335b8808709aabca28fd416bdc9d07b495985353c9dc268211095d6",
+    "allResultSourceChecksClean": true,
+    "anyCleanupLeak": false
+  },
+  "finalHttpRun": {
+    "sourceRevision": "4defa69ed4abb542535425ec79e752d955676af6",
+    "startedAt": "2026-10-10T20:08:54.959Z",
+    "endedAt": "2026-10-10T20:09:36.345Z",
+    "verdict": "FAIL",
+    "statusCounts": {
+      "PASS": 8,
+      "FAIL": 1,
+      "TIMEOUT": 0,
+      "BLOCKED": 0,
+      "SKIPPED": 0
+    },
+    "interruptionSignal": null,
+    "registryHash": "ddb9d94de4d481bb83c5e6041cb81a7701d98be305575646422bc1e67b1835f6",
+    "options": {
+      "concurrency": 1,
+      "failFast": false,
+      "timeoutMs": 600000,
+      "deadlineMs": 28800000,
+      "profiles": [],
+      "ids": [
+        "IS-T3-TESTS-CHAT-ACCOUNTANT-DETERMINISTIC-HTTP-TEST",
+        "IS-T3-TESTS-CHAT-ACCOUNTANT-MODEL-CONTRACT-TEST",
+        "IS-T3-TESTS-CHAT-SAZENI-HTTP-JOURNEY-TEST",
+        "IS-T3-TESTS-CHAT-SPECIALIST-FOLLOWUP-HTTP-TEST",
+        "IS-T3-TESTS-CHAT-TRANSLATOR-MODEL-CONTRACT-TEST",
+        "IS-T3-TESTS-IDE-BACKEND-PRODUCT-HTTP-JOURNEY-TEST",
+        "IS-T3-TESTS-M3-AGENT-CRASH-RECOVERY-PRODUCT-JOURNEY-TEST",
+        "IS-T3-TESTS-M3-AGENT-PRODUCT-HTTP-JOURNEY-TEST",
+        "IS-T3-TESTS-M3-AGENT-SCHEDULED-PRODUCT-JOURNEY-TEST"
+      ],
+      "exclude": [],
+      "allowBlockers": [
+        "toolchain:git"
+      ],
+      "noBlock": false
+    },
+    "runId": "worker-specialist-product-4defa69e-20261010",
+    "originalReportPath": ".intentsmith-artifacts/test-runs/worker-specialist-product-4defa69e-20261010/report.json",
+    "originalReportSha256": "0d3116551a76400b091dae752823329979e8076df73a58cd626d3267e7f71b62",
+    "allResultSourceChecksClean": true,
+    "anyCleanupLeak": false,
+    "results": [
+      {
+        "id": "IS-T3-TESTS-CHAT-ACCOUNTANT-DETERMINISTIC-HTTP-TEST",
+        "path": "tests/chat-accountant-deterministic-http.test.js",
+        "status": "PASS",
+        "durationMs": 3721,
+        "logPath": ".intentsmith-artifacts/test-runs/worker-specialist-product-4defa69e-20261010/logs/tests_chat-accountant-deterministic-http.test.js.bfa76ecf.log",
+        "logSha256": "444656c6ec43fdd8d1c36029ffae825ab08683e011d904e53896c5df8295154d"
+      },
+      {
+        "id": "IS-T3-TESTS-CHAT-ACCOUNTANT-MODEL-CONTRACT-TEST",
+        "path": "tests/chat-accountant-model-contract.test.js",
+        "status": "FAIL",
+        "durationMs": 5794,
+        "logPath": ".intentsmith-artifacts/test-runs/worker-specialist-product-4defa69e-20261010/logs/tests_chat-accountant-model-contract.test.js.bedfb68e.log",
+        "logSha256": "33d4868b680cda45de46ffea0df2879a5c4d6098008339cb665ddceac2ff6f09"
+      },
+      {
+        "id": "IS-T3-TESTS-CHAT-SAZENI-HTTP-JOURNEY-TEST",
+        "path": "tests/chat-sazeni-http-journey.test.js",
+        "status": "PASS",
+        "durationMs": 12187,
+        "logPath": ".intentsmith-artifacts/test-runs/worker-specialist-product-4defa69e-20261010/logs/tests_chat-sazeni-http-journey.test.js.5738cc71.log",
+        "logSha256": "483a3df43b03e8374d8647951a5c0a23874abf58795d2e09d5d4e3ad939d4a80"
+      },
+      {
+        "id": "IS-T3-TESTS-CHAT-SPECIALIST-FOLLOWUP-HTTP-TEST",
+        "path": "tests/chat-specialist-followup-http.test.js",
+        "status": "PASS",
+        "durationMs": 1161,
+        "logPath": ".intentsmith-artifacts/test-runs/worker-specialist-product-4defa69e-20261010/logs/tests_chat-specialist-followup-http.test.js.efb54b6c.log",
+        "logSha256": "a3376933b2253ba14e62ec36ac855a9b0d50248c292516b9b09186b0bd48890b"
+      },
+      {
+        "id": "IS-T3-TESTS-CHAT-TRANSLATOR-MODEL-CONTRACT-TEST",
+        "path": "tests/chat-translator-model-contract.test.js",
+        "status": "PASS",
+        "durationMs": 3204,
+        "logPath": ".intentsmith-artifacts/test-runs/worker-specialist-product-4defa69e-20261010/logs/tests_chat-translator-model-contract.test.js.67b619b3.log",
+        "logSha256": "8731788d73fb6c1858bbb55394060a592b70588d2a771f77a0328065c2b4e1b3"
+      },
+      {
+        "id": "IS-T3-TESTS-IDE-BACKEND-PRODUCT-HTTP-JOURNEY-TEST",
+        "path": "tests/ide-backend-product-http-journey.test.js",
+        "status": "PASS",
+        "durationMs": 4788,
+        "logPath": ".intentsmith-artifacts/test-runs/worker-specialist-product-4defa69e-20261010/logs/tests_ide-backend-product-http-journey.test.js.92a481f8.log",
+        "logSha256": "1972be270d29ef2b35ce43b63b5f91a0541928039f6ed966ed8b10a0700c6be4"
+      },
+      {
+        "id": "IS-T3-TESTS-M3-AGENT-CRASH-RECOVERY-PRODUCT-JOURNEY-TEST",
+        "path": "tests/m3-agent-crash-recovery-product-journey.test.js",
+        "status": "PASS",
+        "durationMs": 3415,
+        "logPath": ".intentsmith-artifacts/test-runs/worker-specialist-product-4defa69e-20261010/logs/tests_m3-agent-crash-recovery-product-journey.test.js.3e96380c.log",
+        "logSha256": "1a04dbf725aab5f20f61b29d95e6e76487cca055abc9d4c670335c4ab28811ff"
+      },
+      {
+        "id": "IS-T3-TESTS-M3-AGENT-PRODUCT-HTTP-JOURNEY-TEST",
+        "path": "tests/m3-agent-product-http-journey.test.js",
+        "status": "PASS",
+        "durationMs": 1951,
+        "logPath": ".intentsmith-artifacts/test-runs/worker-specialist-product-4defa69e-20261010/logs/tests_m3-agent-product-http-journey.test.js.47a0ce42.log",
+        "logSha256": "826ca08a22c0f84973faa4c19f409b98a5b4f210bc270a476f730a3b082f59b9"
+      },
+      {
+        "id": "IS-T3-TESTS-M3-AGENT-SCHEDULED-PRODUCT-JOURNEY-TEST",
+        "path": "tests/m3-agent-scheduled-product-journey.test.js",
+        "status": "PASS",
+        "durationMs": 5150,
+        "logPath": ".intentsmith-artifacts/test-runs/worker-specialist-product-4defa69e-20261010/logs/tests_m3-agent-scheduled-product-journey.test.js.73e9d3f0.log",
+        "logSha256": "50cc5eb965da0867849a7a35bbd336c825e09804f63f46999410021c69f4f79e"
+      }
+    ]
+  },
+  "realFiveMinuteSoakRun": {
+    "sourceRevision": "7f546eff1fd8bc3f851b15b7d52efb063551754e",
+    "startedAt": "2026-10-10T19:49:29.547Z",
+    "endedAt": "2026-10-10T19:55:01.932Z",
+    "verdict": "PASS",
+    "statusCounts": {
+      "PASS": 1,
+      "FAIL": 0,
+      "TIMEOUT": 0,
+      "BLOCKED": 0,
+      "SKIPPED": 0
+    },
+    "interruptionSignal": null,
+    "registryHash": "ddb9d94de4d481bb83c5e6041cb81a7701d98be305575646422bc1e67b1835f6",
+    "options": {
+      "concurrency": 1,
+      "failFast": false,
+      "timeoutMs": 600000,
+      "deadlineMs": 28800000,
+      "profiles": [],
+      "ids": [
+        "IS-T5-TESTS-M3-AGENT-REAL-SCHEDULED-SOAK-TEST"
+      ],
+      "exclude": [],
+      "allowBlockers": [],
+      "noBlock": false
+    },
+    "runId": "worker-rename-real-soak-7f546eff-20261010",
+    "originalReportPath": ".intentsmith-artifacts/test-runs/worker-rename-real-soak-7f546eff-20261010/report.json",
+    "originalReportSha256": "3efc2f95e3db968f075fee91261ce8b60a1bb7e679af2bff220cc2bf6941056d",
+    "allResultSourceChecksClean": true,
+    "anyCleanupLeak": false,
+    "results": [
+      {
+        "id": "IS-T5-TESTS-M3-AGENT-REAL-SCHEDULED-SOAK-TEST",
+        "path": "tests/m3-agent-real-scheduled-soak.test.js",
+        "status": "PASS",
+        "durationMs": 332380,
+        "logPath": ".intentsmith-artifacts/test-runs/worker-rename-real-soak-7f546eff-20261010/logs/tests_m3-agent-real-scheduled-soak.test.js.415543cb.log",
+        "logSha256": "5354a53ddc2c5fa0054d7b8ac0231a2fa1bba416e44d6ce0991cbe6ff9ee78ec"
+      }
+    ]
+  },
+  "realFiveMinuteSoakEvidence": {
+    "schemaVersion": 1,
+    "sourceRevision": "7f546eff1fd8bc3f851b15b7d52efb063551754e",
+    "executionMode": "test",
+    "presentationEditPreservedState": true,
+    "presentationEditPreservedSchedule": true,
+    "intervalMs": 300000,
+    "projectId": 1,
+    "instanceId": "real-scheduled-health-5c0f542d",
+    "initialProductPid": 1517149,
+    "restartedProductPid": 1533219,
+    "baselineRunId": 1,
+    "changedRunId": 2,
+    "manualUnchangedRunId": 3,
+    "notificationId": 1,
+    "finalRunIds": [
+      3,
+      2,
+      1
+    ],
+    "baselineLastRun": "2026-10-10 19:50:00",
+    "persistedDueAt": "2026-10-10T19:55:00.461Z",
+    "persistedNextRunAfterRestart": "2026-10-10T20:00:01.014Z",
+    "changedStartedAt": "2026-10-10 19:55:00",
+    "changedFirstObservedAt": "2026-10-10T19:55:00.999Z",
+    "changeAt": "2026-10-10T19:50:00.507Z",
+    "monotonicElapsedToDueMs": 299954,
+    "monotonicElapsedToFirstRunMs": 300492.649607,
+    "monotonicElapsedToNotificationMs": 300492.684727,
+    "beforeDuePolls": 150,
+    "workspaceRevision": "wsr1:207044e360b98483d57861073b0c1632b57edd6335fc70d5bb80f26a5c0e41c3",
+    "changedSourceDigest": "sha256:5219f0652e602addfc16b19aa525fcc64cf89b86e92e2949ba1988485ec4412d",
+    "providerModelCalls": 0,
+    "providerUnexpectedCalls": 0,
+    "productRestarted": true,
+    "finalNotificationCount": 1,
+    "status": "PASS",
+    "ownedProductCleanlyStopped": true,
+    "providerCleanlyStopped": true
+  },
+  "realFiveMinuteSoakEvidencePath": ".intentsmith-artifacts/test-runs/worker-rename-real-soak-7f546eff-20261010/runtime/tests_m3-agent-real-scheduled-soak.test.js.415543cb/artifacts/m3-agent-real-scheduled-soak.json",
+  "realFiveMinuteSoakEvidenceSha256": "bf4251bfe824efe1eb7b3955b280d6e569d7d853364688fc63eed53510cb6c16",
+  "codeReviewerEvidence": {
+    "sourceRevision": "4defa69ed4abb542535425ec79e752d955676af6",
+    "recordedAtUtc": "2026-10-10T20:10:05.944Z",
+    "status": "PASS",
+    "authenticatedPrivateProduct": true,
+    "actualProjectContext": true,
+    "criticalFinding": "src/auth.js:2",
+    "disabledSelection409": true,
+    "disabledTurnFailClosed": true,
+    "missingSpecialist404": true,
+    "reenabledToolWorks": true,
+    "modelCalls": 0
+  },
+  "supplementalToolchainsBaselineRun": {
+    "sourceRevision": "46337ee66f8788f9ca2f041c165d4e35b3f242cf",
+    "startedAt": "2026-10-10T19:42:38.493Z",
+    "endedAt": "2026-10-10T19:42:51.482Z",
+    "verdict": "PASS",
+    "statusCounts": {
+      "PASS": 3,
+      "FAIL": 0,
+      "TIMEOUT": 0,
+      "BLOCKED": 0,
+      "SKIPPED": 0
+    },
+    "interruptionSignal": null,
+    "registryHash": "ddb9d94de4d481bb83c5e6041cb81a7701d98be305575646422bc1e67b1835f6",
+    "options": {
+      "concurrency": 1,
+      "failFast": false,
+      "timeoutMs": 600000,
+      "deadlineMs": 28800000,
+      "profiles": [],
+      "ids": [
+        "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+        "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+        "IS-T3-TESTS-IDE-BACKEND-PRODUCT-HTTP-JOURNEY-TEST"
+      ],
+      "exclude": [],
+      "allowBlockers": [
+        "toolchain:accountant-ocr-runtime",
+        "toolchain:git",
+        "toolchain:python-pdf-runtime"
+      ],
+      "noBlock": false
+    },
+    "runId": "worker-specialist-toolchains-20261010",
+    "originalReportPath": ".intentsmith-artifacts/test-runs/worker-specialist-toolchains-20261010/report.json",
+    "originalReportSha256": "fc65082a9c57e21d079a895752fe5dfa4abc9aba2532bff441638485d3599897",
+    "allResultSourceChecksClean": true,
+    "anyCleanupLeak": false,
+    "results": [
+      {
+        "id": "IS-T1-TESTS-ACCOUNTANT-WORKFLOW-INTEGRATION-TEST",
+        "path": "tests/accountant-workflow-integration.test.js",
+        "status": "PASS",
+        "durationMs": 3695,
+        "logPath": ".intentsmith-artifacts/test-runs/worker-specialist-toolchains-20261010/logs/tests_accountant-workflow-integration.test.js.6d44c7da.log",
+        "logSha256": "f0e9b22c2cd8f218788672c3a8d4072f8030a7100d2f75fb751ddb34027a376d"
+      },
+      {
+        "id": "IS-T1-TESTS-CHAT-EXPORT-BUDGET-TEST",
+        "path": "tests/chat-export-budget.test.js",
+        "status": "PASS",
+        "durationMs": 1819,
+        "logPath": ".intentsmith-artifacts/test-runs/worker-specialist-toolchains-20261010/logs/tests_chat-export-budget.test.js.56739be3.log",
+        "logSha256": "e9c3334b356f73dd5b2256e25c98d36fcf00b26cec6392419008c165d281032c"
+      },
+      {
+        "id": "IS-T3-TESTS-IDE-BACKEND-PRODUCT-HTTP-JOURNEY-TEST",
+        "path": "tests/ide-backend-product-http-journey.test.js",
+        "status": "PASS",
+        "durationMs": 7469,
+        "logPath": ".intentsmith-artifacts/test-runs/worker-specialist-toolchains-20261010/logs/tests_ide-backend-product-http-journey.test.js.92a481f8.log",
+        "logSha256": "23237d17dcf355fa09d28086eab4492d1f81a63509eac37ce90819b3cbb5b243"
+      }
+    ]
+  },
+  "historicalRuns": [
+    {
+      "sourceRevision": "46337ee66f8788f9ca2f041c165d4e35b3f242cf",
+      "startedAt": "2026-10-10T19:41:25.100Z",
+      "endedAt": "2026-10-10T19:47:20.979Z",
+      "verdict": "FAIL",
+      "statusCounts": {
+        "PASS": 8,
+        "FAIL": 1,
+        "TIMEOUT": 0,
+        "BLOCKED": 1,
+        "SKIPPED": 0
+      },
+      "interruptionSignal": null,
+      "registryHash": "ddb9d94de4d481bb83c5e6041cb81a7701d98be305575646422bc1e67b1835f6",
+      "options": {
+        "concurrency": 2,
+        "failFast": false,
+        "timeoutMs": 600000,
+        "deadlineMs": 3600000,
+        "profiles": [],
+        "ids": [
+          "IS-T3-TESTS-CHAT-ACCOUNTANT-DETERMINISTIC-HTTP-TEST",
+          "IS-T3-TESTS-CHAT-ACCOUNTANT-MODEL-CONTRACT-TEST",
+          "IS-T3-TESTS-CHAT-SAZENI-HTTP-JOURNEY-TEST",
+          "IS-T3-TESTS-CHAT-SPECIALIST-FOLLOWUP-HTTP-TEST",
+          "IS-T3-TESTS-CHAT-TRANSLATOR-MODEL-CONTRACT-TEST",
+          "IS-T3-TESTS-IDE-BACKEND-PRODUCT-HTTP-JOURNEY-TEST",
+          "IS-T3-TESTS-M3-AGENT-CRASH-RECOVERY-PRODUCT-JOURNEY-TEST",
+          "IS-T3-TESTS-M3-AGENT-PRODUCT-HTTP-JOURNEY-TEST",
+          "IS-T3-TESTS-M3-AGENT-SCHEDULED-PRODUCT-JOURNEY-TEST",
+          "IS-T5-TESTS-M3-AGENT-REAL-SCHEDULED-SOAK-TEST"
+        ],
+        "exclude": [],
+        "allowBlockers": [],
+        "noBlock": false
+      },
+      "runId": "worker-specialist-product-baseline-20261010",
+      "originalReportPath": ".intentsmith-artifacts/test-runs/worker-specialist-product-baseline-20261010/report.json",
+      "originalReportSha256": "4e9a828366a368987d810210499552c663708838eb012d1b417cbe74ae52edd7",
+      "allResultSourceChecksClean": false,
+      "anyCleanupLeak": false,
+      "results": [
+        {
+          "id": "IS-T3-TESTS-CHAT-ACCOUNTANT-DETERMINISTIC-HTTP-TEST",
+          "path": "tests/chat-accountant-deterministic-http.test.js",
+          "status": "PASS",
+          "durationMs": 4991,
+          "logPath": ".intentsmith-artifacts/test-runs/worker-specialist-product-baseline-20261010/logs/tests_chat-accountant-deterministic-http.test.js.bfa76ecf.log",
+          "logSha256": "b0556e88d901f5005c371a7549f4871142e406c88a73129a736bd14b0cc3cd21"
+        },
+        {
+          "id": "IS-T3-TESTS-CHAT-ACCOUNTANT-MODEL-CONTRACT-TEST",
+          "path": "tests/chat-accountant-model-contract.test.js",
+          "status": "FAIL",
+          "durationMs": 10878,
+          "logPath": ".intentsmith-artifacts/test-runs/worker-specialist-product-baseline-20261010/logs/tests_chat-accountant-model-contract.test.js.bedfb68e.log",
+          "logSha256": "dfff26026296b347b38a50980ecba93021dd60d3703706d0aec542fbaeffc5bc"
+        },
+        {
+          "id": "IS-T3-TESTS-CHAT-SPECIALIST-FOLLOWUP-HTTP-TEST",
+          "path": "tests/chat-specialist-followup-http.test.js",
+          "status": "PASS",
+          "durationMs": 1917,
+          "logPath": ".intentsmith-artifacts/test-runs/worker-specialist-product-baseline-20261010/logs/tests_chat-specialist-followup-http.test.js.efb54b6c.log",
+          "logSha256": "fd64e4bd6feb16d85192684978f3d58f82d424f67c5ac56f459202448b4a3cf3"
+        },
+        {
+          "id": "IS-T3-TESTS-CHAT-TRANSLATOR-MODEL-CONTRACT-TEST",
+          "path": "tests/chat-translator-model-contract.test.js",
+          "status": "PASS",
+          "durationMs": 5376,
+          "logPath": ".intentsmith-artifacts/test-runs/worker-specialist-product-baseline-20261010/logs/tests_chat-translator-model-contract.test.js.67b619b3.log",
+          "logSha256": "d5b66c4ba20b10b67a83f9dd51af6c5887e362d73063d5873818731bfc8ba8b0"
+        },
+        {
+          "id": "IS-T3-TESTS-IDE-BACKEND-PRODUCT-HTTP-JOURNEY-TEST",
+          "path": "tests/ide-backend-product-http-journey.test.js",
+          "status": "BLOCKED",
+          "durationMs": 0,
+          "logPath": null,
+          "logSha256": null
+        },
+        {
+          "id": "IS-T3-TESTS-CHAT-SAZENI-HTTP-JOURNEY-TEST",
+          "path": "tests/chat-sazeni-http-journey.test.js",
+          "status": "PASS",
+          "durationMs": 13788,
+          "logPath": ".intentsmith-artifacts/test-runs/worker-specialist-product-baseline-20261010/logs/tests_chat-sazeni-http-journey.test.js.5738cc71.log",
+          "logSha256": "5a29a8241e849229ac49c4d146645b7659eb366914e82d6ed9dd168386835681"
+        },
+        {
+          "id": "IS-T3-TESTS-M3-AGENT-PRODUCT-HTTP-JOURNEY-TEST",
+          "path": "tests/m3-agent-product-http-journey.test.js",
+          "status": "PASS",
+          "durationMs": 4208,
+          "logPath": ".intentsmith-artifacts/test-runs/worker-specialist-product-baseline-20261010/logs/tests_m3-agent-product-http-journey.test.js.47a0ce42.log",
+          "logSha256": "c12c8efc99200b281c0e005c1c289a7021956607fab4271c27409359a4315386"
+        },
+        {
+          "id": "IS-T3-TESTS-M3-AGENT-CRASH-RECOVERY-PRODUCT-JOURNEY-TEST",
+          "path": "tests/m3-agent-crash-recovery-product-journey.test.js",
+          "status": "PASS",
+          "durationMs": 5811,
+          "logPath": ".intentsmith-artifacts/test-runs/worker-specialist-product-baseline-20261010/logs/tests_m3-agent-crash-recovery-product-journey.test.js.3e96380c.log",
+          "logSha256": "868fef7cc35b17494ce087f33176a43679e907da9b0b5f815556e583fdb64485"
+        },
+        {
+          "id": "IS-T3-TESTS-M3-AGENT-SCHEDULED-PRODUCT-JOURNEY-TEST",
+          "path": "tests/m3-agent-scheduled-product-journey.test.js",
+          "status": "PASS",
+          "durationMs": 6440,
+          "logPath": ".intentsmith-artifacts/test-runs/worker-specialist-product-baseline-20261010/logs/tests_m3-agent-scheduled-product-journey.test.js.73e9d3f0.log",
+          "logSha256": "8e28d9d536c3daebc050cd17cc83ddb5cea9450604da1988d202caa5d7463464"
+        },
+        {
+          "id": "IS-T5-TESTS-M3-AGENT-REAL-SCHEDULED-SOAK-TEST",
+          "path": "tests/m3-agent-real-scheduled-soak.test.js",
+          "status": "PASS",
+          "durationMs": 332859,
+          "logPath": ".intentsmith-artifacts/test-runs/worker-specialist-product-baseline-20261010/logs/tests_m3-agent-real-scheduled-soak.test.js.415543cb.log",
+          "logSha256": "3fa6d7b1745718a12fbf34f532d2d6005e6d7fc95d41a146b4eb9998ae22a18e"
+        }
+      ]
+    },
+    {
+      "sourceRevision": "46337ee66f8788f9ca2f041c165d4e35b3f242cf",
+      "startedAt": "2026-10-10T19:41:33.852Z",
+      "endedAt": "2026-10-10T19:47:48.909Z",
+      "verdict": "FAIL",
+      "statusCounts": {
+        "PASS": 361,
+        "FAIL": 17,
+        "TIMEOUT": 0,
+        "BLOCKED": 3,
+        "SKIPPED": 35
+      },
+      "interruptionSignal": "SIGTERM",
+      "registryHash": "ddb9d94de4d481bb83c5e6041cb81a7701d98be305575646422bc1e67b1835f6",
+      "options": {
+        "concurrency": 2,
+        "failFast": false,
+        "timeoutMs": 600000,
+        "deadlineMs": 28800000,
+        "profiles": [
+          "database",
+          "offline"
+        ],
+        "ids": [],
+        "exclude": [],
+        "allowBlockers": [
+          "toolchain:accountant-ocr-runtime",
+          "toolchain:bubblewrap",
+          "toolchain:bwrap",
+          "toolchain:git",
+          "toolchain:iproute2",
+          "toolchain:nftables",
+          "toolchain:prlimit",
+          "toolchain:python-pdf-runtime",
+          "toolchain:python3",
+          "toolchain:systemd-analyze",
+          "toolchain:tar"
+        ],
+        "noBlock": false
+      },
+      "runId": "worker-specialist-full-baseline-20261010",
+      "originalReportPath": ".intentsmith-artifacts/test-runs/worker-specialist-full-baseline-20261010/report.json",
+      "originalReportSha256": "73b5dd4aa2f83c3d02757ce85ffefe7a62817a5a6baf94739392b91fbcf2ba33",
+      "allResultSourceChecksClean": false,
+      "anyCleanupLeak": false
+    },
+    {
+      "sourceRevision": "7f546eff1fd8bc3f851b15b7d52efb063551754e",
+      "startedAt": "2026-10-10T19:49:28.377Z",
+      "endedAt": "2026-10-10T19:52:17.198Z",
+      "verdict": "FAIL",
+      "statusCounts": {
+        "PASS": 107,
+        "FAIL": 2,
+        "TIMEOUT": 0,
+        "BLOCKED": 0,
+        "SKIPPED": 307
+      },
+      "interruptionSignal": "SIGTERM",
+      "registryHash": "ddb9d94de4d481bb83c5e6041cb81a7701d98be305575646422bc1e67b1835f6",
+      "options": {
+        "concurrency": 1,
+        "failFast": false,
+        "timeoutMs": 600000,
+        "deadlineMs": 28800000,
+        "profiles": [
+          "database",
+          "offline"
+        ],
+        "ids": [],
+        "exclude": [],
+        "allowBlockers": [
+          "toolchain:accountant-ocr-runtime",
+          "toolchain:bubblewrap",
+          "toolchain:bwrap",
+          "toolchain:git",
+          "toolchain:iproute2",
+          "toolchain:nftables",
+          "toolchain:prlimit",
+          "toolchain:python-pdf-runtime",
+          "toolchain:python3",
+          "toolchain:systemd-analyze",
+          "toolchain:tar"
+        ],
+        "noBlock": false
+      },
+      "runId": "worker-specialist-full-7f546eff-20261010",
+      "originalReportPath": ".intentsmith-artifacts/test-runs/worker-specialist-full-7f546eff-20261010/report.json",
+      "originalReportSha256": "8e3ef7e119e8aa29bcfcef5dfbf4b78e4b6590eedbbeadbdea77e7f99adb00b3",
+      "allResultSourceChecksClean": false,
+      "anyCleanupLeak": false
+    }
+  ],
+  "artifacts": [
+    {
+      "path": ".intentsmith-artifacts/worker-edit-red.log",
+      "sha256": "95453315886b6e264f6d12f40a205e6b566add9e80a3764383f8c7497e08e506"
+    },
+    {
+      "path": ".intentsmith-artifacts/worker-edit-green.log",
+      "sha256": "e57a1c0516edc73cc99a13cb76422c52fa6be22197427be07b116fba4ac74e69"
+    },
+    {
+      "path": ".intentsmith-artifacts/accountant-host-red.log",
+      "sha256": "45fcb7297ffb1264ea5e244526f286719d7afdca2a25750544cc1fdb098500d2"
+    },
+    {
+      "path": ".intentsmith-artifacts/accountant-host-green.log",
+      "sha256": "f65f2521adf908a048318773e9b164751a1f49820db568e1cb01b508ade85a58"
+    },
+    {
+      "path": ".intentsmith-artifacts/specialist-runtime-focused.log",
+      "sha256": "ce29a5319e11b8d6a540d4e877ae284e592077e7fd5a82a5eef50de137495202"
+    },
+    {
+      "path": ".intentsmith-artifacts/registry-final.log",
+      "sha256": "7aeddd0d04f741b078995e4e722a1133c17c25778fa6ac5a32e0e9d5000c44eb"
+    },
+    {
+      "path": ".intentsmith-artifacts/code-reviewer-4defa69e.log",
+      "sha256": "70fd638e31cfa2bea533ba0c709ddad9225312b7aa92d1ebff1be74bf9b44ea3"
+    },
+    {
+      "path": ".intentsmith-artifacts/audit-environment.json",
+      "sha256": "9847d66bceafa08850eec745dbc28c98ff5e09a183dfc20ab526425a5f1081a8"
+    },
+    {
+      "path": ".intentsmith-artifacts/worker-edit-baseline.json",
+      "sha256": "66f7bd89fbd31ccc826bd4bd07f8a2a18bdf14948c0bf357556d11e3b124749b"
+    },
+    {
+      "path": ".intentsmith-artifacts/code-reviewer-http-evidence.json",
+      "sha256": "70fd638e31cfa2bea533ba0c709ddad9225312b7aa92d1ebff1be74bf9b44ea3"
+    }
+  ],
+  "unresolved": [
+    {
+      "status": "FAIL",
+      "testPath": "tests/chat-accountant-model-contract.test.js",
+      "testName": "failed accountant document tool cannot become a successful generative answer",
+      "internalCounts": {
+        "PASS": 52,
+        "FAIL": 1
+      },
+      "observedSetupHttpStatus": 503,
+      "observedErrorCode": "LLM_PROVIDER_UNAVAILABLE",
+      "semanticsDecision": "PENDING_OPERATOR_REPLY"
+    },
+    {
+      "status": "BLOCKED_GPU",
+      "liveModelQuality": "LIVE_NOT_RUN",
+      "loadedKernelModule": "595.91.07",
+      "installedDriverLibrary": "595.99.02"
+    }
+  ],
+  "workspaceCleanup": {
+    "recordedAtUtc": "2026-10-10T20:13:02.142Z",
+    "ownRemoved": [
+      "/home/belphareon/Projects/intentsmith-worker-specialist-audit-20261010/.intentsmith-artifacts/direct-tests/check-code-reviewer-0Wutem/runtime",
+      "/home/belphareon/Projects/intentsmith-worker-specialist-audit-20261010/.intentsmith-artifacts/direct-tests/check-code-reviewer-0Wutem/home"
+    ],
+    "foreignRemoved": [],
+    "foreignRemovablePreserved": 607,
+    "ownProtected": [
+      {
+        "worktree": "/home/belphareon/Projects/intentsmith-worker-specialist-audit-20261010",
+        "path": "/home/belphareon/Projects/intentsmith-worker-specialist-audit-20261010/.intentsmith-artifacts/test-runs/worker-specialist-product-baseline-20261010/runtime",
+        "bytes": 250204160,
+        "reasons": [
+          "evidence"
+        ]
+      },
+      {
+        "worktree": "/home/belphareon/Projects/intentsmith-worker-specialist-audit-20261010",
+        "path": "/home/belphareon/Projects/intentsmith-worker-specialist-audit-20261010/.intentsmith-artifacts/test-runs/worker-specialist-full-baseline-20261010/runtime",
+        "bytes": 706260992,
+        "reasons": [
+          "evidence"
+        ]
+      },
+      {
+        "worktree": "/home/belphareon/Projects/intentsmith-worker-specialist-audit-20261010",
+        "path": "/home/belphareon/Projects/intentsmith-worker-specialist-audit-20261010/.intentsmith-artifacts/test-runs/worker-specialist-toolchains-20261010/runtime",
+        "bytes": 56950784,
+        "reasons": [
+          "evidence"
+        ]
+      },
+      {
+        "worktree": "/home/belphareon/Projects/intentsmith-worker-specialist-audit-20261010",
+        "path": "/home/belphareon/Projects/intentsmith-worker-specialist-audit-20261010/.intentsmith-artifacts/test-runs/worker-specialist-full-7f546eff-20261010/runtime",
+        "bytes": 500703232,
+        "reasons": [
+          "evidence"
+        ]
+      },
+      {
+        "worktree": "/home/belphareon/Projects/intentsmith-worker-specialist-audit-20261010",
+        "path": "/home/belphareon/Projects/intentsmith-worker-specialist-audit-20261010/.intentsmith-artifacts/test-runs/worker-rename-real-soak-7f546eff-20261010/runtime",
+        "bytes": 19918848,
+        "reasons": [
+          "evidence"
+        ]
+      },
+      {
+        "worktree": "/home/belphareon/Projects/intentsmith-worker-specialist-audit-20261010",
+        "path": "/home/belphareon/Projects/intentsmith-worker-specialist-audit-20261010/.intentsmith-artifacts/test-runs/worker-specialist-full-4defa69e-20261010/runtime",
+        "bytes": 728223744,
+        "reasons": [
+          "evidence"
+        ]
+      },
+      {
+        "worktree": "/home/belphareon/Projects/intentsmith-worker-specialist-audit-20261010",
+        "path": "/home/belphareon/Projects/intentsmith-worker-specialist-audit-20261010/.intentsmith-artifacts/test-runs/worker-specialist-product-4defa69e-20261010/runtime",
+        "bytes": 306446336,
+        "reasons": [
+          "evidence"
+        ]
+      }
+    ]
+  },
+  "workspaceFinalReport": {
+    "worktreeCount": 89,
+    "retirableCount": 0,
+    "protectedCount": 89,
+    "originalReportPath": ".intentsmith-artifacts/workspace-final-report.json",
+    "originalReportSha256": "921b11f25eb4fb6bc1f5da2df82f17507fbdd190a38dd16aa5001c132d8577ca",
+    "ownRow": {
+      "path": "/home/belphareon/Projects/intentsmith-worker-specialist-audit-20261010",
+      "branch": "work/worker-specialist-audit-20261010",
+      "head": "4defa69ed4abb542535425ec79e752d955676af6",
+      "absorbedBy": null,
+      "retirable": false,
+      "reasons": [
+        "in-use",
+        "evidence",
+        "live-branch"
+      ],
+      "dirty": false,
+      "inUse": true,
+      "containsEvidence": true,
+      "bytes": 2718199808
+    }
+  }
+}
