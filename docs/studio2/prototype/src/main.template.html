@@ -1465,7 +1465,7 @@ textarea.fv-ed{font-family:var(--font-mono)}
 </sc-if>
 <sc-if value="{{noDetail}}" hint-placeholder-val="{{false}}"><div class="rp-empty"><svg class="ic" width="22" height="22" viewBox="0 0 24 24"><path d="{{I.info}}"></path></svg><b>Vyber položku</b><span>Detail se otevře tady, katalog zůstane vlevo.</span></div></sc-if>
 </aside>
-<sc-if value="{{hasModelsSummary}}" hint-placeholder-val="{{false}}"><div class="model-summary-divider"></div><aside class="model-summary" aria-label="Aktuální modely pro role"><h3>Aktuální přiřazení</h3><p class="aph">{{modelSummary.summaryStatus}}</p><sc-for list="{{modelSummary.summaryRoles}}" as="role" hint-placeholder-count="0"><section><span class="lbl-acc">{{role.role}}</span><b>{{role.model}}</b><small>{{role.settingsText}}</small><small>Místní skóre: {{role.measuredText}}</small></section></sc-for></aside></sc-if>
+<sc-if value="{{hasModelsSummary}}" hint-placeholder-val="{{false}}"><div class="model-summary-divider"></div><aside class="model-summary" aria-label="Aktuální modely pro role"><h3>Aktuální přiřazení</h3><p class="aph">{{modelSummary.summaryStatus}}</p><sc-for list="{{modelSummary.summaryRoles}}" as="role" hint-placeholder-count="0"><section><span class="lbl-acc">{{role.role}}</span><b>{{role.model}}</b><small>Nastaveno · {{role.settingsText}}</small><small>Ověřený strop HW · {{role.hardware}}</small><small>Místní skóre: {{role.measuredText}}</small></section></sc-for></aside></sc-if>
 </div>
 </sc-if>
 </div>
