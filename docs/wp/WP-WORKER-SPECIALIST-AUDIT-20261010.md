@@ -1,4 +1,4 @@
-# Workery a specialisté — funkční audit a oprava ztráty stavu
+# Workery a specialisté — funkční audit a opravy runtime
 
 Zadání: operátor 2026-10-10 požádal o test workerů a specialistů a opravu
 nefunkčního chování během souběžného ladění IDE. Autorita: toto explicitní
@@ -15,7 +15,9 @@ zadání, CONTRACT §2/§4/§6 a existující M3 Project Health journey.
 - Vlastněné cesty: `src/extensions/agent-extension-service.js`,
   `tests/m3-agent-product-http-journey.test.js`,
   `tests/m3-agent-real-scheduled-soak.test.js`, tento WP a výsledný audit
-  v `docs/review/2026-10-10-WORKER-SPECIALIST-AUDIT.md`. Pozorovaná druhá regrese
+  v `docs/review/2026-10-10-WORKER-SPECIALIST-AUDIT.md` s kompaktní evidence
+  receipt v `docs/review/evidence/worker-specialist-audit-20261010/`.
+  Pozorovaná druhá regrese
   rozšiřuje vlastní scope o `src/expertises/specialist-runtime.js` a
   `tests/chat-accountant-deterministic-http.test.js`: nedostupný či odmítnutý
   účetní host musí vrátit FAILED bez nabídky jiné expertízy/modelového fallbacku.
@@ -40,3 +42,13 @@ Výjimka workspace budget: předběžný report neměl žádný bezpečně odstr
 checkout (88 chráněných/živých). Nový vlastní checkout izoluje tuto práci od
 aktivních IDE/release procesů a UNKNOWN/cizích změn. Zůstanou pouze potřebné
 důkazy a nejnovější sandbox této práce; cizí chráněná evidence se neodstraňuje.
+
+Výsledek na zdroji `4defa69e`: offline/database 416/416 programů PASS,
+cílené produktové HTTP 8 PASS / 1 baseline FAIL; skutečný 5m worker soak
+na `7f546eff` PASS (worker runtime a soak test jsou vůči `4defa69e` shodné).
+Oprava host preparation byla ověřena red/green přes skutečný HTTP chat.
+Zbývá rozhodnutí o účetním výkladu versus workflow a BLOCKED_GPU pro živé
+modelové odpovědi. Stav PARTIAL / REVIEW_PENDING / NOT_DEPLOYED.
+Finální workspace report: 89 chráněných checkoutů, 0 bezpečně retirable;
+odstraněny jen dva vlastní prázdné sandbox adresáře, sedm evidence-bearing
+runtime kořenů ponecháno. Žádná cizí cesta nebyla odstraněna.
