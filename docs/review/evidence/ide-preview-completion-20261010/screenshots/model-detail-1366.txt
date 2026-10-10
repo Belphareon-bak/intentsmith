@@ -42,39 +42,39 @@ Nainstalované modely
 Skutečný místní inventář. Dostupné kandidáty najdete v GPU Hunt → Katalog.
 
 Model	Velikost	Kvantizace	Role a místní skóre	Digest artefaktu
-bge-m3:latest	1,1 GiB	F16	
-	
+bge-m3:latest	1,1 GiB	F16
+
 7907646426070047a77226ac3e684fbbe8410524f7b4a74d02837e43f2146bab
 
-granite4:32b-a9b-h	18,1 GiB	Q4_K_M	
-	
+granite4:32b-a9b-h	18,1 GiB	Q4_K_M
+
 2f8a7367d4416b508336f6170c295e8465ff004731ae563631196781299f750d
 
-hf.co/AtlaAI/Selene-1-Mini-Llama-3.1-8B-Q8_0-GGUF:Q8_0	8 GiB	unknown	
-	
+hf.co/AtlaAI/Selene-1-Mini-Llama-3.1-8B-Q8_0-GGUF:Q8_0	8 GiB	unknown
+
 57b8d7749729d37b194897ba762c1f1904a9f9d7bd05893f60eb297d35e5b811
 
-gemma4:26b	17,3 GiB	Q4_K_M	
-	
+gemma4:26b	17,3 GiB	Q4_K_M
+
 08ae7ec1744bd7f451c4a530afb39d2673ad9d07a8369b8a33a3613b41212a68
 
-qwen3.6:27b	16,5 GiB	Q4_K_M	
-	
+qwen3.6:27b	16,5 GiB	Q4_K_M
+
 9d5803d493a991af27b9441c098aa56f2ed7bbd260877f075ec09b575c049bc3
 
-ornith-1.5:9b	6,1 GiB	Q4_K_M	
-	
+ornith-1.5:9b	6,1 GiB	Q4_K_M
+
 e5df7dcdd8a263994df62d610317e07be0d6af23f96fcbd8543273058fce575e
 
-devstral-small-2:latest	14,1 GiB	Q4_K_M	
-	
+devstral-small-2:latest	14,1 GiB	Q4_K_M
+
 24277f07f62db8f9cb68e9dfc679ea1818a7fbac47a50eff0a701d3f645b63c8
 
-phi4:14b	8,4 GiB	Q4_K_M	
-	
+phi4:14b	8,4 GiB	Q4_K_M
+
 ac896e5b8b34a1f4efa7b14d7520725140d5512484457fab45d2a4ea14c69dba
 
-qwen3.8:latest	16,5 GiB	Q4_K_M	
+qwen3.8:latest	16,5 GiB	Q4_K_M
 D1 · aktivní
 D2 · aktivní
 R1 · aktivní
@@ -82,31 +82,31 @@ R2 · aktivní
 CODE · aktivní
 CHAT · aktivní
 VISION · aktivní
-	
+
 22130167c4c20e20c7b71454612966ca8e8171e9b3cc8ab6ce8aa6cbfec79643
 
-qwen3-coder:latest	17,3 GiB	Q4_K_M	
-	
+qwen3-coder:latest	17,3 GiB	Q4_K_M
+
 06c1097efce0431c2045fe7b2e5108366e43bee1b4603a7aded8f21689e90bca
 
-llava-llama3:8b	5,2 GiB	Q4_K_M	
-	
+llava-llama3:8b	5,2 GiB	Q4_K_M
+
 44c161b1f46523301da9c0cc505afa4a4a0cc62f580581d98a430bb21acd46de
 
-qwen3:14b	8,6 GiB	Q4_K_M	
-	
+qwen3:14b	8,6 GiB	Q4_K_M
+
 bdbd181c33f2ed1b31c972991882db3cf4d192569092138a7d29e973cd9debe8
 
-qwen3.5:27b	16,2 GiB	Q4_K_M	
-	
+qwen3.5:27b	16,2 GiB	Q4_K_M
+
 7653528ba5cba4dd8e19da24aaddc7f4d0b5ecd93571c0825dfd4137958ec06e
 
-llava:13b	7,5 GiB	Q4_0	
-	
+llava:13b	7,5 GiB	Q4_0
+
 0d0eb4d7f485d7d0a21fd9b0c1d5b04da481d2150a097e81b64acb59758fdef6
 
-qwen3-30b-a3b:latest	16,3 GiB	Q4_K_S	
-	
+qwen3-30b-a3b:latest	16,3 GiB	Q4_K_S
+
 dc0b52b99d0e4310b0e74d1b5c0b4af3459537614523b84d94ce62a7c5f99201
 bge-m3:latest
 Zavřít detail modelu

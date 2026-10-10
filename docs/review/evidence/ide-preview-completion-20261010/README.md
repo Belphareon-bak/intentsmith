@@ -28,7 +28,7 @@ Toto není Gate 0 attestation ani podpis nezávislého revizora.
 
 - [Celý audit](audit-3f9410cc.json), [inventory](audit-inventory-3f9410cc.json),
   [audit log](audit-3f9410cc.log); [zachované původní selhání inventory](audit-failed-3750986d.json).
-- [Poslední build](appimage-37ee6177.json), [Studio log](studio-build-37ee6177.log),
+- [Poslední build](appimage-37ee6177.json), [Studio log](studio-build-37ee6177.log.gz),
   [AppImage log](appimage-build-37ee6177.log).
 - [47 UI testů](ui-tests-37ee6177.txt), [161 artifact kontrol](artifact-checks-37ee6177.txt),
   [registry](registry-37ee6177.txt), [hranice](boundary-37ee6177.txt), [consumer](consumer-build-37ee6177.txt).
@@ -90,3 +90,9 @@ Privátní DB, přístupové soubory, uživatelský profil a celé runtime zálo
 nejsou součástí předání.
 
 [Manifest souborů](manifest.json) zajišťuje jejich identitu; neuděluje přejímku.
+
+Publikované textové výpisy matice/detailu a artifact kontrol mají odstraněné
+koncové bílé znaky; původní výpisy zůstávají v pracovních artefaktech.
+Studio build log je gzip beze změny rozbalených bajtů: SHA-256 po rozbalení
+se rovná `commands[0].logSha256` v build receiptu. PNG a ostatní runtime
+receipty zůstávají původní.
