@@ -597,7 +597,11 @@ class LiveModel extends Component {
 
   entities(sec, s) {
     const I = this.data().I;
-    if (sec === 'settings') return super.entities(sec, s);
+    if (sec === 'settings') {
+      // Stav kategorie (počet záloh, repozitářů…) dodává ostrov Nastavení V4 ze stejných služeb.
+      const sum = this.settingsV4?.homeSummary?.() || {};
+      return super.entities(sec, s).map(row => ({ ...row, state: sum[row.id] || '', meta: sum[row.id] || '', catLabel: '' }));
+    }
     const section = CATALOG[sec];
     if (!section) return [];
     const list = this.widget.catalog.view(section).items;

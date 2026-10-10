@@ -371,19 +371,19 @@ class Component extends DCLogic {
       mk('sazeni', 'specialist', 'Sázkový analytik', '1.0.0', 'Porovnání kurzů, analýza zápasů, value betting a sestavení tiketů.', true)
     ];
     const SET = [
-      { id: 'ucet', name: 'Účet a propojení', icon: I.sliders, tone: 'set-ucet', desc: 'Lokální profil, propojené služby a doručovací účty.', tabs: [['prehled', 'Profil'], ['projekty', 'Projekty']] },
-      { id: 'git', name: 'Repozitáře a přístupy', icon: I.branch, tone: 'set-zabezpeceni', desc: 'Repozitáře, vzdálené adresy a SSH profily.', tabs: [['prehled', 'Přehled']] },
-      { id: 'modely', name: 'Modely a inference', icon: I.cpu, tone: 'set-modely', desc: 'Modely, inference, připojení a hardware.', tabs: [['prehled', 'Modely'], ['inference', 'Inference'], ['pripojeni', 'Připojení'], ['hardware', 'Hardware']] },
-      { id: 'pamet', name: 'Paměť', icon: I.db, tone: 'set-pamet', desc: 'Historie, kontext a automatické učení.', tabs: [['prehled', 'Historie a kontext'], ['uceni', 'Paměť a učení'], ['retence', 'Kapacita a retence']] },
-      { id: 'oznameni', name: 'Oznámení', icon: I.bell, tone: 'set-oznameni', desc: 'Kanály oznámení a čas pro soustředění.', tabs: [['prehled', 'Kanály'], ['ticho', 'Tiché hodiny']] },
-      { id: 'vystup', name: 'Výstup', icon: I.code, tone: 'set-vystup', desc: 'Formátování a délka odpovědi.', tabs: [['prehled', 'Formátování'], ['delka', 'Délka odpovědi']] },
-      { id: 'vzhled', name: 'Vzhled', icon: I.palette, tone: 'set-vzhled', desc: 'Paleta, písmo a rozvržení pracovního prostředí.', tabs: [['obecne', 'Obecné'], ['pismo', 'Písmo'], ['barvy', 'Barvy a prvky'], ['rozvrzeni', 'Rozvržení'], ['css', 'Vlastní CSS']] },
-      { id: 'system', name: 'Systém', icon: I.cpu, tone: 'set-system', desc: 'Prostředí, spouštění, diagnostika a limity.', tabs: [['prostredi', 'Prostředí a závislosti'], ['spousteni', 'Spouštění'], ['diagnostika', 'Diagnostika'], ['limity', 'Limity']] },
-      { id: 'uloziste', name: 'Úložiště', icon: I.drive, tone: 'set-uloziste', desc: 'Přehled databáze a údržba.', tabs: [['prehled', 'Databáze'], ['udrzba', 'Údržba']] },
-      { id: 'zalohy', name: 'Zálohy', icon: I.drive, tone: 'set-zalohy', desc: 'Export, obnova a výchozí hodnoty.', tabs: [['prehled', 'Export'], ['obnova', 'Obnova'], ['vychozi', 'Výchozí hodnoty']] },
-      { id: 'prepinace', name: 'Funkční přepínače', icon: I.toggle, tone: 'set-prepinace', desc: 'Dostupné subsystémy a jejich běhové přepínače.', tabs: [['prehled', 'Přepínače'], ['obnoveni', 'Obnovení']] },
-      { id: 'zabezpeceni', name: 'Zabezpečení', icon: I.shield, tone: 'set-zabezpeceni', desc: 'Audit, přístup a relace.', tabs: [['prehled', 'Audit'], ['pristup', 'Přístup'], ['relace', 'Relace']] },
-      { id: 'about', name: 'O aplikaci', icon: I.info, tone: 'set-about', desc: 'Verze aplikace, protokol a stav backendu.', tabs: [['prehled', 'Aplikace'], ['zpetna_vazba', 'Zpětná vazba']] }
+      { id: 'ucet', name: 'Účet a propojení', icon: I.sliders, tone: 'set-ucet', desc: 'Profil, účty aplikací a jejich oprávnění.', tabs: [['prehled', 'Profil'], ['projekty', 'Projekty']] },
+      { id: 'modely', name: 'Modely a inference', icon: I.cpu, tone: 'set-modely', desc: 'Role, poskytovatelé, evaluace a GPU Hunt.', tabs: [['prehled', 'Modely'], ['inference', 'Inference'], ['pripojeni', 'Připojení'], ['hardware', 'Hardware']] },
+      { id: 'pamet', name: 'Paměť', icon: I.db, tone: 'set-pamet', desc: 'Historie, kontext a ukládání poznatků.', tabs: [['prehled', 'Historie a kontext'], ['uceni', 'Paměť a učení'], ['retence', 'Kapacita a retence']] },
+      { id: 'oznameni', name: 'Oznámení', icon: I.bell, tone: 'set-oznameni', desc: 'Desktop, Discord, Telegram a pravidla doručování.', tabs: [['prehled', 'Kanály'], ['ticho', 'Tiché hodiny']] },
+      { id: 'vystup', name: 'Výstup', icon: I.code, tone: 'set-vystup', desc: 'Jazyk, formát a délka odpovědí.', tabs: [['prehled', 'Formátování'], ['delka', 'Délka odpovědi']] },
+      { id: 'vzhled', name: 'Vzhled', icon: I.palette, tone: 'set-vzhled', desc: 'Paleta, písmo a hustota pracovního prostoru.', tabs: [['obecne', 'Obecné'], ['pismo', 'Písmo'], ['barvy', 'Barvy a prvky'], ['rozvrzeni', 'Rozvržení'], ['css', 'Vlastní CSS']] },
+      { id: 'system', name: 'Systém', icon: I.cpu, tone: 'set-system', desc: 'Spouštění, pracovní limity a diagnostika.', tabs: [['prostredi', 'Prostředí a závislosti'], ['spousteni', 'Spouštění'], ['diagnostika', 'Diagnostika'], ['limity', 'Limity']] },
+      { id: 'uloziste', name: 'Úložiště', icon: I.drive, tone: 'set-uloziste', desc: 'Cesty k datům, kapacita a databáze.', tabs: [['prehled', 'Databáze'], ['udrzba', 'Údržba']] },
+      { id: 'zalohy', name: 'Zálohy', icon: I.drive, tone: 'set-zalohy', desc: 'Vytváření, retence a přehled jednotlivých záloh.', tabs: [['prehled', 'Export'], ['obnova', 'Obnova'], ['vychozi', 'Výchozí hodnoty']] },
+      { id: 'git', name: 'Repozitáře a přístupy', icon: I.branch, tone: 'set-git', desc: 'Repozitáře, výchozí cesty, klíče a oprávnění.', tabs: [['prehled', 'Přehled']] },
+      { id: 'prepinace', name: 'Funkční přepínače', icon: I.toggle, tone: 'set-prepinace', desc: 'Dostupné funkce a jejich aktivace.', tabs: [['prehled', 'Přepínače'], ['obnoveni', 'Obnovení']] },
+      { id: 'zabezpeceni', name: 'Zabezpečení', icon: I.shield, tone: 'set-zabezpeceni', desc: 'Oprávnění, přístup a přehled připojení.', tabs: [['prehled', 'Audit'], ['pristup', 'Přístup'], ['relace', 'Relace']] },
+      { id: 'about', name: 'O aplikaci', icon: I.info, tone: 'set-about', desc: 'Verze, běžící služby a diagnostické informace.', tabs: [['prehled', 'Aplikace'], ['zpetna_vazba', 'Zpětná vazba']] }
     ];
     const MODELS = ['qwen3.5:27b', 'qwen3.6:27b', 'gemma4:26b', 'qwen3.8:latest', 'qwen3-coder:latest', 'qwen3-30b-a3b:latest', 'devstral-small-2:latest', 'phi4:14b', 'qwen3:14b', 'ornith-1.5:9b', 'llava:13b', 'llava-llama3:8b'];
     const FILES = {
@@ -934,8 +934,8 @@ class Component extends DCLogic {
       isTiles: s.view === 'dlazdice' && items.length > 0, isList: s.view === 'seznam' && items.length > 0, isEmpty: items.length === 0,
       emptyTitle: empty.t, emptyText: empty.x, emptyIcon: empty.i,
       minW: [190, 250, 330][size - 1], rowHeight: [32, 42, 54][size - 1],
-      simpleList: ['settings', 'workers'].includes(sec),
-      listClass: ['settings', 'workers'].includes(sec) ? 'simple-list' : '',
+      simpleList: sec === 'workers',
+      listClass: sec === 'settings' ? 'settings-list' : sec === 'workers' ? 'simple-list' : '',
       isSettings: sec === 'settings', containerClass: sec === 'settings' ? 'settings-catalog' : ''
     };
   }

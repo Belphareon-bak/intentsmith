@@ -144,6 +144,20 @@ class SettingsV4 {
     if (changed) this.render(true);
   }
   // Seznam/dlaždice má smysl jen na stránkách s položkami (bod 1 V4); jinde horní lišta přepínač zašedne.
+  // Ikona a tón kategorie: stejný zdroj jako katalog IDE (SET), jinak vlastní ikona ostrova.
+  headMark() {
+    const id = ID_OF[this.s.page];
+    if (!id) return null;
+    let x = null; try { x = this.categoryMark?.(id) || null; } catch { x = null; }
+    return { path: x?.icon || helpers.PATHS[this.category()?.[4]] || helpers.PATHS.info, tone: x?.tone || 'set-' + id };
+  }
+  // Stav kategorií pro katalog IDE: klíčem je ID nastavení (ucet, git…), data jsou ze stejných služeb jako stránky.
+  homeSummary() {
+    if (!this.homeRequested) { this.homeRequested = true; this.ensure('home'); }
+    let sum;
+    try { sum = settingsPages.summary(this); } catch { return {}; }
+    return Object.fromEntries(Object.entries(sum).map(([page, text]) => [ID_OF[page], text]));
+  }
   layoutAvailable() {
     const p = this.s.page;
     return ['home', 'account', 'notifications', 'storage', 'backups', 'repositories'].includes(p)
@@ -248,6 +262,7 @@ class SettingsV4 {
   category(page = this.s.page) { return CATEGORIES.find(c => c[1] === page); }
   view() {
     const page = this.s.page;
+    helpers.setMark(this.headMark());
     if (page === 'models') return modelPages.render(this);
     return { html: settingsPages.render(this, page) };
   }

@@ -198,6 +198,7 @@ assert.ok(projectDetail.includes('Vytvořeno') && projectDetail.includes('Posled
 const categoryModel = new Component();
 assert.deepEqual(categoryModel.sections().slice(0, 7).map(row => row.tone),
   ['amber', 'red', 'violet', 'blue', 'mint', 'orange', 'cyan']);
-assert.equal(new Set(categoryModel.data().SET.map(row => row.tone)).size, 12);
+// Každá kategorie Nastavení má vlastní tón palety B (Repozitáře dostaly třináctý odstín).
+assert.equal(new Set(categoryModel.data().SET.map(row => row.tone)).size, categoryModel.data().SET.length);
 assert.ok(categoryModel.data().SET.every(row => row.tone.startsWith('set-')));
 console.log('PASS category labels, activity dates and distinct settings palette survive canonical rendering');

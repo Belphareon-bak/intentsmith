@@ -41,7 +41,15 @@ const select = (name, values, current, attrs = '') => `<select id="${e(name)}" n
 }).join('')}</select>`;
 const tabs = (items, current, action, cls = '') => `<div class="tabs ${e(cls)}" role="tablist" aria-label="Sekce">${items.map(([id, label]) =>
   `<button type="button" class="tab" role="tab" aria-selected="${current === id}" tabindex="${current === id ? 0 : -1}" data-action="${e(action)}" data-tab="${e(id)}">${e(label)}</button>`).join('')}</div>`;
-const head = (title, desc, actions = '', crumb = '') => `<header class="page-head"><div>${crumb ? `<div class="eyebrow">${e(crumb)}</div>` : ''}<h1 tabindex="-1">${e(title)}</h1><p>${e(desc)}</p></div><div class="toolbar">${actions}</div></header>`;
+// Hlavička otevřené kategorie má podobu hlavičky sekcí IDE (.cat-h): barevná ikona kategorie z palety
+// nastavení, titulek, popis a akce vpravo; pod ní mohou být záložky. Ikonu nastaví controller před vykreslením.
+let currentMark = null;
+const setMark = mark => { currentMark = mark && typeof mark.path === 'string' ? mark : null; };
+const head = (title, desc, actions = '', crumb = '', { below = '' } = {}) => {
+  if (!currentMark) return `<header class="page-head"><div>${crumb ? `<div class="eyebrow">${e(crumb)}</div>` : ''}<h1 tabindex="-1">${e(title)}</h1><p>${e(desc)}</p></div><div class="toolbar">${actions}</div></header>${below}`;
+  const mark = `<span class="nico tone-${e(currentMark.tone)}"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="${e(currentMark.path)}"/></svg></span>`;
+  return `<header class="sv4-cat-h${below ? ' has-below' : ''}"><div class="sv4-cat-row"><div class="cat-t"><h1 tabindex="-1">${mark}${e(title)}</h1><div>${e(desc)}</div></div><div class="toolbar">${actions}</div></div>${below}</header>`;
+};
 const notice = (html, type = '') => `<div class="notice ${e(type)}">${icon('info')}<p>${html}</p></div>`;
 const check = (name, text, selected, hint = '', attrs = '') => `<label class="check-row"><input type="checkbox" id="${e(name)}" name="${e(name)}" ${selected ? 'checked' : ''} ${attrs}><span>${e(text)}${hint ? `<small>${e(hint)}</small>` : ''}</span></label>`;
 const meta = entries => `<dl class="sv2-meta">${entries.map(([key, value]) => `<div><dt>${e(key)}</dt><dd>${e(value)}</dd></div>`).join('')}</dl>`;
@@ -74,7 +82,14 @@ function ago(value, now = Date.now()) {
   if (hours < 48) return `před ${pl(hours, 'hodinou', 'hodinami', 'hodinami').replace(/^1 hodinou$/, 'hodinou')}`;
   return `před ${pl(Math.round(hours / 24), 'dnem', 'dny', 'dny')}`;
 }
+// Název GPU z inventury: řádek lspci ("01:00.0 VGA compatible controller: NVIDIA Corporation GA102 [GeForce RTX 3090]")
+// se zkrátí na výrobce a obchodní název, název z NVML zůstává.
+function gpuName(value) {
+  const raw = String(value || ''), bracket = raw.match(/\[([^\]]+)\]/);
+  const vendor = /nvidia/i.test(raw) ? 'NVIDIA ' : /advanced micro|amd/i.test(raw) ? 'AMD ' : '';
+  return bracket ? vendor + bracket[1] : raw.replace(/^[0-9a-f:.]+\s+(VGA compatible controller|3D controller):\s*/i, '');
+}
 const validPath = value => typeof value === 'string' && value.startsWith('/') && !value.includes('\u0000') && !value.split('/').includes('..');
 
-module.exports = { e, icon, button, tag, field, input, labeled, select, tabs, head, notice, check, meta, kv, sectionTitle, empty,
-  pl, num, bytes, date, ago, validPath, PATHS };
+module.exports = { e, icon, button, tag, field, input, labeled, select, tabs, head, setMark, notice, check, meta, kv, sectionTitle, empty,
+  pl, num, bytes, date, ago, validPath, gpuName, PATHS };

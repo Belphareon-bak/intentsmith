@@ -56,6 +56,7 @@ class StudioRoot extends React.Component {
     this.settings.appearanceState = () => model.st();
     this.settings.applyAppearance = patch => model.setState(patch);
     this.settings.openSection = section => model.setState(model.pGo(model.st(), section));
+    this.settings.categoryMark = id => model.data().SET.find(row => row.id === id) || null;
     this.settings.projectDirectory = () => model._projectsDir;
     this.settings.setProjectDirectory = value => model.setProjectsDir(value);
     this.settingsHost = host => { if (host) { this.settings.attach(host); this.syncSettings(); } else this.settings.detach(); };
@@ -85,7 +86,9 @@ class StudioRoot extends React.Component {
 
   render() {
     const vm = this.props.model.renderVals();
-    vm.isSettingsV4 = vm.isSection && this.props.model.st().section === 'settings';
+    // Seznam kategorií je běžný katalog IDE (jako Specialisté); ostrov V4 vykresluje jen otevřenou kategorii.
+    const st = this.props.model.st();
+    vm.isSettingsV4 = vm.isSection && st.section === 'settings' && !!st.detail?.settings;
     if (vm.isSettingsV4) {
       vm.isSection = false;
       vm.settingsHost = this.settingsHost;

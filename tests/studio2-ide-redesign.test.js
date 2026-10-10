@@ -51,7 +51,9 @@ test('catalog has no duplicate sidebar counts and changes list density with the 
   const small = model.renderVals().cg.rowHeight;
   model.renderVals().setSize({ target: { value: '3' } });
   assert(model.renderVals().cg.rowHeight > small);
-  assert.equal(model.renderVals().cg.simpleList, true);
+  // Katalog Nastavení má stejný seznam jako ostatní sekce (podložené barevné ikony, popis a stav).
+  assert.equal(model.renderVals().cg.simpleList, false);
+  assert.equal(model.renderVals().cg.listClass, 'settings-list');
 });
 
 test('folder picker is inert until clicked, accepts a current native choice, and ignores cancellation', async () => {

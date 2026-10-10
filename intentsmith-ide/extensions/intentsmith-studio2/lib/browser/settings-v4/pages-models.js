@@ -74,9 +74,7 @@ const inventoryModel = (c, name) => (c.mw.extraData('inventory')?.models || []).
 function gpuInfo(c) {
   const profile = c.data('gpu')?.profile, g = profile?.gpus?.[0];
   if (!g) return null;
-  const raw = String(g.gpu_model || ''), bracket = raw.match(/\[([^\]]+)\]/);
-  const vendor = /nvidia/i.test(raw) ? 'NVIDIA ' : /advanced micro|amd/i.test(raw) ? 'AMD ' : '';
-  const name = bracket ? vendor + bracket[1] : raw.replace(/^[0-9a-f:.]+\s+(VGA compatible controller|3D controller):\s*/i, '');
+  const name = H.gpuName(g.gpu_model);
   return { name, vram: g.vram_mb > 0 ? g.vram_mb / 1024 : null, stale: profile.inventoryStale === true };
 }
 function bindingTag(c, role) {
@@ -154,7 +152,7 @@ function overview(c, vm) {
   return strip + H.sectionTitle('Používané modely podle rolí', button(c, 'Podrobnosti rolí', () => go(c, 'roles'), { cls: 'small ghost' }))
     + table(['Role a účel', 'Primární model', 'Lokální skóre role', 'Nastaveno · okno / odpověď', 'Ověřený strop HW', 'Stav'], rows)
     + `<div class="grid2 section-gap">`
-    + card('Kandidáti k ověření', (candidates.length ? candidates.slice(0, 5).map(m => `<div class="provider"><div><strong class="mono">${e(m.name)}</strong><div class="cell-sub">${e([m.paramsLabel && m.paramsLabel !== '?' ? m.paramsLabel : null, m.quantization, m.sizeGB ? m.sizeGB.replace('.', ',') + ' GB' : null].filter(Boolean).join(' · '))} · lokální kvalita a HW kapacita čekají na ověření</div></div>${tag('—', 'gold')}</div>`).join('') : H.empty('Všechny stažené modely jsou přiřazené rolím.'))
+    + card('Kandidáti k ověření', (candidates.length ? candidates.slice(0, 5).map(m => `<div class="provider"><div><strong class="mono">${e(m.name)}</strong><div class="cell-sub">${e([m.paramsLabel && m.paramsLabel !== '?' ? m.paramsLabel : null, m.quantization, m.sizeGB ? m.sizeGB.replace('.', ',') + ' GB' : null].filter(Boolean).join(' · ') || 'Staženo')}</div></div>${tag('Neověřeno')}</div>`).join('') : H.empty('Všechny stažené modely jsou přiřazené rolím.'))
       + `<p class="help">${candidates.length > 5 ? `A ${pl(candidates.length - 5, 'další model', 'další modely', 'dalších modelů')} v záložce Modely. ` : ''}Veřejná doporučení patří do katalogu; roli přepínáme až podle lokálního ověření.</p>`, button(c, 'GPU Hunt', () => go(c, 'hunt', 'catalog'), { cls: 'small' }))
     + card('Výsledky a výkon', kv('Rychlost CHAT', chatTelemetry ? e(chatTelemetry.speed) : '—') + kv('Latence CHAT · medián', chatTelemetry ? e(chatTelemetry.median) : '—') + kv('Obsloužené požadavky · ' + pl(vm.redesign.days, 'den', 'dny', 'dní'), num(requests))
       + kv('Poslední CHAT měření', chatRun ? `${e(date(chatRun.testedAt))} · ${e((RUN[chatRun.status] || STATE[chatRun.status] || [chatRun.status])[0])}` : '—')
@@ -463,11 +461,11 @@ function render(c) {
   const vm = c.mw.vm(c.s.layout === 'grid' ? 'dlazdice' : 'seznam', c.s.size), tab = c.s.modelTab;
   const content = ({ overview, roles, inventory, evaluations, hunt, telemetry, policy: operation })[tab] || overview;
   const gpu = gpuInfo(c);
-  const headTag = gpu ? tag(`${gpu.name}${gpu.vram ? ' · ' + num(gpu.vram, 0) + ' GiB' : ''}`, 'gold') : '';
-  const head = H.head('Modely a inference', 'Role, lokální výsledky, dostupná kapacita a provoz.', button(c, '← Všechna nastavení', () => c.navigate('home')) + button(c, 'Obnovit', () => ensure(c, true)) + headTag, 'Nastavení / Modely');
+  const headTag = gpu ? tag(`${gpu.name}${gpu.vram ? ' · ' + num(gpu.vram, 0) + ' GiB' : ''}`) : '';
+  const head = H.head('Modely a inference', 'Role, lokální výsledky, dostupná kapacita a provoz.', button(c, '← Všechna nastavení', () => c.navigate('home')) + button(c, 'Obnovit', () => ensure(c, true)) + headTag, 'Nastavení / Modely', { below: H.tabs(TOP, tab, 'sv4-model-tab') });
   const statusNotes = [vm.redesign.settingsStatus, vm.redesign.profileStatus, vm.redesign.jobStatus].filter(Boolean).map(text => H.notice(e(text), 'warn')).join('');
   const status = tab === 'hunt' ? (c.mw.notice ? H.notice(e(c.mw.notice)) : '') : readStatus(c);
-  return { html: head + H.tabs(TOP, tab, 'sv4-model-tab') + status + statusNotes + content(c, vm) + (!['evaluations', 'hunt'].includes(tab) ? runDetail(c, vm) : ''), aside: aside(c, vm) };
+  return { html: head + status + statusNotes + content(c, vm) + (!['evaluations', 'hunt'].includes(tab) ? runDetail(c, vm) : ''), aside: aside(c, vm) };
 }
 function act(c, action, el, ev) {
   if (action === 'sv4-model-tab') { go(c, el.dataset.tab); return true; }

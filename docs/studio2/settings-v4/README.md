@@ -23,6 +23,11 @@ node intentsmith-ide/extensions/intentsmith-studio2/scripts/build-view.js --chec
 node --test tests/studio2-settings-v4.test.js
 ```
 
+Úvodní seznam kategorií kreslí IDE samo (katalog jako u Specialistů, paleta
+`tone-set-*`); ostrov se připojí až pro otevřenou kategorii a dostane od
+StudioRoot ikonu a tón kategorie (`categoryMark`), aby hlavička odpovídala
+sekcím IDE. Stav v seznamu dodává `homeSummary()`. Viz UI-SPEC, požadavek 10. 10.
+
 Typografie a texty: výchozí písmo IDE je Noto Sans s Liberation Mono (stejně se
 vykresluje návrh), obsah má šířku nejvýš 1360 px. Rozhraní nepropisuje anglické
 ani technické texty backendu do českých vět: chyby se překládají na jejich význam

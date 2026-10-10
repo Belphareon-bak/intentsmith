@@ -328,3 +328,25 @@ V OKLCH se násobí pouze chroma 1,2: tmavá 0,070 → 0,084, světlá
 Tato volba nahrazuje předchozí návrh plných podkladů a nových symbolů;
 stejné tóny platí pro dlaždice, seznam a detail. Levý panel a barevné
 kategoriální štítky mají své dosavadní barvy.
+
+## Požadavek operátora 10. 10. — Nastavení ve stylu IDE, ne ve stylu preview
+
+Integrace návrhu V4 převzala z preview i lešení, které do IDE nepatří: vlastní
+úvodní seznam, velkou hlavičku s nadpisem „NASTAVENÍ“ a ikony kategorií bez
+barevného podkladu (pravidlo z 9. 10. rušilo volbu B z 29. 9.). Operátor
+požaduje jednotný styl se zbytkem IDE:
+
+- Úvodní seznam kategorií je běžný katalog IDE, stejná komponenta jako
+  Specialisté (hlavička s ikonou a vyhledáváním, seznam i dlaždice z horní
+  lišty, sloupce Název · Popis · Stav). Stav doplňuje ostrov V4 ze stejných
+  služeb (aktivní kanály, zálohy, repozitáře).
+- Každá kategorie má vlastní odstín palety B a jemný 10% podklad ikony.
+  Repozitáře dostaly třináctý odstín (OKLCH hue 340, tmavá 0,68 / 0,084,
+  světlá 0,46 / 0,07812); ostatních dvanáct se nemění.
+- Pořadí: Účet a propojení, Modely a inference, Paměť, Oznámení, Výstup,
+  Vzhled, Systém, Úložiště, Zálohy, Repozitáře a přístupy, Funkční přepínače,
+  Zabezpečení, O aplikaci.
+- Otevřená kategorie má hlavičku sekcí IDE: barevná ikona kategorie, titulek
+  19 px, popis 12 px, akce 28 px vpravo a dělicí čára přes celou šířku;
+  záložky kategorie (Modely) leží na této čáře. Obsah má odsazení 24 px
+  a plnou šířku jako ostatní sekce.
